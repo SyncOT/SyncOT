@@ -1,0 +1,9 @@
+{
+  "name": "SyncOT",
+  "private": true,
+  "devDependencies": {
+    "lerna": "^3.0.0-rc.0"
+  },
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT"
+}
