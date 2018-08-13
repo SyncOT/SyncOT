@@ -1,9 +1,13 @@
 {
-  "name": "SyncOT",
+  "name": "syncot",
   "private": true,
   "devDependencies": {
     "lerna": "^3.0.0-rc.0"
   },
   "author": "Greg Kubisa <gkubisa@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "repository" : {
+    "type" : "git",
+    "url" : "https://github.com/SyncOT/SyncOT.git"
+  }
 }

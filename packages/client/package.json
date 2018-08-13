@@ -1,0 +1,24 @@
+{
+  "name": "syncot-client",
+  "version": "0.0.1",
+  "description": "The client library for SyncOT.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "prepublish": "npm run build",
+    "build": "rm -rf dist && tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^3.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SyncOT/SyncOT.git"
+  },
+  "dependencies": {
+    "tslib": "^1.9.3"
+  }
+}
