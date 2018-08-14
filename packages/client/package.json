@@ -2,8 +2,8 @@
   "name": "syncot-client",
   "version": "0.0.1",
   "description": "The client library for SyncOT.",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "prepublish": "npm run build",
     "build": "rm -rf dist && tsc",

@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "module": "umd",
-    "moduleResolution": "node",
+    "module": "commonjs",
+    "lib": [ "es5", "es2015.promise", "es2015.iterable" ],
     "declaration": true,
-    "outDir": "./dist",
-    "rootDir": "./lib",
+    "outDir": "./lib",
+    "rootDir": "./src",
     "importHelpers": true,
     "strict": true,
     "noUnusedLocals": true,
