@@ -1,6 +1,12 @@
 {
   "extends": [
-    "tslint:latest",
+    "tslint:recommended",
     "tslint-config-prettier"
-  ]
+  ],
+  "rules": {
+    "interface-name" : [true, "never-prefix"],
+    "variable-name": {
+      "options": ["allow-leading-underscore"]
+    }
+  }
 }
