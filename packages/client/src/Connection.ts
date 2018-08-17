@@ -30,7 +30,11 @@ export class Connection {
      * @param id Document id.
      * @param version The required snapshot version. If undefined, fetches the latest snapshot.
      */
-    fetchSnapshot(collection: string, id: string, version?: number): Promise<Snapshot> {
+    fetchSnapshot(
+        collection: string,
+        id: string,
+        version?: number
+    ): Promise<Snapshot> {
         return Promise.reject(new Error('Not implemented'))
     }
 
@@ -42,7 +46,12 @@ export class Connection {
      * @param startVersion The version number of the first operation (inclusive).
      * @param endVersion The version number of the last operation (exclusive). If omitted, there's no upper limit.
      */
-    fetchOperations(collection: string, id: string, startVersion: number = 0, endVersion?: number): Promise<Array<Operation>> {
+    fetchOperations(
+        collection: string,
+        id: string,
+        startVersion: number = 0,
+        endVersion?: number
+    ): Promise<Array<Operation>> {
         return Promise.reject(new Error('Not implemented'))
     }
 

@@ -7,11 +7,15 @@
   "scripts": {
     "prepublish": "npm run build",
     "build": "rm -rf dist && tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prettier:base": "prettier --parser typescript --single-quote",
+    "prettier:check": "npm run prettier:base -- --list-different \"src/**/*.{ts,tsx}\"",
+    "prettier:write": "npm run prettier:base -- --write \"src/**/*.{ts,tsx}\""
   },
   "author": "Greg Kubisa <gkubisa@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "prettier": "^1.14.2",
     "tslint": "^5.11.0",
     "typescript": "^3.0.1"
   },

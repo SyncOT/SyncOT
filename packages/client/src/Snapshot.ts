@@ -5,7 +5,5 @@ export class Snapshot {
         public version: number,
         public type: string = '',
         public data?: undefined | null | object | number | string | boolean
-    ) {
-
-    }
+    ) {}
 }

@@ -8,7 +8,5 @@ export class Document {
         this.snapshot = new Snapshot(collection, id, 0)
     }
 
-    destroy() {
-
-    }
+    destroy() {}
 }
