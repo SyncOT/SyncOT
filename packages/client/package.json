@@ -6,7 +6,7 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "prepublish": "npm run build",
-    "build": "rm -rf dist && npm run prettier:write && npm run tslint && npm run tsc",
+    "build": "rm -rf lib && npm run prettier:write && npm run tslint && npm run tsc",
     "prettier:check": "prettier --list-different 'src/**/*.{ts,tsx}'",
     "prettier:write": "prettier --write 'src/**/*.{ts,tsx}'",
     "tslint": "tslint --project .",

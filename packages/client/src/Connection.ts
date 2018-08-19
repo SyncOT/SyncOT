@@ -1,26 +1,21 @@
 import { Document } from './Document'
-import { Operation } from './Operation'
-import { Snapshot } from './Snapshot'
-import { Type } from './Type'
+import { createType, Type, UserDefinedType } from './type'
 
 export class Connection {
     private types: { [key: string]: Type } = Object.create(null)
 
-    public registerType(type: Type) {
-        if (this.types[type.name]) {
-            throw new Error(`Duplicate type name: ${type.name}`)
-        }
+    public registerType(userDefinedType: UserDefinedType) {
+        const type = createType(userDefinedType)
 
-        if (this.types[type.uri]) {
-            throw new Error(`Duplicate type uri: ${type.uri}`)
+        if (this.types[type.name]) {
+            throw new Error(`Duplicate type: ${type.name}`)
         }
 
         this.types[type.name] = type
-        this.types[type.uri] = type
     }
 
-    public resolveType(nameOrUri: string): Type {
-        return this.types[nameOrUri]
+    public getType(name: string): Type {
+        return this.types[name]
     }
 
     /**
@@ -34,7 +29,7 @@ export class Connection {
         _collection: string,
         _id: string,
         _version?: number
-    ): Promise<Snapshot> {
+    ): Promise<void> {
         return Promise.reject(new Error('Not implemented'))
     }
 
@@ -51,7 +46,7 @@ export class Connection {
         _id: string,
         _startVersion: number = 0,
         _endVersion?: number
-    ): Promise<Operation[]> {
+    ): Promise<void> {
         return Promise.reject(new Error('Not implemented'))
     }
 
@@ -62,8 +57,8 @@ export class Connection {
      * @param operation The operation to apply.
      */
     public submitOperation(
-        _snapshot: Snapshot,
-        _operation: Operation
+        _snapshot: void,
+        _operation: void
     ): Promise<void> {
         return Promise.reject(new Error('Not implemented'))
     }
