@@ -1,13 +1,6 @@
 export enum ErrorCodes {
-    FailedToCreateSnapshot = 'FailedToCreateSnapshot',
-    InvalidResult = 'InvalidResult',
-    NotImplemented = 'NotImplemented'
-}
-
-for (const errorCode in ErrorCodes) {
-    if (ErrorCodes[errorCode] !== errorCode) {
-        throw new Error(`Invalid error code value: ${errorCode}`)
-    }
+    NotImplemented = 'NotImplemented',
+    OperationsNotSimilar = 'OperationsNotSimilar'
 }
 
 export class SyncOtError extends Error {

@@ -1,9 +1,9 @@
+import { ErrorCodes, SyncOtError } from './error'
 import { JsonValue } from './json'
-import { isErr, ok, Result } from './result'
+import { err, isErr, ok, Result } from './result'
 
 export type OperationData = JsonValue
-export type SnapshotData = any
-export type SerializedSnapshotData = JsonValue
+export type SnapshotData = JsonValue
 
 export interface Operation {
     type: string
@@ -15,52 +15,43 @@ export interface Snapshot {
     data: SnapshotData
 }
 
-export interface SerializedSnapshot {
-    type: string
-    data: SerializedSnapshotData
-}
-
 export interface Type {
     name: string
 
-    createSnapshot(data: any): Result<Snapshot>
-
-    createOperation(data: JsonValue): Result<Operation>
-
     apply(snapshot: Snapshot, operation: Operation): Result<Snapshot>
 
-    applyAndInvert?(
+    invert(operation: Operation): Result<Operation>
+
+    applyAndInvert(
         snapshot: Snapshot,
         operation: Operation
     ): Result<{ snapshot: Snapshot; operation: Operation }>
 
-    invert?(operation: Operation): Result<Operation>
-
-    transform?(
+    transform(
         operationToTransform: Operation,
         anotherOperation: Operation,
         priority: boolean
     ): Result<Operation>
 
-    transformX?(
+    transformX(
         operationToTransform: Operation,
         anotherOperation: Operation
     ): Result<[Operation, Operation]>
 
-    compose?(operation1: Operation, operation2: Operation): Result<Operation>
+    compose(operation1: Operation, operation2: Operation): Result<Operation>
 
-    composeSimilar?(
+    composeSimilar(
         operation1: Operation,
         operation2: Operation
     ): Result<Operation>
 
-    diff?(
+    diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
         hint?: any
     ): Result<Operation>
 
-    diffX?(
+    diffX(
         snapshot1: Snapshot,
         snapshot2: Snapshot,
         hint?: any
@@ -68,11 +59,9 @@ export interface Type {
 
     isNoop(operation: Operation): Result<boolean>
 
-    serializeSnapshot(snapshot: Snapshot): Result<SerializedSnapshot>
+    validateSnapshot(snapshot: Snapshot): Result<boolean>
 
-    deserializeSnapshot(
-        serializedSnapshot: SerializedSnapshot
-    ): Result<Snapshot>
+    validateOperation(operation: Operation): Result<boolean>
 }
 
 type RequiredPropertyNames = 'name' | 'apply'
@@ -83,45 +72,37 @@ type OptionalProperties = Pick<Type, OptionalPropertyNames>
 export type UserDefinedType = Required<RequiredProperties> &
     Partial<OptionalProperties>
 
-export function createType(userDefinedType: UserDefinedType): Type {
-    const newType: Type = {
-        createOperation: userDefinedType.createOperation
-            ? data => userDefinedType.createOperation!(data)
-            : data => ok({ type: userDefinedType.name, data }),
+class FullType implements Type {
+    public name: string
 
-        createSnapshot: userDefinedType.createSnapshot
-            ? data => userDefinedType.createSnapshot!(data)
-            : data => ok({ type: userDefinedType.name, data }),
-
-        name: userDefinedType.name,
-
-        apply: (snapshot, operation) =>
-            userDefinedType.apply(snapshot, operation),
-
-        isNoop: userDefinedType.isNoop
-            ? operation => userDefinedType.isNoop!(operation)
-            : _operation => ok(false),
-
-        serializeSnapshot: userDefinedType.serializeSnapshot
-            ? snapshot => userDefinedType.serializeSnapshot!(snapshot)
-            : snapshot => ok(snapshot),
-
-        deserializeSnapshot: userDefinedType.deserializeSnapshot
-            ? serializedSnapshot =>
-                  userDefinedType.deserializeSnapshot!(serializedSnapshot)
-            : serializedSnapshot => ok(serializedSnapshot)
+    constructor(private userDefinedType: UserDefinedType) {
+        this.name = this.userDefinedType.name
     }
 
-    if (userDefinedType.applyAndInvert) {
-        newType.applyAndInvert = (snapshot, operation) =>
-            userDefinedType.applyAndInvert!(snapshot, operation)
-    } else if (userDefinedType.invert) {
-        newType.applyAndInvert = (snapshot, operation) => {
-            const applyResult = userDefinedType.apply(snapshot, operation)
+    public apply(snapshot: Snapshot, operation: Operation): Result<Snapshot> {
+        return this.userDefinedType.apply(snapshot, operation)
+    }
+
+    public invert(operation: Operation): Result<Operation> {
+        if (this.userDefinedType.invert) {
+            return this.userDefinedType.invert(operation)
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
+        }
+    }
+
+    public applyAndInvert(
+        snapshot: Snapshot,
+        operation: Operation
+    ): Result<{ snapshot: Snapshot; operation: Operation }> {
+        if (this.userDefinedType.applyAndInvert) {
+            return this.userDefinedType.applyAndInvert(snapshot, operation)
+        } else if (this.userDefinedType.invert) {
+            const applyResult = this.userDefinedType.apply(snapshot, operation)
             if (isErr(applyResult)) {
                 return applyResult
             }
-            const invertResult = userDefinedType.invert!(operation)
+            const invertResult = this.userDefinedType.invert(operation)
             if (isErr(invertResult)) {
                 return invertResult
             }
@@ -129,131 +110,170 @@ export function createType(userDefinedType: UserDefinedType): Type {
                 operation: invertResult.value,
                 snapshot: applyResult.value
             })
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
         }
     }
 
-    if (userDefinedType.invert) {
-        newType.invert = operation => userDefinedType.invert!(operation)
-    }
-
-    if (userDefinedType.transform) {
-        newType.transform = (
-            operationToTransform,
-            anotherOperation,
-            priority
-        ) =>
-            userDefinedType.transform!(
+    public transform(
+        operationToTransform: Operation,
+        anotherOperation: Operation,
+        priority: boolean
+    ): Result<Operation> {
+        if (this.userDefinedType.transform) {
+            return this.userDefinedType.transform(
                 operationToTransform,
                 anotherOperation,
                 priority
             )
-
-        if (!userDefinedType.transformX) {
-            newType.transformX = (operationToTransform, anotherOperation) => {
-                const result1 = userDefinedType.transform!(
-                    operationToTransform,
-                    anotherOperation,
-                    true
-                )
-                if (isErr(result1)) {
-                    return result1
-                }
-                const result2 = userDefinedType.transform!(
-                    operationToTransform,
-                    anotherOperation,
-                    false
-                )
-                if (isErr(result2)) {
-                    return result2
-                }
-                return ok([result1.value, result2.value] as [
-                    Operation,
-                    Operation
-                ])
+        } else if (this.userDefinedType.transformX) {
+            const result = this.userDefinedType.transformX(
+                operationToTransform,
+                anotherOperation
+            )
+            if (isErr(result)) {
+                return result
             }
+            return ok(priority ? result.value[0] : result.value[1])
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
         }
     }
 
-    if (userDefinedType.transformX) {
-        newType.transformX = (operationToTransform, anotherOperation) =>
-            userDefinedType.transformX!(operationToTransform, anotherOperation)
-
-        if (!userDefinedType.transform) {
-            newType.transform = (
+    public transformX(
+        operationToTransform: Operation,
+        anotherOperation: Operation
+    ): Result<[Operation, Operation]> {
+        if (this.userDefinedType.transformX) {
+            return this.userDefinedType.transformX(
+                operationToTransform,
+                anotherOperation
+            )
+        } else if (this.userDefinedType.transform) {
+            const result1 = this.userDefinedType.transform(
                 operationToTransform,
                 anotherOperation,
-                priority
-            ) => {
-                const result = userDefinedType.transformX!(
-                    operationToTransform,
-                    anotherOperation
-                )
-                if (isErr(result)) {
-                    return result
-                }
-                return ok(priority ? result.value[0] : result.value[1])
+                true
+            )
+            if (isErr(result1)) {
+                return result1
             }
+            const result2 = this.userDefinedType.transform(
+                operationToTransform,
+                anotherOperation,
+                false
+            )
+            if (isErr(result2)) {
+                return result2
+            }
+            return ok([result1.value, result2.value] as [Operation, Operation])
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
         }
     }
 
-    if (userDefinedType.compose) {
-        newType.compose = (operation1, operation2) =>
-            userDefinedType.compose!(operation1, operation2)
-    }
-
-    if (userDefinedType.composeSimilar) {
-        newType.composeSimilar = (operation1, operation2) =>
-            userDefinedType.composeSimilar!(operation1, operation2)
-    }
-
-    if (userDefinedType.diff) {
-        newType.diff = (baseSnapshot, targetSnapshot, hint) =>
-            userDefinedType.diff!(baseSnapshot, targetSnapshot, hint)
-
-        if (!userDefinedType.diffX) {
-            newType.diffX = (snapshot1, snapshot2, hint) => {
-                const result1 = userDefinedType.diff!(
-                    snapshot2,
-                    snapshot1,
-                    hint
-                )
-                if (isErr(result1)) {
-                    return result1
-                }
-                const result2 = userDefinedType.diff!(
-                    snapshot1,
-                    snapshot2,
-                    hint
-                )
-                if (isErr(result2)) {
-                    return result2
-                }
-                return ok([result1.value, result2.value] as [
-                    Operation,
-                    Operation
-                ])
-            }
+    public compose(
+        operation1: Operation,
+        operation2: Operation
+    ): Result<Operation> {
+        if (this.userDefinedType.compose) {
+            return this.userDefinedType.compose(
+                operation1,
+                operation2
+            )
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
         }
     }
 
-    if (userDefinedType.diffX) {
-        newType.diffX = (snapshot1, snapshot2, hint) =>
-            userDefinedType.diffX!(snapshot1, snapshot2, hint)
-
-        if (!userDefinedType.diff) {
-            newType.diff = (baseSnapshot, targetSnapshot, hint) => {
-                const result = userDefinedType.diffX!(
-                    baseSnapshot,
-                    targetSnapshot,
-                    hint
-                )
-                if (isErr(result)) {
-                    return result
-                }
-                return ok(result.value[1])
-            }
+    public composeSimilar(
+        operation1: Operation,
+        operation2: Operation
+    ): Result<Operation> {
+        if (this.userDefinedType.composeSimilar) {
+            return this.userDefinedType.composeSimilar(operation1, operation2)
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
         }
     }
 
-    return newType
+    public diff(
+        baseSnapshot: Snapshot,
+        targetSnapshot: Snapshot,
+        hint: any
+    ): Result<Operation> {
+        if (this.userDefinedType.diff) {
+            return this.userDefinedType.diff(baseSnapshot, targetSnapshot, hint)
+        } else if (this.userDefinedType.diffX) {
+            const result = this.userDefinedType.diffX(
+                baseSnapshot,
+                targetSnapshot,
+                hint
+            )
+            if (isErr(result)) {
+                return result
+            }
+            return ok(result.value[1])
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
+        }
+    }
+
+    public diffX(
+        snapshot1: Snapshot,
+        snapshot2: Snapshot,
+        hint: any
+    ): Result<[Operation, Operation]> {
+        if (this.userDefinedType.diffX) {
+            return this.userDefinedType.diffX(snapshot1, snapshot2, hint)
+        } else if (this.userDefinedType.diff) {
+            const result1 = this.userDefinedType.diff(
+                snapshot2,
+                snapshot1,
+                hint
+            )
+            if (isErr(result1)) {
+                return result1
+            }
+            const result2 = this.userDefinedType.diff(
+                snapshot1,
+                snapshot2,
+                hint
+            )
+            if (isErr(result2)) {
+                return result2
+            }
+            return ok([result1.value, result2.value] as [Operation, Operation])
+        } else {
+            return err(new SyncOtError(ErrorCodes.NotImplemented))
+        }
+    }
+
+    public isNoop(operation: Operation): Result<boolean> {
+        if (this.userDefinedType.isNoop) {
+            return this.userDefinedType.isNoop(operation)
+        } else {
+            return ok(false)
+        }
+    }
+
+    public validateSnapshot(snapshot: Snapshot): Result<boolean> {
+        if (this.userDefinedType.validateSnapshot) {
+            return this.userDefinedType.validateSnapshot(snapshot)
+        } else {
+            return ok(true)
+        }
+    }
+
+    public validateOperation(operation: Operation): Result<boolean> {
+        if (this.userDefinedType.validateOperation) {
+            return this.userDefinedType.validateOperation(operation)
+        } else {
+            return ok(true)
+        }
+    }
+}
+
+export function createType(userDefinedType: UserDefinedType): Type {
+    return new FullType(userDefinedType)
 }

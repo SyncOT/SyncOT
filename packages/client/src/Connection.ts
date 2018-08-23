@@ -56,10 +56,7 @@ export class Connection {
      * @param snapshot The snapshot which the operation can be applied to.
      * @param operation The operation to apply.
      */
-    public submitOperation(
-        _snapshot: void,
-        _operation: void
-    ): Promise<void> {
+    public submitOperation(_snapshot: void, _operation: void): Promise<void> {
         return Promise.reject(new Error('Not implemented'))
     }
 
