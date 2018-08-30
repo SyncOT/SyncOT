@@ -1,12 +1,10 @@
 import { Document } from './Document'
-import { createType, Type, UserDefinedType } from './type'
+import { Type } from './type'
 
 export class Connection {
     private types: { [key: string]: Type } = Object.create(null)
 
-    public registerType(userDefinedType: UserDefinedType) {
-        const type = createType(userDefinedType)
-
+    public registerType(type: Type) {
         if (this.types[type.name]) {
             throw new Error(`Duplicate type: ${type.name}`)
         }

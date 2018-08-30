@@ -1,279 +1,197 @@
-import { ErrorCodes, SyncOtError } from './error'
 import { JsonValue } from './json'
-import { err, isErr, ok, Result } from './result'
 
+export type TypeName = string
 export type OperationData = JsonValue
 export type SnapshotData = JsonValue
-
 export interface Operation {
-    type: string
+    type: TypeName
     data: OperationData
 }
-
 export interface Snapshot {
-    type: string
+    type: TypeName
     data: SnapshotData
 }
 
-export interface Type {
-    name: string
-
-    apply(snapshot: Snapshot, operation: Operation): Result<Snapshot>
-
-    invert(operation: Operation): Result<Operation>
-
-    applyAndInvert(
-        snapshot: Snapshot,
-        operation: Operation
-    ): Result<{ snapshot: Snapshot; operation: Operation }>
-
-    transform(
-        operationToTransform: Operation,
-        anotherOperation: Operation,
-        priority: boolean
-    ): Result<Operation>
-
-    transformX(
-        operationToTransform: Operation,
-        anotherOperation: Operation
-    ): Result<[Operation, Operation]>
-
-    compose(operation1: Operation, operation2: Operation): Result<Operation>
-
-    composeSimilar(
-        operation1: Operation,
-        operation2: Operation
-    ): Result<Operation>
-
+interface ApplyX {
+    applyX(snapshot: Snapshot, operation: Operation): [Snapshot, Operation]
+}
+interface Compose {
+    compose(operation1: Operation, operation2: Operation): Operation
+}
+interface Invert {
+    invert(operation: Operation): Operation
+}
+interface Diff {
     diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
         hint?: any
-    ): Result<Operation>
-
+    ): Operation
+}
+interface DiffX {
     diffX(
         snapshot1: Snapshot,
         snapshot2: Snapshot,
         hint?: any
-    ): Result<[Operation, Operation]>
-
-    isNoop(operation: Operation): Result<boolean>
-
-    validateSnapshot(snapshot: Snapshot): Result<boolean>
-
-    validateOperation(operation: Operation): Result<boolean>
+    ): [Operation, Operation]
 }
 
-type RequiredPropertyNames = 'name' | 'apply'
-type OptionalPropertyNames = Exclude<keyof Type, RequiredPropertyNames>
-type RequiredProperties = Pick<Type, RequiredPropertyNames>
-type OptionalProperties = Pick<Type, OptionalPropertyNames>
-
-export type UserDefinedType = Required<RequiredProperties> &
-    Partial<OptionalProperties>
-
-class FullType implements Type {
-    public name: string
-
-    constructor(private userDefinedType: UserDefinedType) {
-        this.name = this.userDefinedType.name
-    }
-
-    public apply(snapshot: Snapshot, operation: Operation): Result<Snapshot> {
-        return this.userDefinedType.apply(snapshot, operation)
-    }
-
-    public invert(operation: Operation): Result<Operation> {
-        if (this.userDefinedType.invert) {
-            return this.userDefinedType.invert(operation)
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
-
-    public applyAndInvert(
-        snapshot: Snapshot,
-        operation: Operation
-    ): Result<{ snapshot: Snapshot; operation: Operation }> {
-        if (this.userDefinedType.applyAndInvert) {
-            return this.userDefinedType.applyAndInvert(snapshot, operation)
-        } else if (this.userDefinedType.invert) {
-            const applyResult = this.userDefinedType.apply(snapshot, operation)
-            if (isErr(applyResult)) {
-                return applyResult
-            }
-            const invertResult = this.userDefinedType.invert(operation)
-            if (isErr(invertResult)) {
-                return invertResult
-            }
-            return ok({
-                operation: invertResult.value,
-                snapshot: applyResult.value
-            })
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
-
-    public transform(
+export interface Type
+    extends Partial<ApplyX & Compose & Invert & Diff & DiffX> {
+    name: string
+    apply(snapshot: Snapshot, operation: Operation): Snapshot
+    transform?(
         operationToTransform: Operation,
         anotherOperation: Operation,
         priority: boolean
-    ): Result<Operation> {
-        if (this.userDefinedType.transform) {
-            return this.userDefinedType.transform(
-                operationToTransform,
-                anotherOperation,
-                priority
-            )
-        } else if (this.userDefinedType.transformX) {
-            const result = this.userDefinedType.transformX(
-                operationToTransform,
-                anotherOperation
-            )
-            if (isErr(result)) {
-                return result
-            }
-            return ok(priority ? result.value[0] : result.value[1])
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
-
-    public transformX(
+    ): Operation
+    transformX?(
         operationToTransform: Operation,
         anotherOperation: Operation
-    ): Result<[Operation, Operation]> {
-        if (this.userDefinedType.transformX) {
-            return this.userDefinedType.transformX(
-                operationToTransform,
-                anotherOperation
-            )
-        } else if (this.userDefinedType.transform) {
-            const result1 = this.userDefinedType.transform(
-                operationToTransform,
-                anotherOperation,
-                true
-            )
-            if (isErr(result1)) {
-                return result1
-            }
-            const result2 = this.userDefinedType.transform(
-                operationToTransform,
-                anotherOperation,
-                false
-            )
-            if (isErr(result2)) {
-                return result2
-            }
-            return ok([result1.value, result2.value] as [Operation, Operation])
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
-
-    public compose(
+    ): [Operation, Operation]
+    isNoop?(operation: Operation): boolean
+    areOperationstSimilar?(
         operation1: Operation,
         operation2: Operation
-    ): Result<Operation> {
-        if (this.userDefinedType.compose) {
-            return this.userDefinedType.compose(
-                operation1,
-                operation2
-            )
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
+    ): boolean
+}
 
-    public composeSimilar(
-        operation1: Operation,
-        operation2: Operation
-    ): Result<Operation> {
-        if (this.userDefinedType.composeSimilar) {
-            return this.userDefinedType.composeSimilar(operation1, operation2)
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
+type InvertType = Type & Required<Invert>
+type ComposeType = Type & Required<Compose>
+type ApplyXType = Type & Required<ApplyX>
+type DiffType = Type & Required<Diff>
+type DiffXType = Type & Required<DiffX>
 
-    public diff(
-        baseSnapshot: Snapshot,
-        targetSnapshot: Snapshot,
-        hint: any
-    ): Result<Operation> {
-        if (this.userDefinedType.diff) {
-            return this.userDefinedType.diff(baseSnapshot, targetSnapshot, hint)
-        } else if (this.userDefinedType.diffX) {
-            const result = this.userDefinedType.diffX(
-                baseSnapshot,
-                targetSnapshot,
-                hint
-            )
-            if (isErr(result)) {
-                return result
-            }
-            return ok(result.value[1])
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
+function isApplyX(type: Type): type is ApplyXType {
+    return !!type.applyX
+}
+function isDiff(type: Type): type is DiffType {
+    return !!type.diff
+}
+function isDiffX(type: Type): type is DiffXType {
+    return !!type.diffX
+}
 
-    public diffX(
-        snapshot1: Snapshot,
-        snapshot2: Snapshot,
-        hint: any
-    ): Result<[Operation, Operation]> {
-        if (this.userDefinedType.diffX) {
-            return this.userDefinedType.diffX(snapshot1, snapshot2, hint)
-        } else if (this.userDefinedType.diff) {
-            const result1 = this.userDefinedType.diff(
-                snapshot2,
-                snapshot1,
-                hint
-            )
-            if (isErr(result1)) {
-                return result1
-            }
-            const result2 = this.userDefinedType.diff(
-                snapshot1,
-                snapshot2,
-                hint
-            )
-            if (isErr(result2)) {
-                return result2
-            }
-            return ok([result1.value, result2.value] as [Operation, Operation])
-        } else {
-            return err(new SyncOtError(ErrorCodes.NotImplemented))
-        }
-    }
+export function apply(
+    type: Type,
+    snapshot: Snapshot,
+    operation: Operation
+): Snapshot {
+    return type.apply(snapshot, operation)
+}
 
-    public isNoop(operation: Operation): Result<boolean> {
-        if (this.userDefinedType.isNoop) {
-            return this.userDefinedType.isNoop(operation)
-        } else {
-            return ok(false)
-        }
-    }
+export function canApplyX(type: Type): type is ApplyXType | InvertType {
+    return !!type.applyX || !!type.invert
+}
 
-    public validateSnapshot(snapshot: Snapshot): Result<boolean> {
-        if (this.userDefinedType.validateSnapshot) {
-            return this.userDefinedType.validateSnapshot(snapshot)
-        } else {
-            return ok(true)
-        }
-    }
-
-    public validateOperation(operation: Operation): Result<boolean> {
-        if (this.userDefinedType.validateOperation) {
-            return this.userDefinedType.validateOperation(operation)
-        } else {
-            return ok(true)
-        }
+export function applyX(
+    type: ApplyXType | InvertType,
+    snapshot: Snapshot,
+    operation: Operation
+): [Snapshot, Operation] {
+    if (isApplyX(type)) {
+        return type.applyX(snapshot, operation)
+    } else {
+        return [type.apply(snapshot, operation), type.invert(operation)]
     }
 }
 
-export function createType(userDefinedType: UserDefinedType): Type {
-    return new FullType(userDefinedType)
+export function canInvert(type: Type): type is InvertType {
+    return !!type.invert
+}
+
+export function invert(type: InvertType, operation: Operation): Operation {
+    return type.invert(operation)
+}
+
+export function transform(
+    type: Type,
+    operationToTransform: Operation,
+    anotherOperation: Operation,
+    priority: boolean
+): Operation {
+    if (type.transform) {
+        return type.transform(operationToTransform, anotherOperation, priority)
+    } else if (type.transformX) {
+        return priority
+            ? type.transformX(operationToTransform, anotherOperation)[0]
+            : type.transformX(anotherOperation, operationToTransform)[1]
+    } else {
+        return operationToTransform
+    }
+}
+
+export function transformX(
+    type: Type,
+    operationToTransform: Operation,
+    anotherOperation: Operation
+): [Operation, Operation] {
+    if (type.transformX) {
+        return type.transformX(operationToTransform, anotherOperation)
+    } else if (type.transform) {
+        return [
+            type.transform(operationToTransform, anotherOperation, true),
+            type.transform(anotherOperation, operationToTransform, false)
+        ]
+    } else {
+        return [operationToTransform, anotherOperation]
+    }
+}
+
+export function canCompose(type: Type): type is ComposeType {
+    return !!type.compose
+}
+
+export function compose(
+    type: Compose,
+    operation: Operation,
+    anotherOperation: Operation
+): Operation {
+    return type.compose(
+        operation,
+        anotherOperation
+    )
+}
+
+export function canDiff(type: Type): type is DiffType | DiffXType {
+    return isDiff(type) || isDiffX(type)
+}
+
+export function diff(
+    type: DiffType | DiffXType,
+    baseSnapshot: Snapshot,
+    targetSnapshot: Snapshot,
+    hint?: any
+): Operation {
+    return isDiff(type)
+        ? type.diff(baseSnapshot, targetSnapshot, hint)
+        : type.diffX(baseSnapshot, targetSnapshot, hint)[0]
+}
+
+export function diffX(
+    type: DiffType | DiffXType,
+    snapshot1: Snapshot,
+    snapshot2: Snapshot,
+    hint?: any
+): [Operation, Operation] {
+    return isDiffX(type)
+        ? type.diffX(snapshot1, snapshot2, hint)
+        : [
+              type.diff(snapshot1, snapshot2, hint),
+              type.diff(snapshot2, snapshot1, hint)
+          ]
+}
+
+export function isNoop(type: Type, operation: Operation): boolean {
+    return type.isNoop ? type.isNoop(operation) : false
+}
+
+export function areOperationstSimilar(
+    type: Type,
+    operation1: Operation,
+    operation2: Operation
+): boolean {
+    return type.areOperationstSimilar
+        ? type.areOperationstSimilar(operation1, operation2)
+        : false
 }
