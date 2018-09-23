@@ -1,7 +1,7 @@
 {
-  "name": "@syncot/client",
+  "name": "@syncot/server",
   "version": "0.0.1",
-  "description": "The client library of SyncOT.",
+  "description": "The server library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "scripts": {

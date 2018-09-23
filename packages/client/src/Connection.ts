@@ -1,21 +1,6 @@
 import { Document } from './Document'
-import { Type } from './type'
 
 export class Connection {
-    private types: { [key: string]: Type } = Object.create(null)
-
-    public registerType(type: Type) {
-        if (this.types[type.name]) {
-            throw new Error(`Duplicate type: ${type.name}`)
-        }
-
-        this.types[type.name] = type
-    }
-
-    public getType(name: string): Type {
-        return this.types[name]
-    }
-
     /**
      * Fetches a snapshot of a single document at the specified version, or at the latest version.
      *

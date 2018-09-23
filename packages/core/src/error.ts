@@ -1,6 +1,6 @@
 export enum ErrorCodes {
     NotImplemented = 'NotImplemented',
-    OperationsNotSimilar = 'OperationsNotSimilar'
+    TypeNotFound = 'TypeNotFound'
 }
 
 export class SyncOtError extends Error {

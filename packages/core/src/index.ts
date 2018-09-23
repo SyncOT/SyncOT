@@ -1,0 +1,1 @@
+export { createTypeManager } from './type'
