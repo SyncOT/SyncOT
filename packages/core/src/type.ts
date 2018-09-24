@@ -13,6 +13,17 @@ export interface Snapshot {
     readonly type: TypeName
     readonly data: SnapshotData
 }
+/**
+ * Options passed into `Type#compose`.
+ */
+export interface ComposeOptions {
+    /**
+     * If `true`, only similar operations should be composed,
+     * otherwise any operations may be composed.
+     * Default is `false`.
+     */
+    similarOnly?: boolean
+}
 
 /**
  * Defines an [OT](https://en.wikipedia.org/wiki/Operational_transformation) or
@@ -164,7 +175,7 @@ export interface Type {
      * @param operation1 An earlier operation.
      * @param operation2 A later operation.
      */
-    compose?(operation1: Operation, operation2: Operation): Operation
+    compose?(operation1: Operation, operation2: Operation, options?: ComposeOptions): Operation
 
     /**
      * Returns a new operation, which reverts the effect of `operation`.
@@ -175,24 +186,6 @@ export interface Type {
      * @param operation An operation to invert.
      */
     invert?(operation: Operation): Operation
-
-    /**
-     * Determines if `operation` is a no-op.
-     * If it returns `true`, the operation is guaranteed to not modify any snapshot when applied.
-     * If it returns `false`, the operation is NOT guaranteed to modify all or any snapshots when applied.
-     *
-     * `isNoop` satisfies the following equasion:
-     * `if isNoop(operation) then apply(snapshot, operation) === snapshot`
-     *
-     * @param operation An operation to check.
-     */
-    isNoop?(operation: Operation): boolean
-
-    // TODO figure out a better interface or name
-    areOperationstSimilar?(
-        operation1: Operation,
-        operation2: Operation
-    ): boolean
 }
 
 class TypeManager {
@@ -361,31 +354,6 @@ class TypeManager {
                 )
             }
         })
-    }
-
-    public isNoop(operation: Operation): boolean {
-        return this.getType(operation)
-            .then(type => (type.isNoop ? type.isNoop(operation) : false))
-            .catch(_error => false)
-            .getValue()
-    }
-
-    public areOperationstSimilar(
-        operation1: Operation,
-        operation2: Operation
-    ): boolean {
-        return (
-            operation1.type === operation2.type &&
-            this.getType(operation1)
-                .then(
-                    type =>
-                        type.areOperationstSimilar
-                            ? type.areOperationstSimilar(operation1, operation2)
-                            : false
-                )
-                .catch(_error => false)
-                .getValue()
-        )
     }
 
     private getType(operationOrSnapshot: Operation | Snapshot): Result<Type> {
