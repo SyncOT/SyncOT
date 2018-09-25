@@ -177,23 +177,43 @@ export interface Type {
     invert?(operation: Operation): Operation
 }
 
+/**
+ * Registers OT and CRDT types, and forwards function calls to the appropriate types
+ * based on the `Operation`s and `Snapshot`s passed in as parameters.
+ */
 class TypeManager {
-    private types: { [key: string]: Type } = Object.create(null)
+    /**
+     * All registered types, indexed by the type name.
+     */
+    private types: Map<TypeName, Type> = new Map()
 
+    /**
+     * Registers the specified type.
+     * @param type An OT or CRDT type to register.
+     */
     public registerType(type: Type) {
-        if (this.types[type.name]) {
+        if (this.types.has(type.name)) {
             throw new Error(`Duplicate type: ${type.name}`)
         }
 
-        this.types[type.name] = type
+        this.types.set(type.name, type)
     }
 
+    /**
+     * Forwards the call to `Type#apply`,
+     * where `Type` is based on `operation`.
+     */
     public apply(snapshot: Snapshot, operation: Operation): Result<Snapshot> {
         return this.getType(operation).then(type =>
             type.apply(snapshot, operation)
         )
     }
 
+    /**
+     * Farwards the call to `Type#applyX`, if possible,
+     * and falls back to calling `Type#apply` and `Type#invert`,
+     * where `Type` is based on `operation`.
+     */
     public applyX(
         snapshot: Snapshot,
         operation: Operation
@@ -219,6 +239,14 @@ class TypeManager {
         })
     }
 
+    /**
+     * Forwards the call to `Type#transform`, if possible,
+     * and falls back to calling `Type#transformX`,
+     * where `Type` is based on `operation`, if `priority` is `false`,
+     * or `anotherOperation`, if `priority` is `true`.
+     * If neither `Type#transform` nor `Type#transformX` is defined,
+     * returns unchanged `operation`, which is the correct behaviour for CRDT types.
+     */
     public transform(
         operation: Operation,
         anotherOperation: Operation,
@@ -237,6 +265,15 @@ class TypeManager {
         })
     }
 
+    /**
+     * Forwards the call to `Type#transformX`, if possible,
+     * and falls back to calling `Type#transform`,
+     * where `Type` is based on `operation2`.
+     * If neither `Type#transform` nor `Type#transformX` is defined,
+     * returns unchanged `operation1` and `operation2`, which is the correct behaviour for CRDT types.
+     * @param operation1
+     * @param operation2
+     */
     public transformX(
         operation1: Operation,
         operation2: Operation
@@ -255,6 +292,11 @@ class TypeManager {
         })
     }
 
+    /**
+     * Forwards the call to `Type#diff`, if possible,
+     * and falls back to calling `Type#diffX`,
+     * where `Type` is based on `targetSnapshot`.
+     */
     public diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
@@ -278,6 +320,11 @@ class TypeManager {
         })
     }
 
+    /**
+     * Forwards the call to `Type#diffX`, if possible,
+     * and falls back to calling `Type#diff` and `Type#invert`,
+     * where `Type` is based on `targetSnapshot`.
+     */
     public diffX(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
@@ -309,6 +356,9 @@ class TypeManager {
         })
     }
 
+    /**
+     * Farwards the call to `Type#compose`, where `Type` is based on `anotherOperation`.
+     */
     public compose(
         operation: Operation,
         anotherOperation: Operation
@@ -330,6 +380,9 @@ class TypeManager {
         })
     }
 
+    /**
+     * Forwards the call to `Type#invert`, where `Type` is based on `operation`.
+     */
     public invert(operation: Operation): Result<Operation> {
         return this.getType(operation).then(type => {
             if (type.invert) {
@@ -345,6 +398,9 @@ class TypeManager {
         })
     }
 
+    /**
+     * Gets a `Type` based on the specified operation or snapshot.
+     */
     private getType(operationOrSnapshot: Operation | Snapshot): Result<Type> {
         if (!operationOrSnapshot) {
             return Result.fail(new TypeError('Invalid operation or snapshot'))
@@ -356,7 +412,7 @@ class TypeManager {
             return Result.fail(new TypeError('Invalid operation or snapshot'))
         }
 
-        const type = this.types[name]
+        const type = this.types.get(name)
 
         if (!type) {
             return Result.fail(
@@ -371,6 +427,9 @@ class TypeManager {
     }
 }
 
-export function createTypeManager() {
+/**
+ * Creates a new `TypeManager`.
+ */
+export function createTypeManager(): TypeManager {
     return new TypeManager()
 }
