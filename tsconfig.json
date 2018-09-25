@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "lib": [ "es6" ],
+    "baseUrl": "./packages",
+    "paths": {
+      "@syncot/*": ["./*/src"]
+    },
+    "composite": true,
+    "declaration": true,
+    "importHelpers": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "removeComments": true
+  }
+}
