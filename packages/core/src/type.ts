@@ -252,17 +252,19 @@ class TypeManager {
         anotherOperation: Operation,
         priority: boolean
     ): Result<Operation> {
-        return this.getType(priority ? anotherOperation : operation).then(type => {
-            if (type.transform) {
-                return type.transform(operation, anotherOperation, priority)
-            } else if (type.transformX) {
-                return priority
-                    ? type.transformX(operation, anotherOperation)[0]
-                    : type.transformX(anotherOperation, operation)[1]
-            } else {
-                return operation
+        return this.getType(priority ? anotherOperation : operation).then(
+            type => {
+                if (type.transform) {
+                    return type.transform(operation, anotherOperation, priority)
+                } else if (type.transformX) {
+                    return priority
+                        ? type.transformX(operation, anotherOperation)[0]
+                        : type.transformX(anotherOperation, operation)[1]
+                } else {
+                    return operation
+                }
             }
-        })
+        )
     }
 
     /**
