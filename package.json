@@ -2,12 +2,15 @@
   "name": "syncot",
   "private": true,
   "devDependencies": {
+    "@types/jest": "^23.3.2",
+    "jest": "^23.6.0",
     "lerna": "^3.4.0",
     "prettier": "^1.14.3",
     "rimraf": "^2.6.2",
+    "ts-jest": "^23.10.3",
     "tslint": "^5.11.0",
     "tslint-config-prettier": "^1.15.0",
-    "typescript": "^3.0.3"
+    "typescript": "^3.1.1"
   },
   "author": "Greg Kubisa <gkubisa@gmail.com>",
   "license": "MIT",
@@ -20,6 +23,7 @@
     "prettier": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
-    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc"
+    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc",
+    "test": "jest"
   }
 }
