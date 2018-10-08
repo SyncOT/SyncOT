@@ -15,3 +15,9 @@ test('is serializable', () => {
         message: 'Not implemented'
     })
 })
+
+test('normalizes invalid error codes', () => {
+    const error = new SyncOtError('rubbish' as ErrorCodes, 'Rubbish')
+    expect(error.code).toBe(ErrorCodes.UnknownError)
+    expect(error.message).toBe('Rubbish')
+})
