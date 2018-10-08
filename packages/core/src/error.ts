@@ -8,7 +8,7 @@ export class SyncOtError extends Error {
         super(message)
     }
 
-    public toJson(): { code: ErrorCodes; message: string } {
+    public toJSON(): { code: ErrorCodes; message: string } {
         return {
             code: this.code,
             message: this.message
