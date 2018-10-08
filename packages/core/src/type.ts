@@ -181,17 +181,108 @@ export interface Type {
  * Registers OT and CRDT types, and forwards function calls to the appropriate types
  * based on the `Operation`s and `Snapshot`s passed in as parameters.
  */
-class TypeManager {
+export interface TypeManager {
+    /**
+     * Registers the specified type.
+     * @param type An OT or CRDT type to register.
+     */
+    registerType(type: Type): void
+
+    /**
+     * Gets a `Type` by name.
+     */
+    getType(name: TypeName): Result<Type>
+
+    /**
+     * Forwards the call to `Type#apply`,
+     * where `Type` is based on `operation`.
+     */
+    apply(snapshot: Snapshot, operation: Operation): Result<Snapshot>
+
+    /**
+     * Farwards the call to `Type#applyX`, if possible,
+     * and falls back to calling `Type#apply` and `Type#invert`,
+     * where `Type` is based on `operation`.
+     */
+    applyX(
+        snapshot: Snapshot,
+        operation: Operation
+    ): Result<[Snapshot, Operation]>
+
+    /**
+     * Forwards the call to `Type#transform`, if possible,
+     * and falls back to calling `Type#transformX`,
+     * where `Type` is based on `operation`, if `priority` is `false`,
+     * or `anotherOperation`, if `priority` is `true`.
+     * If neither `Type#transform` nor `Type#transformX` is defined,
+     * returns unchanged `operation`, which is the correct behaviour for CRDT types.
+     */
+    transform(
+        operation: Operation,
+        anotherOperation: Operation,
+        priority: boolean
+    ): Result<Operation>
+
+    /**
+     * Forwards the call to `Type#transformX`, if possible,
+     * and falls back to calling `Type#transform`,
+     * where `Type` is based on `operation2`.
+     * If neither `Type#transform` nor `Type#transformX` is defined,
+     * returns unchanged `operation1` and `operation2`, which is the correct behaviour for CRDT types.
+     * @param operation1
+     * @param operation2
+     */
+    transformX(
+        operation1: Operation,
+        operation2: Operation
+    ): Result<[Operation, Operation]>
+
+    /**
+     * Forwards the call to `Type#diff`, if possible,
+     * and falls back to calling `Type#diffX`,
+     * where `Type` is based on `targetSnapshot`.
+     */
+    diff(
+        baseSnapshot: Snapshot,
+        targetSnapshot: Snapshot,
+        hint?: any
+    ): Result<Operation>
+
+    /**
+     * Forwards the call to `Type#diffX`, if possible,
+     * and falls back to calling `Type#diff` and `Type#invert`,
+     * where `Type` is based on `targetSnapshot`.
+     */
+    diffX(
+        baseSnapshot: Snapshot,
+        targetSnapshot: Snapshot,
+        hint?: any
+    ): Result<[Operation, Operation]>
+
+    /**
+     * Farwards the call to `Type#compose`, where `Type` is based on `anotherOperation`.
+     */
+    compose(
+        operation: Operation,
+        anotherOperation: Operation
+    ): Result<Operation>
+
+    /**
+     * Forwards the call to `Type#invert`, where `Type` is based on `operation`.
+     */
+    invert(operation: Operation): Result<Operation>
+}
+
+/**
+ * A simple type manager.
+ */
+class SimpleTypeManager implements TypeManager {
     /**
      * All registered types, indexed by the type name.
      */
     private types: Map<TypeName, Type> = new Map()
 
-    /**
-     * Registers the specified type.
-     * @param type An OT or CRDT type to register.
-     */
-    public registerType(type: Type) {
+    public registerType(type: Type): void {
         if (this.types.has(type.name)) {
             throw new Error(`Duplicate type: ${type.name}`)
         }
@@ -199,26 +290,32 @@ class TypeManager {
         this.types.set(type.name, type)
     }
 
-    /**
-     * Forwards the call to `Type#apply`,
-     * where `Type` is based on `operation`.
-     */
+    public getType(name: TypeName): Result<Type> {
+        const type = this.types.get(name)
+
+        if (!type) {
+            return Result.fail(
+                new SyncOtError(
+                    ErrorCodes.TypeNotFound,
+                    `Type not found: ${name}`
+                )
+            )
+        }
+
+        return Result.ok(type)
+    }
+
     public apply(snapshot: Snapshot, operation: Operation): Result<Snapshot> {
-        return this.getType(operation).then(type =>
+        return this.getTypeByOperation(operation).then(type =>
             type.apply(snapshot, operation)
         )
     }
 
-    /**
-     * Farwards the call to `Type#applyX`, if possible,
-     * and falls back to calling `Type#apply` and `Type#invert`,
-     * where `Type` is based on `operation`.
-     */
     public applyX(
         snapshot: Snapshot,
         operation: Operation
     ): Result<[Snapshot, Operation]> {
-        return this.getType(operation).then(type => {
+        return this.getTypeByOperation(operation).then(type => {
             if (type.applyX) {
                 return type.applyX(snapshot, operation)
             } else if (type.invert) {
@@ -239,20 +336,12 @@ class TypeManager {
         })
     }
 
-    /**
-     * Forwards the call to `Type#transform`, if possible,
-     * and falls back to calling `Type#transformX`,
-     * where `Type` is based on `operation`, if `priority` is `false`,
-     * or `anotherOperation`, if `priority` is `true`.
-     * If neither `Type#transform` nor `Type#transformX` is defined,
-     * returns unchanged `operation`, which is the correct behaviour for CRDT types.
-     */
     public transform(
         operation: Operation,
         anotherOperation: Operation,
         priority: boolean
     ): Result<Operation> {
-        return this.getType(priority ? anotherOperation : operation).then(
+        return this.getTypeByOperation(priority ? anotherOperation : operation).then(
             type => {
                 if (type.transform) {
                     return type.transform(operation, anotherOperation, priority)
@@ -267,20 +356,11 @@ class TypeManager {
         )
     }
 
-    /**
-     * Forwards the call to `Type#transformX`, if possible,
-     * and falls back to calling `Type#transform`,
-     * where `Type` is based on `operation2`.
-     * If neither `Type#transform` nor `Type#transformX` is defined,
-     * returns unchanged `operation1` and `operation2`, which is the correct behaviour for CRDT types.
-     * @param operation1
-     * @param operation2
-     */
     public transformX(
         operation1: Operation,
         operation2: Operation
     ): Result<[Operation, Operation]> {
-        return this.getType(operation2).then(type => {
+        return this.getTypeByOperation(operation2).then(type => {
             if (type.transformX) {
                 return type.transformX(operation1, operation2)
             } else if (type.transform) {
@@ -294,17 +374,12 @@ class TypeManager {
         })
     }
 
-    /**
-     * Forwards the call to `Type#diff`, if possible,
-     * and falls back to calling `Type#diffX`,
-     * where `Type` is based on `targetSnapshot`.
-     */
     public diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
         hint?: any
     ): Result<Operation> {
-        return this.getType(targetSnapshot).then(type => {
+        return this.getTypeBySnapshot(targetSnapshot).then(type => {
             if (type.diff) {
                 return type.diff(baseSnapshot, targetSnapshot, hint)
             } else if (type.diffX) {
@@ -322,17 +397,12 @@ class TypeManager {
         })
     }
 
-    /**
-     * Forwards the call to `Type#diffX`, if possible,
-     * and falls back to calling `Type#diff` and `Type#invert`,
-     * where `Type` is based on `targetSnapshot`.
-     */
     public diffX(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
         hint?: any
     ): Result<[Operation, Operation]> {
-        return this.getType(targetSnapshot).then(type => {
+        return this.getTypeBySnapshot(targetSnapshot).then(type => {
             if (type.diffX) {
                 return type.diffX(baseSnapshot, targetSnapshot, hint)
             } else if (type.diff && type.invert) {
@@ -358,14 +428,11 @@ class TypeManager {
         })
     }
 
-    /**
-     * Farwards the call to `Type#compose`, where `Type` is based on `anotherOperation`.
-     */
     public compose(
         operation: Operation,
         anotherOperation: Operation
     ): Result<Operation> {
-        return this.getType(anotherOperation).then(type => {
+        return this.getTypeByOperation(anotherOperation).then(type => {
             if (type.compose) {
                 return type.compose(
                     operation,
@@ -382,11 +449,8 @@ class TypeManager {
         })
     }
 
-    /**
-     * Forwards the call to `Type#invert`, where `Type` is based on `operation`.
-     */
     public invert(operation: Operation): Result<Operation> {
-        return this.getType(operation).then(type => {
+        return this.getTypeByOperation(operation).then(type => {
             if (type.invert) {
                 return Result.ok(type.invert(operation))
             } else {
@@ -401,31 +465,25 @@ class TypeManager {
     }
 
     /**
-     * Gets a `Type` based on the specified operation or snapshot.
+     * Gets Type by operation.
      */
-    private getType(operationOrSnapshot: Operation | Snapshot): Result<Type> {
-        if (!operationOrSnapshot) {
-            return Result.fail(new TypeError('Invalid operation or snapshot'))
+    private getTypeByOperation(operation: Operation): Result<Type> {
+        if (!operation) {
+            return Result.fail(new TypeError('Invalid operation'))
         }
 
-        const name = operationOrSnapshot.type
+        return this.getType(operation.type)
+    }
 
-        if (typeof name !== 'string') {
-            return Result.fail(new TypeError('Invalid operation or snapshot'))
+    /**
+     * Gets Type by snapshot.
+     */
+    private getTypeBySnapshot(snapshot: Snapshot): Result<Type> {
+        if (!snapshot) {
+            return Result.fail(new TypeError('Invalid snapshot'))
         }
 
-        const type = this.types.get(name)
-
-        if (!type) {
-            return Result.fail(
-                new SyncOtError(
-                    ErrorCodes.TypeNotFound,
-                    `Type not found: ${name}`
-                )
-            )
-        }
-
-        return Result.ok(type)
+        return this.getType(snapshot.type)
     }
 }
 
@@ -433,5 +491,5 @@ class TypeManager {
  * Creates a new `TypeManager`.
  */
 export function createTypeManager(): TypeManager {
-    return new TypeManager()
+    return new SimpleTypeManager()
 }
