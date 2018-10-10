@@ -21,3 +21,9 @@ test('normalizes invalid error codes', () => {
     expect(error.code).toBe(ErrorCodes.UnknownError)
     expect(error.message).toBe('Rubbish')
 })
+
+test('ErrorCodes keys match the values', () => {
+    Object.keys(ErrorCodes).forEach(key => {
+        expect(ErrorCodes[key as any]).toBe(key)
+    })
+})
