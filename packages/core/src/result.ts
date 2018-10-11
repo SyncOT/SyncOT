@@ -132,7 +132,7 @@ export class Result<T> {
                     const result = failHandler(this.error)
                     return result instanceof Result ? result : Result.ok(result)
                 } else {
-                    return this.error as any
+                    return this as any
                 }
             } else {
                 const result = okHandler(this.value)
