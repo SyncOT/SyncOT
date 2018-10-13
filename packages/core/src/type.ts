@@ -284,7 +284,7 @@ class SimpleTypeManager implements TypeManager {
 
     public registerType(type: Type): void {
         if (this.types.has(type.name)) {
-            throw new Error(`Duplicate type: ${type.name}`)
+            throw new SyncOtError(ErrorCodes.DuplicateType, `Duplicate type: ${type.name}`)
         }
 
         this.types.set(type.name, type)
@@ -469,7 +469,7 @@ class SimpleTypeManager implements TypeManager {
      */
     private getTypeByOperation(operation: Operation): Result<Type> {
         if (!operation) {
-            return Result.fail(new TypeError('Invalid operation'))
+            return Result.fail(new SyncOtError(ErrorCodes.InvalidOperation))
         }
 
         return this.getType(operation.type)
@@ -480,7 +480,7 @@ class SimpleTypeManager implements TypeManager {
      */
     private getTypeBySnapshot(snapshot: Snapshot): Result<Type> {
         if (!snapshot) {
-            return Result.fail(new TypeError('Invalid snapshot'))
+            return Result.fail(new SyncOtError(ErrorCodes.InvalidSnapshot))
         }
 
         return this.getType(snapshot.type)

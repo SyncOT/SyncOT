@@ -1,7 +1,10 @@
 export enum ErrorCodes {
     UnknownError = 'UnknownError',
     NotImplemented = 'NotImplemented',
-    TypeNotFound = 'TypeNotFound'
+    TypeNotFound = 'TypeNotFound',
+    InvalidSnapshot = 'InvalidSnapshot',
+    InvalidOperation = 'InvalidOperation',
+    DuplicateType = 'DuplicateType'
 }
 
 export class SyncOtError extends Error {

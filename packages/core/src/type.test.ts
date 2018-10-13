@@ -7,11 +7,14 @@ interface NumberOperation extends Operation { data: number }
 
 const expectFail = (errorCode: ErrorCodes) => (result: Result<any>) => {
     expect(result.isFail()).toBe(true)
-    expect(result.getError()).toBeInstanceOf(SyncOtError)
-    expect((result.getError() as SyncOtError).code).toBe(errorCode)
+    const error = result.getError() as SyncOtError
+    expect(error).toBeInstanceOf(SyncOtError)
+    expect(error.code).toBe(errorCode)
 }
 const expectTypeNotFound = expectFail(ErrorCodes.TypeNotFound)
 const expectNotImplemented = expectFail(ErrorCodes.NotImplemented)
+const expectInvalidOperation = expectFail(ErrorCodes.InvalidOperation)
+// const expectInvalidSnapshot = expectFail(ErrorCodes.InvalidSnapshot)
 
 let type0: Type
 let type1: Type
@@ -77,8 +80,15 @@ describe('registerType', () => {
         typeManager.registerType(type0)
     })
     test('fail to register the same type twice', () => {
+        expect.hasAssertions()
         typeManager.registerType(type0)
-        expect(() => typeManager.registerType(type0)).toThrowError(`Duplicate type: ${type0.name}`)
+        try {
+            typeManager.registerType(type0)
+        } catch (error) {
+            expect(error).toBeInstanceOf(SyncOtError)
+            expect(error.code).toBe(ErrorCodes.DuplicateType)
+            expect(error.message).toBe(`Duplicate type: ${type0.name}`)
+        }
     })
 })
 
@@ -98,6 +108,9 @@ describe('apply', () => {
     test('fails, if type not found', () => {
         expectTypeNotFound(typeManager.apply(snapshot1, operation0))
     })
+    test('fails on invalid operation', () => {
+        expectInvalidOperation(typeManager.apply(snapshot1, null as any))
+    })
     test('calls Type#apply', () => {
         (type2.apply as any).mockReturnValue(7)
         expect(typeManager.apply(snapshot1, operation2).getValue()).toBe(7)
@@ -111,6 +124,9 @@ describe('apply', () => {
 describe('applyX', () => {
     test('fails, if type not found', () => {
         expectTypeNotFound(typeManager.applyX(snapshot1, operation0))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidOperation(typeManager.applyX(snapshot1, null as any))
     })
     test('calls Type#applyX', () => {
         const returnValue = [ 7, 9 ];
