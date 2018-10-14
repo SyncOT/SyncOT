@@ -23,7 +23,7 @@ let type2: Type
 let snapshot1: NumberSnapshot
 // let snapshot2: NumberSnapshot
 let operation0: NumberOperation
-// let operation1: NumberOperation
+let operation1: NumberOperation
 let operation2: NumberOperation
 let typeManager: TypeManager
 
@@ -32,19 +32,25 @@ beforeEach(() => {
         apply: jest.fn(),
         applyX: jest.fn(),
         invert: jest.fn(),
-        name: 'type0'
+        name: 'type0',
+        transform: jest.fn(),
+        transformX: jest.fn(),
     }
     type1 = {
         apply: jest.fn(),
         applyX: jest.fn(),
         invert: jest.fn(),
-        name: 'type1'
+        name: 'type1',
+        transform: jest.fn(),
+        transformX: jest.fn(),
     }
     type2 = {
         apply: jest.fn(),
         applyX: jest.fn(),
         invert: jest.fn(),
-        name: 'type2'
+        name: 'type2',
+        transform: jest.fn(),
+        transformX: jest.fn(),
     }
     // snapshot0 = {
     //     data: 0,
@@ -62,10 +68,10 @@ beforeEach(() => {
         data: 0,
         type: type0.name
     }
-    // operation1 = {
-    //     data: 1,
-    //     type: type1.name
-    // }
+    operation1 = {
+        data: 1,
+        type: type1.name
+    }
     operation2 = {
         data: 2,
         type: type2.name
@@ -164,5 +170,119 @@ describe('applyX', () => {
         expect(type1.applyX).not.toBeCalled()
         expect(type1.invert).not.toBeCalled()
         expect(type2.apply).not.toBeCalled()
+    })
+})
+
+describe('transform', () => {
+    describe('priority=true', () => {
+        test('fails, if type not found', () => {
+            expectTypeNotFound(typeManager.transform(operation1, operation0, true))
+        })
+        test('fails on invalid operation', () => {
+            expectInvalidOperation(typeManager.transform(operation1, null as any, true))
+        })
+        test('calls Type#transform', () => {
+            (type2.transform as any).mockReturnValue(7)
+            expect(typeManager.transform(operation1, operation2, true).getValue()).toBe(7)
+            expect(type1.transform).not.toBeCalled()
+            expect(type1.transformX).not.toBeCalled()
+            expect(type2.transform).toHaveBeenCalledTimes(1)
+            expect((type2.transform as any).mock.instances[0]).toBe(type2)
+            expect(type2.transform).toHaveBeenCalledWith(operation1, operation2, true)
+            expect(type2.transformX).not.toBeCalled()
+        })
+        test('calls Type#transformX', () => {
+            type2.transform = undefined;
+            (type2.transformX as any).mockReturnValue([ 7, 9 ])
+            expect(typeManager.transform(operation1, operation2, true).getValue()).toBe(7)
+            expect(type1.transform).not.toBeCalled()
+            expect(type1.transformX).not.toBeCalled()
+            expect(type2.transformX).toHaveBeenCalledTimes(1)
+            expect((type2.transformX as any).mock.instances[0]).toBe(type2)
+            expect(type2.transformX).toHaveBeenCalledWith(operation1, operation2)
+        })
+        test('does not transform the operation', () => {
+            type2.transform = undefined
+            type2.transformX = undefined
+            expect(typeManager.transform(operation1, operation2, true).getValue()).toBe(operation1)
+            expect(type1.transform).not.toBeCalled()
+            expect(type1.transformX).not.toBeCalled()
+        })
+    })
+
+    describe('priority=false', () => {
+        test('fails, if type not found', () => {
+            expectTypeNotFound(typeManager.transform(operation0, operation1, false))
+        })
+        test('fails on invalid operation', () => {
+            expectInvalidOperation(typeManager.transform(null as any, snapshot1, false))
+        })
+        test('calls Type#transform', () => {
+            (type1.transform as any).mockReturnValue(7)
+            expect(typeManager.transform(operation1, operation2, false).getValue()).toBe(7)
+            expect(type1.transform).toHaveBeenCalledTimes(1)
+            expect((type1.transform as any).mock.instances[0]).toBe(type1)
+            expect(type1.transform).toHaveBeenCalledWith(operation1, operation2, false)
+            expect(type1.transformX).not.toBeCalled()
+            expect(type2.transform).not.toBeCalled()
+            expect(type2.transformX).not.toBeCalled()
+        })
+        test('calls Type#transformX', () => {
+            type1.transform = undefined;
+            (type1.transformX as any).mockReturnValue([ 7, 9 ])
+            expect(typeManager.transform(operation1, operation2, false).getValue()).toBe(9)
+            expect(type1.transformX).toHaveBeenCalledTimes(1)
+            expect((type1.transformX as any).mock.instances[0]).toBe(type1)
+            expect(type1.transformX).toHaveBeenCalledWith(operation2, operation1)
+            expect(type2.transform).not.toBeCalled()
+            expect(type2.transformX).not.toBeCalled()
+        })
+        test('does not transform the operation', () => {
+            type1.transform = undefined
+            type1.transformX = undefined
+            expect(typeManager.transform(operation1, operation2, false).getValue()).toBe(operation1)
+            expect(type2.transform).not.toBeCalled()
+            expect(type2.transformX).not.toBeCalled()
+        })
+    })
+})
+
+describe('transformX', () => {
+    test('fails, if type not found', () => {
+        expectTypeNotFound(typeManager.transformX(operation1, operation0))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidOperation(typeManager.transformX(operation1, null as any))
+    })
+    test('calls Type#transformX', () => {
+        const returnValue = [ 7, 9 ];
+        (type2.transformX as any).mockReturnValue(returnValue)
+        expect(typeManager.transformX(operation1, operation2).getValue()).toBe(returnValue)
+        expect(type1.transform).not.toBeCalled()
+        expect(type1.transformX).not.toBeCalled()
+        expect(type2.transform).not.toBeCalled()
+        expect(type2.transformX).toHaveBeenCalledTimes(1)
+        expect((type2.transformX as any).mock.instances[0]).toBe(type2)
+        expect(type2.transformX).toHaveBeenCalledWith(operation1, operation2)
+    })
+    test('calls Type#transform', () => {
+        (type2.transform as any).mockReturnValueOnce(7);
+        (type2.transform as any).mockReturnValueOnce(9)
+        type2.transformX = undefined
+        expect(typeManager.transformX(operation1, operation2).getValue()).toEqual([ 7, 9 ])
+        expect(type1.transform).not.toBeCalled()
+        expect(type1.transformX).not.toBeCalled()
+        expect(type2.transform).toHaveBeenCalledTimes(2)
+        expect((type2.transform as any).mock.instances[0]).toBe(type2)
+        expect((type2.transform as any).mock.instances[1]).toBe(type2)
+        expect(type2.transform).toHaveBeenNthCalledWith(1, operation1, operation2, true)
+        expect(type2.transform).toHaveBeenNthCalledWith(2, operation2, operation1, false)
+    })
+    test('does not transform the operations', () => {
+        type2.transform = undefined
+        type2.transformX = undefined
+        expect(typeManager.transformX(operation1, operation2).getValue()).toEqual([ operation1, operation2 ])
+        expect(type1.transform).not.toBeCalled()
+        expect(type1.transformX).not.toBeCalled()
     })
 })
