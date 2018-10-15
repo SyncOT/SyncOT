@@ -28,6 +28,7 @@ let operation2: NumberOperation
 let operation1Transformed: NumberOperation
 let operation2Transformed: NumberOperation
 let operation2Composed: NumberOperation
+let operation2Inverted: NumberOperation
 let typeManager: TypeManager
 
 beforeEach(() => {
@@ -98,6 +99,10 @@ beforeEach(() => {
     }
     operation2Composed = {
         data: 22,
+        type: type2.name
+    }
+    operation2Inverted = {
+        data: 222,
         type: type2.name
     }
     typeManager = createTypeManager()
@@ -421,5 +426,25 @@ describe('compose', () => {
         type2.compose = undefined
         expectNotImplemented(typeManager.compose(operation1, operation2))
         expect(type1.compose).not.toBeCalled()
+    })
+})
+
+describe('invert', () => {
+    test('fails, if type not found', () => {
+        expectTypeNotFound(typeManager.invert(operation0))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidOperation(typeManager.invert(null as any))
+    })
+    test('calls Type#invert', () => {
+        (type2.invert as any).mockReturnValue(operation2Inverted)
+        expect(typeManager.invert(operation2).getValue()).toBe(operation2Inverted)
+        expect(type2.invert).toHaveBeenCalledTimes(1)
+        expect((type2.invert as any).mock.instances[0]).toBe(type2)
+        expect(type2.invert).toHaveBeenCalledWith(operation2)
+    })
+    test('fails, if Type#invert is not implemented', () => {
+        type2.invert = undefined
+        expectNotImplemented(typeManager.invert(operation2))
     })
 })
