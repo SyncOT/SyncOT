@@ -14,14 +14,14 @@ const expectFail = (errorCode: ErrorCodes) => (result: Result<any>) => {
 const expectTypeNotFound = expectFail(ErrorCodes.TypeNotFound)
 const expectNotImplemented = expectFail(ErrorCodes.NotImplemented)
 const expectInvalidOperation = expectFail(ErrorCodes.InvalidOperation)
-// const expectInvalidSnapshot = expectFail(ErrorCodes.InvalidSnapshot)
+const expectInvalidSnapshot = expectFail(ErrorCodes.InvalidSnapshot)
 
 let type0: Type
 let type1: Type
 let type2: Type
-// let snapshot0: NumberSnapshot
+let snapshot0: NumberSnapshot
 let snapshot1: NumberSnapshot
-// let snapshot2: NumberSnapshot
+let snapshot2: NumberSnapshot
 let operation0: NumberOperation
 let operation1: NumberOperation
 let operation2: NumberOperation
@@ -31,6 +31,8 @@ beforeEach(() => {
     type0 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        diff: jest.fn(),
+        diffX: jest.fn(),
         invert: jest.fn(),
         name: 'type0',
         transform: jest.fn(),
@@ -39,6 +41,8 @@ beforeEach(() => {
     type1 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        diff: jest.fn(),
+        diffX: jest.fn(),
         invert: jest.fn(),
         name: 'type1',
         transform: jest.fn(),
@@ -47,23 +51,25 @@ beforeEach(() => {
     type2 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        diff: jest.fn(),
+        diffX: jest.fn(),
         invert: jest.fn(),
         name: 'type2',
         transform: jest.fn(),
         transformX: jest.fn(),
     }
-    // snapshot0 = {
-    //     data: 0,
-    //     type: type0.name
-    // }
+    snapshot0 = {
+        data: 0,
+        type: type0.name
+    }
     snapshot1 = {
         data: 1,
         type: type1.name
     }
-    // snapshot2 = {
-    //     data: 2,
-    //     type: type2.name
-    // }
+    snapshot2 = {
+        data: 2,
+        type: type2.name
+    }
     operation0 = {
         data: 0,
         type: type0.name
@@ -284,5 +290,87 @@ describe('transformX', () => {
         expect(typeManager.transformX(operation1, operation2).getValue()).toEqual([ operation1, operation2 ])
         expect(type1.transform).not.toBeCalled()
         expect(type1.transformX).not.toBeCalled()
+    })
+})
+
+describe('diff', () => {
+    test('fails, if type not found', () => {
+        expectTypeNotFound(typeManager.diff(snapshot1, snapshot0, 3))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidSnapshot(typeManager.diff(snapshot1, null as any, 3))
+    })
+    test('calls Type#diff', () => {
+        (type2.diff as any).mockReturnValue(7)
+        expect(typeManager.diff(snapshot1, snapshot2, 3).getValue()).toBe(7)
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type2.diff).toHaveBeenCalledTimes(1)
+        expect((type2.diff as any).mock.instances[0]).toBe(type2)
+        expect(type2.diff).toHaveBeenCalledWith(snapshot1, snapshot2, 3)
+        expect(type2.diffX).not.toBeCalled()
+    })
+    test('calls Type#diffX', () => {
+        type2.diff = undefined;
+        (type2.diffX as any).mockReturnValue([ 7, 9 ])
+        expect(typeManager.diff(snapshot1, snapshot2, 3).getValue()).toBe(7)
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type2.diffX).toHaveBeenCalledTimes(1)
+        expect((type2.diffX as any).mock.instances[0]).toBe(type2)
+        expect(type2.diffX).toHaveBeenCalledWith(snapshot1, snapshot2, 3)
+    })
+    test('fails, if neither diff nor diffX are implemented', () => {
+        type2.diff = undefined
+        type2.diffX = undefined
+        expectNotImplemented(typeManager.diff(snapshot1, snapshot2, 3))
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+    })
+})
+
+describe('diffX', () => {
+    test('fails, if type not found', () => {
+        expectTypeNotFound(typeManager.diffX(snapshot1, snapshot0, 3))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidSnapshot(typeManager.diffX(snapshot1, null as any, 3))
+    })
+    test('calls Type#diffX', () => {
+        const returnValue = [ 7, 9 ];
+        (type2.diffX as any).mockReturnValue(returnValue)
+        expect(typeManager.diffX(snapshot1, snapshot2, 3).getValue()).toBe(returnValue)
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type1.invert).not.toBeCalled()
+        expect(type2.diff).not.toBeCalled()
+        expect(type2.diffX).toHaveBeenCalledTimes(1)
+        expect((type2.diffX as any).mock.instances[0]).toBe(type2)
+        expect(type2.diffX).toHaveBeenCalledWith(snapshot1, snapshot2, 3)
+        expect(type2.invert).not.toBeCalled()
+    })
+    test('calls Type#diff and Type#invert', () => {
+        type2.diffX = undefined;
+        (type2.diff as any).mockReturnValue(operation2);
+        (type2.invert as any).mockReturnValue(operation1)
+        expect(typeManager.diffX(snapshot1, snapshot2, 3).getValue()).toEqual([ operation2, operation1 ])
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type1.invert).not.toBeCalled()
+        expect(type2.diff).toHaveBeenCalledTimes(1)
+        expect((type2.diff as any).mock.instances[0]).toBe(type2)
+        expect(type2.diff).toHaveBeenCalledWith(snapshot1, snapshot2, 3)
+        expect(type2.invert).toHaveBeenCalledTimes(1)
+        expect((type2.invert as any).mock.instances[0]).toBe(type2)
+        expect(type2.invert).toHaveBeenCalledWith(operation2)
+    })
+    test('fails, if neither diffX nor diff are implemented', () => {
+        type2.diff = undefined
+        type2.diffX = undefined
+        expectNotImplemented(typeManager.diffX(snapshot1, snapshot2, 3))
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type1.invert).not.toBeCalled()
+        expect(type2.invert).not.toBeCalled()
     })
 })
