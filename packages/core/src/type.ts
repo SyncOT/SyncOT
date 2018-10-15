@@ -409,10 +409,10 @@ class SimpleTypeManager implements TypeManager {
                 return this.diff(baseSnapshot, targetSnapshot, hint).then(
                     operation =>
                         this.invert(operation).then(invertedOperation =>
-                            Result.ok([operation, invertedOperation] as [
+                            [operation, invertedOperation] as [
                                 Operation,
                                 Operation
-                            ])
+                            ]
                         )
                 )
             } else {
@@ -452,7 +452,7 @@ class SimpleTypeManager implements TypeManager {
     public invert(operation: Operation): Result<Operation> {
         return this.getTypeByOperation(operation).then(type => {
             if (type.invert) {
-                return Result.ok(type.invert(operation))
+                return type.invert(operation)
             } else {
                 return Result.fail(
                     new SyncOtError(
