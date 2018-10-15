@@ -28,7 +28,7 @@ describe('all', () => {
         ])
 
         expect(result.isOk()).toBe(true)
-        expect(result.getValue()).toEqual([ 5, 'abc', false ])
+        expect(result.getValue()).toEqual([5, 'abc', false])
     })
 
     test('fails on the first error', () => {
@@ -74,7 +74,9 @@ describe('then', () => {
     test('Result.ok and ok callback throws', () => {
         const onFail = jest.fn()
         const error = new Error('test')
-        const result = Result.ok(5).then(() => { throw error }, onFail)
+        const result = Result.ok(5).then(() => {
+            throw error
+        }, onFail)
 
         expect(result.isFail()).toBe(true)
         expect(result.getError()).toBe(error)
@@ -125,7 +127,9 @@ describe('then', () => {
         const onOk = jest.fn()
         const error1 = new Error('test1')
         const error2 = new Error('test2')
-        const result = Result.fail(error1).then(onOk, () => { throw error2 })
+        const result = Result.fail(error1).then(onOk, () => {
+            throw error2
+        })
 
         expect(result.isFail()).toBe(true)
         expect(result.getError()).toBe(error2)
@@ -165,7 +169,9 @@ describe('catch', () => {
     test('Result.fail and callback throws', () => {
         const error1 = new Error('test1')
         const error2 = new Error('test2')
-        const result = Result.fail(error1).catch(() => { throw error2 })
+        const result = Result.fail(error1).catch(() => {
+            throw error2
+        })
 
         expect(result.isFail()).toBe(true)
         expect(result.getError()).toBe(error2)

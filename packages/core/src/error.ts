@@ -12,7 +12,9 @@ export class SyncOtError extends Error {
 
     constructor(code: ErrorCodes, message?: string) {
         super(message)
-        this.code = ErrorCodes.hasOwnProperty(code) ? code : ErrorCodes.UnknownError
+        this.code = ErrorCodes.hasOwnProperty(code)
+            ? code
+            : ErrorCodes.UnknownError
     }
 
     public toJSON(): { code: ErrorCodes; message: string } {

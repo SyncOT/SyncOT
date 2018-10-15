@@ -284,7 +284,10 @@ class SimpleTypeManager implements TypeManager {
 
     public registerType(type: Type): void {
         if (this.types.has(type.name)) {
-            throw new SyncOtError(ErrorCodes.DuplicateType, `Duplicate type: ${type.name}`)
+            throw new SyncOtError(
+                ErrorCodes.DuplicateType,
+                `Duplicate type: ${type.name}`
+            )
         }
 
         this.types.set(type.name, type)
@@ -341,19 +344,19 @@ class SimpleTypeManager implements TypeManager {
         anotherOperation: Operation,
         priority: boolean
     ): Result<Operation> {
-        return this.getTypeByOperation(priority ? anotherOperation : operation).then(
-            type => {
-                if (type.transform) {
-                    return type.transform(operation, anotherOperation, priority)
-                } else if (type.transformX) {
-                    return priority
-                        ? type.transformX(operation, anotherOperation)[0]
-                        : type.transformX(anotherOperation, operation)[1]
-                } else {
-                    return operation
-                }
+        return this.getTypeByOperation(
+            priority ? anotherOperation : operation
+        ).then(type => {
+            if (type.transform) {
+                return type.transform(operation, anotherOperation, priority)
+            } else if (type.transformX) {
+                return priority
+                    ? type.transformX(operation, anotherOperation)[0]
+                    : type.transformX(anotherOperation, operation)[1]
+            } else {
+                return operation
             }
-        )
+        })
     }
 
     public transformX(
@@ -408,11 +411,12 @@ class SimpleTypeManager implements TypeManager {
             } else if (type.diff && type.invert) {
                 return this.diff(baseSnapshot, targetSnapshot, hint).then(
                     operation =>
-                        this.invert(operation).then(invertedOperation =>
-                            [operation, invertedOperation] as [
-                                Operation,
-                                Operation
-                            ]
+                        this.invert(operation).then(
+                            invertedOperation =>
+                                [operation, invertedOperation] as [
+                                    Operation,
+                                    Operation
+                                ]
                         )
                 )
             } else {
