@@ -27,12 +27,14 @@ let operation1: NumberOperation
 let operation2: NumberOperation
 let operation1Transformed: NumberOperation
 let operation2Transformed: NumberOperation
+let operation2Composed: NumberOperation
 let typeManager: TypeManager
 
 beforeEach(() => {
     type0 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        compose: jest.fn(),
         diff: jest.fn(),
         diffX: jest.fn(),
         invert: jest.fn(),
@@ -43,6 +45,7 @@ beforeEach(() => {
     type1 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        compose: jest.fn(),
         diff: jest.fn(),
         diffX: jest.fn(),
         invert: jest.fn(),
@@ -53,6 +56,7 @@ beforeEach(() => {
     type2 = {
         apply: jest.fn(),
         applyX: jest.fn(),
+        compose: jest.fn(),
         diff: jest.fn(),
         diffX: jest.fn(),
         invert: jest.fn(),
@@ -89,6 +93,10 @@ beforeEach(() => {
         type: type2.name
     }
     operation2Transformed = {
+        data: 22,
+        type: type2.name
+    }
+    operation2Composed = {
         data: 22,
         type: type2.name
     }
@@ -178,7 +186,7 @@ describe('applyX', () => {
         expect((type2.invert as any).mock.instances[0]).toBe(type2)
         expect(type2.invert).toHaveBeenCalledWith(operation2)
     })
-    test('fails, if neither applyX nor invert are implemented', () => {
+    test('fails, if neither Type#applyX nor Type#invert are implemented', () => {
         type2.applyX = undefined
         type2.invert = undefined
         expectNotImplemented(typeManager.applyX(snapshot1, operation2))
@@ -330,7 +338,7 @@ describe('diff', () => {
         expect((type2.diffX as any).mock.instances[0]).toBe(type2)
         expect(type2.diffX).toHaveBeenCalledWith(snapshot1, snapshot2, 3)
     })
-    test('fails, if neither diff nor diffX are implemented', () => {
+    test('fails, if neither Type#diff nor Type#diffX are implemented', () => {
         type2.diff = undefined
         type2.diffX = undefined
         expectNotImplemented(typeManager.diff(snapshot1, snapshot2, 3))
@@ -374,7 +382,7 @@ describe('diffX', () => {
         expect((type2.invert as any).mock.instances[0]).toBe(type2)
         expect(type2.invert).toHaveBeenCalledWith(operation2)
     })
-    test('fails, if neither diffX nor diff are implemented', () => {
+    test('fails, if neither Type#diffX nor Type#diff are implemented', () => {
         type2.diff = undefined
         type2.diffX = undefined
         expectNotImplemented(typeManager.diffX(snapshot1, snapshot2, 3))
@@ -382,5 +390,36 @@ describe('diffX', () => {
         expect(type1.diffX).not.toBeCalled()
         expect(type1.invert).not.toBeCalled()
         expect(type2.invert).not.toBeCalled()
+    })
+    test('fails, if neither Type#diffX nor Type#invert are implemented', () => {
+        type2.invert = undefined
+        type2.diffX = undefined
+        expectNotImplemented(typeManager.diffX(snapshot1, snapshot2, 3))
+        expect(type1.diff).not.toBeCalled()
+        expect(type1.diffX).not.toBeCalled()
+        expect(type1.invert).not.toBeCalled()
+        expect(type2.diff).not.toBeCalled()
+    })
+})
+
+describe('compose', () => {
+    test('fails, if type not found', () => {
+        expectTypeNotFound(typeManager.compose(operation1, operation0))
+    })
+    test('fails on invalid operation', () => {
+        expectInvalidOperation(typeManager.compose(operation1, null as any))
+    })
+    test('calls Type#compose', () => {
+        (type2.compose as any).mockReturnValue(operation2Composed)
+        expect(typeManager.compose(operation1, operation2).getValue()).toBe(operation2Composed)
+        expect(type1.compose).not.toBeCalled()
+        expect(type2.compose).toHaveBeenCalledTimes(1)
+        expect((type2.compose as any).mock.instances[0]).toBe(type2)
+        expect(type2.compose).toHaveBeenCalledWith(operation1, operation2)
+    })
+    test('fails, if Type#compose is not implemented', () => {
+        type2.compose = undefined
+        expectNotImplemented(typeManager.compose(operation1, operation2))
+        expect(type1.compose).not.toBeCalled()
     })
 })
