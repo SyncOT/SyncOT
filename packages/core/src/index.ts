@@ -1,1 +1,1 @@
-export { createTypeManager } from './type'
+export * from './type'
