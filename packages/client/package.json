@@ -14,6 +14,7 @@
     "url": "https://github.com/SyncOT/SyncOT.git"
   },
   "dependencies": {
-    "tslib": "^1.9.3"
+    "tslib": "^1.9.3",
+    "@syncot/core": "^0.0.1"
   }
 }
