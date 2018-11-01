@@ -168,7 +168,9 @@ describe('apply', () => {
     })
     test('fails, if Type#apply throws', () => {
         const error = new Error('test')
-        ;(type2.apply as any).mockImplementation(() => { throw error })
+        ;(type2.apply as any).mockImplementation(() => {
+            throw error
+        })
         expect(typeManager.apply(snapshot1, operation2).getError()).toBe(error)
     })
 })
@@ -224,18 +226,24 @@ describe('applyX', () => {
     })
     test('fails, if Type#applyX throws', () => {
         const error = new Error('test')
-        ;(type2.applyX as any).mockImplementation(() => { throw error })
+        ;(type2.applyX as any).mockImplementation(() => {
+            throw error
+        })
         expect(typeManager.applyX(snapshot1, operation2).getError()).toBe(error)
     })
     test('fails, if Type#apply throws', () => {
         const error = new Error('test')
-        ;(type2.apply as any).mockImplementation(() => { throw error })
+        ;(type2.apply as any).mockImplementation(() => {
+            throw error
+        })
         type2.applyX = undefined
         expect(typeManager.applyX(snapshot1, operation2).getError()).toBe(error)
     })
     test('fails, if Type#invert throws', () => {
         const error = new Error('test')
-        ;(type2.invert as any).mockImplementation(() => { throw error })
+        ;(type2.invert as any).mockImplementation(() => {
+            throw error
+        })
         type2.applyX = undefined
         expect(typeManager.applyX(snapshot1, operation2).getError()).toBe(error)
     })
@@ -298,14 +306,22 @@ describe('transform', () => {
         })
         test('fails, if Type#transform throws', () => {
             const error = new Error('test')
-            ;(type2.transform as any).mockImplementation(() => { throw error })
-            expect(typeManager.transform(operation1, operation2, true).getError()).toBe(error)
+            ;(type2.transform as any).mockImplementation(() => {
+                throw error
+            })
+            expect(
+                typeManager.transform(operation1, operation2, true).getError()
+            ).toBe(error)
         })
         test('fails, if Type#transformX throws', () => {
             const error = new Error('test')
-            ;(type2.transformX as any).mockImplementation(() => { throw error })
+            ;(type2.transformX as any).mockImplementation(() => {
+                throw error
+            })
             type2.transform = undefined
-            expect(typeManager.transform(operation1, operation2, true).getError()).toBe(error)
+            expect(
+                typeManager.transform(operation1, operation2, true).getError()
+            ).toBe(error)
         })
     })
 
@@ -365,14 +381,22 @@ describe('transform', () => {
         })
         test('fails, if Type#transform throws', () => {
             const error = new Error('test')
-            ;(type1.transform as any).mockImplementation(() => { throw error })
-            expect(typeManager.transform(operation1, operation2, false).getError()).toBe(error)
+            ;(type1.transform as any).mockImplementation(() => {
+                throw error
+            })
+            expect(
+                typeManager.transform(operation1, operation2, false).getError()
+            ).toBe(error)
         })
         test('fails, if Type#transformX throws', () => {
             const error = new Error('test')
-            ;(type1.transformX as any).mockImplementation(() => { throw error })
+            ;(type1.transformX as any).mockImplementation(() => {
+                throw error
+            })
             type1.transform = undefined
-            expect(typeManager.transform(operation1, operation2, false).getError()).toBe(error)
+            expect(
+                typeManager.transform(operation1, operation2, false).getError()
+            ).toBe(error)
         })
     })
 })
@@ -433,14 +457,22 @@ describe('transformX', () => {
     })
     test('fails, if Type#transformX throws', () => {
         const error = new Error('test')
-        ;(type2.transformX as any).mockImplementation(() => { throw error })
-        expect(typeManager.transformX(operation1, operation2).getError()).toBe(error)
+        ;(type2.transformX as any).mockImplementation(() => {
+            throw error
+        })
+        expect(typeManager.transformX(operation1, operation2).getError()).toBe(
+            error
+        )
     })
     test('fails, if Type#transform throws', () => {
         const error = new Error('test')
-        ;(type2.transform as any).mockImplementation(() => { throw error })
+        ;(type2.transform as any).mockImplementation(() => {
+            throw error
+        })
         type2.transformX = undefined
-        expect(typeManager.transformX(operation1, operation2).getError()).toBe(error)
+        expect(typeManager.transformX(operation1, operation2).getError()).toBe(
+            error
+        )
     })
 })
 
@@ -484,12 +516,16 @@ describe('diff', () => {
     })
     test('fails, if Type#diff throws', () => {
         const error = new Error('test')
-        ;(type2.diff as any).mockImplementation(() => { throw error })
+        ;(type2.diff as any).mockImplementation(() => {
+            throw error
+        })
         expect(typeManager.diff(snapshot1, snapshot2).getError()).toBe(error)
     })
     test('fails, if Type#diffX throws', () => {
         const error = new Error('test')
-        ;(type2.diffX as any).mockImplementation(() => { throw error })
+        ;(type2.diffX as any).mockImplementation(() => {
+            throw error
+        })
         type2.diff = undefined
         expect(typeManager.diff(snapshot1, snapshot2).getError()).toBe(error)
     })
@@ -555,19 +591,25 @@ describe('diffX', () => {
     })
     test('fails, if Type#diffX throws', () => {
         const error = new Error('test')
-        ;(type2.diffX as any).mockImplementation(() => { throw error })
+        ;(type2.diffX as any).mockImplementation(() => {
+            throw error
+        })
         expect(typeManager.diffX(snapshot1, snapshot2).getError()).toBe(error)
     })
     test('fails, if Type#diff throws', () => {
         const error = new Error('test')
-        ;(type2.diff as any).mockImplementation(() => { throw error })
+        ;(type2.diff as any).mockImplementation(() => {
+            throw error
+        })
         type2.diffX = undefined
         expect(typeManager.diffX(snapshot1, snapshot2).getError()).toBe(error)
     })
     test('fails, if Type#invert throws', () => {
         const error = new Error('test')
         ;(type2.diff as any).mockReturnValue(operation2)
-        ;(type2.invert as any).mockImplementation(() => { throw error })
+        ;(type2.invert as any).mockImplementation(() => {
+            throw error
+        })
         type2.diffX = undefined
         expect(typeManager.diffX(snapshot1, snapshot2).getError()).toBe(error)
     })
@@ -617,8 +659,17 @@ describe('compose', () => {
     })
     test('fails, if Type#compose throws', () => {
         const error = new Error('test')
-        ;(type2.compose as any).mockImplementation(() => { throw error })
-        expect(typeManager.compose(operation1, operation2).getError()).toBe(error)
+        ;(type2.compose as any).mockImplementation(() => {
+            throw error
+        })
+        expect(
+            typeManager
+                .compose(
+                    operation1,
+                    operation2
+                )
+                .getError()
+        ).toBe(error)
     })
 })
 
@@ -644,7 +695,9 @@ describe('invert', () => {
     })
     test('fails, if Type#invert throws', () => {
         const error = new Error('test')
-        ;(type2.invert as any).mockImplementation(() => { throw error })
+        ;(type2.invert as any).mockImplementation(() => {
+            throw error
+        })
         expect(typeManager.invert(operation2).getError()).toBe(error)
     })
 })
