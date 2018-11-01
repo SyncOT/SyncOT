@@ -5,7 +5,7 @@
     "lib": [ "es6" ],
     "baseUrl": "./packages",
     "paths": {
-      "@syncot/*": ["./*/src"]
+      "@syncot/*": ["./*/lib"]
     },
     "composite": true,
     "declaration": true,
