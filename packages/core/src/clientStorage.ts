@@ -3,9 +3,9 @@ import {
     DocumentOperation,
     DocumentVersion,
     SequenceNumber
-} from '@syncot/core'
+} from './document'
 
-export interface Storage {
+export interface ClientStorage {
     saveRemoteOperations(
         id: DocumentId,
         operations: [DocumentOperation]
