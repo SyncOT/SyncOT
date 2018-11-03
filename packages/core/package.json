@@ -4,6 +4,7 @@
   "description": "The core library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
+  "files": [ "lib" ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
