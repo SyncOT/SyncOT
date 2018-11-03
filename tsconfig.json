@@ -18,5 +18,9 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "removeComments": true
-  }
+  },
+  "exclude": [
+    "**/node_modules/",
+    "**/*.test.*"
+  ]
 }
