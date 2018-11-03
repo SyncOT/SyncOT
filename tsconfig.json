@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "es6",
-    "module": "commonjs",
+    "module": "es6",
+    "moduleResolution": "node",
     "lib": [ "es6" ],
     "baseUrl": "./packages",
     "paths": {
