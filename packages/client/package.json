@@ -4,7 +4,9 @@
   "description": "The client library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "files": [ "lib" ],
+  "files": [
+    "lib"
+  ],
   "author": "Greg Kubisa <gkubisa@gmail.com>",
   "license": "MIT",
   "repository": {
@@ -12,7 +14,7 @@
     "url": "https://github.com/SyncOT/SyncOT.git"
   },
   "dependencies": {
-    "tslib": "^1.9.3",
-    "@syncot/core": "^0.0.1"
+    "@syncot/core": "file:../core",
+    "tslib": "^1.9.3"
   }
 }

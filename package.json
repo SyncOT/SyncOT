@@ -25,5 +25,11 @@
     "tsc": "tsc -b packages/*",
     "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc",
     "test": "jest"
+  },
+  "dependencies": {
+    "@syncot/client": "file:packages/client",
+    "@syncot/core": "file:packages/core",
+    "@syncot/memory-client-storage": "file:packages/memory-client-storage",
+    "@syncot/server": "file:packages/server"
   }
 }
