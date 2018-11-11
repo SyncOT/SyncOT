@@ -1,6 +1,6 @@
 {
   "name": "@syncot/server",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "The server library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

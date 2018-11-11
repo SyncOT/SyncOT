@@ -1,6 +1,6 @@
 {
   "name": "@syncot/core",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "The core library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

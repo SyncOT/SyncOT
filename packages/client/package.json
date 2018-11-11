@@ -1,6 +1,6 @@
 {
   "name": "@syncot/client",
-  "version": "0.0.1",
+  "version": "0.0.0",
   "description": "The client library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
