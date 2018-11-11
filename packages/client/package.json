@@ -14,7 +14,9 @@
     "url": "https://github.com/SyncOT/SyncOT.git"
   },
   "dependencies": {
-    "@syncot/core": "file:../core",
     "tslib": "^1.9.3"
+  },
+  "peerDependencies": {
+    "@syncot/core": ">=0.0.0 <0.0.1"
   }
 }
