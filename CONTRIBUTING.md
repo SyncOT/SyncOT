@@ -7,6 +7,7 @@ VS Code with the following extensions:
 - EditorConfig for VS Code
 - TSLint
 - Jest
+- Prettier - Code formatter
 
 Workspace settings:
 

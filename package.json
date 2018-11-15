@@ -3,6 +3,7 @@
   "private": true,
   "devDependencies": {
     "@types/jest": "^23.3.9",
+    "husky": "^1.1.4",
     "jest": "^23.6.0",
     "lerna": "^3.4.3",
     "prettier": "^1.15.2",
@@ -20,11 +21,16 @@
   },
   "scripts": {
     "clean": "rimraf packages/*/lib",
-    "prettier": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
+    "prettier": "prettier --list-different 'packages/*/src/**/*.{ts,tsx}'",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
-    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc",
-    "test": "jest"
+    "test": "jest",
+    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc && npm test"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run build"
+    }
   },
   "dependencies": {
     "@syncot/client": "file:packages/client",
