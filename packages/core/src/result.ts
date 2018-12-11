@@ -19,7 +19,7 @@ export class Result<T> {
             Result<U8>,
             Result<U9>,
             Result<U10>
-        ]
+        ],
     ): Result<[U1, U2, U3, U4, U5, U6, U7, U8, U9, U10]>
     public static all<U1, U2, U3, U4, U5, U6, U7, U8, U9>(
         results: [
@@ -32,7 +32,7 @@ export class Result<T> {
             Result<U7>,
             Result<U8>,
             Result<U9>
-        ]
+        ],
     ): Result<[U1, U2, U3, U4, U5, U6, U7, U8, U9]>
     public static all<U1, U2, U3, U4, U5, U6, U7, U8>(
         results: [
@@ -44,7 +44,7 @@ export class Result<T> {
             Result<U6>,
             Result<U7>,
             Result<U8>
-        ]
+        ],
     ): Result<[U1, U2, U3, U4, U5, U6, U7, U8]>
     public static all<U1, U2, U3, U4, U5, U6, U7>(
         results: [
@@ -55,7 +55,7 @@ export class Result<T> {
             Result<U5>,
             Result<U6>,
             Result<U7>
-        ]
+        ],
     ): Result<[U1, U2, U3, U4, U5, U6, U7]>
     public static all<U1, U2, U3, U4, U5, U6>(
         results: [
@@ -65,19 +65,19 @@ export class Result<T> {
             Result<U4>,
             Result<U5>,
             Result<U6>
-        ]
+        ],
     ): Result<[U1, U2, U3, U4, U5, U6]>
     public static all<U1, U2, U3, U4, U5>(
-        results: [Result<U1>, Result<U2>, Result<U3>, Result<U4>, Result<U5>]
+        results: [Result<U1>, Result<U2>, Result<U3>, Result<U4>, Result<U5>],
     ): Result<[U1, U2, U3, U4, U5]>
     public static all<U1, U2, U3, U4>(
-        results: [Result<U1>, Result<U2>, Result<U3>, Result<U4>]
+        results: [Result<U1>, Result<U2>, Result<U3>, Result<U4>],
     ): Result<[U1, U2, U3, U4]>
     public static all<U1, U2, U3>(
-        results: [Result<U1>, Result<U2>, Result<U3>]
+        results: [Result<U1>, Result<U2>, Result<U3>],
     ): Result<[U1, U2, U3]>
     public static all<U1, U2>(
-        results: [Result<U1>, Result<U2>]
+        results: [Result<U1>, Result<U2>],
     ): Result<[U1, U2]>
     public static all<U>(results: Array<Result<U>>): Result<U[]> {
         const values = new Array<U>(results.length)
@@ -97,7 +97,7 @@ export class Result<T> {
 
     private constructor(
         private readonly error: Error,
-        private readonly value: T
+        private readonly value: T,
     ) {}
 
     public isOk(): boolean {
@@ -124,7 +124,7 @@ export class Result<T> {
 
     public then<U>(
         okHandler: (value: T) => U | Result<U>,
-        failHandler?: (error: Error) => U | Result<U>
+        failHandler?: (error: Error) => U | Result<U>,
     ): Result<U> {
         try {
             if (this.error) {

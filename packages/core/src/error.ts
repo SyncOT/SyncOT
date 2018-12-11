@@ -4,7 +4,7 @@ export enum ErrorCodes {
     TypeNotFound = 'TypeNotFound',
     InvalidSnapshot = 'InvalidSnapshot',
     InvalidOperation = 'InvalidOperation',
-    DuplicateType = 'DuplicateType'
+    DuplicateType = 'DuplicateType',
 }
 
 export class SyncOtError extends Error {
@@ -20,7 +20,7 @@ export class SyncOtError extends Error {
     public toJSON(): { code: ErrorCodes; message: string } {
         return {
             code: this.code,
-            message: this.message
+            message: this.message,
         }
     }
 }

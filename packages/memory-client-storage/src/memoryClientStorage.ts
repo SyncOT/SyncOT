@@ -3,13 +3,13 @@ import {
     DocumentId,
     DocumentOperation,
     DocumentVersion,
-    SequenceNumber
+    SequenceNumber,
 } from '@syncot/core'
 
 export class MemoryClientStorage implements ClientStorage {
     public saveRemoteOperations(
         _id: DocumentId,
-        _operations: [DocumentOperation]
+        _operations: [DocumentOperation],
     ): Promise<undefined> {
         return Promise.reject(new Error('Not implemented'))
     }
@@ -17,14 +17,14 @@ export class MemoryClientStorage implements ClientStorage {
     public loadRemoteOperations(
         _id: DocumentId,
         _start?: DocumentVersion,
-        _end?: DocumentVersion
+        _end?: DocumentVersion,
     ): Promise<[DocumentOperation]> {
         return Promise.reject(new Error('Not implemented'))
     }
 
     public saveLocalOperations(
         _id: DocumentId,
-        _operations: [DocumentOperation]
+        _operations: [DocumentOperation],
     ): Promise<undefined> {
         return Promise.reject(new Error('Not implemented'))
     }
@@ -32,7 +32,7 @@ export class MemoryClientStorage implements ClientStorage {
     public loadLocalOperations(
         _id: DocumentId,
         _start?: SequenceNumber,
-        _end?: SequenceNumber
+        _end?: SequenceNumber,
     ): Promise<[DocumentOperation]> {
         return Promise.reject(new Error('Not implemented'))
     }

@@ -91,7 +91,7 @@ export interface Type {
     transform?(
         operation: Operation,
         anotherOperation: Operation,
-        priority: boolean
+        priority: boolean,
     ): Operation
 
     /**
@@ -111,7 +111,7 @@ export interface Type {
      */
     transformX?(
         operation1: Operation,
-        operation2: Operation
+        operation2: Operation,
     ): [Operation, Operation]
 
     /**
@@ -130,7 +130,7 @@ export interface Type {
     diff?(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): Operation
 
     /**
@@ -152,7 +152,7 @@ export interface Type {
     diffX?(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): [Operation, Operation]
 
     /**
@@ -206,7 +206,7 @@ export interface TypeManager {
      */
     applyX(
         snapshot: Snapshot,
-        operation: Operation
+        operation: Operation,
     ): Result<[Snapshot, Operation]>
 
     /**
@@ -220,7 +220,7 @@ export interface TypeManager {
     transform(
         operation: Operation,
         anotherOperation: Operation,
-        priority: boolean
+        priority: boolean,
     ): Result<Operation>
 
     /**
@@ -234,7 +234,7 @@ export interface TypeManager {
      */
     transformX(
         operation1: Operation,
-        operation2: Operation
+        operation2: Operation,
     ): Result<[Operation, Operation]>
 
     /**
@@ -245,7 +245,7 @@ export interface TypeManager {
     diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): Result<Operation>
 
     /**
@@ -256,7 +256,7 @@ export interface TypeManager {
     diffX(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): Result<[Operation, Operation]>
 
     /**
@@ -264,7 +264,7 @@ export interface TypeManager {
      */
     compose(
         operation: Operation,
-        anotherOperation: Operation
+        anotherOperation: Operation,
     ): Result<Operation>
 
     /**
@@ -286,7 +286,7 @@ class SimpleTypeManager implements TypeManager {
         if (this.types.has(type.name)) {
             throw new SyncOtError(
                 ErrorCodes.DuplicateType,
-                `Duplicate type: ${type.name}`
+                `Duplicate type: ${type.name}`,
             )
         }
 
@@ -300,8 +300,8 @@ class SimpleTypeManager implements TypeManager {
             return Result.fail(
                 new SyncOtError(
                     ErrorCodes.TypeNotFound,
-                    `Type not found: ${name}`
-                )
+                    `Type not found: ${name}`,
+                ),
             )
         }
 
@@ -310,13 +310,13 @@ class SimpleTypeManager implements TypeManager {
 
     public apply(snapshot: Snapshot, operation: Operation): Result<Snapshot> {
         return this.getTypeByOperation(operation).then(type =>
-            type.apply(snapshot, operation)
+            type.apply(snapshot, operation),
         )
     }
 
     public applyX(
         snapshot: Snapshot,
-        operation: Operation
+        operation: Operation,
     ): Result<[Snapshot, Operation]> {
         return this.getTypeByOperation(operation).then(type => {
             if (type.applyX) {
@@ -324,7 +324,7 @@ class SimpleTypeManager implements TypeManager {
             } else if (type.invert) {
                 return [
                     type.apply(snapshot, operation),
-                    type.invert(operation)
+                    type.invert(operation),
                 ] as [Snapshot, Operation]
             } else {
                 return Result.fail(
@@ -332,8 +332,8 @@ class SimpleTypeManager implements TypeManager {
                         ErrorCodes.NotImplemented,
                         `Neither applyX nor invert are implemented in ${
                             operation.type
-                        }`
-                    )
+                        }`,
+                    ),
                 )
             }
         })
@@ -342,10 +342,10 @@ class SimpleTypeManager implements TypeManager {
     public transform(
         operation: Operation,
         anotherOperation: Operation,
-        priority: boolean
+        priority: boolean,
     ): Result<Operation> {
         return this.getTypeByOperation(
-            priority ? anotherOperation : operation
+            priority ? anotherOperation : operation,
         ).then(type => {
             if (type.transform) {
                 return type.transform(operation, anotherOperation, priority)
@@ -361,7 +361,7 @@ class SimpleTypeManager implements TypeManager {
 
     public transformX(
         operation1: Operation,
-        operation2: Operation
+        operation2: Operation,
     ): Result<[Operation, Operation]> {
         return this.getTypeByOperation(operation2).then(type => {
             if (type.transformX) {
@@ -369,7 +369,7 @@ class SimpleTypeManager implements TypeManager {
             } else if (type.transform) {
                 return [
                     type.transform(operation1, operation2, true),
-                    type.transform(operation2, operation1, false)
+                    type.transform(operation2, operation1, false),
                 ] as [Operation, Operation]
             } else {
                 return [operation1, operation2] as [Operation, Operation]
@@ -380,7 +380,7 @@ class SimpleTypeManager implements TypeManager {
     public diff(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): Result<Operation> {
         return this.getTypeBySnapshot(targetSnapshot).then(type => {
             if (type.diff) {
@@ -393,8 +393,8 @@ class SimpleTypeManager implements TypeManager {
                         ErrorCodes.NotImplemented,
                         `Neither diff nor diffX is implemented in ${
                             targetSnapshot.type
-                        }`
-                    )
+                        }`,
+                    ),
                 )
             }
         })
@@ -403,7 +403,7 @@ class SimpleTypeManager implements TypeManager {
     public diffX(
         baseSnapshot: Snapshot,
         targetSnapshot: Snapshot,
-        hint?: any
+        hint?: any,
     ): Result<[Operation, Operation]> {
         return this.getTypeBySnapshot(targetSnapshot).then(type => {
             if (type.diffX) {
@@ -416,8 +416,8 @@ class SimpleTypeManager implements TypeManager {
                                 [operation, invertedOperation] as [
                                     Operation,
                                     Operation
-                                ]
-                        )
+                                ],
+                        ),
                 )
             } else {
                 return Result.fail(
@@ -425,8 +425,8 @@ class SimpleTypeManager implements TypeManager {
                         ErrorCodes.NotImplemented,
                         `Neither diffX, nor diff and invert are implemented in ${
                             targetSnapshot.type
-                        }`
-                    )
+                        }`,
+                    ),
                 )
             }
         })
@@ -434,20 +434,20 @@ class SimpleTypeManager implements TypeManager {
 
     public compose(
         operation: Operation,
-        anotherOperation: Operation
+        anotherOperation: Operation,
     ): Result<Operation> {
         return this.getTypeByOperation(anotherOperation).then(type => {
             if (type.compose) {
                 return type.compose(
                     operation,
-                    anotherOperation
+                    anotherOperation,
                 )
             } else {
                 return Result.fail(
                     new SyncOtError(
                         ErrorCodes.NotImplemented,
-                        `compose is not implemented in ${operation.type}`
-                    )
+                        `compose is not implemented in ${operation.type}`,
+                    ),
                 )
             }
         })
@@ -461,8 +461,8 @@ class SimpleTypeManager implements TypeManager {
                 return Result.fail(
                     new SyncOtError(
                         ErrorCodes.NotImplemented,
-                        `invert is not implemented in ${operation.type}`
-                    )
+                        `invert is not implemented in ${operation.type}`,
+                    ),
                 )
             }
         })

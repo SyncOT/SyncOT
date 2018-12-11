@@ -21,7 +21,7 @@
   },
   "scripts": {
     "clean": "rimraf packages/*/lib",
-    "prettier": "prettier --list-different 'packages/*/src/**/*.{ts,tsx}'",
+    "prettier": "prettier --list-different 'packages/*/src/**/*' 'packages/*/*.json' '*.json' '*.MD' '.prettierrc'",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
     "test": "jest",

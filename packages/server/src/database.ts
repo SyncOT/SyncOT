@@ -11,7 +11,7 @@ export interface Database {
     fetchOperations(
         id: string,
         startVersion?: number,
-        endVersion?: number
+        endVersion?: number,
     ): Promise<DatabaseOperation[]>
     submitOperation(): Promise<DatabaseSnapshot>
 }

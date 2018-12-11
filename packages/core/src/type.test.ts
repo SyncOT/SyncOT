@@ -5,7 +5,7 @@ import {
     Operation,
     Snapshot,
     Type,
-    TypeManager
+    TypeManager,
 } from './type'
 
 interface NumberSnapshot extends Snapshot {
@@ -51,7 +51,7 @@ beforeEach(() => {
         invert: jest.fn(),
         name: 'type0',
         transform: jest.fn(),
-        transformX: jest.fn()
+        transformX: jest.fn(),
     }
     type1 = {
         apply: jest.fn(),
@@ -62,7 +62,7 @@ beforeEach(() => {
         invert: jest.fn(),
         name: 'type1',
         transform: jest.fn(),
-        transformX: jest.fn()
+        transformX: jest.fn(),
     }
     type2 = {
         apply: jest.fn(),
@@ -73,47 +73,47 @@ beforeEach(() => {
         invert: jest.fn(),
         name: 'type2',
         transform: jest.fn(),
-        transformX: jest.fn()
+        transformX: jest.fn(),
     }
     snapshot0 = {
         data: 0,
-        type: type0.name
+        type: type0.name,
     }
     snapshot1 = {
         data: 1,
-        type: type1.name
+        type: type1.name,
     }
     snapshot2 = {
         data: 2,
-        type: type2.name
+        type: type2.name,
     }
     operation0 = {
         data: 0,
-        type: type0.name
+        type: type0.name,
     }
     operation1 = {
         data: 1,
-        type: type1.name
+        type: type1.name,
     }
     operation2 = {
         data: 2,
-        type: type2.name
+        type: type2.name,
     }
     operation1Transformed = {
         data: 11,
-        type: type2.name
+        type: type2.name,
     }
     operation2Transformed = {
         data: 22,
-        type: type2.name
+        type: type2.name,
     }
     operation2Composed = {
         data: 22,
-        type: type2.name
+        type: type2.name,
     }
     operation2Inverted = {
         data: 222,
-        type: type2.name
+        type: type2.name,
     }
     typeManager = createTypeManager()
     typeManager.registerType(type1)
@@ -159,7 +159,7 @@ describe('apply', () => {
     test('calls Type#apply', () => {
         ;(type2.apply as any).mockReturnValue(snapshot2)
         expect(typeManager.apply(snapshot1, operation2).getValue()).toBe(
-            snapshot2
+            snapshot2,
         )
         expect(type1.apply).not.toBeCalled()
         expect(type2.apply).toHaveBeenCalledTimes(1)
@@ -186,7 +186,7 @@ describe('applyX', () => {
         const returnValue = [snapshot2, operation1]
         ;(type2.applyX as any).mockReturnValue(returnValue)
         expect(typeManager.applyX(snapshot1, operation2).getValue()).toBe(
-            returnValue
+            returnValue,
         )
         expect(type1.apply).not.toBeCalled()
         expect(type1.applyX).not.toBeCalled()
@@ -203,7 +203,7 @@ describe('applyX', () => {
         ;(type2.invert as any).mockReturnValue(operation1)
         expect(typeManager.applyX(snapshot1, operation2).getValue()).toEqual([
             snapshot2,
-            operation1
+            operation1,
         ])
         expect(type1.apply).not.toBeCalled()
         expect(type1.applyX).not.toBeCalled()
@@ -253,18 +253,18 @@ describe('transform', () => {
     describe('priority=true', () => {
         test('fails, if type not found', () => {
             expectTypeNotFound(
-                typeManager.transform(operation1, operation0, true)
+                typeManager.transform(operation1, operation0, true),
             )
         })
         test('fails on invalid operation', () => {
             expectInvalidOperation(
-                typeManager.transform(operation1, null as any, true)
+                typeManager.transform(operation1, null as any, true),
             )
         })
         test('calls Type#transform', () => {
             ;(type2.transform as any).mockReturnValue(operation1Transformed)
             expect(
-                typeManager.transform(operation1, operation2, true).getValue()
+                typeManager.transform(operation1, operation2, true).getValue(),
             ).toBe(operation1Transformed)
             expect(type1.transform).not.toBeCalled()
             expect(type1.transformX).not.toBeCalled()
@@ -273,7 +273,7 @@ describe('transform', () => {
             expect(type2.transform).toHaveBeenCalledWith(
                 operation1,
                 operation2,
-                true
+                true,
             )
             expect(type2.transformX).not.toBeCalled()
         })
@@ -281,10 +281,10 @@ describe('transform', () => {
             type2.transform = undefined
             ;(type2.transformX as any).mockReturnValue([
                 operation1Transformed,
-                operation2Transformed
+                operation2Transformed,
             ])
             expect(
-                typeManager.transform(operation1, operation2, true).getValue()
+                typeManager.transform(operation1, operation2, true).getValue(),
             ).toBe(operation1Transformed)
             expect(type1.transform).not.toBeCalled()
             expect(type1.transformX).not.toBeCalled()
@@ -292,14 +292,14 @@ describe('transform', () => {
             expect((type2.transformX as any).mock.instances[0]).toBe(type2)
             expect(type2.transformX).toHaveBeenCalledWith(
                 operation1,
-                operation2
+                operation2,
             )
         })
         test('does not transform the operation', () => {
             type2.transform = undefined
             type2.transformX = undefined
             expect(
-                typeManager.transform(operation1, operation2, true).getValue()
+                typeManager.transform(operation1, operation2, true).getValue(),
             ).toBe(operation1)
             expect(type1.transform).not.toBeCalled()
             expect(type1.transformX).not.toBeCalled()
@@ -310,7 +310,7 @@ describe('transform', () => {
                 throw error
             })
             expect(
-                typeManager.transform(operation1, operation2, true).getError()
+                typeManager.transform(operation1, operation2, true).getError(),
             ).toBe(error)
         })
         test('fails, if Type#transformX throws', () => {
@@ -320,7 +320,7 @@ describe('transform', () => {
             })
             type2.transform = undefined
             expect(
-                typeManager.transform(operation1, operation2, true).getError()
+                typeManager.transform(operation1, operation2, true).getError(),
             ).toBe(error)
         })
     })
@@ -328,25 +328,25 @@ describe('transform', () => {
     describe('priority=false', () => {
         test('fails, if type not found', () => {
             expectTypeNotFound(
-                typeManager.transform(operation0, operation1, false)
+                typeManager.transform(operation0, operation1, false),
             )
         })
         test('fails on invalid operation', () => {
             expectInvalidOperation(
-                typeManager.transform(null as any, snapshot1, false)
+                typeManager.transform(null as any, snapshot1, false),
             )
         })
         test('calls Type#transform', () => {
             ;(type1.transform as any).mockReturnValue(operation1Transformed)
             expect(
-                typeManager.transform(operation1, operation2, false).getValue()
+                typeManager.transform(operation1, operation2, false).getValue(),
             ).toBe(operation1Transformed)
             expect(type1.transform).toHaveBeenCalledTimes(1)
             expect((type1.transform as any).mock.instances[0]).toBe(type1)
             expect(type1.transform).toHaveBeenCalledWith(
                 operation1,
                 operation2,
-                false
+                false,
             )
             expect(type1.transformX).not.toBeCalled()
             expect(type2.transform).not.toBeCalled()
@@ -356,16 +356,16 @@ describe('transform', () => {
             type1.transform = undefined
             ;(type1.transformX as any).mockReturnValue([
                 operation2Transformed,
-                operation1Transformed
+                operation1Transformed,
             ])
             expect(
-                typeManager.transform(operation1, operation2, false).getValue()
+                typeManager.transform(operation1, operation2, false).getValue(),
             ).toBe(operation1Transformed)
             expect(type1.transformX).toHaveBeenCalledTimes(1)
             expect((type1.transformX as any).mock.instances[0]).toBe(type1)
             expect(type1.transformX).toHaveBeenCalledWith(
                 operation2,
-                operation1
+                operation1,
             )
             expect(type2.transform).not.toBeCalled()
             expect(type2.transformX).not.toBeCalled()
@@ -374,7 +374,7 @@ describe('transform', () => {
             type1.transform = undefined
             type1.transformX = undefined
             expect(
-                typeManager.transform(operation1, operation2, false).getValue()
+                typeManager.transform(operation1, operation2, false).getValue(),
             ).toBe(operation1)
             expect(type2.transform).not.toBeCalled()
             expect(type2.transformX).not.toBeCalled()
@@ -385,7 +385,7 @@ describe('transform', () => {
                 throw error
             })
             expect(
-                typeManager.transform(operation1, operation2, false).getError()
+                typeManager.transform(operation1, operation2, false).getError(),
             ).toBe(error)
         })
         test('fails, if Type#transformX throws', () => {
@@ -395,7 +395,7 @@ describe('transform', () => {
             })
             type1.transform = undefined
             expect(
-                typeManager.transform(operation1, operation2, false).getError()
+                typeManager.transform(operation1, operation2, false).getError(),
             ).toBe(error)
         })
     })
@@ -412,7 +412,7 @@ describe('transformX', () => {
         const returnValue = [operation1Transformed, operation2Transformed]
         ;(type2.transformX as any).mockReturnValue(returnValue)
         expect(typeManager.transformX(operation1, operation2).getValue()).toBe(
-            returnValue
+            returnValue,
         )
         expect(type1.transform).not.toBeCalled()
         expect(type1.transformX).not.toBeCalled()
@@ -426,7 +426,7 @@ describe('transformX', () => {
         ;(type2.transform as any).mockReturnValueOnce(operation2Transformed)
         type2.transformX = undefined
         expect(
-            typeManager.transformX(operation1, operation2).getValue()
+            typeManager.transformX(operation1, operation2).getValue(),
         ).toEqual([operation1Transformed, operation2Transformed])
         expect(type1.transform).not.toBeCalled()
         expect(type1.transformX).not.toBeCalled()
@@ -437,20 +437,20 @@ describe('transformX', () => {
             1,
             operation1,
             operation2,
-            true
+            true,
         )
         expect(type2.transform).toHaveBeenNthCalledWith(
             2,
             operation2,
             operation1,
-            false
+            false,
         )
     })
     test('does not transform the operations', () => {
         type2.transform = undefined
         type2.transformX = undefined
         expect(
-            typeManager.transformX(operation1, operation2).getValue()
+            typeManager.transformX(operation1, operation2).getValue(),
         ).toEqual([operation1, operation2])
         expect(type1.transform).not.toBeCalled()
         expect(type1.transformX).not.toBeCalled()
@@ -461,7 +461,7 @@ describe('transformX', () => {
             throw error
         })
         expect(typeManager.transformX(operation1, operation2).getError()).toBe(
-            error
+            error,
         )
     })
     test('fails, if Type#transform throws', () => {
@@ -471,7 +471,7 @@ describe('transformX', () => {
         })
         type2.transformX = undefined
         expect(typeManager.transformX(operation1, operation2).getError()).toBe(
-            error
+            error,
         )
     })
 })
@@ -486,7 +486,7 @@ describe('diff', () => {
     test('calls Type#diff', () => {
         ;(type2.diff as any).mockReturnValue(operation2)
         expect(typeManager.diff(snapshot1, snapshot2, 3).getValue()).toBe(
-            operation2
+            operation2,
         )
         expect(type1.diff).not.toBeCalled()
         expect(type1.diffX).not.toBeCalled()
@@ -499,7 +499,7 @@ describe('diff', () => {
         type2.diff = undefined
         ;(type2.diffX as any).mockReturnValue([operation2, operation1])
         expect(typeManager.diff(snapshot1, snapshot2, 3).getValue()).toBe(
-            operation2
+            operation2,
         )
         expect(type1.diff).not.toBeCalled()
         expect(type1.diffX).not.toBeCalled()
@@ -542,7 +542,7 @@ describe('diffX', () => {
         const returnValue = [operation2, operation1]
         ;(type2.diffX as any).mockReturnValue(returnValue)
         expect(typeManager.diffX(snapshot1, snapshot2, 3).getValue()).toBe(
-            returnValue
+            returnValue,
         )
         expect(type1.diff).not.toBeCalled()
         expect(type1.diffX).not.toBeCalled()
@@ -559,7 +559,7 @@ describe('diffX', () => {
         ;(type2.invert as any).mockReturnValue(operation1)
         expect(typeManager.diffX(snapshot1, snapshot2, 3).getValue()).toEqual([
             operation2,
-            operation1
+            operation1,
         ])
         expect(type1.diff).not.toBeCalled()
         expect(type1.diffX).not.toBeCalled()
@@ -620,16 +620,16 @@ describe('compose', () => {
         expectTypeNotFound(
             typeManager.compose(
                 operation1,
-                operation0
-            )
+                operation0,
+            ),
         )
     })
     test('fails on invalid operation', () => {
         expectInvalidOperation(
             typeManager.compose(
                 operation1,
-                null as any
-            )
+                null as any,
+            ),
         )
     })
     test('calls Type#compose', () => {
@@ -638,9 +638,9 @@ describe('compose', () => {
             typeManager
                 .compose(
                     operation1,
-                    operation2
+                    operation2,
                 )
-                .getValue()
+                .getValue(),
         ).toBe(operation2Composed)
         expect(type1.compose).not.toBeCalled()
         expect(type2.compose).toHaveBeenCalledTimes(1)
@@ -652,8 +652,8 @@ describe('compose', () => {
         expectNotImplemented(
             typeManager.compose(
                 operation1,
-                operation2
-            )
+                operation2,
+            ),
         )
         expect(type1.compose).not.toBeCalled()
     })
@@ -666,9 +666,9 @@ describe('compose', () => {
             typeManager
                 .compose(
                     operation1,
-                    operation2
+                    operation2,
                 )
-                .getError()
+                .getError(),
         ).toBe(error)
     })
 })
@@ -683,7 +683,7 @@ describe('invert', () => {
     test('calls Type#invert', () => {
         ;(type2.invert as any).mockReturnValue(operation2Inverted)
         expect(typeManager.invert(operation2).getValue()).toBe(
-            operation2Inverted
+            operation2Inverted,
         )
         expect(type2.invert).toHaveBeenCalledTimes(1)
         expect((type2.invert as any).mock.instances[0]).toBe(type2)

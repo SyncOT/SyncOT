@@ -4,7 +4,9 @@
   "description": "The core library of SyncOT.",
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
-  "files": [ "lib" ],
+  "files": [
+    "lib"
+  ],
   "author": "Greg Kubisa <gkubisa@gmail.com>",
   "license": "MIT",
   "repository": {

@@ -24,7 +24,7 @@ describe('all', () => {
         const result = Result.all([
             Result.ok(5),
             Result.ok('abc'),
-            Result.ok(false)
+            Result.ok(false),
         ])
 
         expect(result.isOk()).toBe(true)
@@ -37,7 +37,7 @@ describe('all', () => {
         const result = Result.all([
             Result.ok(5),
             Result.fail(error1),
-            Result.fail(error2)
+            Result.fail(error2),
         ])
 
         expect(result.isFail()).toBe(true)

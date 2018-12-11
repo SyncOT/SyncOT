@@ -12,7 +12,7 @@ test('is serializable', () => {
     const parsed = JSON.parse(serialized)
     expect(parsed).toEqual({
         code: ErrorCodes.NotImplemented,
-        message: 'Not implemented'
+        message: 'Not implemented',
     })
 })
 
