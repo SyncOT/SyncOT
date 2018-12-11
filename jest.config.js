@@ -1,13 +1,12 @@
-const { pathsToModuleNameMapper } = require('ts-jest/utils')
-const { compilerOptions } = require('./tsconfig')
-
 module.exports = {
     preset: 'ts-jest',
-    moduleNameMapper: pathsToModuleNameMapper(compilerOptions.paths, { prefix: './packages' } ),
+    moduleNameMapper: {
+        '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src'
+    },
     collectCoverage: true,
     collectCoverageFrom: [
-        "packages/*/src/**/*.{ts,tsx,js,jsx}",
-        "!packages/*/src/**/*.test.{ts,tsx,js,jsx}",
-        "!**/node_modules/**"
+        'packages/*/src/**/*.{ts,tsx,js,jsx}',
+        '!packages/*/src/**/*.test.{ts,tsx,js,jsx}',
+        '!**/node_modules/**'
     ]
 }
