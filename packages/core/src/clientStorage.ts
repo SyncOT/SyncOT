@@ -8,20 +8,20 @@ import {
 export interface ClientStorage {
     saveRemoteOperations(
         id: DocumentId,
-        operations: [DocumentOperation],
+        operations: DocumentOperation[],
     ): Promise<undefined>
     loadRemoteOperations(
         id: DocumentId,
         start?: DocumentVersion,
         end?: DocumentVersion,
-    ): Promise<[DocumentOperation]>
+    ): Promise<DocumentOperation[]>
     saveLocalOperations(
         id: DocumentId,
-        operations: [DocumentOperation],
+        operations: DocumentOperation[],
     ): Promise<undefined>
     loadLocalOperations(
         id: DocumentId,
         start?: SequenceNumber,
         end?: SequenceNumber,
-    ): Promise<[DocumentOperation]>
+    ): Promise<DocumentOperation[]>
 }

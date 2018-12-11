@@ -1,3 +1,4 @@
-export * from './type'
-export * from './document'
 export * from './clientStorage'
+export * from './document'
+export * from './error'
+export * from './type'
