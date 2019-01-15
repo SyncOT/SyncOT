@@ -1,171 +1,201 @@
 import {
+    assertOperation,
+    ClientId,
     ClientStorage,
     DocumentId,
-    DocumentOperation,
     DocumentVersion,
     ErrorCodes,
+    Operation,
     SequenceNumber,
     SyncOtError,
+    TypeManager,
+    TypeName,
 } from '@syncot/core'
 
-export class MemoryClientStorage implements ClientStorage {
-    private remoteOperations: Map<DocumentId, DocumentOperation[]> = new Map()
-    // private localOperations: Map<DocumentId, DocumentOperation[]> = new Map()
+interface Context {
+    localOperations: Operation[]
+    remoteOperations: Operation[]
+    sequence: SequenceNumber
+}
+type ContextMap = Map<TypeName, Map<DocumentId, Context>>
 
-    public saveRemoteOperations(
-        id: DocumentId,
-        operations: DocumentOperation[],
-    ): Promise<undefined> {
-        let remoteOperations = this.remoteOperations.get(id)
+/**
+ * A ClientStorage implementation that stores the data in memory.
+ */
+class MemoryClientStorage implements ClientStorage {
+    private contexts: ContextMap = new Map()
 
-        if (!remoteOperations) {
-            remoteOperations = []
-            this.remoteOperations.set(id, remoteOperations)
-        }
+    public constructor(
+        private clientId: ClientId,
+        private typeManager: TypeManager,
+    ) {}
 
-        const remoteOperationsLength = remoteOperations.length
-        const lastRemoteOperation: DocumentOperation | null =
-            remoteOperationsLength > 0
-                ? remoteOperations[remoteOperationsLength - 1]
-                : null
-        let previousOperation: DocumentOperation | null = null
+    public async saveRemoteOperation(operation: Operation): Promise<void> {
+        assertOperation(operation)
 
-        for (let i = 0, l = operations.length; i < l; ++i) {
-            const currentOperation = operations[i]
+        const context = this.getContext(operation.type, operation.id)
+        const { localOperations, remoteOperations } = context
 
-            if (previousOperation) {
-                if (
-                    currentOperation.version !==
-                    previousOperation.version + 1
-                ) {
-                    remoteOperations.length = remoteOperationsLength
-                    return Promise.reject(
-                        new SyncOtError(
-                            ErrorCodes.InvalidArgument,
-                            `Expected next version == ${previousOperation.version +
-                                1}`,
-                        ),
-                    )
-                }
-            } else {
-                if (currentOperation.version < 1) {
-                    return Promise.reject(
-                        new SyncOtError(
-                            ErrorCodes.InvalidArgument,
-                            'Expected first version >= 1',
-                        ),
-                    )
-                }
+        if (operation.client === this.clientId) {
+            // This client has submitted the `operation` to the server earlier,
+            // so it must be the first operation in `localOperations` and we have to
+            // remove it from that list now, as it has become remote.
 
-                if (!Number.isSafeInteger(currentOperation.version)) {
-                    return Promise.reject(
-                        new SyncOtError(
-                            ErrorCodes.InvalidArgument,
-                            'Expected first version to be a safe integer',
-                        ),
-                    )
-                }
-
-                if (lastRemoteOperation) {
-                    if (
-                        currentOperation.version >
-                        lastRemoteOperation.version + 1
-                    ) {
-                        return Promise.reject(
-                            new SyncOtError(
-                                ErrorCodes.InvalidArgument,
-                                `Expected first version <= ${lastRemoteOperation.version +
-                                    1}`,
-                            ),
-                        )
-                    }
-                } else {
-                    if (currentOperation.version !== 1) {
-                        return Promise.reject(
-                            new SyncOtError(
-                                ErrorCodes.InvalidArgument,
-                                'Expected first version == 1',
-                            ),
-                        )
-                    }
-                }
+            if (localOperations.length === 0) {
+                throw new SyncOtError(ErrorCodes.UnexpectedClientId)
             }
 
-            previousOperation = currentOperation
+            const firstLocalOperation = localOperations[0]
+
+            if (firstLocalOperation.sequence !== operation.sequence) {
+                throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+            }
+
+            if (firstLocalOperation.version !== operation.version) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+
+            localOperations.shift()
+        } else {
+            // Another client has submitted the `operation` to the server earlier,
+            // so we have to transform the local operations.
 
             if (
-                !lastRemoteOperation ||
-                lastRemoteOperation.version < currentOperation.version
+                remoteOperations.length > 0 &&
+                remoteOperations[remoteOperations.length - 1].version + 1 !==
+                    operation.version
             ) {
-                remoteOperations.push(currentOperation)
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
             }
+
+            if (
+                localOperations.length > 0 &&
+                localOperations[0].version !== operation.version
+            ) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+
+            let remoteOperation = operation
+            const transformedLocalOperations = localOperations.map(
+                localOperation => {
+                    const transformedOperations = this.typeManager.transformX(
+                        remoteOperation,
+                        localOperation,
+                    )
+
+                    remoteOperation = transformedOperations[0]
+                    return transformedOperations[1]
+                },
+            )
+
+            context.localOperations = transformedLocalOperations
         }
 
-        return Promise.resolve(undefined)
+        remoteOperations.push(operation)
     }
 
-    public loadRemoteOperations(
+    public async loadRemoteOperations(
+        type: TypeName,
         id: DocumentId,
-        start: DocumentVersion = 1,
-        end: DocumentVersion = Number.MAX_SAFE_INTEGER,
-    ): Promise<DocumentOperation[]> {
-        if (start < 1) {
-            return Promise.reject(
-                new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    'Expected start version >= 1',
-                ),
-            )
-        }
-
-        if (!Number.isSafeInteger(start)) {
-            return Promise.reject(
-                new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    'Expected start version to be a safe integer',
-                ),
-            )
-        }
-
-        if (end < 1) {
-            return Promise.reject(
-                new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    'Expected end version >= 1',
-                ),
-            )
-        }
-
-        if (!Number.isSafeInteger(end)) {
-            return Promise.reject(
-                new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    'Expected end version to be a safe integer',
-                ),
-            )
-        }
-
-        const remoteOperations = this.remoteOperations.get(id)
-
-        if (!remoteOperations) {
-            return Promise.resolve([])
-        }
-
-        return Promise.resolve(remoteOperations.slice(start - 1, end - 1))
+        minVersion: DocumentVersion = 1,
+        maxVersion: DocumentVersion = Number.MAX_SAFE_INTEGER,
+    ): Promise<Operation[]> {
+        return this.getContext(type, id).remoteOperations.filter(
+            operation =>
+                operation.version >= minVersion &&
+                operation.version <= maxVersion,
+        )
     }
 
-    public saveLocalOperations(
-        _id: DocumentId,
-        _operations: [DocumentOperation],
-    ): Promise<undefined> {
-        return Promise.reject(new Error('Not implemented'))
+    public async saveLocalOperation(operation: Operation): Promise<void> {
+        assertOperation(operation)
+
+        // Check clientId.
+        if (operation.client !== this.clientId) {
+            throw new SyncOtError(ErrorCodes.UnexpectedClientId)
+        }
+
+        const context = this.getContext(operation.type, operation.id)
+        const { localOperations, remoteOperations, sequence } = context
+        const expectedSequence = sequence + 1
+
+        if (operation.sequence !== expectedSequence) {
+            throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+        }
+
+        if (localOperations.length > 0) {
+            if (
+                localOperations[localOperations.length - 1].version !==
+                operation.version
+            ) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+        } else if (remoteOperations.length > 0) {
+            if (
+                remoteOperations[remoteOperations.length - 1].version !==
+                operation.version
+            ) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+        } else if (operation.version !== 1) {
+            throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+        }
+
+        localOperations.push(operation)
+        context.sequence = expectedSequence
     }
 
-    public loadLocalOperations(
-        _id: DocumentId,
-        _start?: SequenceNumber,
-        _end?: SequenceNumber,
-    ): Promise<[DocumentOperation]> {
-        return Promise.reject(new Error('Not implemented'))
+    public async loadLocalOperations(
+        type: TypeName,
+        id: DocumentId,
+        minSequenceNumber: SequenceNumber = 1,
+        maxSequenceNumber: SequenceNumber = Number.MAX_SAFE_INTEGER,
+    ): Promise<Operation[]> {
+        return this.getContext(type, id).localOperations.filter(
+            operation =>
+                operation.sequence >= minSequenceNumber &&
+                operation.sequence <= maxSequenceNumber,
+        )
     }
+
+    private getContext(type: TypeName, id: DocumentId): Context {
+        const typeMap = this.contexts
+        let idMap = typeMap.get(type)
+
+        if (idMap == null) {
+            idMap = new Map()
+            typeMap.set(type, idMap)
+        }
+
+        let context = idMap.get(id)
+
+        if (context == null) {
+            context = {
+                localOperations: [],
+                remoteOperations: [],
+                sequence: 0,
+            }
+            idMap.set(id, context)
+        }
+
+        return context
+    }
+}
+
+/**
+ * Options for `createClientStorage`.
+ */
+export interface CreateClientStorageParams {
+    clientId: ClientId
+    typeManager: TypeManager
+}
+
+/**
+ * Creates a new `ClientStorage` instance, which stores the data in memory.
+ */
+export function createClientStorage({
+    clientId,
+    typeManager,
+}: CreateClientStorageParams): ClientStorage {
+    return new MemoryClientStorage(clientId, typeManager)
 }
