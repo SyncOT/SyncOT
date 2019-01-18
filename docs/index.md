@@ -9,7 +9,7 @@ The main components of the system are:
 -   `Operation`: Describes a content change.
 -   `Snapshot`: Represents the `Document`'s content at a particular version.
 -   `Document`: Brings the related `Operation`s and `Snapshot`s together to define a read-write, real-time-synchronised view of the underlying data. The `Document`'s identity is defined by its immutable `id` and `type` properties.
--   `Type`: Defines the structure of `Operation` and `Snapshot` data and how they interact with each other.
+-   `Type`: Defines the structure of `Operation` and `Snapshot` data and metadata, and how they interact with each other.
 
 # Storage
 
@@ -28,8 +28,10 @@ The version number is always incremented by one, so it's always clear what the v
 
 # Metadata
 
-Metadata can be used to store any additional information which does not affect the main content, for example the operation timestamp or presence information (eg user's cursor location in a text document). Some metadata items might be relevant long term, eg timestamps, while others could become irrelevant in seconds, eg cursor location.
+Metadata can be used to store any additional information which does not affect the main content, eg a timestamp, user id, or cursor position in a text document.
+Some of that metadata might be relevant only for a short time, eg the cursor position, so it might be tempting to avoid storing it in order to save some space. I decided not to make any assumptions and simply always store all metadata because it:
 
-## Metadata Storage
-
-To avoid making potentially incorrect assumptions and to simplify the implementation, `SyncOT` always stores all metadata. If some or all of that metadata becomes obsolete, it can be purged to save storage space. `SyncOT` provides an API to facilitate purging metadata in a safe way.
+-   **greatly** simplifies the implementation the whole library,
+-   always provides full, consistent and accurate information to the `Type`s,
+-   is unlikely to incur much overhead due to its usually small size, compression (eg [MongoDB compression](https://www.mongodb.com/blog/post/new-compression-options-mongodb-30)) and removal of older operations from the client-side storage,
+-   the storage requirements can be reduced further by composing multiple older operations into fewer bigger operations, if necessary. Unfortunately, this would involve changing the history, so it should be attempted only as the last resort and with great care. SyncOT will not support it unless clearly necessary.
