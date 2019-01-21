@@ -35,3 +35,7 @@ Some of that metadata might be relevant only for a short time, eg the cursor pos
 -   always provides full, consistent and accurate information to the `Type`s,
 -   is unlikely to incur much overhead due to its usually small size, compression (eg [MongoDB compression](https://www.mongodb.com/blog/post/new-compression-options-mongodb-30)) and removal of older operations from the client-side storage,
 -   the storage requirements can be reduced further by composing multiple older operations into fewer bigger operations, if necessary. Unfortunately, this would involve changing the history, so it should be attempted only as the last resort and with great care. SyncOT will not support it unless clearly necessary.
+
+# Immutable Data
+
+All `Operation`s and `Snapshot`s are immutable across the whole system, which makes it significantly simpler and less error prone compared to one in which mutations are allowed. One important consequence of this decision is that any `Type` updates must be backwards compatible down to the very first version. Any breaking changes in a `Type` implementation would require definition of a new `Type` and manual data migration, which is outside the scope of this project.
