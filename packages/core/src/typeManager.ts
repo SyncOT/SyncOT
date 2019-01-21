@@ -30,7 +30,8 @@ export interface TypeManager {
      * Forwards the call to `Type#transform`, if possible,
      * and falls back to calling `Type#transformX`.
      * If neither `Type#transform` nor `Type#transformX` is defined,
-     * returns unchanged `operation`, which is the correct behaviour for CRDT types.
+     * returns `operation` with an updated version,
+     * which is the correct behaviour for CRDT types.
      */
     transform(
         operation: Operation,
@@ -42,7 +43,8 @@ export interface TypeManager {
      * Forwards the call to `Type#transformX`, if possible,
      * and falls back to calling `Type#transform`.
      * If neither `Type#transform` nor `Type#transformX` is defined,
-     * returns unchanged `operation1` and `operation2`, which is the correct behaviour for CRDT types.
+     * returns `operation1` and `operation2` with updated versions,
+     * which is the correct behaviour for CRDT types.
      */
     transformX(
         operation1: Operation,

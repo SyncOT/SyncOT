@@ -52,7 +52,7 @@ class SimpleTypeManager implements TypeManager {
                 ? type.transformX(operation, anotherOperation)[0]
                 : type.transformX(anotherOperation, operation)[1]
         } else {
-            return operation
+            return { ...operation, version: operation.version + 1 }
         }
     }
 
@@ -70,7 +70,10 @@ class SimpleTypeManager implements TypeManager {
                 type.transform(operation2, operation1, false),
             ] as [Operation, Operation]
         } else {
-            return [operation1, operation2] as [Operation, Operation]
+            return [
+                { ...operation1, version: operation1.version + 1 },
+                { ...operation2, version: operation2.version + 1 },
+            ] as [Operation, Operation]
         }
     }
 

@@ -184,12 +184,15 @@ export const typeManagerTests = (createTypeManager: () => TypeManager) => {
                         operation2,
                     )
                 })
-                test('does not transform the operation', () => {
+                test('performs a default transformation', () => {
                     type.transform = undefined
                     type.transformX = undefined
                     expect(
                         typeManager.transform(operation1, operation2, true),
-                    ).toBe(operation1)
+                    ).toEqual({
+                        ...operation1,
+                        version: operation1.version + 1,
+                    })
                 })
             })
 
@@ -235,12 +238,15 @@ export const typeManagerTests = (createTypeManager: () => TypeManager) => {
                         operation1,
                     )
                 })
-                test('does not transform the operation', () => {
+                test('performs a default transformation', () => {
                     type.transform = undefined
                     type.transformX = undefined
                     expect(
                         typeManager.transform(operation1, operation2, false),
-                    ).toBe(operation1)
+                    ).toEqual({
+                        ...operation1,
+                        version: operation1.version + 1,
+                    })
                 })
             })
         })
@@ -289,12 +295,12 @@ export const typeManagerTests = (createTypeManager: () => TypeManager) => {
                     false,
                 )
             })
-            test('does not transform the operations', () => {
+            test('performs a default transformation', () => {
                 type.transform = undefined
                 type.transformX = undefined
                 expect(typeManager.transformX(operation1, operation2)).toEqual([
-                    operation1,
-                    operation2,
+                    { ...operation1, version: operation1.version + 1 },
+                    { ...operation2, version: operation2.version + 1 },
                 ])
             })
         })

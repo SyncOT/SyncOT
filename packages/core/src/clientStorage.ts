@@ -66,8 +66,8 @@ export interface ClientStorage {
      * Fails with `UnexpectedVersionNumber`, if trying to save an operation
      * with a version number which is not equal to:
      *
-     * - the last local operation version + 1, if it the operation exists, or
-     * - the last remote operation version + 1, if it the operation exists, or
+     * - the last local operation version + 1, if it exists, or
+     * - the last remote operation version + 1, if it exists, or
      * - 1.
      */
     saveLocalOperation(operation: Operation): Promise<void>
