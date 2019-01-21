@@ -125,14 +125,14 @@ class MemoryClientStorage implements ClientStorage {
 
         if (localOperations.length > 0) {
             if (
-                localOperations[localOperations.length - 1].version !==
+                localOperations[localOperations.length - 1].version + 1 !==
                 operation.version
             ) {
                 throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
             }
         } else if (remoteOperations.length > 0) {
             if (
-                remoteOperations[remoteOperations.length - 1].version !==
+                remoteOperations[remoteOperations.length - 1].version + 1 !==
                 operation.version
             ) {
                 throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)

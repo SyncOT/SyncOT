@@ -8,6 +8,7 @@ module.exports = {
     collectCoverageFrom: [
         'packages/*/src/**/*.{ts,tsx,js,jsx}',
         '!packages/*/src/**/*.test.{ts,tsx,js,jsx}',
+        '!packages/*/src/**/*Tests.{ts,tsx,js,jsx}',
         '!**/node_modules/**',
     ],
 }

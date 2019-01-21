@@ -1,12 +1,4 @@
-import {
-    ClientId,
-    clientStorageTests,
-    createTypeManager,
-    TypeManager,
-} from '@syncot/core'
-import { createClientStorage } from './memoryClientStorage'
+import { clientStorageTests } from '@syncot/core'
+import { createClientStorage } from './index'
 
-const clientId: ClientId = 'client-id'
-const typeManager: TypeManager = createTypeManager()
-
-clientStorageTests(() => createClientStorage({ clientId, typeManager }))
+clientStorageTests(createClientStorage)

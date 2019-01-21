@@ -48,8 +48,8 @@ export interface ClientStorage {
     loadRemoteOperations(
         type: TypeName,
         id: DocumentId,
-        minVersion: DocumentVersion,
-        maxVersion: DocumentVersion,
+        minVersion?: DocumentVersion,
+        maxVersion?: DocumentVersion,
     ): Promise<Operation[]>
 
     /**
@@ -83,7 +83,7 @@ export interface ClientStorage {
     loadLocalOperations(
         type: TypeName,
         id: DocumentId,
-        minSequenceNumber: SequenceNumber,
-        maxSequenceNumber: SequenceNumber,
+        minSequenceNumber?: SequenceNumber,
+        maxSequenceNumber?: SequenceNumber,
     ): Promise<Operation[]>
 }
