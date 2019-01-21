@@ -14,6 +14,8 @@ export const typeManagerTests = (createTypeManager: () => TypeManager) => {
             data: 0,
             id,
             kind: 'Snapshot',
+            meta: 0,
+            schema: 0,
             sequence: 0,
             type: typeName,
             version: 0,
@@ -30,10 +32,12 @@ export const typeManagerTests = (createTypeManager: () => TypeManager) => {
             data: 0,
             id,
             kind: 'Operation',
+            meta: 0,
+            schema: 0,
             sequence: 0,
             type: typeName,
             version: 0,
-        } as Operation
+        }
         const operation2: Operation = { ...operation1 }
         const operation3: Operation = { ...operation1 }
         const operation4: Operation = { ...operation1 }

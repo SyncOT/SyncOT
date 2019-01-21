@@ -13,6 +13,8 @@ const operation: Operation = {
     data: null,
     id: '1',
     kind: 'Operation',
+    meta: null,
+    schema: 0,
     sequence: 2,
     type: 't',
     version: 1,
@@ -23,6 +25,8 @@ const snapshot: Snapshot = {
     data: null,
     id: '1',
     kind: 'Snapshot',
+    meta: null,
+    schema: 0,
     sequence: 2,
     type: 't',
     version: 1,
@@ -38,18 +42,25 @@ describe('validateOperation', () => {
         expect(error.code).toBe(ErrorCodes.InvalidOperation)
         expect(error.details).toEqual({ property: null })
     })
-    test.each(['client', 'data', 'id', 'kind', 'sequence', 'type', 'version'])(
-        'invalid %s',
-        property => {
-            const error = validateOperation({
-                ...operation,
-                [property]: undefined as any,
-            }) as SyncOtError
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.InvalidOperation)
-            expect(error.details).toEqual({ property })
-        },
-    )
+    test.each([
+        'client',
+        'data',
+        'id',
+        'kind',
+        'meta',
+        'schema',
+        'sequence',
+        'type',
+        'version',
+    ])('invalid %s', property => {
+        const error = validateOperation({
+            ...operation,
+            [property]: undefined as any,
+        }) as SyncOtError
+        expect(error).toBeInstanceOf(SyncOtError)
+        expect(error.code).toBe(ErrorCodes.InvalidOperation)
+        expect(error.details).toEqual({ property })
+    })
     test('fail, if version is 0', () => {
         const error = validateOperation({
             ...operation,
@@ -71,18 +82,25 @@ describe('validateSnapshot', () => {
         expect(error.code).toBe(ErrorCodes.InvalidSnapshot)
         expect(error.details).toEqual({ property: null })
     })
-    test.each(['client', 'data', 'id', 'kind', 'sequence', 'type', 'version'])(
-        'invalid %s',
-        property => {
-            const error = validateSnapshot({
-                ...snapshot,
-                [property]: undefined as any,
-            }) as SyncOtError
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.InvalidSnapshot)
-            expect(error.details).toEqual({ property })
-        },
-    )
+    test.each([
+        'client',
+        'data',
+        'id',
+        'kind',
+        'meta',
+        'schema',
+        'sequence',
+        'type',
+        'version',
+    ])('invalid %s', property => {
+        const error = validateSnapshot({
+            ...snapshot,
+            [property]: undefined as any,
+        }) as SyncOtError
+        expect(error).toBeInstanceOf(SyncOtError)
+        expect(error.code).toBe(ErrorCodes.InvalidSnapshot)
+        expect(error.details).toEqual({ property })
+    })
     test('succeed, if version is 0', () => {
         expect(validateSnapshot({ ...snapshot, version: 0 })).toBe(undefined)
     })
