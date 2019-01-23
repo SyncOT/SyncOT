@@ -36,6 +36,14 @@ export enum ErrorCodes {
      */
     DuplicateType = 'DuplicateType',
     /**
+     * A service is not initialized.
+     */
+    NotInitialized = 'NotInitialized',
+    /**
+     * A service can't be initialized because it has been initialized already.
+     */
+    AlreadyInitialized = 'AlreadyInitialized',
+    /**
      * An operation has an unexpected clientId value.
      */
     UnexpectedClientId = 'UnexpectedClientId',

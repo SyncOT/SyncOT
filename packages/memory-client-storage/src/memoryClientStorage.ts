@@ -1,21 +1,27 @@
 import {
     assertOperation,
+    assertSnapshot,
     ClientId,
     ClientStorage,
+    ClientStorageStatus,
     DocumentId,
     DocumentVersion,
     ErrorCodes,
     Operation,
     SequenceNumber,
+    Snapshot,
     SyncOtError,
     TypeManager,
     TypeName,
 } from '@syncot/core'
 
 interface Context {
+    snapshot: Snapshot
     localOperations: Operation[]
     remoteOperations: Operation[]
-    sequence: SequenceNumber
+    lastRemoteVersion: DocumentVersion
+    lastSequence: SequenceNumber
+    lastVersion: DocumentVersion
 }
 type ContextMap = Map<TypeName, Map<DocumentId, Context>>
 
@@ -30,10 +36,74 @@ class MemoryClientStorage implements ClientStorage {
         private typeManager: TypeManager,
     ) {}
 
+    public async init(snapshot: Snapshot): Promise<void> {
+        assertSnapshot(snapshot)
+
+        const { type, id, version } = snapshot
+        const typeMap = this.contexts
+        let idMap = typeMap.get(type)
+
+        if (idMap == null) {
+            idMap = new Map()
+            typeMap.set(type, idMap)
+        }
+
+        if (idMap.has(id)) {
+            throw new SyncOtError(ErrorCodes.AlreadyInitialized)
+        }
+
+        idMap.set(id, {
+            lastRemoteVersion: version,
+            lastSequence: 0,
+            lastVersion: version,
+            localOperations: [],
+            remoteOperations: [],
+            snapshot,
+        })
+    }
+
+    public async clear(typeName: TypeName, id: DocumentId): Promise<void> {
+        const typeNameMap = this.contexts
+        const idMap = typeNameMap.get(typeName)
+
+        if (idMap && idMap.delete(id) && idMap.size === 0) {
+            typeNameMap.delete(typeName)
+        }
+    }
+
+    public async getStatus(
+        typeName: TypeName,
+        id: DocumentId,
+    ): Promise<ClientStorageStatus> {
+        const context = this.getContext(typeName, id)
+
+        if (context) {
+            return {
+                clientId: this.clientId,
+                id,
+                initialized: true,
+                lastRemoteVersion: context.lastRemoteVersion,
+                lastSequence: context.lastSequence,
+                lastVersion: context.lastVersion,
+                typeName,
+            }
+        } else {
+            return {
+                clientId: this.clientId,
+                id,
+                initialized: false,
+                lastRemoteVersion: 0,
+                lastSequence: 0,
+                lastVersion: 0,
+                typeName,
+            }
+        }
+    }
+
     public async saveRemoteOperation(operation: Operation): Promise<void> {
         assertOperation(operation)
 
-        const context = this.getContext(operation.type, operation.id)
+        const context = this.getContextRequired(operation.type, operation.id)
         const { localOperations, remoteOperations } = context
 
         if (operation.client === this.clientId) {
@@ -100,7 +170,7 @@ class MemoryClientStorage implements ClientStorage {
         minVersion: DocumentVersion = 1,
         maxVersion: DocumentVersion = Number.MAX_SAFE_INTEGER,
     ): Promise<Operation[]> {
-        return this.getContext(type, id).remoteOperations.filter(
+        return this.getContextRequired(type, id).remoteOperations.filter(
             operation =>
                 operation.version >= minVersion &&
                 operation.version <= maxVersion,
@@ -115,8 +185,12 @@ class MemoryClientStorage implements ClientStorage {
             throw new SyncOtError(ErrorCodes.UnexpectedClientId)
         }
 
-        const context = this.getContext(operation.type, operation.id)
-        const { localOperations, remoteOperations, sequence } = context
+        const context = this.getContextRequired(operation.type, operation.id)
+        const {
+            localOperations,
+            remoteOperations,
+            lastSequence: sequence,
+        } = context
         const expectedSequence = sequence + 1
 
         if (operation.sequence !== expectedSequence) {
@@ -142,7 +216,7 @@ class MemoryClientStorage implements ClientStorage {
         }
 
         localOperations.push(operation)
-        context.sequence = expectedSequence
+        context.lastSequence = expectedSequence
     }
 
     public async loadLocalOperations(
@@ -151,31 +225,38 @@ class MemoryClientStorage implements ClientStorage {
         minSequenceNumber: SequenceNumber = 1,
         maxSequenceNumber: SequenceNumber = Number.MAX_SAFE_INTEGER,
     ): Promise<Operation[]> {
-        return this.getContext(type, id).localOperations.filter(
+        return this.getContextRequired(type, id).localOperations.filter(
             operation =>
                 operation.sequence >= minSequenceNumber &&
                 operation.sequence <= maxSequenceNumber,
         )
     }
 
-    private getContext(type: TypeName, id: DocumentId): Context {
-        const typeMap = this.contexts
-        let idMap = typeMap.get(type)
+    private getContext(
+        typeName: TypeName,
+        id: DocumentId,
+    ): Context | undefined {
+        const typeNameMap = this.contexts
+        const idMap = typeNameMap.get(typeName)
 
         if (idMap == null) {
-            idMap = new Map()
-            typeMap.set(type, idMap)
+            return undefined
         }
 
-        let context = idMap.get(id)
+        const context = idMap.get(id)
 
         if (context == null) {
-            context = {
-                localOperations: [],
-                remoteOperations: [],
-                sequence: 0,
-            }
-            idMap.set(id, context)
+            return undefined
+        }
+
+        return context
+    }
+
+    private getContextRequired(typeName: TypeName, id: DocumentId): Context {
+        const context = this.getContext(typeName, id)
+
+        if (context == null) {
+            throw new SyncOtError(ErrorCodes.NotInitialized)
         }
 
         return context

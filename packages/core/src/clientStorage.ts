@@ -1,18 +1,56 @@
 import {
+    ClientId,
     DocumentId,
     DocumentVersion,
     Operation,
     SequenceNumber,
+    Snapshot,
     TypeName,
 } from './type'
 
+export interface ClientStorageStatus {
+    readonly clientId: ClientId
+    readonly id: DocumentId
+    readonly initialized: boolean
+    readonly lastRemoteVersion: DocumentVersion
+    readonly lastSequence: SequenceNumber
+    readonly lastVersion: DocumentVersion
+    readonly typeName: TypeName
+}
+
 /**
- * An interface for storing operations in the client, eg in memory, IndexedDB, etc.
- * Operations associated with different document types and IDs are managed separately.
+ * An interface for storing snapshots and operations on the client, eg in memory, IndexedDB, etc.
+ * Snapshots and Operations associated with different document types and IDs are managed separately.
  * Remote operations have been already saved on the server.
  * Local operations have not been saved on the server yet but are expected to be saved in the future.
+ * Snapshots can be saved only for versions which have been already saved on the server.
  */
 export interface ClientStorage {
+    /**
+     * Initialises storage for operations with types and ids matching those in the specified snapshot.
+     * Storage for the specific type and id combination can be re-initialised only after clearing it first.
+     * Storage must be initialised before any operations can be stored.
+     *
+     * It fails with:
+     *
+     * - `InvalidSnapshot`, if `snapshot` is invalid.
+     * - `AlreadyInitialized`, if the storage has been already initialized for the particular combination
+     *   of type and id.
+     *
+     * @param snapshot The initial snapshot, which may be at any version.
+     */
+    init(snapshot: Snapshot): Promise<void>
+
+    /**
+     * Removes all data associated with the specified typeName and id.
+     */
+    clear(typeName: TypeName, id: DocumentId): Promise<void>
+
+    /**
+     * Returns the storage status for the specified combination of type and id.
+     */
+    getStatus(typeName: TypeName, id: DocumentId): Promise<ClientStorageStatus>
+
     /**
      * Saves a remote operation and updates local operations as necessary.
      *

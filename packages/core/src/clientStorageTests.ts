@@ -106,6 +106,7 @@ export const clientStorageTests = (
                 clientId: client,
                 typeManager,
             })
+            clientStorage.init(type.create(id))
         })
 
         test('save an invalid remote operation', async () => {
