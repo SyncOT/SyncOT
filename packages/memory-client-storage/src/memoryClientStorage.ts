@@ -16,12 +16,14 @@ import {
 } from '@syncot/core'
 
 interface Context {
-    snapshot: Snapshot
     localOperations: Operation[]
-    remoteOperations: Operation[]
     lastRemoteVersion: DocumentVersion
     lastSequence: SequenceNumber
     lastVersion: DocumentVersion
+    localIndex: number
+    operations: Operation[]
+    remoteOperations: Operation[]
+    snapshot: Snapshot
 }
 type ContextMap = Map<TypeName, Map<DocumentId, Context>>
 
@@ -56,7 +58,9 @@ class MemoryClientStorage implements ClientStorage {
             lastRemoteVersion: version,
             lastSequence: 0,
             lastVersion: version,
+            localIndex: 0,
             localOperations: [],
+            operations: [],
             remoteOperations: [],
             snapshot,
         })
@@ -98,6 +102,95 @@ class MemoryClientStorage implements ClientStorage {
                 typeName,
             }
         }
+    }
+
+    public async store(
+        operation: Operation,
+        local: boolean = false,
+    ): Promise<void> {
+        assertOperation(operation)
+
+        const context = this.getContextRequired(operation.type, operation.id)
+
+        if (local) {
+            // Store a new local operation.
+            if (operation.client !== this.clientId) {
+                throw new SyncOtError(ErrorCodes.UnexpectedClientId)
+            }
+
+            if (operation.sequence !== context.lastSequence + 1) {
+                throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+            }
+
+            if (operation.version !== context.lastVersion + 1) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+
+            context.operations.push(operation)
+            context.lastVersion++
+            context.lastSequence++
+        } else {
+            if (operation.version !== context.lastRemoteVersion + 1) {
+                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+            }
+
+            if (operation.client === this.clientId) {
+                // Store own remote operation.
+                if (context.localIndex >= context.operations.length) {
+                    throw new SyncOtError(ErrorCodes.UnexpectedClientId)
+                }
+
+                if (
+                    operation.sequence !==
+                    context.operations[context.localIndex].sequence
+                ) {
+                    throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+                }
+
+                context.localIndex++
+                context.lastRemoteVersion++
+            } else {
+                // Store foreign remote operation.
+                let remoteOperation = operation
+                const newOperations = [operation]
+
+                for (
+                    let i = context.localIndex, l = context.operations.length;
+                    i < l;
+                    ++i
+                ) {
+                    const localOperation = context.operations[i]
+                    const transformedOperations = this.typeManager.transformX(
+                        remoteOperation,
+                        localOperation,
+                    )
+                    remoteOperation = transformedOperations[0]
+                    newOperations.push(transformedOperations[1])
+                }
+
+                for (let i = 0, l = newOperations.length; i < l; ++i) {
+                    context.operations[context.localIndex + i] =
+                        newOperations[i]
+                }
+
+                context.localIndex++
+                context.lastRemoteVersion++
+                context.lastVersion++
+            }
+        }
+    }
+
+    public async load(
+        typeName: TypeName,
+        id: DocumentId,
+        minVersion: DocumentVersion = 1,
+        maxVersion: DocumentVersion = Number.MAX_SAFE_INTEGER,
+    ): Promise<Operation[]> {
+        return this.getContextRequired(typeName, id).operations.filter(
+            operation =>
+                operation.version >= minVersion &&
+                operation.version <= maxVersion,
+        )
     }
 
     public async saveRemoteOperation(operation: Operation): Promise<void> {

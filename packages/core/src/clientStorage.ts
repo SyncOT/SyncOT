@@ -52,6 +52,47 @@ export interface ClientStorage {
     getStatus(typeName: TypeName, id: DocumentId): Promise<ClientStorageStatus>
 
     /**
+     * Stores the specified operation.
+     *
+     * It fails with
+     *
+     * - `InvalidOperation`, if `operation` is not valid.
+     * - `NotInitialized`, if this `ClientStorage` has not been initialized for `operation.type` and `operation.id`.
+     *
+     * If `local` is `false`, then it fails with:
+     *
+     * - `UnexpectedVersionNumber`, if `operation.version` is not equal to `lastRemoteVersion + 1`.
+     * - `UnexpectedClientId`, if `operation.client` is the `clientId` of this ClientStorage instance
+     *   and there are no existing local operations.
+     * - `UnexpectedSequenceNumber`, if `operation.client` is the `clientId` of this ClientStorage instance and
+     *   `operation.sequence` is not equal to `sequence` of the first local operation.
+     *
+     * If `local` is `true`, then it fails with:
+     *
+     * - `UnexpectedClientId`, if `operation.client` is not the `clientId` of this ClientStorage instance.
+     * - `UnexpectedSequenceNumber`, if `operation.sequence` is not equal to `lastSequence + 1`.
+     * - `UnexpectedVersionNumber`, if `operation.version` is not equal to `lastVersion + 1`.
+     *
+     * @param operation The operation to store.
+     * @param local If `true`, the operation has not been saved on the server yet and
+     *   is subject to change when other remote (non-local) operations are saved.
+     *   If `false`, the operation has been already saved on the server and will never change.
+     *   Defaults to `false`.
+     */
+    store(operation: Operation, local?: boolean): Promise<void>
+
+    /**
+     * Loads operations with the specified type and id.
+     * The results may be optionally restricted to the specified *inclusive* range of versions.
+     */
+    load(
+        typeName: TypeName,
+        id: DocumentId,
+        minVersion?: DocumentVersion,
+        maxVersion?: DocumentVersion,
+    ): Promise<Operation[]>
+
+    /**
      * Saves a remote operation and updates local operations as necessary.
      *
      * Fails with `InvalidOperation`, if `operation` is not valid.
