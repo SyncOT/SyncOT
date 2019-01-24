@@ -1,15 +1,16 @@
-import { ClientStorage, ClientStorageStatus } from './clientStorage'
-import { ErrorCodes, SyncOtError } from './error'
-import { createTypeManager } from './simpleTypeManager'
 import {
     ClientId,
+    createTypeManager,
     DocumentId,
+    ErrorCodes,
     Operation,
     Snapshot,
+    SyncOtError,
     Type,
+    TypeManager,
     TypeName,
-} from './type'
-import { TypeManager } from './typeManager'
+} from '@syncot/core'
+import { ClientStorage, ClientStorageStatus } from './clientStorage'
 
 interface ListSnapshot extends Snapshot {
     data: number[]

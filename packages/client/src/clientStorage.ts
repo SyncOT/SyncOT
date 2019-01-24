@@ -6,7 +6,7 @@ import {
     SequenceNumber,
     Snapshot,
     TypeName,
-} from './type'
+} from '@syncot/core'
 
 export interface ClientStorageStatus {
     readonly clientId: ClientId

@@ -1,5 +1,3 @@
-export * from './clientStorage'
-export * from './clientStorageTests'
 export * from './error'
 export * from './json'
 export * from './simpleTypeManager'

@@ -1,9 +1,8 @@
+import { ClientStorage, ClientStorageStatus } from '@syncot/client'
 import {
     assertOperation,
     assertSnapshot,
     ClientId,
-    ClientStorage,
-    ClientStorageStatus,
     DocumentId,
     DocumentVersion,
     ErrorCodes,
