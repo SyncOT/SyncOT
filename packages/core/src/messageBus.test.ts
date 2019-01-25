@@ -1,4 +1,4 @@
-import { MessageBus } from './messageBus'
+import { MessageBus } from '.'
 
 let messageBus: MessageBus
 

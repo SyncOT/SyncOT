@@ -1,4 +1,4 @@
-import { ErrorCodes, SyncOtError } from './error'
+import { ErrorCodes, SyncOtError } from '.'
 
 test('has code and message', () => {
     const error = new SyncOtError(ErrorCodes.NotImplemented, 'Not implemented')

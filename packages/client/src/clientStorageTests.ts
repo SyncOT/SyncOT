@@ -10,7 +10,7 @@ import {
     TypeManager,
     TypeName,
 } from '@syncot/core'
-import { ClientStorage, ClientStorageStatus } from './clientStorage'
+import { ClientStorage, ClientStorageStatus } from '.'
 
 interface ListSnapshot extends Snapshot {
     data: number[]

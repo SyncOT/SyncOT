@@ -1,4 +1,4 @@
-import { throwError, validate, Validator } from './util'
+import { throwError, validate, Validator } from '.'
 
 const error = new Error('test error')
 const numberError = new Error('number error')

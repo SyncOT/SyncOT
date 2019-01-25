@@ -1,4 +1,4 @@
 import { clientStorageTests } from '@syncot/client'
-import { createClientStorage } from './index'
+import { createClientStorage } from '.'
 
 clientStorageTests(createClientStorage)
