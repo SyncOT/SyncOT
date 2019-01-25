@@ -1,14 +1,6 @@
 import { SyncOtError } from './error'
 
 /**
- * Throws an error with the specified message.
- * Call this function in the sections of code which should be unreachable.
- */
-export function never(message?: string): never {
-    throw new Error(message || 'Should never happen')
-}
-
-/**
  * The type of validation result.
  */
 export type ValidationResult<E extends Error = SyncOtError> = E | undefined

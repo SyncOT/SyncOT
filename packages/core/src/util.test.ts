@@ -1,4 +1,4 @@
-import { never, throwError, validate, Validator } from './util'
+import { throwError, validate, Validator } from './util'
 
 const error = new Error('test error')
 const numberError = new Error('number error')
@@ -8,15 +8,6 @@ const numberValidator: Validator<any, Error> = (target: any) =>
     typeof target === 'number' ? undefined : numberError
 const positiveValidator: Validator<any, Error> = (target: any) =>
     target > 0 ? undefined : positiveError
-
-describe('never', () => {
-    test('throws with default message', () => {
-        expect(() => never()).toThrowError('Should never happen')
-    })
-    test('throws with a custom message', () => {
-        expect(() => never('custom message')).toThrowError('custom message')
-    })
-})
 
 describe('throwError', () => {
     test('throws the specified error', () => {
