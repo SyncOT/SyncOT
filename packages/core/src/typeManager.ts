@@ -1,5 +1,6 @@
 import { ErrorCodes, SyncOtError } from './error'
 import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
+import { Interface } from './util'
 
 function typeNotFound(name: TypeName): never {
     throw new SyncOtError(ErrorCodes.TypeNotFound, `Type not found: ${name}`)
@@ -153,7 +154,7 @@ class TypeManagerImpl {
 }
 
 // tslint:disable-next-line:no-empty-interface
-export interface TypeManager extends TypeManagerImpl {}
+export interface TypeManager extends Interface<TypeManagerImpl> {}
 
 export function createTypeManager(): TypeManager {
     return new TypeManagerImpl()
