@@ -121,428 +121,391 @@ export const clientStorageTests = (
     Object.freeze(snapshot.data)
     Object.freeze(status)
 
-    describe('ClientStorage', () => {
-        let clientStorage: ClientStorage
+    let clientStorage: ClientStorage
 
-        const getStatus = (typeNameIn = typeName, idIn = id) =>
-            clientStorage.getStatus(typeNameIn, idIn)
+    const getStatus = (typeNameIn = typeName, idIn = id) =>
+        clientStorage.getStatus(typeNameIn, idIn)
 
-        const load = (typeNameIn = typeName, idIn = id) =>
-            clientStorage.load(typeNameIn, idIn)
+    const load = (typeNameIn = typeName, idIn = id) =>
+        clientStorage.load(typeNameIn, idIn)
+
+    beforeEach(() => {
+        clientStorage = createClientStorage({
+            clientId: client,
+            typeManager,
+        })
+    })
+
+    describe('getStatus, init, clear', () => {
+        const status0 = { ...status, lastRemoteVersion: 0, lastVersion: 0 }
+        const uninitializedStatus0 = { ...status0, initialized: false }
+
+        test('getStatus initialized to version 0', async () => {
+            await clientStorage.init({ ...snapshot, version: 0 })
+            await expect(getStatus()).resolves.toEqual(status0)
+            await expect(load()).resolves.toEqual([])
+        })
+
+        test('getStatus initialized to version > 0', async () => {
+            await clientStorage.init(snapshot)
+            await expect(getStatus()).resolves.toEqual(status)
+            await expect(load()).resolves.toEqual([])
+        })
+
+        test('getStatus uninitialized', async () => {
+            await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
+        })
+
+        test('getStatus after clear', async () => {
+            await clientStorage.init(snapshot)
+            await clientStorage.clear(typeName, id)
+            await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
+        })
+
+        test('init twice', async () => {
+            expect.assertions(4)
+            await clientStorage.init(snapshot)
+            await clientStorage
+                .init(snapshot)
+                .catch(expectError(ErrorCodes.AlreadyInitialized))
+            await expect(getStatus()).resolves.toEqual(status)
+            await expect(load()).resolves.toEqual([])
+        })
+
+        test('clear twice', async () => {
+            await clientStorage.init(snapshot)
+            await clientStorage.clear(typeName, id)
+            await clientStorage.clear(typeName, id)
+            await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
+        })
+
+        test('init 2 different type-id combinations', async () => {
+            const id2 = 'id-2'
+            await clientStorage.init(snapshot)
+            await clientStorage.init({ ...snapshot, id: id2, version: 0 })
+            await expect(getStatus()).resolves.toEqual(status)
+            await expect(getStatus(typeName, id2)).resolves.toEqual({
+                ...status0,
+                id: id2,
+            })
+            await expect(load()).resolves.toEqual([])
+            await expect(load(typeName, id2)).resolves.toEqual([])
+        })
+    })
+
+    describe('store, load', () => {
+        const remoteOperation = { ...operation, client: remoteClient }
 
         beforeEach(() => {
-            clientStorage = createClientStorage({
-                clientId: client,
-                typeManager,
-            })
+            clientStorage.init(snapshot)
         })
 
-        describe('getStatus, init, clear', () => {
-            const status0 = { ...status, lastRemoteVersion: 0, lastVersion: 0 }
-            const uninitializedStatus0 = { ...status0, initialized: false }
-
-            test('getStatus initialized to version 0', async () => {
-                await clientStorage.init({ ...snapshot, version: 0 })
-                await expect(getStatus()).resolves.toEqual(status0)
-                await expect(load()).resolves.toEqual([])
-            })
-
-            test('getStatus initialized to version > 0', async () => {
-                await clientStorage.init(snapshot)
-                await expect(getStatus()).resolves.toEqual(status)
-                await expect(load()).resolves.toEqual([])
-            })
-
-            test('getStatus uninitialized', async () => {
-                await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
-            })
-
-            test('getStatus after clear', async () => {
-                await clientStorage.init(snapshot)
-                await clientStorage.clear(typeName, id)
-                await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
-            })
-
-            test('init twice', async () => {
-                expect.assertions(4)
-                await clientStorage.init(snapshot)
+        describe('uninitialized', () => {
+            test('load', async () => {
+                expect.assertions(2)
                 await clientStorage
-                    .init(snapshot)
-                    .catch(expectError(ErrorCodes.AlreadyInitialized))
-                await expect(getStatus()).resolves.toEqual(status)
-                await expect(load()).resolves.toEqual([])
+                    .load(typeName, 'id-2')
+                    .catch(expectError(ErrorCodes.NotInitialized))
             })
-
-            test('clear twice', async () => {
-                await clientStorage.init(snapshot)
-                await clientStorage.clear(typeName, id)
-                await clientStorage.clear(typeName, id)
-                await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
-            })
-
-            test('init 2 different type-id combinations', async () => {
-                const id2 = 'id-2'
-                await clientStorage.init(snapshot)
-                await clientStorage.init({ ...snapshot, id: id2, version: 0 })
-                await expect(getStatus()).resolves.toEqual(status)
-                await expect(getStatus(typeName, id2)).resolves.toEqual({
-                    ...status0,
-                    id: id2,
-                })
-                await expect(load()).resolves.toEqual([])
-                await expect(load(typeName, id2)).resolves.toEqual([])
-            })
-        })
-
-        describe('store, load', () => {
-            const remoteOperation = { ...operation, client: remoteClient }
-
-            beforeEach(() => {
-                clientStorage.init(snapshot)
-            })
-
-            describe('uninitialized', () => {
-                test('load', async () => {
+            describe('store', () => {
+                test.each([undefined, false, true])('local=%s', async local => {
                     expect.assertions(2)
+                    await clientStorage.clear(typeName, id)
                     await clientStorage
-                        .load(typeName, 'id-2')
+                        .store(operation, local)
                         .catch(expectError(ErrorCodes.NotInitialized))
                 })
-                describe('store', () => {
-                    test.each([undefined, false, true])(
-                        'local=%s',
-                        async local => {
-                            expect.assertions(2)
-                            await clientStorage.clear(typeName, id)
-                            await clientStorage
-                                .store(operation, local)
-                                .catch(expectError(ErrorCodes.NotInitialized))
-                        },
-                    )
+            })
+        })
+
+        describe('store an invalid operation', () => {
+            test.each([undefined, false, true])('local=%s', async local => {
+                expect.assertions(3)
+                await clientStorage
+                    .store({ ...operation, data: undefined as any }, local)
+                    .catch(expectError(ErrorCodes.InvalidOperation))
+                await expect(load()).resolves.toEqual([])
+            })
+        })
+
+        describe('store a remote operation', () => {
+            test.each([undefined, false])('local=%s', async local => {
+                await clientStorage.store(remoteOperation, local)
+                await expect(getStatus()).resolves.toEqual({
+                    ...status,
+                    lastRemoteVersion: 6,
+                    lastVersion: 6,
                 })
+                await expect(load()).resolves.toEqual([remoteOperation])
+            })
+            test('local=true', async () => {
+                expect.assertions(4)
+                await clientStorage
+                    .store(remoteOperation, true)
+                    .catch(expectError(ErrorCodes.UnexpectedClientId))
+                await expect(getStatus()).resolves.toEqual(status)
+                await expect(load()).resolves.toEqual([])
+            })
+        })
+
+        describe('store a local operation', () => {
+            test.each([undefined, false])('local=undefined', async local => {
+                expect.assertions(4)
+                await clientStorage
+                    .store(operation, local)
+                    .catch(expectError(ErrorCodes.UnexpectedClientId))
+                await expect(getStatus()).resolves.toEqual(status)
+                await expect(load()).resolves.toEqual([])
+            })
+            test('local=true', async () => {
+                await clientStorage.store(operation, true)
+                await expect(getStatus()).resolves.toEqual({
+                    ...status,
+                    lastSequence: 1,
+                    lastVersion: 6,
+                })
+                await expect(load()).resolves.toEqual([operation])
+            })
+        })
+
+        describe('store errors', () => {
+            const initialStatus = {
+                ...status,
+                lastRemoteVersion: 5,
+                lastSequence: 2,
+                lastVersion: 7,
+            }
+            const o0 = operation
+            const o1 = { ...operation, sequence: 2, version: 7 }
+
+            beforeEach(async () => {
+                await clientStorage.store(o0, true)
+                await clientStorage.store(o1, true)
             })
 
-            describe('store an invalid operation', () => {
-                test.each([undefined, false, true])('local=%s', async local => {
-                    expect.assertions(3)
-                    await clientStorage
-                        .store({ ...operation, data: undefined as any }, local)
-                        .catch(expectError(ErrorCodes.InvalidOperation))
-                    await expect(load()).resolves.toEqual([])
-                })
-            })
-
-            describe('store a remote operation', () => {
+            describe('UnexpectedVersionNumber', () => {
                 test.each([undefined, false])('local=%s', async local => {
-                    await clientStorage.store(remoteOperation, local)
-                    await expect(getStatus()).resolves.toEqual({
-                        ...status,
-                        lastRemoteVersion: 6,
-                        lastVersion: 6,
-                    })
-                    await expect(load()).resolves.toEqual([remoteOperation])
+                    expect.assertions(4)
+                    await clientStorage
+                        .store({ ...remoteOperation, version: 8 }, local)
+                        .catch(expectError(ErrorCodes.UnexpectedVersionNumber))
+                    await expect(getStatus()).resolves.toEqual(initialStatus)
+                    await expect(load()).resolves.toEqual([o0, o1])
                 })
                 test('local=true', async () => {
                     expect.assertions(4)
                     await clientStorage
-                        .store(remoteOperation, true)
-                        .catch(expectError(ErrorCodes.UnexpectedClientId))
-                    await expect(getStatus()).resolves.toEqual(status)
-                    await expect(load()).resolves.toEqual([])
+                        .store({ ...operation, sequence: 3, version: 6 }, true)
+                        .catch(expectError(ErrorCodes.UnexpectedVersionNumber))
+                    await expect(getStatus()).resolves.toEqual(initialStatus)
+                    await expect(load()).resolves.toEqual([o0, o1])
                 })
             })
 
-            describe('store a local operation', () => {
-                test.each([undefined, false])(
-                    'local=undefined',
-                    async local => {
-                        expect.assertions(4)
-                        await clientStorage
-                            .store(operation, local)
-                            .catch(expectError(ErrorCodes.UnexpectedClientId))
-                        await expect(getStatus()).resolves.toEqual(status)
-                        await expect(load()).resolves.toEqual([])
-                    },
-                )
+            describe('UnexpectedSequenceNumber', () => {
+                test.each([undefined, false])('local=%s', async local => {
+                    expect.assertions(4)
+                    await clientStorage
+                        .store({ ...operation, sequence: 4, version: 6 }, local)
+                        .catch(expectError(ErrorCodes.UnexpectedSequenceNumber))
+                    await expect(getStatus()).resolves.toEqual(initialStatus)
+                    await expect(load()).resolves.toEqual([o0, o1])
+                })
                 test('local=true', async () => {
-                    await clientStorage.store(operation, true)
-                    await expect(getStatus()).resolves.toEqual({
-                        ...status,
-                        lastSequence: 1,
-                        lastVersion: 6,
-                    })
-                    await expect(load()).resolves.toEqual([operation])
+                    expect.assertions(4)
+                    await clientStorage
+                        .store({ ...operation, sequence: 4, version: 8 }, true)
+                        .catch(expectError(ErrorCodes.UnexpectedSequenceNumber))
+                    await expect(getStatus()).resolves.toEqual(initialStatus)
+                    await expect(load()).resolves.toEqual([o0, o1])
                 })
             })
+        })
 
-            describe('store errors', () => {
-                const initialStatus = {
+        describe('store a remote operation with a local clientId', () => {
+            test.each([undefined, false])('local=%s', async local => {
+                const o1 = operation
+                const o2 = { ...operation, sequence: 2, version: 7 }
+                await clientStorage.store(o1, true)
+                await clientStorage.store(o2, true)
+                await clientStorage.store(o1, local)
+                await expect(getStatus()).resolves.toEqual({
                     ...status,
-                    lastRemoteVersion: 5,
+                    lastRemoteVersion: 6,
                     lastSequence: 2,
                     lastVersion: 7,
-                }
-                const o0 = operation
-                const o1 = { ...operation, sequence: 2, version: 7 }
-
-                beforeEach(async () => {
-                    await clientStorage.store(o0, true)
-                    await clientStorage.store(o1, true)
                 })
-
-                describe('UnexpectedVersionNumber', () => {
-                    test.each([undefined, false])('local=%s', async local => {
-                        expect.assertions(4)
-                        await clientStorage
-                            .store({ ...remoteOperation, version: 8 }, local)
-                            .catch(
-                                expectError(ErrorCodes.UnexpectedVersionNumber),
-                            )
-                        await expect(getStatus()).resolves.toEqual(
-                            initialStatus,
-                        )
-                        await expect(load()).resolves.toEqual([o0, o1])
-                    })
-                    test('local=true', async () => {
-                        expect.assertions(4)
-                        await clientStorage
-                            .store(
-                                { ...operation, sequence: 3, version: 6 },
-                                true,
-                            )
-                            .catch(
-                                expectError(ErrorCodes.UnexpectedVersionNumber),
-                            )
-                        await expect(getStatus()).resolves.toEqual(
-                            initialStatus,
-                        )
-                        await expect(load()).resolves.toEqual([o0, o1])
-                    })
-                })
-
-                describe('UnexpectedSequenceNumber', () => {
-                    test.each([undefined, false])('local=%s', async local => {
-                        expect.assertions(4)
-                        await clientStorage
-                            .store(
-                                { ...operation, sequence: 4, version: 6 },
-                                local,
-                            )
-                            .catch(
-                                expectError(
-                                    ErrorCodes.UnexpectedSequenceNumber,
-                                ),
-                            )
-                        await expect(getStatus()).resolves.toEqual(
-                            initialStatus,
-                        )
-                        await expect(load()).resolves.toEqual([o0, o1])
-                    })
-                    test('local=true', async () => {
-                        expect.assertions(4)
-                        await clientStorage
-                            .store(
-                                { ...operation, sequence: 4, version: 8 },
-                                true,
-                            )
-                            .catch(
-                                expectError(
-                                    ErrorCodes.UnexpectedSequenceNumber,
-                                ),
-                            )
-                        await expect(getStatus()).resolves.toEqual(
-                            initialStatus,
-                        )
-                        await expect(load()).resolves.toEqual([o0, o1])
-                    })
-                })
+                await expect(load()).resolves.toEqual([o1, o2])
             })
+        })
 
-            describe('store a remote operation with a local clientId', () => {
-                test.each([undefined, false])('local=%s', async local => {
-                    const o1 = operation
-                    const o2 = { ...operation, sequence: 2, version: 7 }
-                    await clientStorage.store(o1, true)
-                    await clientStorage.store(o2, true)
-                    await clientStorage.store(o1, local)
-                    await expect(getStatus()).resolves.toEqual({
-                        ...status,
-                        lastRemoteVersion: 6,
-                        lastSequence: 2,
-                        lastVersion: 7,
-                    })
-                    await expect(load()).resolves.toEqual([o1, o2])
-                })
-            })
-
-            describe('store a remote operation and transform local operations', () => {
-                test.each([undefined, false])('local=%s', async local => {
-                    // Initial remote operations.
-                    const o0 = { ...remoteOperation, version: 6 }
-                    const o1 = { ...remoteOperation, version: 7 }
-                    // Local operations.
-                    const o2 = {
-                        ...operation,
-                        // index < remote index (6), so the index should remain unchanged
-                        // and the remote index should be incremented.
-                        data: { index: 5, value: 0 },
-                        sequence: 1,
-                        version: 8,
-                    }
-                    const o3 = {
-                        ...operation,
-                        // index === transformed remote index (7), so index should be incremented
-                        // because the remote operation has the priority.
-                        data: { index: 7, value: 1 },
-                        sequence: 2,
-                        version: 9,
-                    }
-                    const o4 = {
-                        ...operation,
-                        // index > transformed remote index (7), so the index should be incremented.
-                        data: { index: 8, value: 2 },
-                        sequence: 3,
-                        version: 10,
-                    }
-                    const o5 = {
-                        ...operation,
-                        // index < transformed remote index (7), so the index should remain unchanged
-                        // and the remote index should be incremented.
-                        data: { index: 6, value: 3 },
-                        sequence: 4,
-                        version: 11,
-                    }
-                    // Remote operation which conflicts with the local operations.
-                    const o6 = {
-                        ...remoteOperation,
-                        data: { index: 6, value: 4 },
-                        version: 8,
-                    }
-                    // Transformed local operations.
-                    const o7 = {
-                        ...operation,
-                        data: { index: 5, value: 0 },
-                        sequence: 1,
-                        version: 9,
-                    }
-                    const o8 = {
-                        ...operation,
-                        data: { index: 8, value: 1 },
-                        sequence: 2,
-                        version: 10,
-                    }
-                    const o9 = {
-                        ...operation,
-                        data: { index: 9, value: 2 },
-                        sequence: 3,
-                        version: 11,
-                    }
-                    const o10 = {
-                        ...operation,
-                        data: { index: 6, value: 3 },
-                        sequence: 4,
-                        version: 12,
-                    }
-                    await clientStorage.store(o0)
-                    await clientStorage.store(o1)
-                    await clientStorage.store(o2, true)
-                    await clientStorage.store(o3, true)
-                    await clientStorage.store(o4, true)
-                    await clientStorage.store(o5, true)
-                    await clientStorage.store(o6, local)
-                    await expect(getStatus()).resolves.toEqual({
-                        ...status,
-                        lastRemoteVersion: 8,
-                        lastSequence: 4,
-                        lastVersion: 12,
-                    })
-                    await expect(load()).resolves.toEqual([
-                        o0,
-                        o1,
-                        o6,
-                        o7,
-                        o8,
-                        o9,
-                        o10,
-                    ])
-                })
-            })
-
-            describe('store with transformation error', () => {
-                test.each([undefined, false])('local=%s', async local => {
-                    const localOperation = { ...operation, data: null }
-                    expect.assertions(3)
-                    await clientStorage.store(localOperation, true)
-                    await clientStorage
-                        .store(remoteOperation, local)
-                        .catch(error => expect(error).toBe(transformError))
-                    await expect(getStatus()).resolves.toEqual({
-                        ...status,
-                        lastRemoteVersion: 5,
-                        lastSequence: 1,
-                        lastVersion: 6,
-                    })
-                    await expect(load()).resolves.toEqual([localOperation])
-                })
-            })
-
-            describe('load', () => {
+        describe('store a remote operation and transform local operations', () => {
+            test.each([undefined, false])('local=%s', async local => {
+                // Initial remote operations.
                 const o0 = { ...remoteOperation, version: 6 }
                 const o1 = { ...remoteOperation, version: 7 }
-                const o2 = { ...remoteOperation, version: 8 }
-                const o3 = { ...operation, sequence: 1, version: 9 }
-                const o4 = { ...operation, sequence: 2, version: 10 }
-                const o5 = { ...operation, sequence: 3, version: 11 }
+                // Local operations.
+                const o2 = {
+                    ...operation,
+                    // index < remote index (6), so the index should remain unchanged
+                    // and the remote index should be incremented.
+                    data: { index: 5, value: 0 },
+                    sequence: 1,
+                    version: 8,
+                }
+                const o3 = {
+                    ...operation,
+                    // index === transformed remote index (7), so index should be incremented
+                    // because the remote operation has the priority.
+                    data: { index: 7, value: 1 },
+                    sequence: 2,
+                    version: 9,
+                }
+                const o4 = {
+                    ...operation,
+                    // index > transformed remote index (7), so the index should be incremented.
+                    data: { index: 8, value: 2 },
+                    sequence: 3,
+                    version: 10,
+                }
+                const o5 = {
+                    ...operation,
+                    // index < transformed remote index (7), so the index should remain unchanged
+                    // and the remote index should be incremented.
+                    data: { index: 6, value: 3 },
+                    sequence: 4,
+                    version: 11,
+                }
+                // Remote operation which conflicts with the local operations.
+                const o6 = {
+                    ...remoteOperation,
+                    data: { index: 6, value: 4 },
+                    version: 8,
+                }
+                // Transformed local operations.
+                const o7 = {
+                    ...operation,
+                    data: { index: 5, value: 0 },
+                    sequence: 1,
+                    version: 9,
+                }
+                const o8 = {
+                    ...operation,
+                    data: { index: 8, value: 1 },
+                    sequence: 2,
+                    version: 10,
+                }
+                const o9 = {
+                    ...operation,
+                    data: { index: 9, value: 2 },
+                    sequence: 3,
+                    version: 11,
+                }
+                const o10 = {
+                    ...operation,
+                    data: { index: 6, value: 3 },
+                    sequence: 4,
+                    version: 12,
+                }
+                await clientStorage.store(o0)
+                await clientStorage.store(o1)
+                await clientStorage.store(o2, true)
+                await clientStorage.store(o3, true)
+                await clientStorage.store(o4, true)
+                await clientStorage.store(o5, true)
+                await clientStorage.store(o6, local)
+                await expect(getStatus()).resolves.toEqual({
+                    ...status,
+                    lastRemoteVersion: 8,
+                    lastSequence: 4,
+                    lastVersion: 12,
+                })
+                await expect(load()).resolves.toEqual([
+                    o0,
+                    o1,
+                    o6,
+                    o7,
+                    o8,
+                    o9,
+                    o10,
+                ])
+            })
+        })
 
-                beforeEach(async () => {
-                    await clientStorage.store(o0)
-                    await clientStorage.store(o1)
-                    await clientStorage.store(o2)
-                    await clientStorage.store(o3, true)
-                    await clientStorage.store(o4, true)
-                    await clientStorage.store(o5, true)
+        describe('store with transformation error', () => {
+            test.each([undefined, false])('local=%s', async local => {
+                const localOperation = { ...operation, data: null }
+                expect.assertions(3)
+                await clientStorage.store(localOperation, true)
+                await clientStorage
+                    .store(remoteOperation, local)
+                    .catch(error => expect(error).toBe(transformError))
+                await expect(getStatus()).resolves.toEqual({
+                    ...status,
+                    lastRemoteVersion: 5,
+                    lastSequence: 1,
+                    lastVersion: 6,
                 })
+                await expect(load()).resolves.toEqual([localOperation])
+            })
+        })
 
-                test('no limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id),
-                    ).resolves.toEqual([o0, o1, o2, o3, o4, o5])
-                })
-                test('big limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 3, 15),
-                    ).resolves.toEqual([o0, o1, o2, o3, o4, o5])
-                })
-                test('lower limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 8, undefined),
-                    ).resolves.toEqual([o2, o3, o4, o5])
-                })
-                test('upper limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, undefined, 9),
-                    ).resolves.toEqual([o0, o1, o2, o3])
-                })
-                test('upper and lower limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 8, 9),
-                    ).resolves.toEqual([o2, o3])
-                })
-                test('lower limit equal to higher limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 8, 8),
-                    ).resolves.toEqual([o2])
-                })
-                test('out of bounds limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 15, 16),
-                    ).resolves.toEqual([])
-                })
-                test('lower limit higher than upper limit', async () => {
-                    await expect(
-                        clientStorage.load(typeName, id, 9, 8),
-                    ).resolves.toEqual([])
-                })
+        describe('load', () => {
+            const o0 = { ...remoteOperation, version: 6 }
+            const o1 = { ...remoteOperation, version: 7 }
+            const o2 = { ...remoteOperation, version: 8 }
+            const o3 = { ...operation, sequence: 1, version: 9 }
+            const o4 = { ...operation, sequence: 2, version: 10 }
+            const o5 = { ...operation, sequence: 3, version: 11 }
+
+            beforeEach(async () => {
+                await clientStorage.store(o0)
+                await clientStorage.store(o1)
+                await clientStorage.store(o2)
+                await clientStorage.store(o3, true)
+                await clientStorage.store(o4, true)
+                await clientStorage.store(o5, true)
+            })
+
+            test('no limit', async () => {
+                await expect(clientStorage.load(typeName, id)).resolves.toEqual(
+                    [o0, o1, o2, o3, o4, o5],
+                )
+            })
+            test('big limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 3, 15),
+                ).resolves.toEqual([o0, o1, o2, o3, o4, o5])
+            })
+            test('lower limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 8, undefined),
+                ).resolves.toEqual([o2, o3, o4, o5])
+            })
+            test('upper limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, undefined, 9),
+                ).resolves.toEqual([o0, o1, o2, o3])
+            })
+            test('upper and lower limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 8, 9),
+                ).resolves.toEqual([o2, o3])
+            })
+            test('lower limit equal to higher limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 8, 8),
+                ).resolves.toEqual([o2])
+            })
+            test('out of bounds limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 15, 16),
+                ).resolves.toEqual([])
+            })
+            test('lower limit higher than upper limit', async () => {
+                await expect(
+                    clientStorage.load(typeName, id, 9, 8),
+                ).resolves.toEqual([])
             })
         })
     })

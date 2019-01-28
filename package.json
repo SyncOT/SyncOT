@@ -35,7 +35,6 @@
   "dependencies": {
     "@syncot/client": "file:packages/client",
     "@syncot/core": "file:packages/core",
-    "@syncot/memory-client-storage": "file:packages/memory-client-storage",
     "@syncot/server": "file:packages/server"
   }
 }
