@@ -39,6 +39,7 @@ export interface MessageBus<
      *
      * @param topic The topic to send the message to.
      * @param message A message to send.
+     * @returns `true`, if some callbacks will be executed for this message, otherwise `false`.
      */
     send(topic: TS, message: M): boolean
 
@@ -100,28 +101,29 @@ class Listeners {
 
     public getCallbacks(
         topic: Topic,
-        index: number = 0,
+        index: number = -1,
         callbacks: Callback[] = [],
     ): Callback[] {
-        if (index < topic.length) {
-            const childListeners = this.children.get(topic[index])
+        const nextIndex = index + 1
+        if (nextIndex < topic.length) {
+            const childListeners = this.children.get(topic[nextIndex])
 
             if (childListeners != null) {
-                childListeners.getCallbacks(topic, index + 1, callbacks)
+                childListeners.getCallbacks(topic, nextIndex, callbacks)
             }
-        } else {
-            callbacks.push(...this.callbacks)
         }
+        callbacks.push(...this.callbacks)
         return callbacks
     }
 
     public registerCallback(
         topic: Topic,
         callback: Callback,
-        index: number = 0,
+        index: number = -1,
     ): void {
-        if (index < topic.length) {
-            const topicItem = topic[index]
+        const nextIndex = index + 1
+        if (nextIndex < topic.length) {
+            const topicItem = topic[nextIndex]
             let childListeners = this.children.get(topicItem)
 
             if (childListeners == null) {
@@ -129,7 +131,7 @@ class Listeners {
                 this.children.set(topicItem, childListeners)
             }
 
-            childListeners.registerCallback(topic, callback, index + 1)
+            childListeners.registerCallback(topic, callback, nextIndex)
         } else {
             this.callbacks.push(callback)
         }
@@ -138,13 +140,19 @@ class Listeners {
     public unregisterCallback(
         topic: Topic,
         callback: Callback,
-        index: number = 0,
+        index: number = -1,
     ): void {
-        if (index < topic.length) {
-            const childListeners = this.children.get(topic[index])
+        const nextIndex = index + 1
+        if (nextIndex < topic.length) {
+            const topicItem = topic[nextIndex]
+            const childListeners = this.children.get(topicItem)
 
             if (childListeners != null) {
-                childListeners.unregisterCallback(topic, callback, index + 1)
+                childListeners.unregisterCallback(topic, callback, nextIndex)
+
+                if (childListeners.isEmpty()) {
+                    this.children.delete(topicItem)
+                }
             }
         } else {
             const lastIndex = this.callbacks.lastIndexOf(callback)
@@ -153,6 +161,10 @@ class Listeners {
                 this.callbacks.splice(lastIndex, 1)
             }
         }
+    }
+
+    private isEmpty(): boolean {
+        return this.children.size === 0 && this.callbacks.length === 0
     }
 }
 

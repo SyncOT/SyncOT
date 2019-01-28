@@ -1,5 +1,6 @@
 module.exports = {
     preset: 'ts-jest',
+    setupTestFrameworkScriptFile: 'jest-extended',
     moduleNameMapper: {
         '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',
     },

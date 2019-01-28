@@ -80,9 +80,10 @@ const expectError = (code: ErrorCodes) => (error: any) => {
 }
 
 export const clientStorageTests = (
-    createClientStorage: (
-        options: { clientId: ClientId; typeManager: TypeManager },
-    ) => ClientStorage,
+    createClientStorage: (options: {
+        clientId: ClientId
+        typeManager: TypeManager
+    }) => ClientStorage,
 ) => {
     const id: DocumentId = 'id-1'
     const operation: Operation = {
