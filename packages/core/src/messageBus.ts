@@ -1,5 +1,5 @@
-import { JsonValue } from './json'
-import { Interface } from './util'
+import { JsonMap, JsonValue } from './json'
+import { DocumentId, Operation, TypeName } from './type'
 
 /**
  * The message exchanged by the message bus.
@@ -24,24 +24,23 @@ export type Callback = (topic: Topic, message: Message) => void
 
 /**
  * A message bus for communication between SyncOT components.
+ *
+ * @param M Message type.
+ * @param TS Topic type for sending messages.
+ * @param TR Topic type for receiving messages.
  */
-class MessageBusImpl {
-    private listeners: Listeners = new Listeners()
-
+export interface MessageBus<
+    M extends Message = Message,
+    TS extends Topic = Topic,
+    TR extends Topic = Topic
+> {
     /**
      * Sends the `message` to the specified `topic` asynchronously.
      *
      * @param topic The topic to send the message to.
      * @param message A message to send.
      */
-    public send(topic: Topic, message: Message): boolean {
-        const topicCopy = topic.slice()
-        const callbacks = this.listeners.getCallbacks(topic)
-        Promise.resolve().then(() =>
-            callbacks.forEach(callback => callback(topicCopy, message)),
-        )
-        return callbacks.length > 0
-    }
+    send(topic: TS, message: M): boolean
 
     /**
      * Registers the `callback` on the specified `topic`.
@@ -58,10 +57,7 @@ class MessageBusImpl {
      * @param topic The topic to receive the messages on.
      * @param callback The callback to call when a message is sent.
      */
-    public on(topic: Topic, callback: Callback): this {
-        this.listeners.registerCallback(topic, callback)
-        return this
-    }
+    on(topic: TR, callback: (topic: TS, message: M) => void): this
 
     /**
      * Unregisters the previously registered `callback` from the specified `topic`.
@@ -72,6 +68,26 @@ class MessageBusImpl {
      * @param topic The topic the callback has been registered on.
      * @param callback The registered callback.
      */
+    off(topic: TR, callback: (topic: TS, message: M) => void): this
+}
+
+class MessageBusImpl implements MessageBus {
+    private listeners: Listeners = new Listeners()
+
+    public send(topic: Topic, message: Message): boolean {
+        const topicCopy = topic.slice()
+        const callbacks = this.listeners.getCallbacks(topic)
+        Promise.resolve().then(() =>
+            callbacks.forEach(callback => callback(topicCopy, message)),
+        )
+        return callbacks.length > 0
+    }
+
+    public on(topic: Topic, callback: Callback): this {
+        this.listeners.registerCallback(topic, callback)
+        return this
+    }
+
     public off(topic: Topic, callback: Callback): this {
         this.listeners.unregisterCallback(topic, callback)
         return this
@@ -140,8 +156,47 @@ class Listeners {
     }
 }
 
-export interface MessageBus extends Interface<MessageBusImpl> {}
-
+/**
+ * Creates a new `MessageBus`.
+ *
+ * To get a strongly typed MessageBus, cast the result, eg
+ *
+ * ```
+ * const messageBus = createMessageBus() as
+ *     TypedMessageBus & // Default topics and message types.
+ *     MessageBus< // A custom topic and message type.
+ *         { body: string }, // Message type.
+ *         ['custom-topic', 'sub-topic'], // Topic type for sending.
+ *         ['custom-topic', 'sub-topic'] | ['custom-topic'] // Topic type for listening.
+ *     >
+ * ```
+ */
 export function createMessageBus(): MessageBus {
     return new MessageBusImpl()
 }
+
+// Below are default types for creating a strongly typed `MessageBus`.
+
+export type ConnectionTopic = ['connection']
+export interface ConnectionMessage extends JsonMap {
+    state: 'disconnected' | 'connecting' | 'connected' | 'disconnecting'
+}
+export type ConnectionMessageBus = MessageBus<
+    ConnectionMessage,
+    ConnectionTopic,
+    ['connection']
+>
+
+export type OperationTopic = ['operation', TypeName, DocumentId]
+export interface OperationMessage extends JsonMap {
+    operation: Operation
+}
+export type OperationMessageBus = MessageBus<
+    OperationMessage,
+    OperationTopic,
+    | ['operation', TypeName, DocumentId]
+    | ['operation', TypeName]
+    | ['operation']
+>
+
+export type TypedMessageBus = ConnectionMessageBus & OperationMessageBus
