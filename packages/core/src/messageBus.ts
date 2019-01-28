@@ -1,4 +1,5 @@
 import { JsonValue } from './json'
+import { Interface } from './util'
 
 /**
  * The message exchanged by the message bus.
@@ -24,7 +25,7 @@ export type Callback = (topic: Topic, message: Message) => void
 /**
  * A message bus for communication between SyncOT components.
  */
-export class MessageBus {
+class MessageBusImpl {
     private listeners: Listeners = new Listeners()
 
     /**
@@ -137,4 +138,10 @@ class Listeners {
             }
         }
     }
+}
+
+export interface MessageBus extends Interface<MessageBusImpl> {}
+
+export function createMessageBus(): MessageBus {
+    return new MessageBusImpl()
 }

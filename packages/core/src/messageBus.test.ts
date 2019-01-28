@@ -1,9 +1,9 @@
-import { MessageBus } from '.'
+import { createMessageBus, MessageBus } from '.'
 
 let messageBus: MessageBus
 
 beforeEach(() => {
-    messageBus = new MessageBus()
+    messageBus = createMessageBus()
 })
 
 test('dummy', () => {

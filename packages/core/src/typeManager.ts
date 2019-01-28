@@ -153,7 +153,6 @@ class TypeManagerImpl {
     }
 }
 
-// tslint:disable-next-line:no-empty-interface
 export interface TypeManager extends Interface<TypeManagerImpl> {}
 
 export function createTypeManager(): TypeManager {
