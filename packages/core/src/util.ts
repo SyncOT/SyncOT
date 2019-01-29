@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events'
+import { StrictEventEmitter } from 'strict-event-emitter-types'
 import { SyncOtError } from './error'
 
 /**
@@ -40,7 +42,15 @@ export const validate = <T, E extends Error = SyncOtError>(
 }
 
 /**
- * A type which keeps only public properties.
+ * Keeps only public properties.
  * See https://github.com/Microsoft/TypeScript/issues/471#issuecomment-381842426
  */
 export type Interface<T> = { [P in keyof T]: T[P] }
+
+/**
+ * A strongly typed nodejs `EventEmitter`.
+ */
+export type NodeEventEmitter<Events> = new () => StrictEventEmitter<
+    EventEmitter,
+    Events
+>

@@ -20,6 +20,10 @@ export enum ErrorCodes {
      */
     InvalidArgument = 'InvalidArgument',
     /**
+     * A Connection is already associated with an open stream.
+     */
+    AlreadyConnected = 'AlreadyConnected',
+    /**
      * An invalid snapshot has been detected.
      */
     InvalidSnapshot = 'InvalidSnapshot',

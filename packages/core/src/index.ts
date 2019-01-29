@@ -1,3 +1,4 @@
+export * from './connection'
 export * from './error'
 export * from './json'
 export * from './messageBus'
