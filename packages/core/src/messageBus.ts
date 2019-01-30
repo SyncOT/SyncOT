@@ -1,5 +1,4 @@
-import { JsonMap, JsonValue } from './json'
-import { DocumentId, Operation, TypeName } from './type'
+import { JsonValue } from './json'
 
 /**
  * The message exchanged by the message bus.
@@ -8,7 +7,7 @@ export type Message = JsonValue
 /**
  * Defines a single level in a hierarchy of topics.
  */
-export type TopicItem = string | number | boolean
+type TopicItem = string | number | boolean
 /**
  * An empty `Array` is the most generic `Topic` and can be used to receive all messages.
  * The more `TopicItem`s are appended to the `Array`, the more specific the `Topic`, which
@@ -20,7 +19,7 @@ export type Topic = TopicItem[]
  * @param topic The topic the message was sent to.
  * @param message The sent message.
  */
-export type Callback = (topic: Topic, message: Message) => void
+type Callback = (topic: Topic, message: Message) => void
 
 /**
  * A message bus for communication between SyncOT components.
@@ -32,7 +31,7 @@ export type Callback = (topic: Topic, message: Message) => void
 export interface MessageBus<
     M extends Message = Message,
     TS extends Topic = Topic,
-    TR extends Topic = Topic
+    TR extends Topic = TS
 > {
     /**
      * Sends the `message` to the specified `topic` asynchronously.
@@ -175,40 +174,19 @@ class Listeners {
  *
  * ```
  * const messageBus = createMessageBus() as
- *     TypedMessageBus & // Default topics and message types.
  *     MessageBus< // A custom topic and message type.
  *         { body: string }, // Message type.
  *         ['custom-topic', 'sub-topic'], // Topic type for sending.
  *         ['custom-topic', 'sub-topic'] | ['custom-topic'] // Topic type for listening.
- *     >
+ *     > &
+ *     MessageBus<
+ *         { data: number }, // Message type.
+ *         ['a-topic'] // Topic type for sending and listening.
+ *     > &
+ *     MessageBus<...> &
+ *     ...
  * ```
  */
 export function createMessageBus(): MessageBus {
     return new MessageBusImpl()
 }
-
-// Below are default types for creating a strongly typed `MessageBus`.
-
-export type ConnectionTopic = ['connection']
-export interface ConnectionMessage extends JsonMap {
-    state: 'disconnected' | 'connecting' | 'connected' | 'disconnecting'
-}
-export type ConnectionMessageBus = MessageBus<
-    ConnectionMessage,
-    ConnectionTopic,
-    ['connection']
->
-
-export type OperationTopic = ['operation', TypeName, DocumentId]
-export interface OperationMessage extends JsonMap {
-    operation: Operation
-}
-export type OperationMessageBus = MessageBus<
-    OperationMessage,
-    OperationTopic,
-    | ['operation', TypeName, DocumentId]
-    | ['operation', TypeName]
-    | ['operation']
->
-
-export type TypedMessageBus = ConnectionMessageBus & OperationMessageBus
