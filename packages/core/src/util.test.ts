@@ -1,4 +1,5 @@
 import { throwError, validate, Validator } from '.'
+import { assertUnreachable } from './util'
 
 const error = new Error('test error')
 const numberError = new Error('number error')
@@ -32,6 +33,14 @@ describe('validate', () => {
     test('second validator fails', () => {
         expect(validate([numberValidator, positiveValidator])(-5)).toBe(
             positiveError,
+        )
+    })
+})
+
+describe('assertUnreachable', () => {
+    test('throws an error', () => {
+        expect(() => assertUnreachable({} as never)).toThrowError(
+            'This should never happen!',
         )
     })
 })

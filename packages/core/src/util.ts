@@ -3,6 +3,13 @@ import { StrictEventEmitter } from 'strict-event-emitter-types'
 import { SyncOtError } from './error'
 
 /**
+ * A simple function which throws an error, if a theoretically unreachable code path is executed anyway.
+ */
+export function assertUnreachable(_never: never): never {
+    throw new Error('This should never happen!')
+}
+
+/**
  * The type of validation result.
  */
 export type ValidationResult<E extends Error = SyncOtError> = E | undefined
