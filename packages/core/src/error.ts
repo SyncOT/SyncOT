@@ -24,6 +24,26 @@ export enum ErrorCodes {
      */
     AlreadyConnected = 'AlreadyConnected',
     /**
+     * A Service with the same name has been already registered on a Connection.
+     */
+    DuplicateService = 'DuplicateService',
+    /**
+     * A Proxy with the same name has been already registered on a Connection.
+     */
+    DuplicateProxy = 'DuplicateProxy',
+    /**
+     * An invalid message has been received by a `Connection`.
+     */
+    InvalidMessage = 'InvalidMessage',
+    /**
+     * There has been no registered service to handle a messages received by a `Connection`.
+     */
+    UnhandledMessage = 'UnhandledMessage',
+    /**
+     * An action failed because there has been no active connection.
+     */
+    NotConnected = 'NotConnected',
+    /**
      * An invalid snapshot has been detected.
      */
     InvalidSnapshot = 'InvalidSnapshot',
