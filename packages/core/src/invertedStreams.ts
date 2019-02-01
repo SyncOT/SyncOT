@@ -1,20 +1,17 @@
 import { Duplex } from 'stream'
 
 /**
- * Creates a pair of Duplex Streams (a, b), such that
+ * Creates a pair of Duplex Streams [a, b], such that
  * a.write(x) -> b.emit('data', x) and b.write(y) -> a.emit('data', y).
  */
-export function invertedStreams({ objectMode = false } = {}): {
-    a: Duplex
-    b: Duplex
-} {
+export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
     const a = new Duplex({
         objectMode,
         read() {
             return
         },
-        write(data, encoding, callback) {
-            b.push(data, encoding)
+        write(data, _encoding, callback) {
+            b.push(data)
             callback()
         },
         final(callback) {
@@ -27,8 +24,8 @@ export function invertedStreams({ objectMode = false } = {}): {
         read() {
             return
         },
-        write(data, encoding, callback) {
-            a.push(data, encoding)
+        write(data, _encoding, callback) {
+            a.push(data)
             callback()
         },
         final(callback) {
@@ -37,5 +34,5 @@ export function invertedStreams({ objectMode = false } = {}): {
         },
     })
 
-    return { a, b }
+    return [a, b]
 }

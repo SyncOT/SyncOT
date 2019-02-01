@@ -3,7 +3,7 @@ import { invertedStreams } from '.'
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 test('objectMode=false', async () => {
-    const { a, b } = invertedStreams()
+    const [a, b] = invertedStreams()
     const data = Array.from(Array(10), (_, x) => x.toString())
     const bufferData = data.map(d => Buffer.from(d))
 
@@ -51,7 +51,7 @@ test('objectMode=false', async () => {
 })
 
 test('objectMode=true', async () => {
-    const { a, b } = invertedStreams({ objectMode: true })
+    const [a, b] = invertedStreams({ objectMode: true })
     const data = Array.from(Array(10), (_, x) => ({ data: x }))
 
     const dataA = jest.fn()
