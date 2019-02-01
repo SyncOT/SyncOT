@@ -38,7 +38,7 @@ export enum ErrorCodes {
     /**
      * There has been no registered service to handle a messages received by a `Connection`.
      */
-    UnhandledMessage = 'UnhandledMessage',
+    NoService = 'NoService',
     /**
      * An action failed because there has been no active connection.
      */
@@ -81,7 +81,22 @@ export enum ErrorCodes {
     UnexpectedSequenceNumber = 'UnexpectedSequenceNumber',
 }
 
+function isErrorCode(code: any): code is ErrorCodes {
+    return typeof code === 'string' && ErrorCodes[code as any] === code
+}
+
 export class SyncOtError extends Error {
+    public static fromJSON(json: JsonValue): SyncOtError {
+        return json &&
+            typeof json === 'object' &&
+            !Array.isArray(json) &&
+            isErrorCode(json.code) &&
+            (typeof json.message === 'string' ||
+                typeof json.message === 'undefined')
+            ? new SyncOtError(json.code, json.message, json.details)
+            : new SyncOtError(ErrorCodes.UnknownError, undefined, json)
+    }
+
     public code: ErrorCodes
     public details: JsonValue
 
