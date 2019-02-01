@@ -1,4 +1,4 @@
-import { invertedStreams } from './invertedStreams'
+import { invertedStreams } from '.'
 
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
