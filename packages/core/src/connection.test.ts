@@ -1,27 +1,27 @@
 import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
-import { Connection, createConnection } from '.'
-import { ErrorCodes, SyncOtError } from './error'
+import {
+    Connection,
+    createConnection,
+    ErrorCodes,
+    invertedStreams,
+    JsonValue,
+    MessageType,
+    Proxy,
+    SyncOtError,
+} from '.'
 
 const name = 'service-or-proxy-name'
 const error = new Error('test error')
 let connection: Connection
-let stream: Duplex
+let stream1: Duplex
+let stream2: Duplex
 let instance: EventEmitter
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
-const createStream = () =>
-    new Duplex({
-        read(): void {
-            return
-        },
-        write(_chunk, _encoding, callback) {
-            callback()
-        },
-    })
 
 beforeEach(() => {
     connection = createConnection()
-    stream = createStream()
+    ;[stream1, stream2] = invertedStreams({ objectMode: true })
     instance = new EventEmitter()
 })
 
@@ -32,7 +32,7 @@ describe('connection', () => {
     test('connect', () => {
         const connectedCallback = jest.fn()
         connection.on('connect', connectedCallback)
-        connection.connect(stream)
+        connection.connect(stream1)
         expect(connection.isConnected()).toBe(true)
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
@@ -40,9 +40,9 @@ describe('connection', () => {
         expect.assertions(4)
         const connectedCallback = jest.fn()
         connection.on('connect', connectedCallback)
-        connection.connect(stream)
+        connection.connect(stream1)
         try {
-            connection.connect(stream)
+            connection.connect(stream1)
         } catch (e) {
             expect(e).toBeInstanceOf(SyncOtError)
             expect(e.code).toBe(ErrorCodes.AlreadyConnected)
@@ -62,9 +62,9 @@ describe('connection', () => {
     test('disconnect', async () => {
         const disconnectCallback = jest.fn()
         const closeCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream.on('close', closeCallback)
+        stream1.on('close', closeCallback)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
@@ -74,7 +74,7 @@ describe('connection', () => {
     })
     test('disconnect twice', () => {
         const disconnectCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
         connection.disconnect()
         connection.disconnect()
@@ -87,11 +87,11 @@ describe('connection', () => {
         const disconnectCallback = jest.fn()
         connection.on('connect', connectCallback)
         connection.on('disconnect', disconnectCallback)
-        connection.connect(stream)
+        connection.connect(stream1)
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
-        connection.connect(createStream())
+        connection.connect(stream2)
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
@@ -102,9 +102,9 @@ describe('connection', () => {
     test('disconnect with an error', async () => {
         const disconnectCallback = jest.fn()
         const closeCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream.on('close', closeCallback)
+        stream1.on('close', closeCallback)
         connection.disconnect(error)
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
@@ -114,10 +114,10 @@ describe('connection', () => {
     })
     test('end stream', async () => {
         const disconnectCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream.push(null) // End the read stream.
-        stream.end() // End the write stream.
+        stream1.push(null) // End the read stream.
+        stream1.end() // End the write stream.
         await delay()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
@@ -125,9 +125,9 @@ describe('connection', () => {
     })
     test('destroy stream', async () => {
         const disconnectCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream.destroy()
+        stream1.destroy()
         await delay()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
@@ -135,10 +135,10 @@ describe('connection', () => {
     })
     test('close stream and disconnect', async () => {
         const disconnectCallback = jest.fn()
-        connection.connect(stream)
+        connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream.push(null) // End the read stream.
-        stream.end() // End the write stream.
+        stream1.push(null) // End the read stream.
+        stream1.end() // End the write stream.
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
         await delay()
@@ -347,4 +347,73 @@ describe('proxy registration', () => {
         expect(connection.getProxyDescriptor('missing')).toBe(undefined)
         expect(connection.getProxy('missing')).toBe(undefined)
     })
+})
+
+describe('proxy actions', () => {
+    interface TestProxy extends Proxy {
+        action1: (...args: JsonValue[]) => Promise<JsonValue>
+        action2: (...args: JsonValue[]) => Promise<JsonValue>
+    }
+    let proxy1: TestProxy
+    let proxy2: TestProxy
+    const replyData = {
+        anotherKey: 'value',
+        reply: 'data',
+    }
+    const errorData = {
+        code: ErrorCodes.ExternalError,
+        details: { additional: 'info' },
+        message: 'Test error',
+    }
+
+    beforeEach(() => {
+        connection.connect(stream1)
+        connection.registerProxy({
+            actions: new Set(['action1', 'action2']),
+            name: 'proxy-1',
+        })
+        connection.registerProxy({
+            actions: new Set(['action1', 'action2']),
+            name: 'proxy-2',
+        })
+        proxy1 = connection.getProxy('proxy-1') as TestProxy
+        proxy2 = connection.getProxy('proxy-2') as TestProxy
+    })
+
+    test.each([null, undefined])(
+        'request, reply (reply action name: %s)',
+        async (actionName: string) => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: replyData,
+                    name: actionName,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy1.action1(1, 'abc', [1, 2, 3], { key: 'value' }, false),
+            ).resolves.toBe(replyData)
+        },
+    )
+    test.each([null, undefined])(
+        'request, error (error action name: %s)',
+        async (actionName: string) => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: errorData,
+                    name: actionName,
+                    type: MessageType.CALL_ERROR,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy2
+                    .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                    .catch(e => Promise.reject(e.toJSON())),
+            ).rejects.toEqual(errorData)
+        },
+    )
 })

@@ -12,6 +12,10 @@ export enum ErrorCodes {
      */
     UnknownError = 'UnknownError',
     /**
+     * A code reserved for errors originating outside the SyncOT codebase.
+     */
+    ExternalError = 'ExternalError',
+    /**
      * A function defined by an interface is not implemented.
      */
     NotImplemented = 'NotImplemented',

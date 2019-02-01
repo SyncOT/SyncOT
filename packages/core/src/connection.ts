@@ -1,11 +1,12 @@
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
 import { ErrorCodes, SyncOtError } from './error'
-import { JsonMap, JsonValue } from './json'
+import { JsonValue } from './json'
 import {
     assertUnreachable,
     Interface,
     NodeEventEmitter,
+    throwError,
     validate,
     Validator,
 } from './util'
@@ -41,7 +42,6 @@ export interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
 interface Events {
     connect: void
     disconnect: Error | null
-    error: SyncOtError
 }
 
 /**
@@ -52,6 +52,7 @@ export const enum MessageType {
     CALL_REQUEST,
     CALL_REPLY,
     CALL_ERROR,
+    STREAM_OPEN,
     STREAM_INPUT_DATA,
     STREAM_INPUT_END,
     STREAM_INPUT_ERROR,
@@ -60,7 +61,24 @@ export const enum MessageType {
     STREAM_OUTPUT_ERROR,
 }
 
-type Source = 'proxy' | 'service'
+type MessageTypeWithName =
+    | MessageType.EVENT
+    | MessageType.CALL_REQUEST
+    | MessageType.STREAM_OPEN
+type MessageTypeWithoutName = Exclude<MessageType, MessageTypeWithName>
+
+function needsName(messageType: MessageType): boolean {
+    return (
+        messageType === MessageType.EVENT ||
+        messageType === MessageType.CALL_REQUEST ||
+        messageType === MessageType.STREAM_OPEN
+    )
+}
+
+enum Source {
+    PROXY = 'proxy',
+    SERVICE = 'service',
+}
 
 function getSource(message: Message): Source {
     switch (message.type) {
@@ -70,27 +88,37 @@ function getSource(message: Message): Source {
         case MessageType.STREAM_OUTPUT_DATA:
         case MessageType.STREAM_OUTPUT_END:
         case MessageType.STREAM_OUTPUT_ERROR:
-            return 'service'
+            return Source.SERVICE
         case MessageType.CALL_REQUEST:
+        case MessageType.STREAM_OPEN:
         case MessageType.STREAM_INPUT_DATA:
         case MessageType.STREAM_INPUT_END:
         case MessageType.STREAM_INPUT_ERROR:
-            return 'proxy'
+            return Source.PROXY
+        /* istanbul ignore next */
         default:
-            return assertUnreachable(message.type)
+            return assertUnreachable(message)
     }
 }
 
 /**
  * Defines the format of messages exchanged over the stream by `Connection` instances.
  */
-export interface Message extends JsonMap {
-    type: MessageType
-    service: ServiceName | ProxyName
-    name: EventName | ActionName | StreamName
-    id: SessionId
-    data: JsonValue
-}
+export type Message =
+    | {
+          type: MessageTypeWithName
+          service: ServiceName | ProxyName
+          name: EventName | ActionName | StreamName
+          id: SessionId
+          data: JsonValue
+      }
+    | {
+          type: MessageTypeWithoutName
+          service: ServiceName | ProxyName
+          name?: null
+          id: SessionId
+          data: JsonValue
+      }
 
 const invalid = (message: any, property: string | null): SyncOtError =>
     new SyncOtError(ErrorCodes.InvalidMessage, undefined, { message, property })
@@ -108,7 +136,11 @@ const validateMessage: Validator<Message> = validate([
             ? undefined
             : invalid(message, 'service'),
     message =>
-        typeof message.name === 'string' ? undefined : invalid(message, 'name'),
+        (needsName(message.type)
+          ? typeof message.name === 'string'
+          : message.name == null)
+            ? undefined
+            : invalid(message, 'name'),
     message =>
         Number.isSafeInteger(message.id) ? undefined : invalid(message, 'id'),
     message => {
@@ -254,7 +286,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                 'Connection does not support streams yet',
             )
         }
-        const instance = this.createProxy(actions)
+        const instance = this.createProxy(name, actions)
         this.proxies.set(name, { actions, events, instance, name, streams })
     }
 
@@ -273,8 +305,16 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         return descriptor && descriptor.instance
     }
 
-    private createProxy(actions: Set<ActionName>): Proxy {
+    private createProxy(proxyName: ProxyName, actions: Set<ActionName>): Proxy {
         const proxy = new EventEmitter()
+        let nextSessionId = 1
+        const actionSessions: Map<
+            SessionId,
+            {
+                resolve: (value: JsonValue) => void
+                reject: (error: SyncOtError) => void
+            }
+        > = new Map()
 
         actions.forEach(action => {
             if (action in proxy) {
@@ -283,43 +323,63 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                     `Proxy.${action} already exists`,
                 )
             }
+
             ;(proxy as any)[action] = (
-                ..._args: JsonValue[]
+                ...args: JsonValue[]
             ): Promise<JsonValue> => {
-                return new Promise((resolve, _reject) => {
-                    resolve({})
-                })
+                const sessionId = nextSessionId++
+                return new Promise<JsonValue>((resolve, reject) => {
+                    actionSessions.set(sessionId, { resolve, reject })
+                    this.send({
+                        data: args,
+                        id: sessionId,
+                        name: action,
+                        service: proxyName,
+                        type: MessageType.CALL_REQUEST,
+                    })
+                }).finally(() => actionSessions.delete(sessionId))
             }
         })
+        ;(this as EventEmitter).on(
+            `message.${Source.SERVICE}.${proxyName}`,
+            (message: Message) => {
+                switch (message.type) {
+                    case MessageType.CALL_REPLY: {
+                        const session = actionSessions.get(message.id)
+                        if (session) {
+                            session.resolve(message.data)
+                        }
+                        return
+                    }
+                    case MessageType.CALL_ERROR: {
+                        const session = actionSessions.get(message.id)
+                        if (session) {
+                            session.reject(SyncOtError.fromJSON(message.data))
+                        }
+                        return
+                    }
+                }
+            },
+        )
 
         return proxy
     }
 
-    // TODO remove ts-ignore
-    // @ts-ignore
     private send(message: Message): void {
-        const error = validateMessage(message)
+        throwError(validateMessage(message))
 
-        if (error) {
-            this.emit('error', error)
-            return
-        }
-
-        if (!this.stream) {
-            // TODO reply with an appropriate error message instead
+        if (this.stream) {
+            this.stream.write(message)
+        } else {
             throw new SyncOtError(ErrorCodes.NotConnected)
         }
-
-        this.stream.write(message)
-        return
     }
 
     private onData(message: Message): void {
         const error = validateMessage(message)
 
         if (error) {
-            this.emit('error', error)
-            return
+            return this.disconnect(error)
         }
 
         // Emit an internal event for the services.
@@ -329,13 +389,22 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         )
 
         if (!handled) {
-            // TODO reply with an appropriate error message instead
-            this.emit(
-                'error',
-                new SyncOtError(ErrorCodes.UnhandledMessage, undefined, {
-                    message,
-                }),
-            )
+            switch (message.type) {
+                case MessageType.CALL_REQUEST:
+                    return this.send({
+                        ...message,
+                        data: new SyncOtError(ErrorCodes.NoService).toJSON(),
+                        name: null,
+                        type: MessageType.CALL_ERROR,
+                    })
+                case MessageType.STREAM_OPEN:
+                    return this.send({
+                        ...message,
+                        data: new SyncOtError(ErrorCodes.NoService).toJSON(),
+                        name: null,
+                        type: MessageType.STREAM_OUTPUT_ERROR,
+                    })
+            }
         }
     }
 }
@@ -347,8 +416,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
  * @event connect Emitted when this `Connection` gets associated with a stream.
  * @event disconnect Emitted with a `null` payload when the associated stream finishes.
  *   Emitted with an `error`, if the stream is destroyed due to an error.
- * @event error The following `SyncOtError`s may be emitted:
- *   - `InvalidMessage`: An invalid message has been received from the associated stream.
  */
 export interface Connection extends Interface<ConnectionImpl> {}
 
