@@ -44,9 +44,9 @@ export enum ErrorCodes {
      */
     NoService = 'NoService',
     /**
-     * An action failed because there has been no active connection.
+     * An action failed because there is no active connection.
      */
-    NotConnected = 'NotConnected',
+    Disconnected = 'Disconnected',
     /**
      * An invalid snapshot has been detected.
      */

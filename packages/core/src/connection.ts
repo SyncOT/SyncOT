@@ -124,7 +124,10 @@ const invalid = (message: any, property: string | null): SyncOtError =>
     new SyncOtError(ErrorCodes.InvalidMessage, undefined, { message, property })
 
 const validateMessage: Validator<Message> = validate([
-    message => (message !== null ? undefined : invalid(message, null)),
+    message =>
+        typeof message === 'object' && message != null
+            ? undefined
+            : invalid(message, null),
     message =>
         Number.isSafeInteger(message.type) &&
         message.type >= MessageType.EVENT &&
@@ -199,8 +202,8 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
 
         if (stream) {
             this.stream = null
-            this.emit('disconnect', error || null)
             stream.destroy()
+            this.emit('disconnect', error || null)
         }
     }
 
@@ -337,7 +340,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         service: proxyName,
                         type: MessageType.CALL_REQUEST,
                     })
-                }).finally(() => actionSessions.delete(sessionId))
+                })
             }
         })
         ;(this as EventEmitter).on(
@@ -345,15 +348,19 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             (message: Message) => {
                 switch (message.type) {
                     case MessageType.CALL_REPLY: {
-                        const session = actionSessions.get(message.id)
+                        const id = message.id
+                        const session = actionSessions.get(id)
                         if (session) {
+                            actionSessions.delete(id)
                             session.resolve(message.data)
                         }
                         return
                     }
                     case MessageType.CALL_ERROR: {
-                        const session = actionSessions.get(message.id)
+                        const id = message.id
+                        const session = actionSessions.get(id)
                         if (session) {
+                            actionSessions.delete(id)
                             session.reject(SyncOtError.fromJSON(message.data))
                         }
                         return
@@ -361,6 +368,16 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                 }
             },
         )
+
+        this.on('disconnect', () => {
+            const error = new SyncOtError(ErrorCodes.Disconnected)
+            const sessions = Array.from(actionSessions.values())
+            actionSessions.clear()
+
+            for (const { reject } of sessions) {
+                reject(error)
+            }
+        })
 
         return proxy
     }
@@ -371,7 +388,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         if (this.stream) {
             this.stream.write(message)
         } else {
-            throw new SyncOtError(ErrorCodes.NotConnected)
+            throw new SyncOtError(ErrorCodes.Disconnected)
         }
     }
 
