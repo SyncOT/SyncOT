@@ -6,13 +6,21 @@ import {
     ErrorCodes,
     invertedStreams,
     JsonValue,
+    Message,
     MessageType,
     Proxy,
+    Service,
     SyncOtError,
 } from '.'
 
 const name = 'service-or-proxy-name'
 const error = new Error('test error')
+const externalError = new SyncOtError(ErrorCodes.ExternalError)
+const unknownError = new SyncOtError(
+    ErrorCodes.UnknownError,
+    undefined,
+    error as any,
+)
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
@@ -351,8 +359,8 @@ describe('proxy registration', () => {
 })
 
 describe('message validation', () => {
-    const baseMessage = {
-        data: null,
+    const message = {
+        data: [],
         id: 0,
         name: 'name-1',
         service: 'service-1',
@@ -363,115 +371,116 @@ describe('message validation', () => {
     })
     test.each([
         ['invalid message', true, null],
+        ['invalid data (undefined)', { ...message, data: undefined }, 'data'],
+        ['invalid data (function)', { ...message, data: () => null }, 'data'],
         [
-            'invalid data (undefined)',
-            { ...baseMessage, data: undefined },
+            'invalid data ({}; message type: CALL_REQUEST)',
+            { ...message, data: {}, type: MessageType.CALL_REQUEST },
             'data',
         ],
         [
-            'invalid data (function)',
-            { ...baseMessage, data: () => null },
+            'invalid data ({}; message type: STREAM_OPEN)',
+            { ...message, data: {}, type: MessageType.STREAM_OPEN },
             'data',
         ],
-        ['invalid data (symbol)', { ...baseMessage, data: Symbol() }, 'data'],
-        ['invalid id', { ...baseMessage, id: 0.5 }, 'id'],
+        ['invalid data (symbol)', { ...message, data: Symbol() }, 'data'],
+        ['invalid id', { ...message, id: 0.5 }, 'id'],
         [
             'invalid name (type=EVENT)',
-            { ...baseMessage, type: MessageType.EVENT, name: undefined },
+            { ...message, type: MessageType.EVENT, name: undefined },
             'name',
         ],
         [
             'invalid name (type=CALL_REQUEST)',
-            { ...baseMessage, type: MessageType.CALL_REQUEST, name: undefined },
+            { ...message, type: MessageType.CALL_REQUEST, name: undefined },
             'name',
         ],
         [
             'invalid name (type=STREAM_OPEN)',
-            { ...baseMessage, type: MessageType.STREAM_OPEN, name: undefined },
+            { ...message, type: MessageType.STREAM_OPEN, name: undefined },
             'name',
         ],
         [
             'invalid name (type=CALL_REPLY)',
-            { ...baseMessage, type: MessageType.CALL_REPLY },
+            { ...message, type: MessageType.CALL_REPLY },
             'name',
         ],
         [
             'invalid name (type=CALL_ERROR)',
-            { ...baseMessage, type: MessageType.CALL_ERROR },
+            { ...message, type: MessageType.CALL_ERROR },
             'name',
         ],
         [
             'invalid name (type=STREAM_INPUT_DATA)',
-            { ...baseMessage, type: MessageType.STREAM_INPUT_DATA },
+            { ...message, type: MessageType.STREAM_INPUT_DATA },
             'name',
         ],
         [
             'invalid name (type=STREAM_INPUT_END)',
-            { ...baseMessage, type: MessageType.STREAM_INPUT_END },
+            { ...message, type: MessageType.STREAM_INPUT_END },
             'name',
         ],
         [
             'invalid name (type=STREAM_INPUT_ERROR)',
-            { ...baseMessage, type: MessageType.STREAM_INPUT_ERROR },
+            { ...message, type: MessageType.STREAM_INPUT_ERROR },
             'name',
         ],
         [
             'invalid name (type=STREAM_OUTPUT_DATA)',
-            { ...baseMessage, type: MessageType.STREAM_OUTPUT_DATA },
+            { ...message, type: MessageType.STREAM_OUTPUT_DATA },
             'name',
         ],
         [
             'invalid name (type=STREAM_OUTPUT_END)',
-            { ...baseMessage, type: MessageType.STREAM_OUTPUT_END },
+            { ...message, type: MessageType.STREAM_OUTPUT_END },
             'name',
         ],
         [
             'invalid name (type=STREAM_OUTPUT_ERROR)',
-            { ...baseMessage, type: MessageType.STREAM_OUTPUT_ERROR },
+            { ...message, type: MessageType.STREAM_OUTPUT_ERROR },
             'name',
         ],
-        ['invalid service', { ...baseMessage, service: undefined }, 'service'],
-        ['invalid type (too small)', { ...baseMessage, type: -1 }, 'type'],
-        ['invalid type (too big)', { ...baseMessage, type: 11 }, 'type'],
-    ])('%s', async (_, message, property) => {
+        ['invalid service', { ...message, service: undefined }, 'service'],
+        ['invalid type (too small)', { ...message, type: -1 }, 'type'],
+        ['invalid type (too big)', { ...message, type: 11 }, 'type'],
+    ])('%s', async (_, invalidMessage, property) => {
         const onDisconnect = jest.fn()
         connection.on('disconnect', onDisconnect)
-        stream2.write(message)
+        stream2.write(invalidMessage)
         await delay()
         expect(onDisconnect.mock.calls.length).toBe(1)
         expect(onDisconnect.mock.calls[0][0]).toBeInstanceOf(SyncOtError)
         expect(onDisconnect.mock.calls[0][0].code).toBe(
             ErrorCodes.InvalidMessage,
         )
-        expect(onDisconnect.mock.calls[0][0].details.message).toBe(message)
+        expect(onDisconnect.mock.calls[0][0].details.message).toBe(
+            invalidMessage,
+        )
         expect(onDisconnect.mock.calls[0][0].details.property).toBe(property)
     })
     test.each([
-        ['valid message', { ...baseMessage }],
-        [
-            'valid message (type=EVENT)',
-            { ...baseMessage, type: MessageType.EVENT },
-        ],
+        ['valid message', { ...message }],
+        ['valid message (type=EVENT)', { ...message, type: MessageType.EVENT }],
         [
             'valid type (CALL_REQUEST)',
-            { ...baseMessage, type: MessageType.CALL_REQUEST },
+            { ...message, type: MessageType.CALL_REQUEST },
         ],
         [
             'valid type (CALL_REPLY)',
-            { ...baseMessage, name: undefined, type: MessageType.CALL_REPLY },
+            { ...message, name: undefined, type: MessageType.CALL_REPLY },
         ],
         [
             'valid type (CALL_ERROR)',
-            { ...baseMessage, name: undefined, type: MessageType.CALL_ERROR },
+            { ...message, name: undefined, type: MessageType.CALL_ERROR },
         ],
         [
             'valid type (STREAM_OPEN)',
-            { ...baseMessage, type: MessageType.STREAM_OPEN },
+            { ...message, type: MessageType.STREAM_OPEN },
         ],
         [
             'valid type (STREAM_INPUT_DATA)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_INPUT_DATA,
             },
@@ -479,7 +488,7 @@ describe('message validation', () => {
         [
             'valid type (STREAM_INPUT_END)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_INPUT_END,
             },
@@ -487,7 +496,7 @@ describe('message validation', () => {
         [
             'valid type (STREAM_INPUT_ERROR)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_INPUT_ERROR,
             },
@@ -495,7 +504,7 @@ describe('message validation', () => {
         [
             'valid type (STREAM_OUTPUT_DATA)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_OUTPUT_DATA,
             },
@@ -503,7 +512,7 @@ describe('message validation', () => {
         [
             'valid type (STREAM_OUTPUT_END)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_OUTPUT_END,
             },
@@ -511,21 +520,29 @@ describe('message validation', () => {
         [
             'valid type (STREAM_OUTPUT_ERROR)',
             {
-                ...baseMessage,
+                ...message,
                 name: undefined,
                 type: MessageType.STREAM_OUTPUT_ERROR,
             },
         ],
-        ['valid data (null)', { ...baseMessage, data: null }],
-        ['valid data (object)', { ...baseMessage, data: {} }],
-        ['valid data (Array)', { ...baseMessage, data: [] }],
-        ['valid data (string)', { ...baseMessage, data: '' }],
-        ['valid data (number)', { ...baseMessage, data: 0 }],
-        ['valid data (boolean)', { ...baseMessage, data: false }],
-    ])('%s', async (_, message) => {
+        ['valid data (null)', { ...message, data: null }],
+        ['valid data (object)', { ...message, data: {} }],
+        ['valid data (Array)', { ...message, data: [] }],
+        [
+            'valid data (Array; type: CALL_REQUEST)',
+            { ...message, data: [], type: MessageType.CALL_REQUEST },
+        ],
+        [
+            'valid data (Array; type: STREAM_OPEN)',
+            { ...message, data: [], type: MessageType.STREAM_OPEN },
+        ],
+        ['valid data (string)', { ...message, data: '' }],
+        ['valid data (number)', { ...message, data: 0 }],
+        ['valid data (boolean)', { ...message, data: false }],
+    ])('%s', async (_, validMessage) => {
         const onDisconnect = jest.fn()
         connection.on('disconnect', onDisconnect)
-        stream2.write(message)
+        stream2.write(validMessage)
         await delay()
         expect(onDisconnect).not.toHaveBeenCalled()
     })
@@ -549,256 +566,52 @@ describe('MessageType', () => {
     })
 })
 
-describe('proxy actions', () => {
-    interface TestProxy extends Proxy {
-        action1: (...args: JsonValue[]) => Promise<JsonValue>
-        action2: (...args: JsonValue[]) => Promise<JsonValue>
-    }
-    let proxy1: TestProxy
-    let proxy2: TestProxy
-    const replyData = {
-        anotherKey: 'value',
-        reply: 'data',
-    }
-    const errorData = {
-        code: ErrorCodes.ExternalError,
-        details: { additional: 'info' },
-        message: 'Test error',
-    }
-
-    beforeEach(() => {
-        connection.connect(stream1)
-        connection.registerProxy({
-            actions: new Set(['action1', 'action2']),
-            name: 'proxy-1',
-        })
-        connection.registerProxy({
-            actions: new Set(['action1', 'action2']),
-            name: 'proxy-2',
-        })
-        proxy1 = connection.getProxy('proxy-1') as TestProxy
-        proxy2 = connection.getProxy('proxy-2') as TestProxy
-    })
-
-    test.each([null, undefined])(
-        'request, reply (reply action name: %s)',
-        async (actionName: string) => {
-            const onData = jest.fn(message => {
-                stream2.write({
-                    ...message,
-                    data: replyData,
-                    name: actionName,
-                    type: MessageType.CALL_REPLY,
-                })
-            })
-            stream2.on('data', onData)
-            await expect(
-                proxy1.action1(1, 'abc', [1, 2, 3], { key: 'value' }, false),
-            ).resolves.toBe(replyData)
-        },
-    )
-    test.each([null, undefined])(
-        'request, error (error action name: %s)',
-        async (actionName: string) => {
-            const onData = jest.fn(message => {
-                stream2.write({
-                    ...message,
-                    data: errorData,
-                    name: actionName,
-                    type: MessageType.CALL_ERROR,
-                })
-            })
-            stream2.on('data', onData)
-            await expect(
-                proxy2
-                    .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                    .catch(errorToJson),
-            ).rejects.toEqual(errorData)
-        },
-    )
-    test(`request, reply (reply action name: action1)`, async () => {
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: replyData,
-                name: 'action1',
-                type: MessageType.CALL_REPLY,
-            })
-        })
-        stream2.on('data', onData)
-        await expect(
-            proxy1
-                .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                .catch(errorToJson),
-        ).rejects.toEqual({
-            code: ErrorCodes.Disconnected,
-            details: null,
-            message: '',
-        })
-    })
-    test('request, reply, reply', async () => {
-        const onDisconnect = jest.fn()
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: replyData,
-                name: undefined,
-                type: MessageType.CALL_REPLY,
-            })
-            stream2.write({
-                ...message,
-                data: replyData,
-                name: undefined,
-                type: MessageType.CALL_REPLY,
-            })
-        })
-        stream2.on('data', onData)
-        await expect(
-            proxy1.action1(1, 'abc', [1, 2, 3], { key: 'value' }, false),
-        ).resolves.toBe(replyData)
-        expect(onDisconnect).not.toHaveBeenCalled()
-    })
-    test('request, error, error', async () => {
-        const onDisconnect = jest.fn()
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: errorData,
-                name: undefined,
-                type: MessageType.CALL_ERROR,
-            })
-            stream2.write({
-                ...message,
-                data: errorData,
-                name: undefined,
-                type: MessageType.CALL_ERROR,
-            })
-        })
-        stream2.on('data', onData)
-        await expect(
-            proxy2
-                .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                .catch(errorToJson),
-        ).rejects.toEqual(errorData)
-        expect(onDisconnect).not.toHaveBeenCalled()
-    })
-    test('request, disconnect', async () => {
-        const promise = proxy1
-            .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-            .catch(errorToJson)
-        connection.disconnect()
-        await expect(promise).rejects.toEqual({
-            code: ErrorCodes.Disconnected,
-            details: null,
-            message: '',
-        })
-    })
-    test('request, destroy stream', async () => {
-        const promise = proxy1
-            .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-            .catch(errorToJson)
-        stream1.destroy()
-        await expect(promise).rejects.toEqual({
-            code: ErrorCodes.Disconnected,
-            details: null,
-            message: '',
-        })
-    })
-    test('disconnect, request', async () => {
-        connection.disconnect()
-        const promise = proxy1
-            .action1(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-            .catch(errorToJson)
-        await expect(promise).rejects.toEqual({
-            code: ErrorCodes.Disconnected,
-            details: null,
-            message: '',
-        })
-    })
-    test('concurrent requests - 2 proxies', async () => {
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: message.data.length,
-                name: undefined,
-                type: MessageType.CALL_REPLY,
-            })
-        })
-        stream2.on('data', onData)
-        const promise1 = proxy1.action1(
-            1,
-            'abc',
-            [1, 2, 3],
-            { key: 'value' },
-            false,
-        )
-        const promise2 = proxy2.action1()
-        await expect(promise1).resolves.toBe(5)
-        await expect(promise2).resolves.toBe(0)
-    })
-    test('concurrent requests - 1 proxy, 2 actions', async () => {
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: message.data.length,
-                name: undefined,
-                type: MessageType.CALL_REPLY,
-            })
-        })
-        stream2.on('data', onData)
-        const promise1 = proxy1.action1(
-            1,
-            'abc',
-            [1, 2, 3],
-            { key: 'value' },
-            false,
-        )
-        const promise2 = proxy1.action2()
-        await expect(promise1).resolves.toBe(5)
-        await expect(promise2).resolves.toBe(0)
-    })
-    test('concurrent requests - 1 proxy, 1 action', async () => {
-        const onData = jest.fn(message => {
-            stream2.write({
-                ...message,
-                data: message.data.length,
-                name: undefined,
-                type: MessageType.CALL_REPLY,
-            })
-        })
-        stream2.on('data', onData)
-        const promise1 = proxy1.action1(
-            1,
-            'abc',
-            [1, 2, 3],
-            { key: 'value' },
-            false,
-        )
-        const promise2 = proxy1.action1()
-        await expect(promise1).resolves.toBe(5)
-        await expect(promise2).resolves.toBe(0)
-    })
-})
-
 describe('no service', () => {
     const message = {
-        data: null,
+        data: [],
         id: 0,
         name: 'name-1',
-        service: 'service-1',
+        service: 'unregistered-service',
         type: MessageType.EVENT,
     }
     beforeEach(() => {
         connection.connect(stream1)
+        connection.registerService({
+            instance: new EventEmitter(),
+            name: 'a-service',
+        })
     })
     test.each([
-        ['action', MessageType.CALL_REQUEST, MessageType.CALL_ERROR],
-        ['stream', MessageType.STREAM_OPEN, MessageType.STREAM_OUTPUT_ERROR],
-    ])('%s', async (_, inputCode, outputCode) => {
+        [
+            'action for an unregistered service',
+            'unregistered-service',
+            MessageType.CALL_REQUEST,
+            MessageType.CALL_ERROR,
+        ],
+        [
+            'stream for an unregistered service',
+            'unregistered-service',
+            MessageType.STREAM_OPEN,
+            MessageType.STREAM_OUTPUT_ERROR,
+        ],
+        [
+            'action for a registered service',
+            'a-service',
+            MessageType.CALL_REQUEST,
+            MessageType.CALL_ERROR,
+        ],
+        [
+            'stream for a registered service',
+            'a-service',
+            MessageType.STREAM_OPEN,
+            MessageType.STREAM_OUTPUT_ERROR,
+        ],
+    ])('%s', async (_, serviceName, inputCode, outputCode) => {
         const onData = jest.fn()
         stream2.on('data', onData)
         stream2.write({
             ...message,
+            service: serviceName,
             type: inputCode,
         })
         await delay()
@@ -811,7 +624,414 @@ describe('no service', () => {
                 message: '',
             },
             name: null,
+            service: serviceName,
             type: outputCode,
+        })
+    })
+})
+
+describe('service and proxy', () => {
+    interface TestService extends Service, Proxy {
+        returnMethod(...args: JsonValue[]): Promise<JsonValue>
+        resolveMethod(...args: JsonValue[]): Promise<JsonValue>
+        throwErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+        throwSyncOtErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+        rejectErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+        rejectSyncOtErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+    }
+    type TestProxy = TestService
+    let proxy: TestProxy
+    let service: TestService
+    const serviceName = 'a-service'
+    const actions = new Set([
+        'returnMethod',
+        'resolveMethod',
+        'throwErrorMethod',
+        'throwSyncOtErrorMethod',
+        'rejectErrorMethod',
+        'rejectSyncOtErrorMethod',
+    ])
+
+    beforeEach(() => {
+        service = new EventEmitter() as TestService
+        service.returnMethod = jest.fn(() => 5)
+        service.resolveMethod = jest.fn(() => Promise.resolve(5))
+        service.throwErrorMethod = jest.fn(() => {
+            throw error
+        })
+        service.throwSyncOtErrorMethod = jest.fn(() => {
+            throw externalError
+        })
+        service.rejectErrorMethod = jest.fn(() => Promise.reject(error))
+        service.rejectSyncOtErrorMethod = jest.fn(() =>
+            Promise.reject(externalError),
+        )
+        connection.connect(stream1)
+        connection.registerService({
+            actions,
+            instance: service,
+            name: serviceName,
+        })
+        connection.registerProxy({
+            actions,
+            name: serviceName,
+        })
+        proxy = connection.getProxy(serviceName) as TestProxy
+    })
+
+    describe('service actions', () => {
+        const message: Message = {
+            data: [],
+            id: 0,
+            name: 'returnMethod',
+            service: serviceName,
+            type: MessageType.CALL_REQUEST,
+        }
+        test.each([
+            [
+                'returnMethod',
+                {
+                    ...message,
+                    data: 5,
+                    name: null,
+                    type: MessageType.CALL_REPLY,
+                },
+            ],
+            [
+                'resolveMethod',
+                {
+                    ...message,
+                    data: 5,
+                    name: null,
+                    type: MessageType.CALL_REPLY,
+                },
+            ],
+            [
+                'throwErrorMethod',
+                {
+                    ...message,
+                    data: unknownError.toJSON(),
+                    name: null,
+                    type: MessageType.CALL_ERROR,
+                },
+            ],
+            [
+                'throwSyncOtErrorMethod',
+                {
+                    ...message,
+                    data: externalError.toJSON(),
+                    name: null,
+                    type: MessageType.CALL_ERROR,
+                },
+            ],
+            [
+                'rejectErrorMethod',
+                {
+                    ...message,
+                    data: unknownError.toJSON(),
+                    name: null,
+                    type: MessageType.CALL_ERROR,
+                },
+            ],
+            [
+                'rejectSyncOtErrorMethod',
+                {
+                    ...message,
+                    data: externalError.toJSON(),
+                    name: null,
+                    type: MessageType.CALL_ERROR,
+                },
+            ],
+        ])('%s', async (method, response) => {
+            const onData = jest.fn()
+            stream2.on('data', onData)
+            stream2.write({
+                ...message,
+                name: method,
+            })
+            await delay()
+            expect(onData.mock.calls.length).toBe(1)
+            expect(onData.mock.calls[0][0]).toEqual(response)
+        })
+        test('service call with args', async () => {
+            const args = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
+            const onData = jest.fn()
+            stream2.on('data', onData)
+            stream2.write({
+                ...message,
+                data: args,
+            })
+            await delay()
+            expect(onData.mock.calls.length).toBe(1)
+            expect(onData.mock.calls[0][0]).toEqual({
+                ...message,
+                data: 5,
+                name: null,
+                type: MessageType.CALL_REPLY,
+            })
+            const returnMethod = service.returnMethod as any
+            expect(returnMethod.mock.calls.length).toBe(1)
+            expect(returnMethod.mock.calls[0]).toEqual(args)
+            expect(returnMethod.mock.instances[0]).toBe(service)
+        })
+        test.each([
+            [5],
+            ['abc'],
+            [true],
+            [null],
+            [[1, 2, 3]],
+            [{ key: 'value' }],
+            [undefined],
+            [() => true],
+            [Symbol()],
+        ])('service returned value: %p', async value => {
+            ;(service.returnMethod as any).mockReturnValue(value)
+            const onData = jest.fn()
+            stream2.on('data', onData)
+            stream2.write(message)
+            await delay()
+            expect(onData.mock.calls.length).toBe(1)
+            expect(onData.mock.calls[0][0]).toEqual({
+                ...message,
+                data: ['object', 'string', 'number', 'boolean'].includes(
+                    typeof value,
+                )
+                    ? value
+                    : null,
+                name: null,
+                type: MessageType.CALL_REPLY,
+            })
+        })
+    })
+
+    describe('proxy actions', () => {
+        const replyData = {
+            anotherKey: 'value',
+            reply: 'data',
+        }
+        const errorData = {
+            code: ErrorCodes.ExternalError,
+            details: { additional: 'info' },
+            message: 'Test error',
+        }
+
+        test.each([null, undefined])(
+            'request, reply (reply action name: %s)',
+            async (actionName: string) => {
+                const onData = jest.fn(message => {
+                    stream2.write({
+                        ...message,
+                        data: replyData,
+                        name: actionName,
+                        type: MessageType.CALL_REPLY,
+                    })
+                })
+                stream2.on('data', onData)
+                await expect(
+                    proxy.returnMethod(
+                        1,
+                        'abc',
+                        [1, 2, 3],
+                        { key: 'value' },
+                        false,
+                    ),
+                ).resolves.toBe(replyData)
+            },
+        )
+        test.each([null, undefined])(
+            'request, error (error action name: %s)',
+            async (actionName: string) => {
+                const onData = jest.fn(message => {
+                    stream2.write({
+                        ...message,
+                        data: errorData,
+                        name: actionName,
+                        type: MessageType.CALL_ERROR,
+                    })
+                })
+                stream2.on('data', onData)
+                await expect(
+                    proxy
+                        .returnMethod(
+                            1,
+                            'abc',
+                            [1, 2, 3],
+                            { key: 'value' },
+                            false,
+                        )
+                        .catch(errorToJson),
+                ).rejects.toEqual(errorData)
+            },
+        )
+        test(`request, reply (reply action name: returnMethod)`, async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: replyData,
+                    name: 'returnMethod',
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy
+                    .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                    .catch(errorToJson),
+            ).rejects.toEqual({
+                code: ErrorCodes.Disconnected,
+                details: null,
+                message: '',
+            })
+        })
+        test('request, reply, reply', async () => {
+            const onDisconnect = jest.fn()
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: replyData,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+                stream2.write({
+                    ...message,
+                    data: replyData,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy.returnMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).resolves.toBe(replyData)
+            expect(onDisconnect).not.toHaveBeenCalled()
+        })
+        test('request, error, error', async () => {
+            const onDisconnect = jest.fn()
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: errorData,
+                    name: undefined,
+                    type: MessageType.CALL_ERROR,
+                })
+                stream2.write({
+                    ...message,
+                    data: errorData,
+                    name: undefined,
+                    type: MessageType.CALL_ERROR,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy
+                    .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                    .catch(errorToJson),
+            ).rejects.toEqual(errorData)
+            expect(onDisconnect).not.toHaveBeenCalled()
+        })
+        test('request, disconnect', async () => {
+            const promise = proxy
+                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                .catch(errorToJson)
+            connection.disconnect()
+            await expect(promise).rejects.toEqual({
+                code: ErrorCodes.Disconnected,
+                details: null,
+                message: '',
+            })
+        })
+        test('request, destroy stream', async () => {
+            const promise = proxy
+                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                .catch(errorToJson)
+            stream1.destroy()
+            await expect(promise).rejects.toEqual({
+                code: ErrorCodes.Disconnected,
+                details: null,
+                message: '',
+            })
+        })
+        test('disconnect, request', async () => {
+            connection.disconnect()
+            const promise = proxy
+                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+                .catch(errorToJson)
+            await expect(promise).rejects.toEqual({
+                code: ErrorCodes.Disconnected,
+                details: null,
+                message: '',
+            })
+        })
+        test('concurrent requests - 2 proxies', async () => {
+            connection.registerProxy({ actions, name: 'proxy-2' })
+            const proxy2 = connection.getProxy('proxy-2') as TestProxy
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: message.data.length,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            const promise1 = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
+            const promise2 = proxy2.returnMethod()
+            await expect(promise1).resolves.toBe(5)
+            await expect(promise2).resolves.toBe(0)
+        })
+        test('concurrent requests - 1 proxy, 2 actions', async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: message.data.length,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            const promise1 = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
+            const promise2 = proxy.resolveMethod()
+            await expect(promise1).resolves.toBe(5)
+            await expect(promise2).resolves.toBe(0)
+        })
+        test('concurrent requests - 1 proxy, 1 action', async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: message.data.length,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            const promise1 = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
+            const promise2 = proxy.returnMethod()
+            await expect(promise1).resolves.toBe(5)
+            await expect(promise2).resolves.toBe(0)
         })
     })
 })

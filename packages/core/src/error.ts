@@ -40,7 +40,7 @@ export enum ErrorCodes {
      */
     InvalidMessage = 'InvalidMessage',
     /**
-     * There has been no registered service to handle a messages received by a `Connection`.
+     * There has been no service to handle a message received by a `Connection`.
      */
     NoService = 'NoService',
     /**

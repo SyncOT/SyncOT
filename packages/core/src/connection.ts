@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
 import { ErrorCodes, SyncOtError } from './error'
-import { JsonValue } from './json'
+import { JsonArray, JsonValue } from './json'
 import {
     assertUnreachable,
     Interface,
@@ -61,20 +61,6 @@ export const enum MessageType {
     STREAM_OUTPUT_ERROR,
 }
 
-type MessageTypeWithName =
-    | MessageType.EVENT
-    | MessageType.CALL_REQUEST
-    | MessageType.STREAM_OPEN
-type MessageTypeWithoutName = Exclude<MessageType, MessageTypeWithName>
-
-function needsName(messageType: MessageType): boolean {
-    return (
-        messageType === MessageType.EVENT ||
-        messageType === MessageType.CALL_REQUEST ||
-        messageType === MessageType.STREAM_OPEN
-    )
-}
-
 enum Source {
     PROXY = 'proxy',
     SERVICE = 'service',
@@ -106,14 +92,26 @@ function getSource(message: Message): Source {
  */
 export type Message =
     | {
-          type: MessageTypeWithName
+          type: MessageType.EVENT
           service: ServiceName | ProxyName
           name: EventName | ActionName | StreamName
           id: SessionId
           data: JsonValue
       }
     | {
-          type: MessageTypeWithoutName
+          type: MessageType.CALL_REQUEST | MessageType.STREAM_OPEN
+          service: ServiceName | ProxyName
+          name: EventName | ActionName | StreamName
+          id: SessionId
+          data: JsonArray
+      }
+    | {
+          type: Exclude<
+              MessageType,
+              | MessageType.EVENT
+              | MessageType.CALL_REQUEST
+              | MessageType.STREAM_OPEN
+          >
           service: ServiceName | ProxyName
           name?: null
           id: SessionId
@@ -139,7 +137,9 @@ const validateMessage: Validator<Message> = validate([
             ? undefined
             : invalid(message, 'service'),
     message =>
-        (needsName(message.type)
+        (message.type === MessageType.EVENT ||
+        message.type === MessageType.CALL_REQUEST ||
+        message.type === MessageType.STREAM_OPEN
           ? typeof message.name === 'string'
           : message.name == null)
             ? undefined
@@ -147,6 +147,14 @@ const validateMessage: Validator<Message> = validate([
     message =>
         Number.isSafeInteger(message.id) ? undefined : invalid(message, 'id'),
     message => {
+        if (
+            message.type === MessageType.CALL_REQUEST ||
+            message.type === MessageType.STREAM_OPEN
+        ) {
+            return Array.isArray(message.data)
+                ? undefined
+                : invalid(message, 'data')
+        }
         switch (typeof message.data) {
             case 'object':
             case 'string':
@@ -250,6 +258,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                 )
             }
         })
+        this.initService(instance, name, actions)
         this.services.set(name, { actions, events, instance, name, streams })
     }
 
@@ -308,6 +317,86 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         return descriptor && descriptor.instance
     }
 
+    private initService(
+        service: Service,
+        serviceName: ServiceName,
+        actions: Set<ActionName>,
+    ): void {
+        ;(this as EventEmitter).on(
+            `message.${Source.PROXY}.${serviceName}`,
+            (message: Message) => {
+                switch (message.type) {
+                    case MessageType.CALL_REQUEST: {
+                        const action = message.name
+
+                        if (actions.has(action)) {
+                            Promise.resolve()
+                                .then(() =>
+                                    (service as any)[action].apply(
+                                        service,
+                                        message.data,
+                                    ),
+                                )
+                                .then(
+                                    data => {
+                                        const typeOfData = typeof data
+                                        this.send({
+                                            ...message,
+                                            data:
+                                                typeOfData === 'object' ||
+                                                typeOfData === 'number' ||
+                                                typeOfData === 'string' ||
+                                                typeOfData === 'boolean'
+                                                    ? data
+                                                    : null,
+                                            name: null,
+                                            type: MessageType.CALL_REPLY,
+                                        })
+                                    },
+                                    error => {
+                                        this.send({
+                                            ...message,
+                                            data: (error instanceof SyncOtError
+                                                ? error
+                                                : new SyncOtError(
+                                                      ErrorCodes.UnknownError,
+                                                      undefined,
+                                                      error,
+                                                  )
+                                            ).toJSON(),
+                                            name: null,
+                                            type: MessageType.CALL_ERROR,
+                                        })
+                                    },
+                                )
+                        } else {
+                            this.send({
+                                ...message,
+                                data: new SyncOtError(
+                                    ErrorCodes.NoService,
+                                ).toJSON(),
+                                name: null,
+                                type: MessageType.CALL_ERROR,
+                            })
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_OPEN: {
+                        this.send({
+                            ...message,
+                            data: new SyncOtError(
+                                ErrorCodes.NoService,
+                            ).toJSON(),
+                            name: null,
+                            type: MessageType.STREAM_OUTPUT_ERROR,
+                        })
+                        break
+                    }
+                }
+            },
+        )
+    }
+
     private createProxy(proxyName: ProxyName, actions: Set<ActionName>): Proxy {
         const proxy = new EventEmitter()
         let nextSessionId = 1
@@ -354,7 +443,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                             actionSessions.delete(id)
                             session.resolve(message.data)
                         }
-                        return
+                        break
                     }
                     case MessageType.CALL_ERROR: {
                         const id = message.id
@@ -363,7 +452,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                             actionSessions.delete(id)
                             session.reject(SyncOtError.fromJSON(message.data))
                         }
-                        return
+                        break
                     }
                 }
             },
@@ -399,7 +488,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             return this.disconnect(error)
         }
 
-        // Emit an internal event for the services.
+        // Emit an internal event for the services and proxies.
         const handled: boolean = (this as EventEmitter).emit(
             `message.${getSource(message)}.${message.service}`,
             message,
