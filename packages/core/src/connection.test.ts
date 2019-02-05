@@ -1,5 +1,3 @@
-// TODO test services and proxies together
-
 import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import {
@@ -653,6 +651,16 @@ describe('service and proxy', () => {
         'rejectErrorMethod',
         'rejectSyncOtErrorMethod',
     ])
+    const params = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
+    const replyData = {
+        anotherKey: 'value',
+        reply: 'data',
+    }
+    const errorData = {
+        code: ErrorCodes.ExternalError,
+        details: { additional: 'info' },
+        message: 'Test error',
+    }
 
     beforeEach(() => {
         service = new EventEmitter() as TestService
@@ -755,13 +763,12 @@ describe('service and proxy', () => {
             expect(onData.mock.calls.length).toBe(1)
             expect(onData.mock.calls[0][0]).toEqual(response)
         })
-        test('service call with args', async () => {
-            const args = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
+        test('service call with params', async () => {
             const onData = jest.fn()
             stream2.on('data', onData)
             stream2.write({
                 ...message,
-                data: args,
+                data: params,
             })
             await delay()
             expect(onData.mock.calls.length).toBe(1)
@@ -773,7 +780,7 @@ describe('service and proxy', () => {
             })
             const returnMethod = service.returnMethod as any
             expect(returnMethod.mock.calls.length).toBe(1)
-            expect(returnMethod.mock.calls[0]).toEqual(args)
+            expect(returnMethod.mock.calls[0]).toEqual(params)
             expect(returnMethod.mock.instances[0]).toBe(service)
         })
         test.each([
@@ -871,16 +878,6 @@ describe('service and proxy', () => {
     })
 
     describe('proxy actions', () => {
-        const replyData = {
-            anotherKey: 'value',
-            reply: 'data',
-        }
-        const errorData = {
-            code: ErrorCodes.ExternalError,
-            details: { additional: 'info' },
-            message: 'Test error',
-        }
-
         test.each([null, undefined])(
             'request, reply (reply action name: %s)',
             async (actionName: string) => {
@@ -1100,7 +1097,7 @@ describe('service and proxy', () => {
             await expect(promise2).resolves.toBe(0)
         })
         test('invalid params', async () => {
-            const args = [
+            const invalidParams = [
                 undefined as any,
                 Symbol() as any,
                 (() => undefined) as any,
@@ -1116,8 +1113,41 @@ describe('service and proxy', () => {
             stream2.on('data', onData)
             // The Proxy will send an Array of arguments. Connection verifies only
             // that the data is an Array and does not look inside for performance reasons.
-            const promise = proxy.returnMethod.apply(proxy, args)
-            await expect(promise).resolves.toEqual(args)
+            const promise = proxy.returnMethod(...invalidParams)
+            await expect(promise).resolves.toEqual(invalidParams)
+        })
+    })
+
+    describe('service/proxy interaction', () => {
+        let connection2: Connection
+        let proxy2: TestProxy
+
+        beforeEach(() => {
+            connection2 = createConnection()
+            connection2.connect(stream2)
+            connection2.registerProxy({ actions, name: serviceName })
+            proxy2 = connection2.getProxy(serviceName) as TestProxy
+        })
+
+        test('request, reply', async () => {
+            ;(service.returnMethod as any).mockResolvedValue(replyData)
+            await expect(proxy2.returnMethod(...params)).resolves.toEqual(
+                replyData,
+            )
+            const returnMethod = service.returnMethod as any
+            expect(returnMethod.mock.calls.length).toBe(1)
+            expect(returnMethod.mock.calls[0]).toEqual(params)
+            expect(returnMethod.mock.instances[0]).toBe(service)
+        })
+        test('request, error', async () => {
+            ;(service.returnMethod as any).mockRejectedValue(externalError)
+            await expect(
+                proxy2.returnMethod(...params).catch(errorToJson),
+            ).rejects.toEqual(externalError.toJSON())
+            const returnMethod = service.returnMethod as any
+            expect(returnMethod.mock.calls.length).toBe(1)
+            expect(returnMethod.mock.calls[0]).toEqual(params)
+            expect(returnMethod.mock.instances[0]).toBe(service)
         })
     })
 })
