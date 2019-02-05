@@ -1,3 +1,5 @@
+// TODO test services and proxies together
+
 import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import {
@@ -802,6 +804,70 @@ describe('service and proxy', () => {
                 type: MessageType.CALL_REPLY,
             })
         })
+        test('disconnect before resolving', async () => {
+            const onData = jest.fn()
+            const noop = () => undefined
+            let resolvePromise: () => void = noop
+            const promise = new Promise(
+                (resolve, _) => (resolvePromise = resolve),
+            )
+            ;(service.returnMethod as any).mockReturnValue(promise)
+            stream2.on('data', onData)
+            stream2.write(message)
+            await delay()
+            expect(resolvePromise).not.toBe(noop)
+            connection.disconnect()
+            resolvePromise()
+            await delay()
+            expect(onData).not.toHaveBeenCalled()
+        })
+        test('disconnect before rejecting', async () => {
+            const onData = jest.fn()
+            const noop = () => undefined
+            let rejectPromise: (error: Error) => void = noop
+            const promise = new Promise((_, reject) => (rejectPromise = reject))
+            ;(service.returnMethod as any).mockReturnValue(promise)
+            stream2.on('data', onData)
+            stream2.write(message)
+            await delay()
+            expect(rejectPromise).not.toBe(noop)
+            connection.disconnect()
+            rejectPromise(error)
+            await delay()
+            expect(onData).not.toHaveBeenCalled()
+        })
+        test('destroy stream before resolving', async () => {
+            const onData = jest.fn()
+            const noop = () => undefined
+            let resolvePromise: () => void = noop
+            const promise = new Promise(
+                (resolve, _) => (resolvePromise = resolve),
+            )
+            ;(service.returnMethod as any).mockReturnValue(promise)
+            stream2.on('data', onData)
+            stream2.write(message)
+            await delay()
+            expect(resolvePromise).not.toBe(noop)
+            stream1.destroy()
+            resolvePromise()
+            await delay()
+            expect(onData).not.toHaveBeenCalled()
+        })
+        test('destroy stream before rejecting', async () => {
+            const onData = jest.fn()
+            const noop = () => undefined
+            let rejectPromise: (error: Error) => void = noop
+            const promise = new Promise((_, reject) => (rejectPromise = reject))
+            ;(service.returnMethod as any).mockReturnValue(promise)
+            stream2.on('data', onData)
+            stream2.write(message)
+            await delay()
+            expect(rejectPromise).not.toBe(noop)
+            stream1.destroy()
+            rejectPromise(error)
+            await delay()
+            expect(onData).not.toHaveBeenCalled()
+        })
     })
 
     describe('proxy actions', () => {
@@ -1032,6 +1098,26 @@ describe('service and proxy', () => {
             const promise2 = proxy.returnMethod()
             await expect(promise1).resolves.toBe(5)
             await expect(promise2).resolves.toBe(0)
+        })
+        test('invalid params', async () => {
+            const args = [
+                undefined as any,
+                Symbol() as any,
+                (() => undefined) as any,
+            ]
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: message.data,
+                    name: undefined,
+                    type: MessageType.CALL_REPLY,
+                })
+            })
+            stream2.on('data', onData)
+            // The Proxy will send an Array of arguments. Connection verifies only
+            // that the data is an Array and does not look inside for performance reasons.
+            const promise = proxy.returnMethod.apply(proxy, args)
+            await expect(promise).resolves.toEqual(args)
         })
     })
 })

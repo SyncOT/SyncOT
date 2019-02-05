@@ -339,6 +339,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                 )
                                 .then(
                                     data => {
+                                        if (!this.isConnected()) {
+                                            return
+                                        }
                                         const typeOfData = typeof data
                                         this.send({
                                             ...message,
@@ -354,6 +357,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                         })
                                     },
                                     error => {
+                                        if (!this.isConnected()) {
+                                            return
+                                        }
                                         this.send({
                                             ...message,
                                             data: (error instanceof SyncOtError
@@ -370,6 +376,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                     },
                                 )
                         } else {
+                            /* istanbul ignore if */
+                            if (!this.isConnected()) {
+                                return
+                            }
                             this.send({
                                 ...message,
                                 data: new SyncOtError(
@@ -382,6 +392,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         break
                     }
                     case MessageType.STREAM_OPEN: {
+                        /* istanbul ignore if */
+                        if (!this.isConnected()) {
+                            return
+                        }
                         this.send({
                             ...message,
                             data: new SyncOtError(
@@ -495,6 +509,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         )
 
         if (!handled) {
+            /* istanbul ignore if */
+            if (!this.isConnected()) {
+                return
+            }
             switch (message.type) {
                 case MessageType.CALL_REQUEST:
                     return this.send({
