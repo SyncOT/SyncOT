@@ -4,6 +4,8 @@
     "module": "es2015",
     "moduleResolution": "node",
     "lib": ["es2018"],
+    "types": ["node", "jest", "jest-extended"],
+    "preserveConstEnums": true,
     "composite": true,
     "declaration": true,
     "importHelpers": true,
@@ -14,5 +16,5 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true
   },
-  "exclude": ["**/node_modules/", "**/lib/"]
+  "exclude": ["./node_modules/", "./packages/*/lib/"]
 }
