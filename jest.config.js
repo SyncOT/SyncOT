@@ -1,28 +1,32 @@
-const { compilerOptions } = require('./tsconfig.json')
+const fs = require('fs')
 
 module.exports = {
-    preset: 'ts-jest',
-    setupFilesAfterEnv: ['jest-extended'],
-    moduleNameMapper: {
-        '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',
-    },
-    globals: {
-        'ts-jest': {
-            // jest uses the same tsConfig for all packages,
-            // so we have to ensure that it finds all the required definitions.
-            tsConfig: {
-                ...compilerOptions,
-                lib: ['dom'].concat(compilerOptions.lib),
-            },
-        },
-    },
-    testEnvironment: 'node',
-    testPathIgnorePatterns: ['/node_modules/', '<rootDir>/packages/[^/]+/lib/'],
-    collectCoverage: true,
-    collectCoverageFrom: [
-        'packages/*/src/**/*.{ts,tsx,js,jsx}',
-        '!packages/*/src/**/*.test.{ts,tsx,js,jsx}',
-        '!packages/*/src/**/*Tests.{ts,tsx,js,jsx}',
-        '!**/node_modules/**',
+    projects: [
+        fs.readdirSync('./packages').map(name => {
+            return {
+                name,
+                displayName: name,
+                preset: 'ts-jest',
+                setupFilesAfterEnv: ['jest-extended'],
+                moduleNameMapper: {
+                    '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',
+                },
+                globals: {
+                    'ts-jest': {
+                        tsConfig: require(`./packages/${name}/tsconfig.json`)
+                            .compilerOptions,
+                    },
+                },
+                testEnvironment: 'node',
+                testMatch: [`<rootDir>/packages/${name}/src/**/*.test.ts`],
+                collectCoverage: true,
+                collectCoverageFrom: [
+                    'packages/*/src/**/*.{ts,tsx,js,jsx}',
+                    '!packages/*/src/**/*.test.{ts,tsx,js,jsx}',
+                    '!packages/*/src/**/*Tests.{ts,tsx,js,jsx}',
+                    '!**/node_modules/**',
+                ],
+            }
+        }),
     ],
 }
