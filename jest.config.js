@@ -2,7 +2,7 @@ const { compilerOptions } = require('./tsconfig.json')
 
 module.exports = {
     preset: 'ts-jest',
-    setupTestFrameworkScriptFile: 'jest-extended',
+    setupFilesAfterEnv: ['jest-extended'],
     moduleNameMapper: {
         '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',
     },

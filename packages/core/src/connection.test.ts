@@ -664,7 +664,7 @@ describe('service and proxy', () => {
 
     beforeEach(() => {
         service = new EventEmitter() as TestService
-        service.returnMethod = jest.fn(() => 5)
+        service.returnMethod = jest.fn(() => 5 as any)
         service.resolveMethod = jest.fn(() => Promise.resolve(5))
         service.throwErrorMethod = jest.fn(() => {
             throw error
