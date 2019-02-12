@@ -1,0 +1,27 @@
+{
+  "name": "@syncot/tson",
+  "version": "0.0.0",
+  "description": "A typed, flexible and efficient binary (de)serializer.",
+  "keywords": [
+    "serialization",
+    "binary"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "dependencies": {
+    "@types/node": "^10.12.21",
+    "smart-buffer": "^4.0.2",
+    "tslib": "^1.9.3"
+  }
+}

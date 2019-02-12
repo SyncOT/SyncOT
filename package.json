@@ -36,6 +36,7 @@
   "dependencies": {
     "@syncot/client": "file:packages/client",
     "@syncot/core": "file:packages/core",
-    "@syncot/server": "file:packages/server"
+    "@syncot/server": "file:packages/server",
+    "@syncot/tson": "file:packages/tson"
   }
 }
