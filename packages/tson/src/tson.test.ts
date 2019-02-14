@@ -38,15 +38,19 @@ const longString = Array.from(
 const fixedLongString = longString.replace(/\uD813|\uDC13/g, '\uFFFD')
 const longStringUtf8Length = 2900
 
+/**
+ * Fills the arrayBuffer with 0xDD and then encodes the string
+ * 'abcdefghijklmnopqrstuv' at offset 8.
+ */
 function initBinaryTestData(arrayBuffer: ArrayBuffer): void {
     const buffer = Buffer.from(arrayBuffer)
     buffer.fill(0xdd)
-    buffer.writeUInt32LE(0x03020100, 8)
-    buffer.writeUInt32LE(0x07060504, 12)
-    buffer.writeUInt32LE(0x0b0a0908, 16)
-    buffer.writeUInt32LE(0x0f0e0d0c, 20)
-    buffer.writeUInt32LE(0xffffffff, 24)
-    buffer.writeUInt32LE(0xeeeeeeee, 28)
+    buffer.writeUInt32BE(0x0c166162, 8)
+    buffer.writeUInt32BE(0x63646566, 12)
+    buffer.writeUInt32BE(0x6768696a, 16)
+    buffer.writeUInt32BE(0x6b6c6d6e, 20)
+    buffer.writeUInt32BE(0x6f707172, 24)
+    buffer.writeUInt32BE(0x73747576, 28)
 }
 
 const testArrayBuffer = new ArrayBuffer(128)
@@ -499,6 +503,23 @@ describe('encode', () => {
 })
 
 describe('decode', () => {
+    test.each(
+        [
+            ['ArrayBuffer', testArrayBuffer.slice(8, 32)],
+            ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
+            ['DataView', testDataView],
+            ['Buffer', testBuffer],
+        ].concat(testTypedArrays.map(array => [array.constructor.name, array])),
+    )('input type: %s', (_message, data) => {
+        expect(decode(data)).toBe('abcdefghijklmnopqrstuv')
+    })
+
+    test('input type: Array', () => {
+        expect(() => decode([0x00] as any)).toThrow(
+            '@syncot/tson: Expected binary data to decode.',
+        )
+    })
+
     test.each([
         ['NULL', null],
         ['BOOLEAN true', true],
