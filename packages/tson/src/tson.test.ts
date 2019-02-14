@@ -109,18 +109,21 @@ describe('toBuffer', () => {
 })
 
 describe('encode', () => {
-    describe('undefined', () => {
+    describe('unsupported type', () => {
         test('undefined', () => {
             const buffer = encodeToSmartBuffer(undefined)
-            expect(buffer.length).toBe(0)
+            expect(buffer.length).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
         })
         test('function', () => {
             const buffer = encodeToSmartBuffer(() => 5)
-            expect(buffer.length).toBe(0)
+            expect(buffer.length).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
         })
         test('symbol', () => {
             const buffer = encodeToSmartBuffer(Symbol())
-            expect(buffer.length).toBe(0)
+            expect(buffer.length).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
         })
     })
 
@@ -497,7 +500,6 @@ describe('encode', () => {
 
 describe('decode', () => {
     test.each([
-        ['UNDEFINED', undefined],
         ['NULL', null],
         ['BOOLEAN true', true],
         ['BOOLEAN false', false],

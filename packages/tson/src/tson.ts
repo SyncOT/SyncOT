@@ -7,6 +7,7 @@ import { SmartBuffer } from 'smart-buffer'
  * The type codes are encoded as 8 bit unsigned integers.
  * The type codes between 0 and 127 inclusive are reserved for TSON.
  * The type codes between 128 and 255 inclusive may be used to encode custom types.
+ * Unknown data types are encoded as `NULL`.
  */
 export const enum Type {
     /**
@@ -86,56 +87,32 @@ export const enum Type {
     STRING32,
     /**
      * An array of arbitrary values with the length encoded as an 8-bit unsigned integer.
-     * Encoding: `0x0F <length> <tson-value>*length`.
+     * Encoding: `0x0F <length> <value-any>*length`.
      */
     ARRAY8,
     /**
      * An array of arbitrary values with the length encoded as a 16-bit unsigned integer.
-     * Encoding: `0x10 <length>*2 <tson-value>*length`.
+     * Encoding: `0x10 <length>*2 <value-any>*length`.
      */
     ARRAY16,
     /**
      * An array of arbitrary values with the length encoded as a 32-bit unsigned integer.
-     * Encoding: `0x11 <length>*4 <tson-value>*length`.
+     * Encoding: `0x11 <length>*4 <value-any>*length`.
      */
     ARRAY32,
     /**
      * An object with arbitrary properties whose count is encoded as an 8-bit unsigned integer.
-     * Encoding: `0x12 <length> <property>*length`, where:
-     *
-     * - `<property>` is `<key> <tson-value>`
-     * - `<key>` is `<key-length-code(upper 2 bits) slot-number(lower 6 bits)> <key-name>`
-     * - `key-length-code` determines the type of `<key-name>` as follows:
-     *     - `00` - no inline `key-name`. Use the one stored at the `slot-number` index,
-     *     - `01` - `STRING8`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `10` - `STRING16`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `11` - `STRING32`. Use the inline `key-name` and store it at the `slot-number` index,
+     * Encoding: `0x12 <length> <property>*length`, where `<property>` is `<key-string> <value-any>`.
      */
     OBJECT8,
     /**
      * An object with arbitrary properties whose count is encoded as an 8-bit unsigned integer.
-     * Encoding: `0x13 <length>*2 <property>*length`, where:
-     *
-     * - `<property>` is `<key> <tson-value>`
-     * - `<key>` is `<key-length-code(upper 2 bits) slot-number(lower 6 bits)> <key-name>`
-     * - `key-length-code` determines the type of `<key-name>` as follows:
-     *     - `[00]` - no inline `key-name`. Use the one stored at the `slot-number` index,
-     *     - `[01]` - `STRING8`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `[10]` - `STRING16`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `[11]` - `STRING32`. Use the inline `key-name` and store it at the `slot-number` index,
+     * Encoding: `0x13 <length>*2 <property>*length`, where `<property>` is `<key-string> <value-any>`.
      */
     OBJECT16,
     /**
      * An object with arbitrary properties whose count is encoded as an 8-bit unsigned integer.
-     * Encoding: `0x14 <length>*4 <property>*length`, where:
-     *
-     * - `<property>` is `<key> <tson-value>`
-     * - `<key>` is `<key-length-code(upper 2 bits) slot-number(lower 6 bits)> <key-name>`
-     * - `key-length-code` determines the type of `<key-name>` as follows:
-     *     - `[00]` - no inline `key-name`. Use the one stored at the `slot-number` index,
-     *     - `[01]` - `STRING8`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `[10]` - `STRING16`. Use the inline `key-name` and store it at the `slot-number` index,
-     *     - `[11]` - `STRING32`. Use the inline `key-name` and store it at the `slot-number` index,
+     * Encoding: `0x14 <length>*4 <property>*length`, where`<property>` is `<key-string> <value-any>`.
      */
     OBJECT32,
 }
@@ -223,7 +200,8 @@ export function encode(data: any): ArrayBuffer {
         // Encode the `data` into the `buffer`.
         encodeAny(smartBuffer, data)
 
-        // Slice out a nodejs buffer from the smart buffer. Both `b` and `buffer` reference the same data.
+        // Slice out a nodejs buffer from the smart buffer.
+        // Both `buffer` and `smartBuffer` reference the same data.
         const buffer = smartBuffer.toBuffer()
         // Copy the encoded data into a new ArrayBuffer and return it.
         return buffer.buffer.slice(
@@ -235,18 +213,6 @@ export function encode(data: any): ArrayBuffer {
     }
 }
 
-// function supported(item: any): boolean {
-//     switch (typeof item) {
-//         case 'boolean':
-//         case 'number':
-//         case 'string':
-//         case 'object':
-//             return true
-//         default:
-//             return false
-//     }
-// }
-
 function encodeAny(buffer: SmartBuffer, item: any): void {
     switch (typeof item) {
         case 'boolean':
@@ -257,6 +223,8 @@ function encodeAny(buffer: SmartBuffer, item: any): void {
             return encodeString(buffer, item)
         case 'object':
             return encodeObject(buffer, item)
+        default:
+            return encodeObject(buffer, null)
     }
 }
 
@@ -311,7 +279,7 @@ function encodeString(buffer: SmartBuffer, item: string): void {
     }
 }
 
-function encodeObject(buffer: SmartBuffer, item: object): void {
+function encodeObject(buffer: SmartBuffer, item: object | null): void {
     if (item === null) {
         buffer.writeUInt8(Type.NULL)
         return
@@ -343,22 +311,20 @@ function encodeObject(buffer: SmartBuffer, item: object): void {
 }
 
 /**
- * Decodes the `buffer` and returns the result.
- * @param buffer The buffer to decode.
+ * Decodes the `binaryData` and returns the result.
+ * @param binaryData The binary data to decode.
  * @returns The decoded data.
  */
 export function decode(
-    buffer: ArrayBuffer,
-): boolean | number | string | object | null | undefined {
-    if (!(buffer instanceof ArrayBuffer)) {
-        throw new Error('@syncot/tson: `buffer` must be an `ArrayBuffer`.')
+    binaryData: BinaryType,
+): boolean | number | string | object | null {
+    const buffer = toBuffer(binaryData)
+
+    if (!buffer) {
+        throw new Error('@syncot/tson: Expected binary data to decode.')
     }
 
-    if (buffer.byteLength === 0) {
-        return undefined
-    }
-
-    return decodeAny(SmartBuffer.fromBuffer(Buffer.from(buffer)))
+    return decodeAny(SmartBuffer.fromBuffer(buffer))
 }
 
 function assertBytes(buffer: SmartBuffer, count: number, what: string): void {
