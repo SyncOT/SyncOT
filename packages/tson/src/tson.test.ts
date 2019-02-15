@@ -502,104 +502,42 @@ describe('encode', () => {
     })
 
     describe('ARRAY', () => {
-        test('length: 0x00', () => {
-            const buffer = encodeToSmartBuffer([])
-            expect(buffer.length).toBe(2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
-            expect(buffer.readUInt8()).toBe(0)
-        })
-        test('length: 0x01', () => {
-            const buffer = encodeToSmartBuffer([-5])
-            expect(buffer.length).toBe(4)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
-            expect(buffer.readUInt8()).toBe(1)
-            expect(buffer.readUInt8()).toBe(Type.INT8)
-            expect(buffer.readInt8()).toBe(-5)
-        })
-        test('length: 0xff', () => {
-            const array = Array.from(Array(0xff), (_, i) => 0x7f - i)
-            const buffer = encodeToSmartBuffer(array)
-            expect(buffer.length).toBe(2 + 0xff * 2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
-            expect(buffer.readUInt8()).toBe(0xff)
-            for (let i = 0; i < 0xff; ++i) {
-                expect(buffer.readUInt8()).toBe(Type.INT8)
-                expect(buffer.readInt8()).toBe(0x7f - i)
-            }
-        })
-        test('length: 0x100', () => {
-            const array = Array.from(Array(0x100), (_, i) =>
-                Math.max(-0x80, 0x7f - i),
-            )
-            const buffer = encodeToSmartBuffer(array)
-            expect(buffer.length).toBe(3 + 0x100 * 2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY16)
-            expect(buffer.readUInt16LE()).toBe(0x100)
-            for (let i = 0; i < 0x100; ++i) {
-                expect(buffer.readUInt8()).toBe(Type.INT8)
-                expect(buffer.readInt8()).toBe(Math.max(-0x80, 0x7f - i))
-            }
-        })
-        test('length: 0xFFFF', () => {
-            const array = Array.from(Array(0xffff), (_, i) =>
-                Math.max(-0x80, 0x7f - i),
-            )
-            const buffer = encodeToSmartBuffer(array)
-            expect(buffer.length).toBe(3 + 0xffff * 2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY16)
-            expect(buffer.readUInt16LE()).toBe(0xffff)
-            for (let i = 0; i < 0xffff; ++i) {
-                const type = buffer.readUInt8()
-                const value = buffer.readInt8()
-                const expectedType = Type.INT8
-                const expectedValue = Math.max(-0x80, 0x7f - i)
-                // `expect` is just too slow to call in a loop ~ 10s.
-                if (type !== expectedType || value !== expectedValue) {
-                    expect(type).toBe(expectedType)
-                    expect(value).toBe(expectedValue)
+        test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
+            'length: %d',
+            length => {
+                const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+                const arrayType =
+                    length <= 0xff
+                        ? Type.ARRAY8
+                        : length <= 0xffff
+                        ? Type.ARRAY16
+                        : Type.ARRAY32
+                const array = Array.from(Array(length), (_, i) =>
+                    Math.max(-0x80, 0x7f - i),
+                )
+                const buffer = encodeToSmartBuffer(array)
+                expect(buffer.length).toBe(1 + lengthSize + length * 2)
+                expect(buffer.readUInt8()).toBe(arrayType)
+                expect(
+                    length <= 0xff
+                        ? buffer.readUInt8()
+                        : length <= 0xffff
+                        ? buffer.readUInt16LE()
+                        : buffer.readUInt32LE(),
+                ).toBe(length)
+                for (let i = 0; i < length; ++i) {
+                    const type = buffer.readUInt8()
+                    const value = buffer.readInt8()
+                    const expectedType = Type.INT8
+                    const expectedValue = Math.max(-0x80, 0x7f - i)
+                    // `expect` is just too slow to call in a loop ~ 10s.
+                    if (type !== expectedType || value !== expectedValue) {
+                        expect(type).toBe(expectedType)
+                        expect(value).toBe(expectedValue)
+                    }
                 }
-            }
-        })
-        test('length: 0x10000', () => {
-            const array = Array.from(Array(0x10000), (_, i) =>
-                Math.max(-0x80, 0x7f - i),
-            )
-            const buffer = encodeToSmartBuffer(array)
-            expect(buffer.length).toBe(5 + 0x10000 * 2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY32)
-            expect(buffer.readUInt32LE()).toBe(0x10000)
-            for (let i = 0; i < 0x10000; ++i) {
-                const type = buffer.readUInt8()
-                const value = buffer.readInt8()
-                const expectedType = Type.INT8
-                const expectedValue = Math.max(-0x80, 0x7f - i)
-                // `expect` is just too slow to call in a loop ~ 10s.
-                if (type !== expectedType || value !== expectedValue) {
-                    expect(type).toBe(expectedType)
-                    expect(value).toBe(expectedValue)
-                }
-            }
-        })
-        test('length: 0x10011', () => {
-            const array = Array.from(Array(0x10011), (_, i) =>
-                Math.max(-0x80, 0x7f - i),
-            )
-            const buffer = encodeToSmartBuffer(array)
-            expect(buffer.length).toBe(5 + 0x10011 * 2)
-            expect(buffer.readUInt8()).toBe(Type.ARRAY32)
-            expect(buffer.readUInt32LE()).toBe(0x10011)
-            for (let i = 0; i < 0x10011; ++i) {
-                const type = buffer.readUInt8()
-                const value = buffer.readInt8()
-                const expectedType = Type.INT8
-                const expectedValue = Math.max(-0x80, 0x7f - i)
-                // `expect` is just too slow to call in a loop ~ 10s.
-                if (type !== expectedType || value !== expectedValue) {
-                    expect(type).toBe(expectedType)
-                    expect(value).toBe(expectedValue)
-                }
-            }
-        })
+            },
+        )
 
         test('mixed value types', () => {
             const array = [
@@ -633,6 +571,208 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('abc')
+        })
+    })
+
+    describe('OBJECT', () => {
+        test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
+            'property count: %d',
+            length => {
+                const typeSize = 1
+                const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+                const arrayType =
+                    length <= 0xff
+                        ? Type.OBJECT8
+                        : length <= 0xffff
+                        ? Type.OBJECT16
+                        : Type.OBJECT32
+                const propertySize = 14 // key-type (1) + key-length (1) + key (10) + value-type (1) + value (1)
+                const object: { [key: string]: number } = {}
+                for (let i = 0; i < length; ++i) {
+                    object['' + (1000000000 + i)] = Math.max(-0x80, 0x7f - i)
+                }
+                const buffer = encodeToSmartBuffer(object)
+                expect(buffer.length).toBe(
+                    typeSize + lengthSize + propertySize * length,
+                )
+                expect(buffer.readUInt8()).toBe(arrayType)
+                expect(
+                    length <= 0xff
+                        ? buffer.readUInt8()
+                        : length <= 0xffff
+                        ? buffer.readUInt16LE()
+                        : buffer.readUInt32LE(),
+                ).toBe(length)
+                for (let i = 0; i < length; ++i) {
+                    const keyType = buffer.readUInt8()
+                    const keyLength = buffer.readUInt8()
+                    const key = buffer.readString(10)
+                    const valueType = buffer.readUInt8()
+                    const value = buffer.readInt8()
+                    const expectedKey = '' + (1000000000 + i)
+                    const expectedValue = Math.max(-0x80, 0x7f - i)
+                    // Avoid calling expect to drastically improve performance.
+                    if (
+                        keyType !== Type.STRING8 ||
+                        keyLength !== 10 ||
+                        key !== expectedKey ||
+                        valueType !== Type.INT8 ||
+                        value !== expectedValue
+                    ) {
+                        expect(keyType).toBe(Type.STRING8)
+                        expect(keyLength).toBe(10)
+                        expect(key).toBe(expectedKey)
+                        expect(valueType).toBe(Type.INT8)
+                        expect(value).toBe(expectedValue)
+                    }
+                }
+            },
+        )
+        test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
+            'key length: %d',
+            length => {
+                const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+                const object: { [key: string]: number } = {}
+                const key = Array.from(Array(length), (_, i) => i % 10).join('')
+                object[key] = 10 // 1 + lengthSize + length (key) + 2 (value)
+                object[':'] = 20 // 3 (key) + 2 (value) bytes
+                const buffer = encodeToSmartBuffer(object)
+                expect(buffer.length).toBe(
+                    2 + (1 + lengthSize + length + 2) + 5,
+                )
+                expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+                expect(buffer.readUInt8()).toBe(2)
+                expect(buffer.readUInt8()).toBe(
+                    length <= 0xff
+                        ? Type.STRING8
+                        : length <= 0xffff
+                        ? Type.STRING16
+                        : Type.STRING32,
+                )
+                expect(
+                    length <= 0xff
+                        ? buffer.readUInt8()
+                        : length <= 0xffff
+                        ? buffer.readUInt16LE()
+                        : buffer.readUInt32LE(),
+                ).toBe(length)
+                expect(buffer.readString(length)).toBe(key)
+                expect(buffer.readUInt8()).toBe(Type.INT8)
+                expect(buffer.readInt8()).toBe(10)
+                expect(buffer.readUInt8()).toBe(Type.STRING8)
+                expect(buffer.readUInt8()).toBe(1)
+                expect(buffer.readString(1)).toBe(':')
+                expect(buffer.readUInt8()).toBe(Type.INT8)
+                expect(buffer.readInt8()).toBe(20)
+            },
+        )
+        test('mixed values', () => {
+            const object: { [key: string]: any } = {}
+            object.a = true
+            object.b = null
+            object.c = 0.3
+            object.d = NaN
+            object.e = Buffer.allocUnsafe(1).fill(0x13)
+            object.f = {
+                A: 'xyz',
+                B: [1, { C: 2 }, 3],
+            }
+            object.g = 'abc'
+            object.h = undefined
+            const buffer = encodeToSmartBuffer(object)
+            expect(buffer.length).toBe(
+                1 + // object type
+                1 + // object size
+                4 + // property a
+                4 + // property b
+                12 + // property c
+                8 + // property d
+                6 + // property e
+                5 + // property f
+                8 + // property g
+                4 + // property h
+                8 + // property A
+                5 + // property B
+                2 + // array 0
+                7 + // array 1
+                    2, // array 2
+            )
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(8)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('a')
+            expect(buffer.readUInt8()).toBe(Type.TRUE)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('b')
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('c')
+            expect(buffer.readUInt8()).toBe(Type.FLOAT64)
+            expect(buffer.readDoubleLE()).toBe(0.3)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('d')
+            expect(buffer.readUInt8()).toBe(Type.FLOAT32)
+            expect(buffer.readFloatLE()).toBe(NaN)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('e')
+            expect(buffer.readUInt8()).toBe(Type.BINARY8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(0x13)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('f')
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(2)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('A')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(3)
+            expect(buffer.readString(3)).toBe('xyz')
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('B')
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(3)
+
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(1)
+
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('C')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(2)
+
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(3)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('g')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(3)
+            expect(buffer.readString(3)).toBe('abc')
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('h')
+            expect(buffer.readUInt8()).toBe(Type.NULL)
         })
     })
 })

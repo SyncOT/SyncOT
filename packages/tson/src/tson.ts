@@ -325,6 +325,30 @@ function encodeObject(buffer: SmartBuffer, item: object | null): void {
         return
     }
 
+    {
+        const keys = Object.keys(item)
+        const length = keys.length
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
+        } else if (length <= 0xff) {
+            buffer.writeUInt8(Type.OBJECT8)
+            buffer.writeUInt8(length)
+        } else if (length <= 0xffff) {
+            buffer.writeUInt8(Type.OBJECT16)
+            buffer.writeUInt16LE(length)
+        } else {
+            buffer.writeUInt8(Type.OBJECT32)
+            buffer.writeUInt32LE(length)
+        }
+        for (let i = 0; i < length; ++i) {
+            const key = keys[i]
+            const value = (item as any)[key]
+            encodeAny(buffer, key)
+            encodeAny(buffer, value)
+        }
+    }
+
     return
 }
 
