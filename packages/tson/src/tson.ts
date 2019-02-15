@@ -429,6 +429,33 @@ function decodeAny(
                 readBuffer.byteOffset + readBuffer.byteLength,
             )
         }
+        case Type.ARRAY8: {
+            assertBytes(buffer, 1, 'ARRAY8 length')
+            const length = buffer.readUInt8()
+            const array = []
+            for (let i = 0; i < length; ++i) {
+                array[i] = decodeAny(buffer)
+            }
+            return array
+        }
+        case Type.ARRAY16: {
+            assertBytes(buffer, 2, 'ARRAY16 length')
+            const length = buffer.readUInt16LE()
+            const array = []
+            for (let i = 0; i < length; ++i) {
+                array[i] = decodeAny(buffer)
+            }
+            return array
+        }
+        case Type.ARRAY32: {
+            assertBytes(buffer, 4, 'ARRAY32 length')
+            const length = buffer.readUInt32LE()
+            const array = []
+            for (let i = 0; i < length; ++i) {
+                array[i] = decodeAny(buffer)
+            }
+            return array
+        }
         default:
             throw new Error(
                 `@syncot/tson: Unknown type 0x${type.toString(16)}.`,

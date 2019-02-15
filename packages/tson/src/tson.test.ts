@@ -655,6 +655,35 @@ describe('decode', () => {
         )
     })
 
+    const generateArray = (length: number) => {
+        return Array.from(Array(length), (_, i) => {
+            switch (i % 10) {
+                case 0:
+                    return 2 * i - 0x100
+                case 1:
+                    return i - 0.5
+                case 2:
+                    return i - 0.3
+                case 3:
+                    return '!' + i
+                case 4:
+                    return new ArrayBuffer(5)
+                case 5:
+                    return true
+                case 6:
+                    return false
+                case 7:
+                    return Infinity
+                case 8:
+                    return null
+                case 9:
+                    return [1, 2, 3, 'abc']
+                default:
+                    return i
+            }
+        })
+    }
+
     test.each([
         ['NULL', null],
         ['BOOLEAN true', true],
@@ -686,6 +715,12 @@ describe('decode', () => {
         ['STRING 0x100 long', string100Long],
         ['STRING 0xFFFF long', stringFFFFLong],
         ['STRING 0x10000 long', string10000Long],
+        ['ARRAY 0x0 long', generateArray(0x00)],
+        ['ARRAY 0xFF long', generateArray(0xff)],
+        ['ARRAY 0x100 long', generateArray(0x100)],
+        ['ARRAY 0xFFFF long', generateArray(0xffff)],
+        ['ARRAY 0x10000 long', generateArray(0x10000)],
+        ['ARRAY 0x10011 long', generateArray(0x10011)],
     ])('%s', (_message, data) => {
         expect(decode(encode(data))).toEqual(data)
     })
@@ -724,5 +759,11 @@ describe('decode', () => {
         const buffer = Buffer.allocUnsafe(1)
         buffer.writeUInt8(0xff, 0)
         expect(() => decode(buffer)).toThrow('@syncot/tson: Unknown type 0xff.')
+    })
+
+    test('ARRAY8 containing values of unknown types', () => {
+        expect(
+            decode(encode([1, undefined, 2, () => false, Symbol(), 3])),
+        ).toEqual([1, null, 2, null, null, 3])
     })
 })
