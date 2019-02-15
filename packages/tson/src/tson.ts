@@ -371,14 +371,14 @@ export function decode(
 
 function assertBytes(buffer: SmartBuffer, count: number, what: string): void {
     if (buffer.readOffset + count > buffer.length) {
-        throw new Error(`@syncot/tson: A ${what} expected.`)
+        throw new Error(`@syncot/tson: ${what} expected.`)
     }
 }
 
 function decodeAny(
     buffer: SmartBuffer,
 ): boolean | number | string | object | null {
-    assertBytes(buffer, 1, 'type code')
+    assertBytes(buffer, 1, 'Type code')
     const type: Type = buffer.readUInt8()
 
     switch (type) {
@@ -406,27 +406,27 @@ function decodeAny(
             assertBytes(buffer, 8, 'FLOAT64')
             return buffer.readDoubleLE()
         case Type.STRING8: {
-            assertBytes(buffer, 1, 'UINT8 string length')
+            assertBytes(buffer, 1, 'STRING8 length')
             const length = buffer.readUInt8()
-            assertBytes(buffer, length, 'string')
+            assertBytes(buffer, length, 'STRING8 data')
             return buffer.readString(length)
         }
         case Type.STRING16: {
-            assertBytes(buffer, 2, 'UINT16 string length')
+            assertBytes(buffer, 2, 'STRING16 length')
             const length = buffer.readUInt16LE()
-            assertBytes(buffer, length, 'string')
+            assertBytes(buffer, length, 'STRING16 data')
             return buffer.readString(length)
         }
         case Type.STRING32: {
-            assertBytes(buffer, 4, 'UINT32 string length')
+            assertBytes(buffer, 4, 'STRING32 length')
             const length = buffer.readUInt32LE()
-            assertBytes(buffer, length, 'string')
+            assertBytes(buffer, length, 'STRING32 data')
             return buffer.readString(length)
         }
         case Type.BINARY8: {
-            assertBytes(buffer, 1, 'BINARY8 data length')
+            assertBytes(buffer, 1, 'BINARY8 length')
             const length = buffer.readUInt8()
-            assertBytes(buffer, length, 'binary data')
+            assertBytes(buffer, length, 'BINARY8 data')
             const readBuffer = buffer.readBuffer(length)
             return readBuffer.buffer.slice(
                 readBuffer.byteOffset,
@@ -434,9 +434,9 @@ function decodeAny(
             )
         }
         case Type.BINARY16: {
-            assertBytes(buffer, 2, 'BINARY16 data length')
+            assertBytes(buffer, 2, 'BINARY16 length')
             const length = buffer.readUInt16LE()
-            assertBytes(buffer, length, 'binary data')
+            assertBytes(buffer, length, 'BINARY16 data')
             const readBuffer = buffer.readBuffer(length)
             return readBuffer.buffer.slice(
                 readBuffer.byteOffset,
@@ -444,9 +444,9 @@ function decodeAny(
             )
         }
         case Type.BINARY32: {
-            assertBytes(buffer, 4, 'BINARY32 data length')
+            assertBytes(buffer, 4, 'BINARY32 length')
             const length = buffer.readUInt32LE()
-            assertBytes(buffer, length, 'binary data')
+            assertBytes(buffer, length, 'BINARY32 data')
             const readBuffer = buffer.readBuffer(length)
             return readBuffer.buffer.slice(
                 readBuffer.byteOffset,
@@ -487,9 +487,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error(
-                        '@syncot/tson: Object key must be a string.',
-                    )
+                    throw new Error('@syncot/tson: Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value
@@ -503,9 +501,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error(
-                        '@syncot/tson: Object key must be a string.',
-                    )
+                    throw new Error('@syncot/tson: Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value
@@ -519,9 +515,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error(
-                        '@syncot/tson: Object key must be a string.',
-                    )
+                    throw new Error('@syncot/tson: Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value

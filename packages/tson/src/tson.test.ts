@@ -436,69 +436,31 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(24)
             expect(buffer.readBuffer(24).compare(testBuffer)).toBe(0)
         })
-        // [0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011]
-        // data.fill(0x57)
-        test('length: 0x00', () => {
-            const data = Buffer.allocUnsafe(0x0)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(2)
-            expect(buffer.readUInt8()).toBe(Type.BINARY8)
-            expect(buffer.readUInt8()).toBe(0)
-        })
-        test('length: 0x01', () => {
-            const data = Buffer.allocUnsafe(0x01)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(2 + 1)
-            expect(buffer.readUInt8()).toBe(Type.BINARY8)
-            expect(buffer.readUInt8()).toBe(1)
-            expect(buffer.readBuffer(1).compare(data)).toBe(0)
-        })
-        test('length: 0xff', () => {
-            const data = Buffer.allocUnsafe(0xff)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(2 + 0xff)
-            expect(buffer.readUInt8()).toBe(Type.BINARY8)
-            expect(buffer.readUInt8()).toBe(0xff)
-            expect(buffer.readBuffer(0xff).compare(data)).toBe(0)
-        })
-        test('length: 0x100', () => {
-            const data = Buffer.allocUnsafe(0x100)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(3 + 0x100)
-            expect(buffer.readUInt8()).toBe(Type.BINARY16)
-            expect(buffer.readUInt16LE()).toBe(0x100)
-            expect(buffer.readBuffer(0x100).compare(data)).toBe(0)
-        })
-        test('length: 0xFFFF', () => {
-            const data = Buffer.allocUnsafe(0xffff)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(3 + 0xffff)
-            expect(buffer.readUInt8()).toBe(Type.BINARY16)
-            expect(buffer.readUInt16LE()).toBe(0xffff)
-            expect(buffer.readBuffer(0xffff).compare(data)).toBe(0)
-        })
-        test('length: 0x10000', () => {
-            const data = Buffer.allocUnsafe(0x10000)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(5 + 0x10000)
-            expect(buffer.readUInt8()).toBe(Type.BINARY32)
-            expect(buffer.readUInt32LE()).toBe(0x10000)
-            expect(buffer.readBuffer(0x10000).compare(data)).toBe(0)
-        })
-        test('length: 0x10011', () => {
-            const data = Buffer.allocUnsafe(0x10011)
-            data.fill(0x57)
-            const buffer = encodeToSmartBuffer(data)
-            expect(buffer.length).toBe(5 + 0x10011)
-            expect(buffer.readUInt8()).toBe(Type.BINARY32)
-            expect(buffer.readUInt32LE()).toBe(0x10011)
-            expect(buffer.readBuffer(0x10011).compare(data)).toBe(0)
-        })
+
+        test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
+            'length: %d',
+            length => {
+                const data = Buffer.allocUnsafe(length).fill(0x57)
+                const buffer = encodeToSmartBuffer(data)
+                const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+                expect(buffer.length).toBe(1 + lengthSize + length)
+                expect(buffer.readUInt8()).toBe(
+                    length <= 0xff
+                        ? Type.BINARY8
+                        : length <= 0xffff
+                        ? Type.BINARY16
+                        : Type.BINARY32,
+                )
+                expect(
+                    length <= 0xff
+                        ? buffer.readUInt8()
+                        : length <= 0xffff
+                        ? buffer.readUInt16LE()
+                        : buffer.readUInt32LE(),
+                ).toBe(length)
+                expect(buffer.readBuffer(length).compare(data)).toBe(0)
+            },
+        )
     })
 
     describe('ARRAY', () => {
@@ -628,6 +590,7 @@ describe('encode', () => {
                 }
             },
         )
+
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
             'key length: %d',
             length => {
@@ -666,6 +629,7 @@ describe('encode', () => {
                 expect(buffer.readInt8()).toBe(20)
             },
         )
+
         test('mixed values', () => {
             const object: { [key: string]: any } = {}
             object.a = true
@@ -976,5 +940,46 @@ describe('decode', () => {
             d: null,
             e: 5,
         })
+    })
+
+    test.each([
+        ['Type code', []],
+        ['INT8', [Type.INT8]],
+        ['INT16', [Type.INT16, 0]],
+        ['INT32', [Type.INT32, 0, 0, 0]],
+        ['FLOAT32', [Type.FLOAT32, 0, 0, 0]],
+        ['FLOAT64', [Type.FLOAT64, 0, 0, 0, 0, 0, 0, 0]],
+        ['STRING8 length', [Type.STRING8]],
+        ['STRING8 data', [Type.STRING8, 3, 0, 0]],
+        ['STRING16 length', [Type.STRING16, 0]],
+        ['STRING16 data', [Type.STRING16, 3, 0, 0, 0]],
+        ['STRING32 length', [Type.STRING32, 0, 0, 0]],
+        ['STRING32 data', [Type.STRING32, 3, 0, 0, 0, 0, 0]],
+        ['BINARY8 length', [Type.BINARY8]],
+        ['BINARY8 data', [Type.BINARY8, 3, 0, 0]],
+        ['BINARY16 length', [Type.BINARY16, 0]],
+        ['BINARY16 data', [Type.BINARY16, 3, 0, 0, 0]],
+        ['BINARY32 length', [Type.BINARY32, 0, 0, 0]],
+        ['BINARY32 data', [Type.BINARY32, 3, 0, 0, 0, 0, 0]],
+        ['ARRAY8 length', [Type.ARRAY8]],
+        ['ARRAY16 length', [Type.ARRAY16, 0]],
+        ['ARRAY32 length', [Type.ARRAY32, 0, 0, 0]],
+        ['OBJECT8 size', [Type.OBJECT8]],
+        ['OBJECT16 size', [Type.OBJECT16, 0]],
+        ['OBJECT32 size', [Type.OBJECT32, 0, 0, 0]],
+    ])('Error: %s expected', (what, data) => {
+        expect(() => decode(Buffer.from(data))).toThrow(
+            `@syncot/tson: ${what} expected.`,
+        )
+    })
+
+    test.each([
+        ['OBJECT8', [Type.OBJECT8, 1, Type.TRUE, Type.TRUE]],
+        ['OBJECT16', [Type.OBJECT16, 1, 0, Type.TRUE, Type.TRUE]],
+        ['OBJECT32', [Type.OBJECT32, 1, 0, 0, 0, Type.TRUE, Type.TRUE]],
+    ])('%s key not a string', (_, data) => {
+        expect(() => decode(Buffer.from(data))).toThrow(
+            '@syncot/tson: Object key not a string.',
+        )
     })
 })
