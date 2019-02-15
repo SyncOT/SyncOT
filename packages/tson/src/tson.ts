@@ -267,16 +267,14 @@ function encodeString(buffer: SmartBuffer, item: string): void {
     } else if (length <= 0xff) {
         buffer.writeUInt8(Type.STRING8)
         buffer.writeUInt8(length)
-        buffer.writeString(item)
     } else if (length <= 0xffff) {
         buffer.writeUInt8(Type.STRING16)
         buffer.writeUInt16LE(length)
-        buffer.writeString(item)
     } else {
         buffer.writeUInt8(Type.STRING32)
         buffer.writeUInt32LE(length)
-        buffer.writeString(item)
     }
+    buffer.writeString(item)
 }
 
 function encodeObject(buffer: SmartBuffer, item: object | null): void {
@@ -295,16 +293,36 @@ function encodeObject(buffer: SmartBuffer, item: object | null): void {
         } else if (length <= 0xff) {
             buffer.writeUInt8(Type.BINARY8)
             buffer.writeUInt8(length)
-            buffer.writeBuffer(itemBuffer)
         } else if (length <= 0xffff) {
             buffer.writeUInt8(Type.BINARY16)
             buffer.writeUInt16LE(length)
-            buffer.writeBuffer(itemBuffer)
         } else {
             buffer.writeUInt8(Type.BINARY32)
             buffer.writeUInt32LE(length)
-            buffer.writeBuffer(itemBuffer)
         }
+        buffer.writeBuffer(itemBuffer)
+        return
+    }
+
+    if (Array.isArray(item)) {
+        const length = item.length
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
+        } else if (length <= 0xff) {
+            buffer.writeUInt8(Type.ARRAY8)
+            buffer.writeUInt8(length)
+        } else if (length <= 0xffff) {
+            buffer.writeUInt8(Type.ARRAY16)
+            buffer.writeUInt16LE(length)
+        } else {
+            buffer.writeUInt8(Type.ARRAY32)
+            buffer.writeUInt32LE(length)
+        }
+        for (let i = 0; i < length; ++i) {
+            encodeAny(buffer, item[i])
+        }
+        return
     }
 
     return

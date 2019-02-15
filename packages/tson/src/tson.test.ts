@@ -500,6 +500,141 @@ describe('encode', () => {
             expect(buffer.readBuffer(0x10011).compare(data)).toBe(0)
         })
     })
+
+    describe('ARRAY', () => {
+        test('length: 0x00', () => {
+            const buffer = encodeToSmartBuffer([])
+            expect(buffer.length).toBe(2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(0)
+        })
+        test('length: 0x01', () => {
+            const buffer = encodeToSmartBuffer([-5])
+            expect(buffer.length).toBe(4)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(-5)
+        })
+        test('length: 0xff', () => {
+            const array = Array.from(Array(0xff), (_, i) => 0x7f - i)
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.length).toBe(2 + 0xff * 2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(0xff)
+            for (let i = 0; i < 0xff; ++i) {
+                expect(buffer.readUInt8()).toBe(Type.INT8)
+                expect(buffer.readInt8()).toBe(0x7f - i)
+            }
+        })
+        test('length: 0x100', () => {
+            const array = Array.from(Array(0x100), (_, i) =>
+                Math.max(-0x80, 0x7f - i),
+            )
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.length).toBe(3 + 0x100 * 2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY16)
+            expect(buffer.readUInt16LE()).toBe(0x100)
+            for (let i = 0; i < 0x100; ++i) {
+                expect(buffer.readUInt8()).toBe(Type.INT8)
+                expect(buffer.readInt8()).toBe(Math.max(-0x80, 0x7f - i))
+            }
+        })
+        test('length: 0xFFFF', () => {
+            const array = Array.from(Array(0xffff), (_, i) =>
+                Math.max(-0x80, 0x7f - i),
+            )
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.length).toBe(3 + 0xffff * 2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY16)
+            expect(buffer.readUInt16LE()).toBe(0xffff)
+            for (let i = 0; i < 0xffff; ++i) {
+                const type = buffer.readUInt8()
+                const value = buffer.readInt8()
+                const expectedType = Type.INT8
+                const expectedValue = Math.max(-0x80, 0x7f - i)
+                // `expect` is just too slow to call in a loop ~ 10s.
+                if (type !== expectedType || value !== expectedValue) {
+                    expect(type).toBe(expectedType)
+                    expect(value).toBe(expectedValue)
+                }
+            }
+        })
+        test('length: 0x10000', () => {
+            const array = Array.from(Array(0x10000), (_, i) =>
+                Math.max(-0x80, 0x7f - i),
+            )
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.length).toBe(5 + 0x10000 * 2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY32)
+            expect(buffer.readUInt32LE()).toBe(0x10000)
+            for (let i = 0; i < 0x10000; ++i) {
+                const type = buffer.readUInt8()
+                const value = buffer.readInt8()
+                const expectedType = Type.INT8
+                const expectedValue = Math.max(-0x80, 0x7f - i)
+                // `expect` is just too slow to call in a loop ~ 10s.
+                if (type !== expectedType || value !== expectedValue) {
+                    expect(type).toBe(expectedType)
+                    expect(value).toBe(expectedValue)
+                }
+            }
+        })
+        test('length: 0x10011', () => {
+            const array = Array.from(Array(0x10011), (_, i) =>
+                Math.max(-0x80, 0x7f - i),
+            )
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.length).toBe(5 + 0x10011 * 2)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY32)
+            expect(buffer.readUInt32LE()).toBe(0x10011)
+            for (let i = 0; i < 0x10011; ++i) {
+                const type = buffer.readUInt8()
+                const value = buffer.readInt8()
+                const expectedType = Type.INT8
+                const expectedValue = Math.max(-0x80, 0x7f - i)
+                // `expect` is just too slow to call in a loop ~ 10s.
+                if (type !== expectedType || value !== expectedValue) {
+                    expect(type).toBe(expectedType)
+                    expect(value).toBe(expectedValue)
+                }
+            }
+        })
+
+        test('mixed value types', () => {
+            const array = [
+                0x12,
+                0.3,
+                undefined,
+                true,
+                [1, 2, 3, [false]],
+                'abc',
+            ]
+            const buffer = encodeToSmartBuffer(array)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(array.length)
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(0x12)
+            expect(buffer.readUInt8()).toBe(Type.FLOAT64)
+            expect(buffer.readDoubleLE()).toBe(0.3)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+            expect(buffer.readUInt8()).toBe(Type.TRUE)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(4)
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(2)
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(3)
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.FALSE)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(3)
+            expect(buffer.readString(3)).toBe('abc')
+        })
+    })
 })
 
 describe('decode', () => {
@@ -583,5 +718,11 @@ describe('decode', () => {
 
     test('STRING with mixed characters', () => {
         expect(decode(encode(longString))).toBe(fixedLongString)
+    })
+
+    test('unknown type', () => {
+        const buffer = Buffer.allocUnsafe(1)
+        buffer.writeUInt8(0xff, 0)
+        expect(() => decode(buffer)).toThrow('@syncot/tson: Unknown type 0xff.')
     })
 })
