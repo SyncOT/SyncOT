@@ -480,9 +480,55 @@ function decodeAny(
             }
             return array
         }
+        case Type.OBJECT8: {
+            assertBytes(buffer, 1, 'OBJECT8 size')
+            const length = buffer.readUInt8()
+            const object = {}
+            for (let i = 0; i < length; ++i) {
+                const key = decodeAny(buffer)
+                if (typeof key !== 'string') {
+                    throw new Error(
+                        '@syncot/tson: Object key must be a string.',
+                    )
+                }
+                const value = decodeAny(buffer)
+                ;(object as any)[key] = value
+            }
+            return object
+        }
+        case Type.OBJECT16: {
+            assertBytes(buffer, 2, 'OBJECT16 size')
+            const length = buffer.readUInt16LE()
+            const object = {}
+            for (let i = 0; i < length; ++i) {
+                const key = decodeAny(buffer)
+                if (typeof key !== 'string') {
+                    throw new Error(
+                        '@syncot/tson: Object key must be a string.',
+                    )
+                }
+                const value = decodeAny(buffer)
+                ;(object as any)[key] = value
+            }
+            return object
+        }
+        case Type.OBJECT32: {
+            assertBytes(buffer, 4, 'OBJECT32 size')
+            const length = buffer.readUInt32LE()
+            const object = {}
+            for (let i = 0; i < length; ++i) {
+                const key = decodeAny(buffer)
+                if (typeof key !== 'string') {
+                    throw new Error(
+                        '@syncot/tson: Object key must be a string.',
+                    )
+                }
+                const value = decodeAny(buffer)
+                ;(object as any)[key] = value
+            }
+            return object
+        }
         default:
-            throw new Error(
-                `@syncot/tson: Unknown type 0x${type.toString(16)}.`,
-            )
+            throw new Error(`@syncot/tson: Unknown type.`)
     }
 }

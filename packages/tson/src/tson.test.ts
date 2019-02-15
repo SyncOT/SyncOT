@@ -824,6 +824,51 @@ describe('decode', () => {
         })
     }
 
+    const generateObject = (propertyCount: number) => {
+        const object: { [key: string]: any } = {}
+        for (let i = 0; i < propertyCount; ++i) {
+            switch (i % 10) {
+                case 0:
+                    object['' + i] = 2 * i - 0x100
+                    break
+                case 1:
+                    object['' + i] = i - 0.5
+                    break
+                case 2:
+                    object['' + i] = i - 0.3
+                    break
+                case 3:
+                    object['' + i] = '!' + i
+                    break
+                case 4:
+                    object['' + i] = new ArrayBuffer(5)
+                    break
+                case 5:
+                    object['' + i] = true
+                    break
+                case 6:
+                    object['' + i] = {
+                        list: [1, 2, { A: 3 }, 'abc'],
+                        q: 9,
+                    }
+                    break
+                case 7:
+                    object['' + i] = Infinity
+                    break
+                case 8:
+                    object['' + i] = null
+                    break
+                case 9:
+                    object['' + i] = [1, 2, 3, 'abc', { key: 'value' }]
+                    break
+                default:
+                    object['' + i] = i
+                    break
+            }
+        }
+        return object
+    }
+
     test.each([
         ['NULL', null],
         ['BOOLEAN true', true],
@@ -861,6 +906,12 @@ describe('decode', () => {
         ['ARRAY 0xFFFF long', generateArray(0xffff)],
         ['ARRAY 0x10000 long', generateArray(0x10000)],
         ['ARRAY 0x10011 long', generateArray(0x10011)],
+        ['OBJECT 0x0 long', generateObject(0x00)],
+        ['OBJECT 0xFF long', generateObject(0xff)],
+        ['OBJECT 0x100 long', generateObject(0x100)],
+        ['OBJECT 0xFFFF long', generateObject(0xffff)],
+        ['OBJECT 0x10000 long', generateObject(0x10000)],
+        ['OBJECT 0x10011 long', generateObject(0x10011)],
     ])('%s', (_message, data) => {
         expect(decode(encode(data))).toEqual(data)
     })
@@ -898,12 +949,32 @@ describe('decode', () => {
     test('unknown type', () => {
         const buffer = Buffer.allocUnsafe(1)
         buffer.writeUInt8(0xff, 0)
-        expect(() => decode(buffer)).toThrow('@syncot/tson: Unknown type 0xff.')
+        expect(() => decode(buffer)).toThrow('@syncot/tson: Unknown type.')
     })
 
-    test('ARRAY8 containing values of unknown types', () => {
+    test('ARRAY containing values of unknown types', () => {
         expect(
             decode(encode([1, undefined, 2, () => false, Symbol(), 3])),
         ).toEqual([1, null, 2, null, null, 3])
+    })
+
+    test('OBJECT containing values of unknown types', () => {
+        expect(
+            decode(
+                encode({
+                    a: 1,
+                    b: undefined,
+                    c: () => false,
+                    d: Symbol(),
+                    e: 5,
+                }),
+            ),
+        ).toEqual({
+            a: 1,
+            b: null,
+            c: null,
+            d: null,
+            e: 5,
+        })
     })
 })
