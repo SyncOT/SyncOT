@@ -739,6 +739,257 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
     })
+
+    describe('ERROR', () => {
+        test('Error', () => {
+            const name = 'Error'
+            const message = 'test error'
+            const error = new Error(message)
+            const buffer = encodeToSmartBuffer(error)
+            expect(buffer.length).toBe(
+                1 + // type
+                7 + // name
+                12 + // message
+                    1, // extra properties
+            )
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(name.length)
+            expect(buffer.readString(name.length)).toBe(name)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(message.length)
+            expect(buffer.readString(message.length)).toBe(message)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+        })
+        test('TypeError', () => {
+            const name = 'TypeError'
+            const message = 'test error'
+            const error = new TypeError(message)
+            const buffer = encodeToSmartBuffer(error)
+            expect(buffer.length).toBe(
+                1 + // type
+                11 + // name
+                12 + // message
+                    1, // extra properties
+            )
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(name.length)
+            expect(buffer.readString(name.length)).toBe(name)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(message.length)
+            expect(buffer.readString(message.length)).toBe(message)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+        })
+        test('name not a string', () => {
+            const error = new Error('test')
+            error.name = 5 as any
+            expect(() => encodeToSmartBuffer(error)).toThrow(
+                '@syncot/tson: Error name is not a string.',
+            )
+        })
+        test('message not a string', () => {
+            const error = new Error('test')
+            error.message = 5 as any
+            expect(() => encodeToSmartBuffer(error)).toThrow(
+                '@syncot/tson: Error message is not a string.',
+            )
+        })
+        test.each([
+            [0x01, 1],
+            [0xff, 1],
+            [0x100, 2],
+            [0xffff, 2],
+            [0x10000, 4],
+            [0x10011, 4],
+        ])('Error with details (%d properties)', (length, lengthSize) => {
+            const name = 'Error'
+            const message = 'test'
+            const error = new Error(message)
+            const keys = []
+            const values = []
+            for (let i = 0; i < length; ++i) {
+                const key = (keys[i] = (1000000000 + i).toString())
+                const value = (values[i] = (i % 0x100) - 0x80)
+                ;(error as any)[key] = value
+            }
+            const buffer = encodeToSmartBuffer(error)
+            expect(buffer.length).toBe(
+                1 + // type
+                7 + // name
+                6 + // message
+                1 + // details type
+                lengthSize + // details size
+                    length * (12 + 2), // details properties
+            )
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(name.length)
+            expect(buffer.readString(name.length)).toBe(name)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(message.length)
+            expect(buffer.readString(message.length)).toBe(message)
+            expect(buffer.readUInt8()).toBe(
+                lengthSize === 1
+                    ? Type.OBJECT8
+                    : lengthSize === 2
+                    ? Type.OBJECT16
+                    : Type.OBJECT32,
+            )
+            expect(
+                lengthSize === 1
+                    ? buffer.readUInt8()
+                    : lengthSize === 2
+                    ? buffer.readUInt16LE()
+                    : buffer.readUInt32LE(),
+            ).toBe(length)
+            for (let i = 0; i < length; ++i) {
+                const keyType = buffer.readUInt8()
+                const keyLength = buffer.readUInt8()
+                const key = buffer.readString(10)
+                const valueType = buffer.readUInt8()
+                const value = buffer.readInt8()
+                if (
+                    keyType !== Type.STRING8 ||
+                    keyLength !== 10 ||
+                    key !== keys[i] ||
+                    valueType !== Type.INT8 ||
+                    value !== values[i]
+                ) {
+                    expect(keyType).toBe(Type.STRING8)
+                    expect(keyLength).toBe(10)
+                    expect(key).toBe(keys[i])
+                    expect(valueType).toBe(Type.INT8)
+                    expect(value).toBe(values[i])
+                }
+            }
+        })
+        test('mixed details types', () => {
+            const name = 'Error'
+            const message = 'test'
+            const error = new Error(message)
+            ;(error as any).a = true
+            ;(error as any).b = [1, { key: new Error('') }, 2]
+            ;(error as any).c = undefined
+            const buffer = encodeToSmartBuffer(error)
+            expect(buffer.length).toBe(
+                1 + // type
+                7 + // name
+                6 + // message
+                1 + // details type
+                1 + // details size
+                4 + // property a
+                27 + // property b
+                    4, // property c
+            )
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(name.length)
+            expect(buffer.readString(name.length)).toBe(name)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(message.length)
+            expect(buffer.readString(message.length)).toBe(message)
+
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(3)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('a')
+            expect(buffer.readUInt8()).toBe(Type.TRUE)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('b')
+            expect(buffer.readUInt8()).toBe(Type.ARRAY8)
+            expect(buffer.readUInt8()).toBe(3)
+
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(1)
+
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(3)
+            expect(buffer.readString(3)).toBe('key')
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(5)
+            expect(buffer.readString(5)).toBe('Error')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(0)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(2)
+
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('c')
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+        })
+        test('no name', () => {
+            const buffer = encodeToSmartBuffer(new Error())
+            expect(buffer.length).toBe(11)
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(5)
+            expect(buffer.readString(5)).toBe('Error')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(0)
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+        })
+        test('enumerable name', () => {
+            const error = new Error('test')
+            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            Object.defineProperty(error, 'name', {
+                enumerable: true,
+                value: error.name,
+            })
+            const buffer = encodeToSmartBuffer(error).toBuffer()
+            expect(buffer.compare(expectedBuffer)).toBe(0)
+        })
+        test('enumerable message', () => {
+            const error = new Error('test')
+            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            Object.defineProperty(error, 'message', {
+                enumerable: true,
+                value: error.message,
+            })
+            const buffer = encodeToSmartBuffer(error).toBuffer()
+            expect(buffer.compare(expectedBuffer)).toBe(0)
+        })
+        test('enumerable name and message', () => {
+            const error = new Error('test')
+            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            Object.defineProperty(error, 'name', {
+                enumerable: true,
+                value: error.name,
+            })
+            Object.defineProperty(error, 'message', {
+                enumerable: true,
+                value: error.message,
+            })
+            const buffer = encodeToSmartBuffer(error).toBuffer()
+            expect(buffer.compare(expectedBuffer)).toBe(0)
+        })
+        test('enumerable name, message and details', () => {
+            const error = new Error('test')
+            ;(error as any).a = 5
+            ;(error as any).b = 'abc'
+            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            Object.defineProperty(error, 'name', {
+                enumerable: true,
+                value: error.name,
+            })
+            Object.defineProperty(error, 'message', {
+                enumerable: true,
+                value: error.message,
+            })
+            const buffer = encodeToSmartBuffer(error).toBuffer()
+            expect(buffer.compare(expectedBuffer)).toBe(0)
+        })
+    })
 })
 
 describe('decode', () => {
@@ -788,50 +1039,80 @@ describe('decode', () => {
         })
     }
 
-    const generateObject = (propertyCount: number) => {
-        const object: { [key: string]: any } = {}
+    const generateObject = (constructor: new () => any) => (
+        propertyCount: number,
+    ) => {
+        const object: { [key: string]: any } = new constructor()
         for (let i = 0; i < propertyCount; ++i) {
             switch (i % 10) {
                 case 0:
-                    object['' + i] = 2 * i - 0x100
+                    object['' + (1000000000 + i)] = 2 * i - 0x100
                     break
                 case 1:
-                    object['' + i] = i - 0.5
+                    object['' + (1000000000 + i)] = i - 0.5
                     break
                 case 2:
-                    object['' + i] = i - 0.3
+                    object['' + (1000000000 + i)] = i - 0.3
                     break
                 case 3:
-                    object['' + i] = '!' + i
+                    object['' + (1000000000 + i)] = '!' + i
                     break
                 case 4:
-                    object['' + i] = new ArrayBuffer(5)
+                    object['' + (1000000000 + i)] = new ArrayBuffer(5)
                     break
                 case 5:
-                    object['' + i] = true
+                    object['' + (1000000000 + i)] = true
                     break
                 case 6:
-                    object['' + i] = {
+                    object['' + (1000000000 + i)] = {
                         list: [1, 2, { A: 3 }, 'abc'],
                         q: 9,
                     }
                     break
                 case 7:
-                    object['' + i] = Infinity
+                    object['' + (1000000000 + i)] = Infinity
                     break
                 case 8:
-                    object['' + i] = null
+                    object['' + (1000000000 + i)] = null
                     break
                 case 9:
-                    object['' + i] = [1, 2, 3, 'abc', { key: 'value' }]
+                    object['' + (1000000000 + i)] = [
+                        1,
+                        2,
+                        3,
+                        'abc',
+                        { key: 'value' },
+                    ]
                     break
                 default:
-                    object['' + i] = i
+                    object['' + (1000000000 + i)] = i
                     break
             }
         }
         return object
     }
+    const generatePlainObject = generateObject(Object)
+    const generateError = generateObject(Error)
+    const generateErrorWithName = (length: number): Error => {
+        const name = Array.from(Array(length), (_, i) =>
+            (i % 10).toString(),
+        ).join('')
+        const error = new Error()
+        Object.defineProperty(error, 'name', {
+            configurable: true,
+            value: name,
+            writable: true,
+        })
+        return error
+    }
+    const generateErrorWithMessage = (length: number): Error => {
+        const message = Array.from(Array(length), (_, i) =>
+            (i % 10).toString(),
+        ).join('')
+        return new Error(message)
+    }
+    const toCharCodeArray = (text: string): number[] =>
+        text.split('').map(c => c.charCodeAt(0))
 
     test.each([
         ['NULL', null],
@@ -870,14 +1151,45 @@ describe('decode', () => {
         ['ARRAY 0xFFFF long', generateArray(0xffff)],
         ['ARRAY 0x10000 long', generateArray(0x10000)],
         ['ARRAY 0x10011 long', generateArray(0x10011)],
-        ['OBJECT 0x0 long', generateObject(0x00)],
-        ['OBJECT 0xFF long', generateObject(0xff)],
-        ['OBJECT 0x100 long', generateObject(0x100)],
-        ['OBJECT 0xFFFF long', generateObject(0xffff)],
-        ['OBJECT 0x10000 long', generateObject(0x10000)],
-        ['OBJECT 0x10011 long', generateObject(0x10011)],
+        ['OBJECT 0x0 long', generatePlainObject(0x00)],
+        ['OBJECT 0xFF long', generatePlainObject(0xff)],
+        ['OBJECT 0x100 long', generatePlainObject(0x100)],
+        ['OBJECT 0xFFFF long', generatePlainObject(0xffff)],
+        ['OBJECT 0x10000 long', generatePlainObject(0x10000)],
+        ['OBJECT 0x10011 long', generatePlainObject(0x10011)],
+        ['ERROR 0x0 extra properties', generateError(0x00)],
+        ['ERROR 0xFF extra properties', generateError(0xff)],
+        ['ERROR 0x100 extra properties', generateError(0x100)],
+        ['ERROR 0xFFFF extra properties', generateError(0xffff)],
+        ['ERROR 0x10000 extra properties', generateError(0x10000)],
+        ['ERROR 0x10011 extra properties', generateError(0x10011)],
+        ['ERROR name 0x0 long', generateErrorWithName(0x0)],
+        ['ERROR name 0xFF long', generateErrorWithName(0xff)],
+        ['ERROR name 0x100 long', generateErrorWithName(0x100)],
+        ['ERROR name 0xFFFF long', generateErrorWithName(0xffff)],
+        ['ERROR name 0x10000 long', generateErrorWithName(0x10000)],
+        ['ERROR name 0x10011 long', generateErrorWithName(0x10011)],
+        ['ERROR message 0x0 long', generateErrorWithMessage(0x0)],
+        ['ERROR message 0xFF long', generateErrorWithMessage(0xff)],
+        ['ERROR message 0x100 long', generateErrorWithMessage(0x100)],
+        ['ERROR message 0xFFFF long', generateErrorWithMessage(0xffff)],
+        ['ERROR message 0x10000 long', generateErrorWithMessage(0x10000)],
+        ['ERROR message 0x10011 long', generateErrorWithMessage(0x10011)],
     ])('%s', (_message, data) => {
-        expect(decode(encode(data))).toEqual(data)
+        const decoded = decode(encode(data))
+        expect(decoded).toEqual(data)
+        if (data instanceof Error) {
+            expect(decoded).toBeInstanceOf(Error)
+            expect((decoded as Error).propertyIsEnumerable('name')).toBe(false)
+            expect((decoded as Error).name).toBe(data.name)
+            expect((decoded as Error).propertyIsEnumerable('message')).toBe(
+                false,
+            )
+            expect((decoded as Error).message).toBe(data.message)
+            expect(Object.entries(decoded as Error)).toEqual(
+                Object.entries(data),
+            )
+        }
     })
 
     test.each([0x0, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10047])(
@@ -980,6 +1292,51 @@ describe('decode', () => {
     ])('%s key not a string', (_, data) => {
         expect(() => decode(Buffer.from(data))).toThrow(
             '@syncot/tson: Object key not a string.',
+        )
+    })
+
+    test.each([
+        [
+            'Error name not a string.',
+            [Type.ERROR, Type.ARRAY8, 2, Type.TRUE, Type.FALSE],
+        ],
+        [
+            'Error message not a string.',
+            [Type.ERROR, Type.STRING8, 0, Type.INT8, 1],
+        ],
+        [
+            'Error details not a plain object nor null.',
+            [Type.ERROR, Type.STRING8, 0, Type.STRING8, 0, Type.FALSE],
+        ],
+        [
+            '"name" property present in Error details.',
+            [Type.ERROR].concat(
+                [Type.STRING8, 5],
+                toCharCodeArray('Error'),
+                [Type.STRING8, 4],
+                toCharCodeArray('test'),
+                [Type.OBJECT8, 1, Type.STRING8, 4],
+                toCharCodeArray('name'),
+                [Type.STRING8, 5],
+                toCharCodeArray('Error'),
+            ),
+        ],
+        [
+            '"message" property present in Error details.',
+            [Type.ERROR].concat(
+                [Type.STRING8, 5],
+                toCharCodeArray('Error'),
+                [Type.STRING8, 4],
+                toCharCodeArray('test'),
+                [Type.OBJECT8, 1, Type.STRING8, 7],
+                toCharCodeArray('message'),
+                [Type.STRING8, 4],
+                toCharCodeArray('test'),
+            ),
+        ],
+    ])('ERROR failure: %s', (message, data) => {
+        expect(() => decode(Buffer.from(data))).toThrow(
+            `@syncot/tson: ${message}`,
         )
     })
 })

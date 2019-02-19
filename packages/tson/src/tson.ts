@@ -115,6 +115,11 @@ export const enum Type {
      * Encoding: `0x14 <length>*4 <property>*length`, where`<property>` is `<key-string> <value-any>`.
      */
     OBJECT32,
+    /**
+     * An Error with a name, message and details.
+     * Encoding: `0x15 <string> <string> <plain-object-or-null>`.
+     */
+    ERROR,
 }
 
 const buffers = new WeakMap<ArrayBuffer | ArrayBufferView, Buffer>()
@@ -277,79 +282,119 @@ function encodeString(buffer: SmartBuffer, item: string): void {
     buffer.writeString(item)
 }
 
-function encodeObject(buffer: SmartBuffer, item: object | null): void {
-    if (item === null) {
-        buffer.writeUInt8(Type.NULL)
-        return
+function encodeObject(buffer: SmartBuffer, object: object | null): void {
+    if (object === null) {
+        encodeNull(buffer)
+    } else if (toBuffer(object)) {
+        encodeBuffer(buffer, toBuffer(object) as Buffer)
+    } else if (Array.isArray(object)) {
+        encodeArray(buffer, object)
+    } else if (object instanceof Error) {
+        encodeError(buffer, object)
+    } else {
+        encodePlainObject(buffer, object)
+    }
+}
+
+function encodeNull(buffer: SmartBuffer): void {
+    buffer.writeUInt8(Type.NULL)
+}
+
+function encodeBuffer(buffer: SmartBuffer, inputBuffer: Buffer): void {
+    const length = inputBuffer.length
+    /* istanbul ignore if */
+    if (length > 0xffffffff) {
+        throw new Error('@syncot/tson: Max binary data size is 0xFFFFFFFF.')
+    } else if (length <= 0xff) {
+        buffer.writeUInt8(Type.BINARY8)
+        buffer.writeUInt8(length)
+    } else if (length <= 0xffff) {
+        buffer.writeUInt8(Type.BINARY16)
+        buffer.writeUInt16LE(length)
+    } else {
+        buffer.writeUInt8(Type.BINARY32)
+        buffer.writeUInt32LE(length)
+    }
+    buffer.writeBuffer(inputBuffer)
+}
+
+function encodeArray(buffer: SmartBuffer, array: any[]): void {
+    const length = array.length
+    /* istanbul ignore if */
+    if (length > 0xffffffff) {
+        throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
+    } else if (length <= 0xff) {
+        buffer.writeUInt8(Type.ARRAY8)
+        buffer.writeUInt8(length)
+    } else if (length <= 0xffff) {
+        buffer.writeUInt8(Type.ARRAY16)
+        buffer.writeUInt16LE(length)
+    } else {
+        buffer.writeUInt8(Type.ARRAY32)
+        buffer.writeUInt32LE(length)
+    }
+    for (let i = 0; i < length; ++i) {
+        encodeAny(buffer, array[i])
+    }
+}
+
+function encodeError(buffer: SmartBuffer, error: Error): void {
+    if (typeof error.name !== 'string') {
+        throw new Error('@syncot/tson: Error name is not a string.')
+    }
+    if (typeof error.message !== 'string') {
+        throw new Error('@syncot/tson: Error message is not a string.')
     }
 
-    const itemBuffer = toBuffer(item)
-
-    if (itemBuffer) {
-        const length = itemBuffer.length
-        /* istanbul ignore if */
-        if (length > 0xffffffff) {
-            throw new Error('@syncot/tson: Max binary data size is 0xFFFFFFFF.')
-        } else if (length <= 0xff) {
-            buffer.writeUInt8(Type.BINARY8)
-            buffer.writeUInt8(length)
-        } else if (length <= 0xffff) {
-            buffer.writeUInt8(Type.BINARY16)
-            buffer.writeUInt16LE(length)
-        } else {
-            buffer.writeUInt8(Type.BINARY32)
-            buffer.writeUInt32LE(length)
-        }
-        buffer.writeBuffer(itemBuffer)
-        return
+    // `name` and `message` should not be enumerable but remove them in case
+    // they appear in keys for any reason.
+    const keys = Object.keys(error)
+    const nameIndex = keys.indexOf('name')
+    if (nameIndex >= 0) {
+        keys.splice(nameIndex, 1)
+    }
+    const messageIndex = keys.indexOf('message')
+    if (messageIndex >= 0) {
+        keys.splice(messageIndex, 1)
     }
 
-    if (Array.isArray(item)) {
-        const length = item.length
-        /* istanbul ignore if */
-        if (length > 0xffffffff) {
-            throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
-        } else if (length <= 0xff) {
-            buffer.writeUInt8(Type.ARRAY8)
-            buffer.writeUInt8(length)
-        } else if (length <= 0xffff) {
-            buffer.writeUInt8(Type.ARRAY16)
-            buffer.writeUInt16LE(length)
-        } else {
-            buffer.writeUInt8(Type.ARRAY32)
-            buffer.writeUInt32LE(length)
-        }
-        for (let i = 0; i < length; ++i) {
-            encodeAny(buffer, item[i])
-        }
-        return
+    buffer.writeUInt8(Type.ERROR)
+    encodeString(buffer, error.name)
+    encodeString(buffer, error.message)
+    if (keys.length === 0) {
+        encodeNull(buffer)
+    } else {
+        encodePlainObject(buffer, error, keys)
     }
+}
 
-    {
-        const keys = Object.keys(item)
-        const length = keys.length
-        /* istanbul ignore if */
-        if (length > 0xffffffff) {
-            throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
-        } else if (length <= 0xff) {
-            buffer.writeUInt8(Type.OBJECT8)
-            buffer.writeUInt8(length)
-        } else if (length <= 0xffff) {
-            buffer.writeUInt8(Type.OBJECT16)
-            buffer.writeUInt16LE(length)
-        } else {
-            buffer.writeUInt8(Type.OBJECT32)
-            buffer.writeUInt32LE(length)
-        }
-        for (let i = 0; i < length; ++i) {
-            const key = keys[i]
-            const value = (item as any)[key]
-            encodeAny(buffer, key)
-            encodeAny(buffer, value)
-        }
+function encodePlainObject(
+    buffer: SmartBuffer,
+    object: object,
+    keys = Object.keys(object),
+): void {
+    const length = keys.length
+    /* istanbul ignore if */
+    if (length > 0xffffffff) {
+        throw new Error(
+            '@syncot/tson: Max number of object properties is 0xFFFFFFFF.',
+        )
+    } else if (length <= 0xff) {
+        buffer.writeUInt8(Type.OBJECT8)
+        buffer.writeUInt8(length)
+    } else if (length <= 0xffff) {
+        buffer.writeUInt8(Type.OBJECT16)
+        buffer.writeUInt16LE(length)
+    } else {
+        buffer.writeUInt8(Type.OBJECT32)
+        buffer.writeUInt32LE(length)
     }
-
-    return
+    for (let i = 0; i < length; ++i) {
+        const key = keys[i]
+        const value = (object as any)[key]
+        encodeAny(buffer, key)
+        encodeAny(buffer, value)
+    }
 }
 
 /**
@@ -521,6 +566,56 @@ function decodeAny(
                 ;(object as any)[key] = value
             }
             return object
+        }
+        case Type.ERROR: {
+            const name = decodeAny(buffer)
+            if (typeof name !== 'string') {
+                throw new Error('@syncot/tson: Error name not a string.')
+            }
+
+            const message = decodeAny(buffer)
+            if (typeof message !== 'string') {
+                throw new Error('@syncot/tson: Error message not a string.')
+            }
+
+            // Read the type of the details without advancing the readOffset managed by the SmartBuffer.
+            const detailsType = buffer.readUInt8(buffer.readOffset)
+            if (
+                detailsType !== Type.NULL &&
+                detailsType !== Type.OBJECT8 &&
+                detailsType !== Type.OBJECT16 &&
+                detailsType !== Type.OBJECT32
+            ) {
+                throw new Error(
+                    '@syncot/tson: Error details not a plain object nor null.',
+                )
+            }
+
+            const details = decodeAny(buffer)
+            /* istanbul ignore if */
+            if (typeof details !== 'object') {
+                throw new Error('@syncot/tson: This should never happen.')
+            }
+            if (details) {
+                if (details.hasOwnProperty('name')) {
+                    throw new Error(
+                        '@syncot/tson: "name" property present in Error details.',
+                    )
+                }
+                if (details.hasOwnProperty('message')) {
+                    throw new Error(
+                        '@syncot/tson: "message" property present in Error details.',
+                    )
+                }
+            }
+
+            const error = new Error(message)
+            Object.defineProperty(error, 'name', {
+                configurable: true,
+                value: name,
+                writable: true,
+            })
+            return Object.assign(error, details)
         }
         default:
             throw new Error(`@syncot/tson: Unknown type.`)
