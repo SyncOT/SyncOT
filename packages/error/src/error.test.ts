@@ -15,6 +15,7 @@ describe('createError', () => {
     test('name, message', () => {
         const error = createError(name, message)
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(name)
         expect(error.message).toBe(message)
         expect(error.cause).not.toBeDefined()
@@ -23,6 +24,7 @@ describe('createError', () => {
     test('name, message, cause', () => {
         const error = createError(name, message, cause)
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(name)
         expect(error.message).toBe(messageWithCause)
         expect(error.cause).toBe(cause)
@@ -39,6 +41,7 @@ describe('createError', () => {
     test('message', () => {
         const error = createError(message)
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
         expect(error.message).toBe(message)
         expect(error.cause).not.toBeDefined()
@@ -47,6 +50,7 @@ describe('createError', () => {
     test('message, cause', () => {
         const error = createError(message, cause)
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
         expect(error.message).toBe(messageWithCause)
         expect(error.cause).toBe(cause)
@@ -61,6 +65,7 @@ describe('createError', () => {
     test('no arguments', () => {
         const error = createError()
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
         expect(error.message).toBe('')
         expect(error.cause).not.toBeDefined()
@@ -69,6 +74,7 @@ describe('createError', () => {
     test('empty details', () => {
         const error = createError({})
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
         expect(error.message).toBe('')
         expect(error.cause).not.toBeDefined()
@@ -77,6 +83,7 @@ describe('createError', () => {
     test('all details', () => {
         const error = createError({ cause, extra1, extra2, message, name })
         expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(name)
         expect(error.message).toBe(messageWithCause)
         expect(error.cause).toBe(cause)

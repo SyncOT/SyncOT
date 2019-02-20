@@ -85,7 +85,11 @@ export function createError(
     }
 
     const error = new Error(message) as SyncOtError
-    error.name = name
+    Object.defineProperty(error, 'name', {
+        configurable: true,
+        value: name,
+        writable: true,
+    })
 
     if (cause) {
         error.cause = cause
