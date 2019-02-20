@@ -2,6 +2,12 @@ import { SmartBuffer } from 'smart-buffer'
 import { decode, encode, toBuffer } from '.'
 import { Type } from './tson'
 
+const errorMatcher = (message: string) =>
+    expect.objectContaining({
+        message,
+        name: 'TsonError',
+    })
+
 const encodeToSmartBuffer = (data: any) => {
     const arrayBuffer = encode(data)
     const buffer = Buffer.from(arrayBuffer)
@@ -785,14 +791,14 @@ describe('encode', () => {
             const error = new Error('test')
             error.name = 5 as any
             expect(() => encodeToSmartBuffer(error)).toThrow(
-                '@syncot/tson: Error name is not a string.',
+                errorMatcher('Error name is not a string.'),
             )
         })
         test('message not a string', () => {
             const error = new Error('test')
             error.message = 5 as any
             expect(() => encodeToSmartBuffer(error)).toThrow(
-                '@syncot/tson: Error message is not a string.',
+                errorMatcher('Error message is not a string.'),
             )
         })
         test.each([
@@ -1006,7 +1012,7 @@ describe('decode', () => {
 
     test('input type: Array', () => {
         expect(() => decode([0x00] as any)).toThrow(
-            '@syncot/tson: Expected binary data to decode.',
+            errorMatcher('Expected binary data to decode.'),
         )
     })
 
@@ -1214,7 +1220,7 @@ describe('decode', () => {
         )
         expect(arrayBuffer.byteLength).toBe(9)
         expect(() => decode(arrayBuffer)).toThrow(
-            '@syncot/tson: Cannot decode a 64-bit integer.',
+            errorMatcher('Cannot decode a 64-bit integer.'),
         )
     })
 
@@ -1225,7 +1231,7 @@ describe('decode', () => {
     test('unknown type', () => {
         const buffer = Buffer.allocUnsafe(1)
         buffer.writeUInt8(0xff, 0)
-        expect(() => decode(buffer)).toThrow('@syncot/tson: Unknown type.')
+        expect(() => decode(buffer)).toThrow(errorMatcher('Unknown type.'))
     })
 
     test('ARRAY containing values of unknown types', () => {
@@ -1281,7 +1287,7 @@ describe('decode', () => {
         ['OBJECT32 size', [Type.OBJECT32, 0, 0, 0]],
     ])('Error: %s expected', (what, data) => {
         expect(() => decode(Buffer.from(data))).toThrow(
-            `@syncot/tson: ${what} expected.`,
+            errorMatcher(`${what} expected.`),
         )
     })
 
@@ -1291,7 +1297,7 @@ describe('decode', () => {
         ['OBJECT32', [Type.OBJECT32, 1, 0, 0, 0, Type.TRUE, Type.TRUE]],
     ])('%s key not a string', (_, data) => {
         expect(() => decode(Buffer.from(data))).toThrow(
-            '@syncot/tson: Object key not a string.',
+            errorMatcher('Object key not a string.'),
         )
     })
 
@@ -1335,8 +1341,6 @@ describe('decode', () => {
             ),
         ],
     ])('ERROR failure: %s', (message, data) => {
-        expect(() => decode(Buffer.from(data))).toThrow(
-            `@syncot/tson: ${message}`,
-        )
+        expect(() => decode(Buffer.from(data))).toThrow(errorMatcher(message))
     })
 })

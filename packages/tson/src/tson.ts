@@ -1,4 +1,5 @@
 import { SmartBuffer } from 'smart-buffer'
+import { createTsonError } from './util'
 
 /**
  * A list of types supported by TSON.
@@ -190,9 +191,7 @@ let encoding = false
 export function encode(data: any): ArrayBuffer {
     /* istanbul ignore if */
     if (encoding) {
-        throw new Error(
-            '@syncot/tson: `encode` must not be called recursively.',
-        )
+        throw createTsonError('`encode` must not be called recursively.')
     }
 
     try {
@@ -268,7 +267,7 @@ function encodeString(buffer: SmartBuffer, item: string): void {
 
     /* istanbul ignore if */
     if (length > 0xffffffff) {
-        throw new Error('@syncot/tson: Max string utf8 size is 0xFFFFFFFF.')
+        throw createTsonError('Max string utf8 size is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
         buffer.writeUInt8(Type.STRING8)
         buffer.writeUInt8(length)
@@ -304,7 +303,7 @@ function encodeBuffer(buffer: SmartBuffer, inputBuffer: Buffer): void {
     const length = inputBuffer.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
-        throw new Error('@syncot/tson: Max binary data size is 0xFFFFFFFF.')
+        throw createTsonError('Max binary data size is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
         buffer.writeUInt8(Type.BINARY8)
         buffer.writeUInt8(length)
@@ -322,7 +321,7 @@ function encodeArray(buffer: SmartBuffer, array: any[]): void {
     const length = array.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
-        throw new Error('@syncot/tson: Max array length is 0xFFFFFFFF.')
+        throw createTsonError('Max array length is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
         buffer.writeUInt8(Type.ARRAY8)
         buffer.writeUInt8(length)
@@ -340,10 +339,10 @@ function encodeArray(buffer: SmartBuffer, array: any[]): void {
 
 function encodeError(buffer: SmartBuffer, error: Error): void {
     if (typeof error.name !== 'string') {
-        throw new Error('@syncot/tson: Error name is not a string.')
+        throw createTsonError('Error name is not a string.')
     }
     if (typeof error.message !== 'string') {
-        throw new Error('@syncot/tson: Error message is not a string.')
+        throw createTsonError('Error message is not a string.')
     }
 
     // `name` and `message` should not be enumerable but remove them in case
@@ -376,9 +375,7 @@ function encodePlainObject(
     const length = keys.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
-        throw new Error(
-            '@syncot/tson: Max number of object properties is 0xFFFFFFFF.',
-        )
+        throw createTsonError('Max number of object properties is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
         buffer.writeUInt8(Type.OBJECT8)
         buffer.writeUInt8(length)
@@ -408,7 +405,7 @@ export function decode(
     const buffer = toBuffer(binaryData)
 
     if (!buffer) {
-        throw new Error('@syncot/tson: Expected binary data to decode.')
+        throw createTsonError('Expected binary data to decode.')
     }
 
     return decodeAny(SmartBuffer.fromBuffer(buffer))
@@ -416,7 +413,7 @@ export function decode(
 
 function assertBytes(buffer: SmartBuffer, count: number, what: string): void {
     if (buffer.readOffset + count > buffer.length) {
-        throw new Error(`@syncot/tson: ${what} expected.`)
+        throw createTsonError(`${what} expected.`)
     }
 }
 
@@ -443,7 +440,7 @@ function decodeAny(
             assertBytes(buffer, 4, 'INT32')
             return buffer.readInt32LE()
         case Type.INT64:
-            throw new Error('@syncot/tson: Cannot decode a 64-bit integer.')
+            throw createTsonError('Cannot decode a 64-bit integer.')
         case Type.FLOAT32:
             assertBytes(buffer, 4, 'FLOAT32')
             return buffer.readFloatLE()
@@ -532,7 +529,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error('@syncot/tson: Object key not a string.')
+                    throw createTsonError('Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value
@@ -546,7 +543,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error('@syncot/tson: Object key not a string.')
+                    throw createTsonError('Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value
@@ -560,7 +557,7 @@ function decodeAny(
             for (let i = 0; i < length; ++i) {
                 const key = decodeAny(buffer)
                 if (typeof key !== 'string') {
-                    throw new Error('@syncot/tson: Object key not a string.')
+                    throw createTsonError('Object key not a string.')
                 }
                 const value = decodeAny(buffer)
                 ;(object as any)[key] = value
@@ -570,12 +567,12 @@ function decodeAny(
         case Type.ERROR: {
             const name = decodeAny(buffer)
             if (typeof name !== 'string') {
-                throw new Error('@syncot/tson: Error name not a string.')
+                throw createTsonError('Error name not a string.')
             }
 
             const message = decodeAny(buffer)
             if (typeof message !== 'string') {
-                throw new Error('@syncot/tson: Error message not a string.')
+                throw createTsonError('Error message not a string.')
             }
 
             // Read the type of the details without advancing the readOffset managed by the SmartBuffer.
@@ -586,25 +583,25 @@ function decodeAny(
                 detailsType !== Type.OBJECT16 &&
                 detailsType !== Type.OBJECT32
             ) {
-                throw new Error(
-                    '@syncot/tson: Error details not a plain object nor null.',
+                throw createTsonError(
+                    'Error details not a plain object nor null.',
                 )
             }
 
             const details = decodeAny(buffer)
             /* istanbul ignore if */
             if (typeof details !== 'object') {
-                throw new Error('@syncot/tson: This should never happen.')
+                throw createTsonError('This should never happen.')
             }
             if (details) {
                 if (details.hasOwnProperty('name')) {
-                    throw new Error(
-                        '@syncot/tson: "name" property present in Error details.',
+                    throw createTsonError(
+                        '"name" property present in Error details.',
                     )
                 }
                 if (details.hasOwnProperty('message')) {
-                    throw new Error(
-                        '@syncot/tson: "message" property present in Error details.',
+                    throw createTsonError(
+                        '"message" property present in Error details.',
                     )
                 }
             }
@@ -618,6 +615,6 @@ function decodeAny(
             return Object.assign(error, details)
         }
         default:
-            throw new Error(`@syncot/tson: Unknown type.`)
+            throw createTsonError(`Unknown type.`)
     }
 }
