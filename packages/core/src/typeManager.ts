@@ -1,3 +1,4 @@
+import { strict as assert } from 'assert'
 import { ErrorCodes, SyncOtError } from './error'
 import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
 import { Interface } from './util'
@@ -21,13 +22,10 @@ class TypeManagerImpl {
      * @param type An OT or CRDT type to register.
      */
     public registerType(type: Type): void {
-        if (this.types.has(type.name)) {
-            throw new SyncOtError(
-                ErrorCodes.DuplicateType,
-                `Duplicate type: ${type.name}`,
-            )
-        }
-
+        assert.ok(
+            !this.types.has(type.name),
+            `Type "${type.name}" already registered.`,
+        )
         this.types.set(type.name, type)
     }
 

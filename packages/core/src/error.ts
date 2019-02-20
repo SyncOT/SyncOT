@@ -43,10 +43,6 @@ export enum ErrorCodes {
      */
     TypeNotFound = 'TypeNotFound',
     /**
-     * A duplicate type implementation has been found when registering a type implementation.
-     */
-    DuplicateType = 'DuplicateType',
-    /**
      * A service is not initialized.
      */
     NotInitialized = 'NotInitialized',

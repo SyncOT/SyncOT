@@ -94,14 +94,12 @@ describe('registerType', () => {
         typeManager.registerType({ ...type, name: 'another-type' })
     })
     test('fails to register the same type twice', () => {
-        expect.assertions(3)
-        try {
-            typeManager.registerType(type)
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.DuplicateType)
-            expect(error.message).toBe(`Duplicate type: ${type.name}`)
-        }
+        expect(() => typeManager.registerType(type)).toThrow(
+            expect.objectContaining({
+                message: 'Type "type-name" already registered.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
     })
 })
 
