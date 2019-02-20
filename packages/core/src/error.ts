@@ -2,12 +2,15 @@ import { createError, SyncOtError as NewSyncOtError } from '@syncot/error'
 import { strict as assert } from 'assert'
 import { JsonValue } from './json'
 
-export function createNotImplementedError(message: string): NewSyncOtError {
+const assertMessage = (message: string): void =>
     assert.equal(
         typeof message,
         'string',
         'Argument "message" must be a string.',
     )
+
+export function createNotImplementedError(message: string): NewSyncOtError {
+    assertMessage(message)
     return createError('SyncOtError NotImplemented', message)
 }
 
@@ -15,10 +18,6 @@ export function createNotImplementedError(message: string): NewSyncOtError {
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * A Connection is already associated with an open stream.
-     */
-    AlreadyConnected = 'AlreadyConnected',
     /**
      * A Service with the same name has been already registered on a Connection.
      */

@@ -56,7 +56,10 @@ describe('connection', () => {
         connection.on('connect', connectedCallback)
         connection.connect(stream1)
         expect(() => connection.connect(stream1)).toThrow(
-            syncOterrorMatcher(ErrorCodes.AlreadyConnected),
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Connection is already associated with a stream.',
+            ),
         )
         expect(connection.isConnected()).toBe(true)
         expect(connectedCallback).toHaveBeenCalledTimes(1)

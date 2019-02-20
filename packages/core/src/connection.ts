@@ -210,9 +210,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             stream instanceof Duplex,
             'Argument "stream" must be a Duplex.',
         )
-        if (this.stream) {
-            throw new SyncOtError(ErrorCodes.AlreadyConnected)
-        }
+        assert.ok(
+            !this.stream,
+            'Connection is already associated with a stream.',
+        )
         this.stream = stream
         stream.on('data', data => this.stream === stream && this.onData(data))
         finished(
