@@ -381,14 +381,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                         }
                                         this.send({
                                             ...message,
-                                            data:
-                                                error instanceof SyncOtError
-                                                    ? error
-                                                    : new SyncOtError(
-                                                          ErrorCodes.UnknownError,
-                                                          undefined,
-                                                          error,
-                                                      ),
+                                            data: error,
                                             name: null,
                                             type: MessageType.CALL_ERROR,
                                         })

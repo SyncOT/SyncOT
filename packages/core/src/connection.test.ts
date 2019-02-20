@@ -645,9 +645,7 @@ describe('service and proxy', () => {
         returnMethod(...args: JsonValue[]): Promise<JsonValue>
         resolveMethod(...args: JsonValue[]): Promise<JsonValue>
         throwErrorMethod(...args: JsonValue[]): Promise<JsonValue>
-        throwSyncOtErrorMethod(...args: JsonValue[]): Promise<JsonValue>
         rejectErrorMethod(...args: JsonValue[]): Promise<JsonValue>
-        rejectSyncOtErrorMethod(...args: JsonValue[]): Promise<JsonValue>
     }
     type TestProxy = TestService
     let proxy: TestProxy
@@ -657,9 +655,7 @@ describe('service and proxy', () => {
         'returnMethod',
         'resolveMethod',
         'throwErrorMethod',
-        'throwSyncOtErrorMethod',
         'rejectErrorMethod',
-        'rejectSyncOtErrorMethod',
     ])
     const params = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
     const replyData = {
@@ -674,13 +670,7 @@ describe('service and proxy', () => {
         service.throwErrorMethod = jest.fn(() => {
             throw error
         })
-        service.throwSyncOtErrorMethod = jest.fn(() => {
-            throw externalError
-        })
         service.rejectErrorMethod = jest.fn(() => Promise.reject(error))
-        service.rejectSyncOtErrorMethod = jest.fn(() =>
-            Promise.reject(externalError),
-        )
         connection.connect(stream1)
         connection.registerService({
             actions,
@@ -725,16 +715,10 @@ describe('service and proxy', () => {
                 'throwErrorMethod',
                 {
                     ...message,
-                    data: errorMatcher(ErrorCodes.UnknownError),
-                    name: null,
-                    type: MessageType.CALL_ERROR,
-                },
-            ],
-            [
-                'throwSyncOtErrorMethod',
-                {
-                    ...message,
-                    data: errorMatcher(ErrorCodes.ExternalError),
+                    data: expect.objectContaining({
+                        message: 'test error',
+                        name: 'Error',
+                    }),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -743,16 +727,10 @@ describe('service and proxy', () => {
                 'rejectErrorMethod',
                 {
                     ...message,
-                    data: errorMatcher(ErrorCodes.UnknownError),
-                    name: null,
-                    type: MessageType.CALL_ERROR,
-                },
-            ],
-            [
-                'rejectSyncOtErrorMethod',
-                {
-                    ...message,
-                    data: errorMatcher(ErrorCodes.ExternalError),
+                    data: expect.objectContaining({
+                        message: 'test error',
+                        name: 'Error',
+                    }),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },

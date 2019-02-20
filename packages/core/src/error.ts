@@ -5,10 +5,6 @@ import { JsonValue } from './json'
  */
 export enum ErrorCodes {
     /**
-     * An unknown error has occurred.
-     */
-    UnknownError = 'UnknownError',
-    /**
      * A code reserved for errors originating outside the SyncOT codebase.
      */
     ExternalError = 'ExternalError',
@@ -88,9 +84,7 @@ export class SyncOtError extends Error {
 
     constructor(code: ErrorCodes, message?: string, details: JsonValue = null) {
         super(message)
-        this.code = ErrorCodes.hasOwnProperty(code)
-            ? code
-            : ErrorCodes.UnknownError
+        this.code = code
         this.details = details
     }
 }
