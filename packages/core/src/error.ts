@@ -19,10 +19,6 @@ export function createNotImplementedError(message: string): NewSyncOtError {
  */
 export enum ErrorCodes {
     /**
-     * A Service with the same name has been already registered on a Connection.
-     */
-    DuplicateService = 'DuplicateService',
-    /**
      * A Proxy with the same name has been already registered on a Connection.
      */
     DuplicateProxy = 'DuplicateProxy',

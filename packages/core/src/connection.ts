@@ -255,9 +255,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             instance instanceof EventEmitter,
             'Argument "instance" must be an EventEmitter.',
         )
-        if (this.services.has(name)) {
-            throw new SyncOtError(ErrorCodes.DuplicateService)
-        }
+        assert.ok(
+            !this.services.has(name),
+            `Service "${name}" has been already registered.`,
+        )
         if (events.size > 0) {
             throw createNotImplementedError('Connection events not implemented')
         }

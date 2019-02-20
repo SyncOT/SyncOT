@@ -233,7 +233,12 @@ describe('service registration', () => {
                 instance: new EventEmitter(),
                 name,
             }),
-        ).toThrow(syncOterrorMatcher(ErrorCodes.DuplicateService))
+        ).toThrow(
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Service "service-or-proxy-name" has been already registered.',
+            ),
+        )
     })
     test('get registered services', () => {
         const actions = new Set(['testAction', 'anotherAction'])
