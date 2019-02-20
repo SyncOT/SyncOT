@@ -19,10 +19,6 @@ export function createNotImplementedError(message: string): NewSyncOtError {
  */
 export enum ErrorCodes {
     /**
-     * A Proxy with the same name has been already registered on a Connection.
-     */
-    DuplicateProxy = 'DuplicateProxy',
-    /**
      * An invalid message has been received by a `Connection`.
      */
     InvalidMessage = 'InvalidMessage',

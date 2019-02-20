@@ -299,9 +299,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         events = new Set(),
         streams = new Set(),
     }: ProxyDescriptor): void {
-        if (this.proxies.has(name)) {
-            throw new SyncOtError(ErrorCodes.DuplicateProxy)
-        }
+        assert.ok(
+            !this.proxies.has(name),
+            `Proxy "${name}" has been already registered.`,
+        )
         if (events.size > 0) {
             throw createNotImplementedError('Connection events not implemented')
         }

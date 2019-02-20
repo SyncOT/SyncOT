@@ -323,7 +323,10 @@ describe('proxy registration', () => {
     test('register twice', () => {
         connection.registerProxy({ name })
         expect(() => connection.registerProxy({ name })).toThrow(
-            syncOterrorMatcher(ErrorCodes.DuplicateProxy),
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Proxy "service-or-proxy-name" has been already registered.',
+            ),
         )
     })
     test('get registered services', () => {
