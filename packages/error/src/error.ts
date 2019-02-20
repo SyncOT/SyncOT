@@ -81,7 +81,7 @@ export function createError(
     }
 
     if (cause) {
-        message += ` => ${cause.message}`
+        message += ` => ${cause}`
     }
 
     const error = new Error(message) as SyncOtError
