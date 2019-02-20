@@ -1,27 +1,52 @@
-import { createError, SyncOtError as NewSyncOtError } from '@syncot/error'
+import { createError } from '@syncot/error'
 import { strict as assert } from 'assert'
 import { JsonValue } from './json'
 
-const assertMessage = (message: string): void =>
+const assertString = (argumentName: string, argument: string): void =>
     assert.equal(
-        typeof message,
+        typeof argument,
         'string',
-        'Argument "message" must be a string.',
+        `Argument "${argumentName}" must be a string.`,
     )
 
-export function createNotImplementedError(message: string): NewSyncOtError {
-    assertMessage(message)
-    return createError('SyncOtError NotImplemented', message)
+export interface InvalidEntityError extends Error {
+    entityName: string
+    entity: any
+    key: string
+}
+
+/**
+ * Creates a new InvalidEntity error.
+ * @param entityName The entity name.
+ * @param entity The entity instance.
+ * @param key The name of the invalid property. Pass in `null`, if the entire entity is invalid.
+ */
+export function createInvalidEntityError(
+    entityName: string,
+    entity: any,
+    key: string | null = null,
+): InvalidEntityError {
+    assertString('name', entityName)
+    assert.ok(
+        typeof key === 'string' || key === null,
+        'Argument "key" must be a string or null.',
+    )
+    return createError({
+        entity,
+        entityName,
+        key,
+        message:
+            key === null
+                ? `Invalid "${entityName}".`
+                : `Invalid "${entityName}.${key}".`,
+        name: 'SyncOtError InvalidEntity',
+    }) as InvalidEntityError
 }
 
 /**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * An invalid message has been received by a `Connection`.
-     */
-    InvalidMessage = 'InvalidMessage',
     /**
      * There has been no service to handle a message received by a `Connection`.
      */
@@ -30,14 +55,6 @@ export enum ErrorCodes {
      * An action failed because there is no active connection.
      */
     Disconnected = 'Disconnected',
-    /**
-     * An invalid snapshot has been detected.
-     */
-    InvalidSnapshot = 'InvalidSnapshot',
-    /**
-     * An invalid operation has been detected.
-     */
-    InvalidOperation = 'InvalidOperation',
     /**
      * A type implementation necessary to process an operation or snapshot has not been found.
      */

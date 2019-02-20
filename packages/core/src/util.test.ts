@@ -1,13 +1,13 @@
-import { throwError, validate, Validator } from '.'
+import { createInvalidEntityError, throwError, validate, Validator } from '.'
 import { assertUnreachable } from './util'
 
-const error = new Error('test error')
-const numberError = new Error('number error')
-const positiveError = new Error('positive error')
+const error = createInvalidEntityError('test error', null)
+const numberError = createInvalidEntityError('number error', null)
+const positiveError = createInvalidEntityError('positive error', null)
 
-const numberValidator: Validator<any, Error> = (target: any) =>
+const numberValidator: Validator<any> = (target: any) =>
     typeof target === 'number' ? undefined : numberError
-const positiveValidator: Validator<any, Error> = (target: any) =>
+const positiveValidator: Validator<any> = (target: any) =>
     target > 0 ? undefined : positiveError
 
 describe('throwError', () => {

@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
-import { createNotImplementedError, ErrorCodes, SyncOtError } from './error'
+import { createInvalidEntityError, ErrorCodes, SyncOtError } from './error'
 import { JsonArray, JsonValue } from './json'
 import {
     assertUnreachable,
@@ -129,24 +129,21 @@ export type Message =
           data: JsonValue
       }
 
-const invalid = (message: any, property: string | null): SyncOtError =>
-    new SyncOtError(ErrorCodes.InvalidMessage, undefined, { message, property })
-
 const validateMessage: Validator<Message> = validate([
     message =>
         typeof message === 'object' && message != null
             ? undefined
-            : invalid(message, null),
+            : createInvalidEntityError('Message', message, null),
     message =>
         Number.isSafeInteger(message.type) &&
         message.type >= MessageType.EVENT &&
         message.type <= MessageType.STREAM_OUTPUT_ERROR
             ? undefined
-            : invalid(message, 'type'),
+            : createInvalidEntityError('Message', message, 'type'),
     message =>
         typeof message.service === 'string'
             ? undefined
-            : invalid(message, 'service'),
+            : createInvalidEntityError('Message', message, 'service'),
     message =>
         (message.type === MessageType.EVENT ||
         message.type === MessageType.CALL_REQUEST ||
@@ -154,9 +151,11 @@ const validateMessage: Validator<Message> = validate([
           ? typeof message.name === 'string'
           : message.name == null)
             ? undefined
-            : invalid(message, 'name'),
+            : createInvalidEntityError('Message', message, 'name'),
     message =>
-        Number.isSafeInteger(message.id) ? undefined : invalid(message, 'id'),
+        Number.isSafeInteger(message.id)
+            ? undefined
+            : createInvalidEntityError('Message', message, 'id'),
     message => {
         if (
             message.type === MessageType.CALL_REQUEST ||
@@ -164,7 +163,7 @@ const validateMessage: Validator<Message> = validate([
         ) {
             return Array.isArray(message.data)
                 ? undefined
-                : invalid(message, 'data')
+                : createInvalidEntityError('Message', message, 'data')
         }
         if (
             message.type === MessageType.CALL_ERROR ||
@@ -173,7 +172,7 @@ const validateMessage: Validator<Message> = validate([
         ) {
             return message.data instanceof Error
                 ? undefined
-                : invalid(message, 'data')
+                : createInvalidEntityError('Message', message, 'data')
         }
         switch (typeof message.data) {
             case 'object':
@@ -182,7 +181,7 @@ const validateMessage: Validator<Message> = validate([
             case 'boolean':
                 return
             default:
-                return invalid(message, 'data')
+                return createInvalidEntityError('Message', message, 'data')
         }
     },
 ])
@@ -259,14 +258,8 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             !this.services.has(name),
             `Service "${name}" has been already registered.`,
         )
-        if (events.size > 0) {
-            throw createNotImplementedError('Connection events not implemented')
-        }
-        if (streams.size > 0) {
-            throw createNotImplementedError(
-                'Connection streams not implemented',
-            )
-        }
+        assert.equal(events.size, 0, 'Connection events not implemented')
+        assert.equal(streams.size, 0, 'Connection streams not implemented')
         actions.forEach(action => {
             assert.equal(
                 typeof (instance as any)[action],
@@ -303,14 +296,8 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             !this.proxies.has(name),
             `Proxy "${name}" has been already registered.`,
         )
-        if (events.size > 0) {
-            throw createNotImplementedError('Connection events not implemented')
-        }
-        if (streams.size > 0) {
-            throw createNotImplementedError(
-                'Connection streams not implemented',
-            )
-        }
+        assert.equal(events.size, 0, 'Connection events not implemented')
+        assert.equal(streams.size, 0, 'Connection streams not implemented')
         const instance = this.createProxy(name, actions)
         this.proxies.set(name, { actions, events, instance, name, streams })
     }

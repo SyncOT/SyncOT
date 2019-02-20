@@ -1,7 +1,7 @@
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { StrictEventEmitter } from 'strict-event-emitter-types'
-import { SyncOtError } from './error'
+import { InvalidEntityError } from './error'
 
 /**
  * A simple function which throws an error, if a theoretically unreachable code path is executed anyway.
@@ -15,14 +15,12 @@ export function assertUnreachable(_never?: never): never {
 /**
  * The type of validation result.
  */
-export type ValidationResult<E extends Error = SyncOtError> = E | undefined
+export type ValidationResult = InvalidEntityError | undefined
 
 /**
  * The type of a validator.
  */
-export type Validator<T, E extends Error = SyncOtError> = (
-    target: T,
-) => ValidationResult<E>
+export type Validator<T> = (target: T) => ValidationResult
 
 /**
  * Throws the specified `error`, if defined.
@@ -37,9 +35,9 @@ export function throwError(error: Error | undefined) {
  * Validates `target` using the specified `validators` and
  * returns the first encountered `Error`, or `undefined`.
  */
-export const validate = <T, E extends Error = SyncOtError>(
-    validators: Array<Validator<T, E>>,
-) => (target: T): ValidationResult<E> => {
+export const validate = <T>(validators: Array<Validator<T>>) => (
+    target: T,
+): ValidationResult => {
     for (let i = 0, l = validators.length; i < l; ++i) {
         const error = validators[i](target)
 

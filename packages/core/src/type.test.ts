@@ -1,4 +1,3 @@
-import { ErrorCodes, SyncOtError } from './error'
 import {
     assertOperation,
     assertSnapshot,
@@ -35,10 +34,13 @@ describe('validateOperation', () => {
         expect(validateOperation(operation)).toBe(undefined)
     })
     test('is null', () => {
-        const error = validateOperation(null as any) as SyncOtError
-        expect(error).toBeInstanceOf(SyncOtError)
-        expect(error.code).toBe(ErrorCodes.InvalidOperation)
-        expect(error.details).toEqual({ property: null })
+        const error = validateOperation(null as any)
+        expect(error).toBeInstanceOf(Error)
+        expect(error!.name).toBe('SyncOtError InvalidEntity')
+        expect(error!.message).toEqual('Invalid "Operation".')
+        expect(error!.entityName).toEqual('Operation')
+        expect(error!.entity).toEqual(null)
+        expect(error!.key).toEqual(null)
     })
     test.each([
         'client',
@@ -50,22 +52,30 @@ describe('validateOperation', () => {
         'type',
         'version',
     ])('invalid %s', property => {
-        const error = validateOperation({
+        const entity = {
             ...operation,
             [property]: undefined as any,
-        }) as SyncOtError
-        expect(error).toBeInstanceOf(SyncOtError)
-        expect(error.code).toBe(ErrorCodes.InvalidOperation)
-        expect(error.details).toEqual({ property })
+        }
+        const error = validateOperation(entity)
+        expect(error).toBeInstanceOf(Error)
+        expect(error!.name).toBe('SyncOtError InvalidEntity')
+        expect(error!.message).toBe(`Invalid "Operation.${property}".`)
+        expect(error!.entityName).toBe('Operation')
+        expect(error!.entity).toBe(entity)
+        expect(error!.key).toBe(property)
     })
     test('fail, if version is 0', () => {
-        const error = validateOperation({
+        const entity = {
             ...operation,
             version: 0,
-        }) as SyncOtError
-        expect(error).toBeInstanceOf(SyncOtError)
-        expect(error.code).toBe(ErrorCodes.InvalidOperation)
-        expect(error.details).toEqual({ property: 'version' })
+        }
+        const error = validateOperation(entity)
+        expect(error).toBeInstanceOf(Error)
+        expect(error!.name).toBe('SyncOtError InvalidEntity')
+        expect(error!.message).toBe('Invalid "Operation.version".')
+        expect(error!.entityName).toBe('Operation')
+        expect(error!.entity).toBe(entity)
+        expect(error!.key).toBe('version')
     })
 })
 
@@ -74,10 +84,13 @@ describe('validateSnapshot', () => {
         expect(validateSnapshot(snapshot)).toBe(undefined)
     })
     test('is null', () => {
-        const error = validateSnapshot(null as any) as SyncOtError
-        expect(error).toBeInstanceOf(SyncOtError)
-        expect(error.code).toBe(ErrorCodes.InvalidSnapshot)
-        expect(error.details).toEqual({ property: null })
+        const error = validateSnapshot(null as any)
+        expect(error).toBeInstanceOf(Error)
+        expect(error!.name).toBe('SyncOtError InvalidEntity')
+        expect(error!.message).toBe('Invalid "Snapshot".')
+        expect(error!.entityName).toBe('Snapshot')
+        expect(error!.entity).toBe(null)
+        expect(error!.key).toBe(null)
     })
     test.each([
         'client',
@@ -89,13 +102,17 @@ describe('validateSnapshot', () => {
         'type',
         'version',
     ])('invalid %s', property => {
-        const error = validateSnapshot({
+        const entity = {
             ...snapshot,
             [property]: undefined as any,
-        }) as SyncOtError
-        expect(error).toBeInstanceOf(SyncOtError)
-        expect(error.code).toBe(ErrorCodes.InvalidSnapshot)
-        expect(error.details).toEqual({ property })
+        }
+        const error = validateSnapshot(entity)
+        expect(error).toBeInstanceOf(Error)
+        expect(error!.name).toBe('SyncOtError InvalidEntity')
+        expect(error!.message).toBe(`Invalid "Snapshot.${property}".`)
+        expect(error!.entityName).toBe('Snapshot')
+        expect(error!.entity).toBe(entity)
+        expect(error!.key).toBe(property)
     })
     test('succeed, if version is 0', () => {
         expect(validateSnapshot({ ...snapshot, version: 0 })).toBe(undefined)
@@ -107,7 +124,15 @@ describe('assertOperation', () => {
         assertOperation(operation)
     })
     test('invalid', () => {
-        expect(() => assertOperation(null as any)).toThrowError(SyncOtError)
+        expect(() => assertOperation(null as any)).toThrow(
+            expect.objectContaining({
+                entity: null,
+                entityName: 'Operation',
+                key: null,
+                message: 'Invalid "Operation".',
+                name: 'SyncOtError InvalidEntity',
+            }),
+        )
     })
 })
 
@@ -116,6 +141,14 @@ describe('assertSnapshot', () => {
         assertSnapshot(snapshot)
     })
     test('invalid', () => {
-        expect(() => assertSnapshot(null as any)).toThrowError(SyncOtError)
+        expect(() => assertSnapshot(null as any)).toThrow(
+            expect.objectContaining({
+                entity: null,
+                entityName: 'Snapshot',
+                key: null,
+                message: 'Invalid "Snapshot".',
+                name: 'SyncOtError InvalidEntity',
+            }),
+        )
     })
 })

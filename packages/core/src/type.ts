@@ -1,4 +1,4 @@
-import { ErrorCodes, SyncOtError } from './error'
+import { createInvalidEntityError } from './error'
 import { JsonMap, JsonValue } from './json'
 import { throwError, validate, Validator } from './util'
 
@@ -42,50 +42,57 @@ export interface Snapshot extends JsonMap {
     readonly version: DocumentVersion
 }
 
-const invalid = (code: ErrorCodes, property: string | null): SyncOtError =>
-    new SyncOtError(code, undefined, { property })
-
 type ValidatorFactory = <
-    C extends ErrorCodes,
-    T extends Operation | Snapshot = C extends ErrorCodes.InvalidOperation
+    EN extends 'Operation' | 'Snapshot',
+    T extends Operation | Snapshot = EN extends 'Operation'
         ? Operation
-        : C extends ErrorCodes.InvalidSnapshot
+        : EN extends 'Snapshot'
         ? Snapshot
         : never
 >(
-    code: C,
+    entityName: EN,
 ) => Validator<T>
 
-const validateSelf: ValidatorFactory = code => self =>
-    self == null ? invalid(code, null) : undefined
+const validateSelf: ValidatorFactory = entityName => self =>
+    self == null ? createInvalidEntityError(entityName, self, null) : undefined
 
-const validateKind: (kind: string) => ValidatorFactory = kind => code => self =>
-    self.kind !== kind ? invalid(code, 'kind') : undefined
+const validateKind: (
+    kind: string,
+) => ValidatorFactory = kind => entityName => self =>
+    self.kind !== kind
+        ? createInvalidEntityError(entityName, self, 'kind')
+        : undefined
 
-const validateId: ValidatorFactory = code => self =>
-    typeof self.id !== 'string' ? invalid(code, 'id') : undefined
+const validateId: ValidatorFactory = entityName => self =>
+    typeof self.id !== 'string'
+        ? createInvalidEntityError(entityName, self, 'id')
+        : undefined
 
-const validateType: ValidatorFactory = code => self =>
-    typeof self.type !== 'string' ? invalid(code, 'type') : undefined
+const validateType: ValidatorFactory = entityName => self =>
+    typeof self.type !== 'string'
+        ? createInvalidEntityError(entityName, self, 'type')
+        : undefined
 
 const validateVersion: (
     minVersion: DocumentVersion,
-) => ValidatorFactory = minVersion => code => self =>
+) => ValidatorFactory = minVersion => entityName => self =>
     !Number.isSafeInteger(self.version) || self.version < minVersion
-        ? invalid(code, 'version')
+        ? createInvalidEntityError(entityName, self, 'version')
         : undefined
 
-const validateClient: ValidatorFactory = code => self =>
-    typeof self.client !== 'string' ? invalid(code, 'client') : undefined
+const validateClient: ValidatorFactory = entityName => self =>
+    typeof self.client !== 'string'
+        ? createInvalidEntityError(entityName, self, 'client')
+        : undefined
 
-const validateSequence: ValidatorFactory = code => self =>
+const validateSequence: ValidatorFactory = entityName => self =>
     !Number.isSafeInteger(self.sequence) || self.sequence < 0
-        ? invalid(code, 'sequence')
+        ? createInvalidEntityError(entityName, self, 'sequence')
         : undefined
 
 const validateJson: (
     property: 'data' | 'meta',
-) => ValidatorFactory = property => code => self => {
+) => ValidatorFactory = property => entityName => self => {
     switch (typeof self[property]) {
         case 'object':
         case 'string':
@@ -93,7 +100,7 @@ const validateJson: (
         case 'boolean':
             return
         default:
-            return invalid(code, property)
+            return createInvalidEntityError(entityName, self, property)
     }
 }
 
@@ -108,7 +115,7 @@ export const validateOperation: Validator<Operation> = validate(
         validateSequence,
         validateType,
         validateVersion(1),
-    ].map(factory => factory(ErrorCodes.InvalidOperation)),
+    ].map(validator => validator('Operation')),
 )
 export const assertOperation = (operation: Operation) =>
     throwError(validateOperation(operation))
@@ -124,7 +131,7 @@ export const validateSnapshot: Validator<Snapshot> = validate(
         validateSequence,
         validateType,
         validateVersion(0),
-    ].map(factory => factory(ErrorCodes.InvalidSnapshot)),
+    ].map(validator => validator('Snapshot')),
 )
 export const assertSnapshot = (snapshot: Snapshot) =>
     throwError(validateSnapshot(snapshot))

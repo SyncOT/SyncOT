@@ -221,10 +221,18 @@ export const clientStorageTests = (
 
         describe('store an invalid operation', () => {
             test.each([undefined, false, true])('local=%s', async local => {
-                expect.assertions(3)
-                await clientStorage
-                    .store({ ...operation, data: undefined as any }, local)
-                    .catch(expectError(ErrorCodes.InvalidOperation))
+                const entity = { ...operation, data: undefined as any }
+                await expect(
+                    clientStorage.store(entity, local),
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        entity,
+                        entityName: 'Operation',
+                        key: 'data',
+                        message: 'Invalid "Operation.data".',
+                        name: 'SyncOtError InvalidEntity',
+                    }),
+                )
                 await expect(load()).resolves.toEqual([])
             })
         })

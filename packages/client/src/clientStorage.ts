@@ -52,7 +52,7 @@ class MemoryClientStorage {
      *
      * It fails with:
      *
-     * - `InvalidSnapshot`, if `snapshot` is invalid.
+     * - `SyncOtError InvalidEntity`, if `snapshot` is invalid.
      * - `AlreadyInitialized`, if the storage has been already initialized for the particular combination
      *   of type and id.
      *
@@ -133,7 +133,7 @@ class MemoryClientStorage {
      *
      * It fails with
      *
-     * - `InvalidOperation`, if `operation` is not valid.
+     * - `SyncOtError InvalidEntity`, if `operation` is not valid.
      * - `NotInitialized`, if this `ClientStorage` has not been initialized for `operation.type` and `operation.id`.
      *
      * If `local` is `false`, then it fails with:

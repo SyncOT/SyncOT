@@ -10,7 +10,6 @@ import {
     MessageType,
     Proxy,
     Service,
-    SyncOtError,
 } from '.'
 
 const name = 'service-or-proxy-name'
@@ -180,7 +179,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError NotImplemented',
+                'AssertionError [ERR_ASSERTION]',
                 'Connection events not implemented',
             ),
         )
@@ -194,7 +193,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError NotImplemented',
+                'AssertionError [ERR_ASSERTION]',
                 'Connection streams not implemented',
             ),
         )
@@ -283,7 +282,7 @@ describe('proxy registration', () => {
             connection.registerProxy({ events: new Set(['eventName']), name }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError NotImplemented',
+                'AssertionError [ERR_ASSERTION]',
                 'Connection events not implemented',
             ),
         )
@@ -296,7 +295,7 @@ describe('proxy registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError NotImplemented',
+                'AssertionError [ERR_ASSERTION]',
                 'Connection streams not implemented',
             ),
         )
@@ -475,14 +474,18 @@ describe('message validation', () => {
         stream2.write(invalidMessage)
         await delay()
         expect(onDisconnect.mock.calls.length).toBe(1)
-        expect(onDisconnect.mock.calls[0][0]).toBeInstanceOf(SyncOtError)
-        expect(onDisconnect.mock.calls[0][0].code).toBe(
-            ErrorCodes.InvalidMessage,
+        expect(onDisconnect.mock.calls[0][0]).toBeInstanceOf(Error)
+        expect(onDisconnect.mock.calls[0][0].name).toBe(
+            'SyncOtError InvalidEntity',
         )
-        expect(onDisconnect.mock.calls[0][0].details.message).toBe(
-            invalidMessage,
+        expect(onDisconnect.mock.calls[0][0].message).toBe(
+            property == null
+                ? 'Invalid "Message".'
+                : `Invalid "Message.${property}".`,
         )
-        expect(onDisconnect.mock.calls[0][0].details.property).toBe(property)
+        expect(onDisconnect.mock.calls[0][0].entityName).toBe('Message')
+        expect(onDisconnect.mock.calls[0][0].entity).toBe(invalidMessage)
+        expect(onDisconnect.mock.calls[0][0].key).toBe(property)
     })
     test.each([
         ['valid message', { ...message }],

@@ -1,21 +1,43 @@
-import { ErrorCodes, SyncOtError } from '.'
-import { createNotImplementedError } from './error'
+import { createInvalidEntityError } from './error'
 
-test('has code and message', () => {
-    const error = new SyncOtError('A code' as ErrorCodes, 'Not implemented')
-    expect(error.code).toBe('A code')
-    expect(error.message).toBe('Not implemented')
-})
-
-test('ErrorCodes keys match the values', () => {
-    Object.keys(ErrorCodes).forEach(key => {
-        expect(ErrorCodes[key as any]).toBe(key)
+describe('createInvalidEntityError', () => {
+    test('invalid name', () => {
+        expect(() => createInvalidEntityError(5 as any, {})).toThrow(
+            expect.objectContaining({
+                message: 'Argument "name" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
     })
-})
-
-test('createNotImplementedError', () => {
-    const error = createNotImplementedError('test')
-    expect(error).toBeInstanceOf(Error)
-    expect(error.name).toBe('SyncOtError NotImplemented')
-    expect(error.message).toBe('test')
+    test('invalid key', () => {
+        expect(() => createInvalidEntityError('', {}, 5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "key" must be a string or null.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('without key', () => {
+        const name = 'MyEntity'
+        const entity = { key: 'value' }
+        const error = createInvalidEntityError(name, entity)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError InvalidEntity')
+        expect(error.message).toBe(`Invalid "${name}".`)
+        expect(error.entityName).toBe(name)
+        expect(error.entity).toBe(entity)
+        expect(error.key).toBe(null)
+    })
+    test('with key', () => {
+        const name = 'MyEntity'
+        const entity = { key: 'value' }
+        const key = 'aKey'
+        const error = createInvalidEntityError(name, entity, key)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError InvalidEntity')
+        expect(error.message).toBe(`Invalid "${name}.${key}".`)
+        expect(error.entityName).toBe(name)
+        expect(error.entity).toBe(entity)
+        expect(error.key).toBe(key)
+    })
 })
