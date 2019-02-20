@@ -38,9 +38,20 @@ describe('validate', () => {
 })
 
 describe('assertUnreachable', () => {
-    test('throws an error', () => {
-        expect(() => assertUnreachable({} as never)).toThrowError(
-            'This should never happen!',
+    test('throws an error (with a param)', () => {
+        expect(() => assertUnreachable({} as never)).toThrow(
+            expect.objectContaining({
+                message: 'This should never happen!',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('throws an error (without a param)', () => {
+        expect(() => assertUnreachable()).toThrow(
+            expect.objectContaining({
+                message: 'This should never happen!',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
         )
     })
 })
