@@ -15,7 +15,10 @@ import {
 
 const name = 'service-or-proxy-name'
 const error = new Error('test error')
-const externalError = new SyncOtError(ErrorCodes.ExternalError)
+const testErrorMatcher = expect.objectContaining({
+    message: 'test error',
+    name: 'Error',
+})
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
@@ -715,10 +718,7 @@ describe('service and proxy', () => {
                 'throwErrorMethod',
                 {
                     ...message,
-                    data: expect.objectContaining({
-                        message: 'test error',
-                        name: 'Error',
-                    }),
+                    data: testErrorMatcher,
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -727,10 +727,7 @@ describe('service and proxy', () => {
                 'rejectErrorMethod',
                 {
                     ...message,
-                    data: expect.objectContaining({
-                        message: 'test error',
-                        name: 'Error',
-                    }),
+                    data: testErrorMatcher,
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -890,7 +887,7 @@ describe('service and proxy', () => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
-                        data: externalError,
+                        data: error,
                         name: actionName,
                         type: MessageType.CALL_ERROR,
                     })
@@ -904,7 +901,7 @@ describe('service and proxy', () => {
                         { key: 'value' },
                         false,
                     ),
-                ).rejects.toEqual(errorMatcher(ErrorCodes.ExternalError))
+                ).rejects.toEqual(testErrorMatcher)
             },
         )
         test(`request, reply (reply action name: returnMethod)`, async () => {
@@ -960,13 +957,13 @@ describe('service and proxy', () => {
             const onData = jest.fn(message => {
                 stream2.write({
                     ...message,
-                    data: externalError,
+                    data: error,
                     name: undefined,
                     type: MessageType.CALL_ERROR,
                 })
                 stream2.write({
                     ...message,
-                    data: externalError,
+                    data: error,
                     name: undefined,
                     type: MessageType.CALL_ERROR,
                 })
@@ -980,7 +977,7 @@ describe('service and proxy', () => {
                     { key: 'value' },
                     false,
                 ),
-            ).rejects.toEqual(errorMatcher(ErrorCodes.ExternalError))
+            ).rejects.toEqual(testErrorMatcher)
             expect(onDisconnect).not.toHaveBeenCalled()
         })
         test('request, disconnect', async () => {
@@ -1132,10 +1129,10 @@ describe('service and proxy', () => {
         })
         test('request, error', async () => {
             ;(service.returnMethod as any).mockImplementation(() =>
-                Promise.reject(externalError),
+                Promise.reject(error),
             )
             await expect(proxy2.returnMethod(...params)).rejects.toEqual(
-                errorMatcher(ErrorCodes.ExternalError),
+                testErrorMatcher,
             )
             const returnMethod = service.returnMethod as any
             expect(returnMethod.mock.calls.length).toBe(1)
