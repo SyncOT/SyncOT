@@ -63,7 +63,10 @@ describe('connection', () => {
     })
     test('connect with an invalid stream', () => {
         expect(() => connection.connect({} as any)).toThrow(
-            syncOterrorMatcher(ErrorCodes.InvalidArgument),
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Argument "stream" must be a Duplex.',
+            ),
         )
     })
     test('disconnect', async () => {
@@ -159,9 +162,9 @@ describe('service registration', () => {
         expect(() =>
             connection.registerService({ name, instance: {} as any }),
         ).toThrow(
-            syncOterrorMatcher(
-                ErrorCodes.InvalidArgument,
-                'Service must be an EventEmitter',
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Argument "instance" must be an EventEmitter.',
             ),
         )
     })
@@ -173,7 +176,10 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher('NotImplemented', 'Connection events not implemented'),
+            errorMatcher(
+                'SyncOtError NotImplemented',
+                'Connection events not implemented',
+            ),
         )
     })
     test('register with streams - currently unimplemented', () => {
@@ -185,7 +191,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'NotImplemented',
+                'SyncOtError NotImplemented',
                 'Connection streams not implemented',
             ),
         )
@@ -199,9 +205,9 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            syncOterrorMatcher(
-                ErrorCodes.InvalidArgument,
-                'Service.anotherAction must be a function',
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Service.anotherAction must be a function.',
             ),
         )
     })
@@ -268,7 +274,10 @@ describe('proxy registration', () => {
         expect(() =>
             connection.registerProxy({ events: new Set(['eventName']), name }),
         ).toThrow(
-            errorMatcher('NotImplemented', 'Connection events not implemented'),
+            errorMatcher(
+                'SyncOtError NotImplemented',
+                'Connection events not implemented',
+            ),
         )
     })
     test('register with streams - currently unimplemented', () => {
@@ -279,7 +288,7 @@ describe('proxy registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'NotImplemented',
+                'SyncOtError NotImplemented',
                 'Connection streams not implemented',
             ),
         )
@@ -291,9 +300,9 @@ describe('proxy registration', () => {
                 name,
             }),
         ).toThrow(
-            syncOterrorMatcher(
-                ErrorCodes.InvalidArgument,
-                'Proxy.addListener already exists',
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Proxy.addListener already exists.',
             ),
         )
     })

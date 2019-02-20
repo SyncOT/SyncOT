@@ -8,17 +8,13 @@ export function createNotImplementedError(message: string): NewSyncOtError {
         'string',
         'Argument "message" must be a string.',
     )
-    return createError('NotImplemented', message)
+    return createError('SyncOtError NotImplemented', message)
 }
 
 /**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * An invalid argument has been passed into a function.
-     */
-    InvalidArgument = 'InvalidArgument',
     /**
      * A Connection is already associated with an open stream.
      */

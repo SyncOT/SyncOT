@@ -1,3 +1,4 @@
+import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
 import { createNotImplementedError, ErrorCodes, SyncOtError } from './error'
@@ -205,9 +206,10 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
      * @param stream The stream to connect to.
      */
     public connect(stream: Duplex): void {
-        if (!(stream instanceof Duplex)) {
-            throw new SyncOtError(ErrorCodes.InvalidArgument)
-        }
+        assert.ok(
+            stream instanceof Duplex,
+            'Argument "stream" must be a Duplex.',
+        )
         if (this.stream) {
             throw new SyncOtError(ErrorCodes.AlreadyConnected)
         }
@@ -248,14 +250,12 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         streams = new Set(),
         instance,
     }: ServiceDescriptor): void {
+        assert.ok(
+            instance instanceof EventEmitter,
+            'Argument "instance" must be an EventEmitter.',
+        )
         if (this.services.has(name)) {
             throw new SyncOtError(ErrorCodes.DuplicateService)
-        }
-        if (!(instance instanceof EventEmitter)) {
-            throw new SyncOtError(
-                ErrorCodes.InvalidArgument,
-                'Service must be an EventEmitter',
-            )
         }
         if (events.size > 0) {
             throw createNotImplementedError('Connection events not implemented')
@@ -266,12 +266,11 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             )
         }
         actions.forEach(action => {
-            if (typeof (instance as any)[action] !== 'function') {
-                throw new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    `Service.${action} must be a function`,
-                )
-            }
+            assert.equal(
+                typeof (instance as any)[action],
+                'function',
+                `Service.${action} must be a function.`,
+            )
         })
         this.initService(instance, name, actions)
         this.services.set(name, { actions, events, instance, name, streams })
@@ -423,13 +422,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         > = new Map()
 
         actions.forEach(action => {
-            if (action in proxy) {
-                throw new SyncOtError(
-                    ErrorCodes.InvalidArgument,
-                    `Proxy.${action} already exists`,
-                )
-            }
-
+            assert.ok(!(action in proxy), `Proxy.${action} already exists.`)
             ;(proxy as any)[action] = (
                 ...args: JsonValue[]
             ): Promise<JsonValue> => {
