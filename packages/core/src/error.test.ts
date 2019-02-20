@@ -1,8 +1,8 @@
 import { ErrorCodes, SyncOtError } from '.'
 
 test('has code and message', () => {
-    const error = new SyncOtError(ErrorCodes.NotImplemented, 'Not implemented')
-    expect(error.code).toBe(ErrorCodes.NotImplemented)
+    const error = new SyncOtError('A code' as ErrorCodes, 'Not implemented')
+    expect(error.code).toBe('A code')
     expect(error.message).toBe('Not implemented')
 })
 

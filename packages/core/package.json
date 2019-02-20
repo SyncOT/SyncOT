@@ -16,6 +16,7 @@
     "url": "https://github.com/SyncOT/SyncOT.git"
   },
   "dependencies": {
+    "@syncot/error": "file:../error",
     "@types/node": "^10.12.21",
     "strict-event-emitter-types": "^2.0.0",
     "tslib": "^1.9.3"

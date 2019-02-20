@@ -1,13 +1,20 @@
+import { createError, SyncOtError as NewSyncOtError } from '@syncot/error'
+import { strict as assert } from 'assert'
 import { JsonValue } from './json'
+
+export function createNotImplementedError(message: string): NewSyncOtError {
+    assert.equal(
+        typeof message,
+        'string',
+        'Argument "message" must be a string.',
+    )
+    return createError('NotImplemented', message)
+}
 
 /**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * A function defined by an interface is not implemented.
-     */
-    NotImplemented = 'NotImplemented',
     /**
      * An invalid argument has been passed into a function.
      */

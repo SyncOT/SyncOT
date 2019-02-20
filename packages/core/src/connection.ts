@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
-import { ErrorCodes, SyncOtError } from './error'
+import { createNotImplementedError, ErrorCodes, SyncOtError } from './error'
 import { JsonArray, JsonValue } from './json'
 import {
     assertUnreachable,
@@ -258,15 +258,11 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             )
         }
         if (events.size > 0) {
-            throw new SyncOtError(
-                ErrorCodes.NotImplemented,
-                'Connection does not support events yet',
-            )
+            throw createNotImplementedError('Connection events not implemented')
         }
         if (streams.size > 0) {
-            throw new SyncOtError(
-                ErrorCodes.NotImplemented,
-                'Connection does not support streams yet',
+            throw createNotImplementedError(
+                'Connection streams not implemented',
             )
         }
         actions.forEach(action => {
@@ -306,15 +302,11 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             throw new SyncOtError(ErrorCodes.DuplicateProxy)
         }
         if (events.size > 0) {
-            throw new SyncOtError(
-                ErrorCodes.NotImplemented,
-                'Connection does not support events yet',
-            )
+            throw createNotImplementedError('Connection events not implemented')
         }
         if (streams.size > 0) {
-            throw new SyncOtError(
-                ErrorCodes.NotImplemented,
-                'Connection does not support streams yet',
+            throw createNotImplementedError(
+                'Connection streams not implemented',
             )
         }
         const instance = this.createProxy(name, actions)

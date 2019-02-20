@@ -25,7 +25,9 @@ let stream2: Duplex
 let instance: EventEmitter
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
-const errorMatcher = (code: ErrorCodes, message: string = '') =>
+const errorMatcher = (errorName: string, errorMessage: string) =>
+    expect.objectContaining({ message: errorMessage, name: errorName })
+const syncOterrorMatcher = (code: ErrorCodes, message: string = '') =>
     expect.objectContaining({
         code,
         message,
@@ -54,14 +56,14 @@ describe('connection', () => {
         connection.on('connect', connectedCallback)
         connection.connect(stream1)
         expect(() => connection.connect(stream1)).toThrow(
-            errorMatcher(ErrorCodes.AlreadyConnected),
+            syncOterrorMatcher(ErrorCodes.AlreadyConnected),
         )
         expect(connection.isConnected()).toBe(true)
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('connect with an invalid stream', () => {
         expect(() => connection.connect({} as any)).toThrow(
-            errorMatcher(ErrorCodes.InvalidArgument),
+            syncOterrorMatcher(ErrorCodes.InvalidArgument),
         )
     })
     test('disconnect', async () => {
@@ -157,7 +159,7 @@ describe('service registration', () => {
         expect(() =>
             connection.registerService({ name, instance: {} as any }),
         ).toThrow(
-            errorMatcher(
+            syncOterrorMatcher(
                 ErrorCodes.InvalidArgument,
                 'Service must be an EventEmitter',
             ),
@@ -171,10 +173,7 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher(
-                ErrorCodes.NotImplemented,
-                'Connection does not support events yet',
-            ),
+            errorMatcher('NotImplemented', 'Connection events not implemented'),
         )
     })
     test('register with streams - currently unimplemented', () => {
@@ -186,8 +185,8 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                ErrorCodes.NotImplemented,
-                'Connection does not support streams yet',
+                'NotImplemented',
+                'Connection streams not implemented',
             ),
         )
     })
@@ -200,7 +199,7 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher(
+            syncOterrorMatcher(
                 ErrorCodes.InvalidArgument,
                 'Service.anotherAction must be a function',
             ),
@@ -225,7 +224,7 @@ describe('service registration', () => {
                 instance: new EventEmitter(),
                 name,
             }),
-        ).toThrow(errorMatcher(ErrorCodes.DuplicateService))
+        ).toThrow(syncOterrorMatcher(ErrorCodes.DuplicateService))
     })
     test('get registered services', () => {
         const actions = new Set(['testAction', 'anotherAction'])
@@ -269,10 +268,7 @@ describe('proxy registration', () => {
         expect(() =>
             connection.registerProxy({ events: new Set(['eventName']), name }),
         ).toThrow(
-            errorMatcher(
-                ErrorCodes.NotImplemented,
-                'Connection does not support events yet',
-            ),
+            errorMatcher('NotImplemented', 'Connection events not implemented'),
         )
     })
     test('register with streams - currently unimplemented', () => {
@@ -283,8 +279,8 @@ describe('proxy registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                ErrorCodes.NotImplemented,
-                'Connection does not support streams yet',
+                'NotImplemented',
+                'Connection streams not implemented',
             ),
         )
     })
@@ -295,7 +291,7 @@ describe('proxy registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher(
+            syncOterrorMatcher(
                 ErrorCodes.InvalidArgument,
                 'Proxy.addListener already exists',
             ),
@@ -310,7 +306,7 @@ describe('proxy registration', () => {
     test('register twice', () => {
         connection.registerProxy({ name })
         expect(() => connection.registerProxy({ name })).toThrow(
-            errorMatcher(ErrorCodes.DuplicateProxy),
+            syncOterrorMatcher(ErrorCodes.DuplicateProxy),
         )
     })
     test('get registered services', () => {
@@ -635,7 +631,7 @@ describe('no service', () => {
         expect(onData.mock.calls.length).toBe(1)
         expect(onData.mock.calls[0][0]).toEqual({
             ...message,
-            data: errorMatcher(ErrorCodes.NoService),
+            data: syncOterrorMatcher(ErrorCodes.NoService),
             name: null,
             service: serviceName,
             type: outputCode,
@@ -922,7 +918,7 @@ describe('service and proxy', () => {
                     { key: 'value' },
                     false,
                 ),
-            ).rejects.toEqual(errorMatcher(ErrorCodes.Disconnected))
+            ).rejects.toEqual(syncOterrorMatcher(ErrorCodes.Disconnected))
         })
         test('request, reply, reply', async () => {
             const onDisconnect = jest.fn()
@@ -990,7 +986,7 @@ describe('service and proxy', () => {
             )
             connection.disconnect()
             await expect(promise).rejects.toEqual(
-                errorMatcher(ErrorCodes.Disconnected),
+                syncOterrorMatcher(ErrorCodes.Disconnected),
             )
         })
         test('request, destroy stream', async () => {
@@ -1003,7 +999,7 @@ describe('service and proxy', () => {
             )
             stream1.destroy()
             await expect(promise).rejects.toEqual(
-                errorMatcher(ErrorCodes.Disconnected),
+                syncOterrorMatcher(ErrorCodes.Disconnected),
             )
         })
         test('disconnect, request', async () => {
@@ -1016,7 +1012,7 @@ describe('service and proxy', () => {
                 false,
             )
             await expect(promise).rejects.toEqual(
-                errorMatcher(ErrorCodes.Disconnected),
+                syncOterrorMatcher(ErrorCodes.Disconnected),
             )
         })
         test('concurrent requests - 2 proxies', async () => {
