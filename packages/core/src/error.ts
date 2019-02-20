@@ -43,14 +43,15 @@ export function createInvalidEntityError(
     }) as InvalidEntityError
 }
 
+export function createNoServiceError(message: string): Error {
+    assertString('message', message)
+    return createError('SyncOtError NoService', message)
+}
+
 /**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * There has been no service to handle a message received by a `Connection`.
-     */
-    NoService = 'NoService',
     /**
      * An action failed because there is no active connection.
      */

@@ -1,7 +1,12 @@
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
-import { createInvalidEntityError, ErrorCodes, SyncOtError } from './error'
+import {
+    createInvalidEntityError,
+    createNoServiceError,
+    ErrorCodes,
+    SyncOtError,
+} from './error'
 import { JsonArray, JsonValue } from './json'
 import {
     assertUnreachable,
@@ -375,7 +380,11 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                             }
                             this.send({
                                 ...message,
-                                data: new SyncOtError(ErrorCodes.NoService),
+                                data: createNoServiceError(
+                                    `No service to handle the request for "${
+                                        message.service
+                                    }.${message.name}".`,
+                                ),
                                 name: null,
                                 type: MessageType.CALL_ERROR,
                             })
@@ -389,7 +398,11 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         }
                         this.send({
                             ...message,
-                            data: new SyncOtError(ErrorCodes.NoService),
+                            data: createNoServiceError(
+                                `No service to handle the stream for "${
+                                    message.service
+                                }.${message.name}".`,
+                            ),
                             name: null,
                             type: MessageType.STREAM_OUTPUT_ERROR,
                         })
@@ -500,14 +513,22 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                 case MessageType.CALL_REQUEST:
                     return this.send({
                         ...message,
-                        data: new SyncOtError(ErrorCodes.NoService),
+                        data: createNoServiceError(
+                            `No service to handle the request for "${
+                                message.service
+                            }.${message.name}".`,
+                        ),
                         name: null,
                         type: MessageType.CALL_ERROR,
                     })
                 case MessageType.STREAM_OPEN:
                     return this.send({
                         ...message,
-                        data: new SyncOtError(ErrorCodes.NoService),
+                        data: createNoServiceError(
+                            `No service to handle the stream for "${
+                                message.service
+                            }.${message.name}".`,
+                        ),
                         name: null,
                         type: MessageType.STREAM_OUTPUT_ERROR,
                     })

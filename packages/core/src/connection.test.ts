@@ -652,13 +652,22 @@ describe('no service', () => {
         })
         await delay()
         expect(onData.mock.calls.length).toBe(1)
-        expect(onData.mock.calls[0][0]).toEqual({
-            ...message,
-            data: syncOterrorMatcher(ErrorCodes.NoService),
-            name: null,
-            service: serviceName,
-            type: outputCode,
-        })
+        expect(onData.mock.calls[0][0]).toEqual(
+            expect.objectContaining({
+                ...message,
+                data: errorMatcher(
+                    'SyncOtError NoService',
+                    `No service to handle the ${
+                        inputCode === MessageType.CALL_REQUEST
+                            ? 'request'
+                            : 'stream'
+                    } for "${serviceName}.${message.name}".`,
+                ),
+                name: null,
+                service: serviceName,
+                type: outputCode,
+            }),
+        )
     })
 })
 
