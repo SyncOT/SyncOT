@@ -1,4 +1,8 @@
-import { createInvalidEntityError, createNoServiceError } from './error'
+import {
+    createDisconnectedError,
+    createInvalidEntityError,
+    createNoServiceError,
+} from './error'
 
 describe('createInvalidEntityError', () => {
     test('invalid name', () => {
@@ -55,6 +59,23 @@ describe('createNoServiceError', () => {
         const error = createNoServiceError('test')
         expect(error).toBeInstanceOf(Error)
         expect(error.name).toBe('SyncOtError NoService')
+        expect(error.message).toBe('test')
+    })
+})
+
+describe('createDisconnectedError', () => {
+    test('invalid message', () => {
+        expect(() => createDisconnectedError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createDisconnectedError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Disconnected')
         expect(error.message).toBe('test')
     })
 })

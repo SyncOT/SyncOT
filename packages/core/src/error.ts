@@ -43,19 +43,28 @@ export function createInvalidEntityError(
     }) as InvalidEntityError
 }
 
+/**
+ * Creates a new error informing that there's been no service to handle a request.
+ * @param message The error message.
+ */
 export function createNoServiceError(message: string): Error {
     assertString('message', message)
     return createError('SyncOtError NoService', message)
 }
 
 /**
+ * Creates a new error informing that there's no active connection.
+ * @param message The error message.
+ */
+export function createDisconnectedError(message: string): Error {
+    assertString('message', message)
+    return createError('SyncOtError Disconnected', message)
+}
+
+/**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * An action failed because there is no active connection.
-     */
-    Disconnected = 'Disconnected',
     /**
      * A type implementation necessary to process an operation or snapshot has not been found.
      */

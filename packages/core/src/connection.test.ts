@@ -3,7 +3,6 @@ import { Duplex } from 'stream'
 import {
     Connection,
     createConnection,
-    ErrorCodes,
     invertedStreams,
     JsonValue,
     Message,
@@ -26,12 +25,6 @@ const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 const errorMatcher = (errorName: string, errorMessage: string) =>
     expect.objectContaining({ message: errorMessage, name: errorName })
-const syncOterrorMatcher = (code: ErrorCodes, message: string = '') =>
-    expect.objectContaining({
-        code,
-        message,
-        name: 'Error',
-    })
 
 beforeEach(() => {
     connection = createConnection()
@@ -950,7 +943,12 @@ describe('service and proxy', () => {
                     { key: 'value' },
                     false,
                 ),
-            ).rejects.toEqual(syncOterrorMatcher(ErrorCodes.Disconnected))
+            ).rejects.toEqual(
+                errorMatcher(
+                    'SyncOtError Disconnected',
+                    'Disconnected, request failed.',
+                ),
+            )
         })
         test('request, reply, reply', async () => {
             const onDisconnect = jest.fn()
@@ -1018,7 +1016,10 @@ describe('service and proxy', () => {
             )
             connection.disconnect()
             await expect(promise).rejects.toEqual(
-                syncOterrorMatcher(ErrorCodes.Disconnected),
+                errorMatcher(
+                    'SyncOtError Disconnected',
+                    'Disconnected, request failed.',
+                ),
             )
         })
         test('request, destroy stream', async () => {
@@ -1031,7 +1032,10 @@ describe('service and proxy', () => {
             )
             stream1.destroy()
             await expect(promise).rejects.toEqual(
-                syncOterrorMatcher(ErrorCodes.Disconnected),
+                errorMatcher(
+                    'SyncOtError Disconnected',
+                    'Disconnected, request failed.',
+                ),
             )
         })
         test('disconnect, request', async () => {
@@ -1044,7 +1048,10 @@ describe('service and proxy', () => {
                 false,
             )
             await expect(promise).rejects.toEqual(
-                syncOterrorMatcher(ErrorCodes.Disconnected),
+                errorMatcher(
+                    'SyncOtError Disconnected',
+                    'Disconnected, failed to send a message.',
+                ),
             )
         })
         test('concurrent requests - 2 proxies', async () => {

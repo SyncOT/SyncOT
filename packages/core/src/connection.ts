@@ -2,10 +2,9 @@ import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
 import {
+    createDisconnectedError,
     createInvalidEntityError,
     createNoServiceError,
-    ErrorCodes,
-    SyncOtError,
 } from './error'
 import { JsonArray, JsonValue } from './json'
 import {
@@ -469,7 +468,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         )
 
         this.on('disconnect', () => {
-            const error = new SyncOtError(ErrorCodes.Disconnected)
+            const error = createDisconnectedError(
+                'Disconnected, request failed.',
+            )
             const sessions = Array.from(actionSessions.values())
             actionSessions.clear()
 
@@ -487,7 +488,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         if (this.stream) {
             this.stream.write(message)
         } else {
-            throw new SyncOtError(ErrorCodes.Disconnected)
+            throw createDisconnectedError(
+                'Disconnected, failed to send a message.',
+            )
         }
     }
 
