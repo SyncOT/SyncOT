@@ -16,17 +16,18 @@ import {
 const name = 'service-or-proxy-name'
 const error = new Error('test error')
 const externalError = new SyncOtError(ErrorCodes.ExternalError)
-const unknownError = new SyncOtError(
-    ErrorCodes.UnknownError,
-    undefined,
-    error as any,
-)
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
 let instance: EventEmitter
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
-const errorToJson = (e: SyncOtError) => Promise.reject(e.toJSON())
+
+const errorMatcher = (code: ErrorCodes, message: string = '') =>
+    expect.objectContaining({
+        code,
+        message,
+        name: 'Error',
+    })
 
 beforeEach(() => {
     connection = createConnection()
@@ -46,27 +47,19 @@ describe('connection', () => {
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('connect twice', () => {
-        expect.assertions(4)
         const connectedCallback = jest.fn()
         connection.on('connect', connectedCallback)
         connection.connect(stream1)
-        try {
-            connection.connect(stream1)
-        } catch (e) {
-            expect(e).toBeInstanceOf(SyncOtError)
-            expect(e.code).toBe(ErrorCodes.AlreadyConnected)
-        }
+        expect(() => connection.connect(stream1)).toThrow(
+            errorMatcher(ErrorCodes.AlreadyConnected),
+        )
         expect(connection.isConnected()).toBe(true)
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('connect with an invalid stream', () => {
-        expect.assertions(2)
-        try {
-            connection.connect({} as any)
-        } catch (e) {
-            expect(e).toBeInstanceOf(SyncOtError)
-            expect(e.code).toBe(ErrorCodes.InvalidArgument)
-        }
+        expect(() => connection.connect({} as any)).toThrow(
+            errorMatcher(ErrorCodes.InvalidArgument),
+        )
     })
     test('disconnect', async () => {
         const disconnectCallback = jest.fn()
@@ -158,61 +151,57 @@ describe('connection', () => {
 
 describe('service registration', () => {
     test('register with an invalid instance', () => {
-        expect.assertions(3)
-        try {
-            connection.registerService({ name, instance: {} as any })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.InvalidArgument)
-            expect(error.message).toBe('Service must be an EventEmitter')
-        }
+        expect(() =>
+            connection.registerService({ name, instance: {} as any }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.InvalidArgument,
+                'Service must be an EventEmitter',
+            ),
+        )
     })
     test('register with events - currently unimplemented', () => {
-        expect.assertions(3)
-        try {
+        expect(() =>
             connection.registerService({
                 events: new Set(['eventName']),
                 instance,
                 name,
-            })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.NotImplemented)
-            expect(error.message).toBe('Connection does not support events yet')
-        }
+            }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.NotImplemented,
+                'Connection does not support events yet',
+            ),
+        )
     })
     test('register with streams - currently unimplemented', () => {
-        expect.assertions(3)
-        try {
+        expect(() =>
             connection.registerService({
                 instance,
                 name,
                 streams: new Set(['streamName']),
-            })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.NotImplemented)
-            expect(error.message).toBe(
+            }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.NotImplemented,
                 'Connection does not support streams yet',
-            )
-        }
+            ),
+        )
     })
     test('register with a missing action', () => {
-        expect.assertions(3)
         ;(instance as any).testAction = () => null
-        try {
+        expect(() =>
             connection.registerService({
                 actions: new Set(['testAction', 'anotherAction']),
                 instance,
                 name,
-            })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.InvalidArgument)
-            expect(error.message).toBe(
+            }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.InvalidArgument,
                 'Service.anotherAction must be a function',
-            )
-        }
+            ),
+        )
     })
     test('register', () => {
         ;(instance as any).anotherAction = () => null
@@ -224,20 +213,16 @@ describe('service registration', () => {
         })
     })
     test('register twice', () => {
-        expect.assertions(2)
         connection.registerService({
             instance,
             name,
         })
-        try {
+        expect(() =>
             connection.registerService({
                 instance: new EventEmitter(),
                 name,
-            })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.DuplicateService)
-        }
+            }),
+        ).toThrow(errorMatcher(ErrorCodes.DuplicateService))
     })
     test('get registered services', () => {
         const actions = new Set(['testAction', 'anotherAction'])
@@ -278,39 +263,40 @@ describe('service registration', () => {
 
 describe('proxy registration', () => {
     test('register with events - currently unimplemented', () => {
-        expect.assertions(3)
-        try {
-            connection.registerProxy({ events: new Set(['eventName']), name })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.NotImplemented)
-            expect(error.message).toBe('Connection does not support events yet')
-        }
+        expect(() =>
+            connection.registerProxy({ events: new Set(['eventName']), name }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.NotImplemented,
+                'Connection does not support events yet',
+            ),
+        )
     })
     test('register with streams - currently unimplemented', () => {
-        expect.assertions(3)
-        try {
-            connection.registerProxy({ name, streams: new Set(['streamName']) })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.NotImplemented)
-            expect(error.message).toBe(
+        expect(() =>
+            connection.registerProxy({
+                name,
+                streams: new Set(['streamName']),
+            }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.NotImplemented,
                 'Connection does not support streams yet',
-            )
-        }
+            ),
+        )
     })
     test('register with an action conflict', () => {
-        expect.assertions(3)
-        try {
+        expect(() =>
             connection.registerProxy({
                 actions: new Set(['testAction', 'addListener']),
                 name,
-            })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.InvalidArgument)
-            expect(error.message).toBe('Proxy.addListener already exists')
-        }
+            }),
+        ).toThrow(
+            errorMatcher(
+                ErrorCodes.InvalidArgument,
+                'Proxy.addListener already exists',
+            ),
+        )
     })
     test('register', () => {
         connection.registerProxy({
@@ -319,14 +305,10 @@ describe('proxy registration', () => {
         })
     })
     test('register twice', () => {
-        expect.assertions(2)
         connection.registerProxy({ name })
-        try {
-            connection.registerProxy({ name })
-        } catch (error) {
-            expect(error).toBeInstanceOf(SyncOtError)
-            expect(error.code).toBe(ErrorCodes.DuplicateProxy)
-        }
+        expect(() => connection.registerProxy({ name })).toThrow(
+            errorMatcher(ErrorCodes.DuplicateProxy),
+        )
     })
     test('get registered services', () => {
         ;(instance as any).testAction = expect.any(Function)
@@ -381,6 +363,31 @@ describe('message validation', () => {
         [
             'invalid data ({}; message type: STREAM_OPEN)',
             { ...message, data: {}, type: MessageType.STREAM_OPEN },
+            'data',
+        ],
+        [
+            'invalid data ({}; message type: CALL_ERROR)',
+            { ...message, data: {}, name: null, type: MessageType.CALL_ERROR },
+            'data',
+        ],
+        [
+            'invalid data ({}; message type: STREAM_INPUT_ERROR)',
+            {
+                ...message,
+                data: {},
+                name: null,
+                type: MessageType.STREAM_INPUT_ERROR,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({}; message type: STREAM_OUTPUT_ERROR)',
+            {
+                ...message,
+                data: {},
+                name: null,
+                type: MessageType.STREAM_OUTPUT_ERROR,
+            },
             'data',
         ],
         ['invalid data (symbol)', { ...message, data: Symbol() }, 'data'],
@@ -471,7 +478,12 @@ describe('message validation', () => {
         ],
         [
             'valid type (CALL_ERROR)',
-            { ...message, name: undefined, type: MessageType.CALL_ERROR },
+            {
+                ...message,
+                data: error,
+                name: undefined,
+                type: MessageType.CALL_ERROR,
+            },
         ],
         [
             'valid type (STREAM_OPEN)',
@@ -497,6 +509,7 @@ describe('message validation', () => {
             'valid type (STREAM_INPUT_ERROR)',
             {
                 ...message,
+                data: error,
                 name: undefined,
                 type: MessageType.STREAM_INPUT_ERROR,
             },
@@ -521,6 +534,7 @@ describe('message validation', () => {
             'valid type (STREAM_OUTPUT_ERROR)',
             {
                 ...message,
+                data: error,
                 name: undefined,
                 type: MessageType.STREAM_OUTPUT_ERROR,
             },
@@ -618,11 +632,7 @@ describe('no service', () => {
         expect(onData.mock.calls.length).toBe(1)
         expect(onData.mock.calls[0][0]).toEqual({
             ...message,
-            data: {
-                code: 'NoService',
-                details: null,
-                message: '',
-            },
+            data: errorMatcher(ErrorCodes.NoService),
             name: null,
             service: serviceName,
             type: outputCode,
@@ -655,11 +665,6 @@ describe('service and proxy', () => {
     const replyData = {
         anotherKey: 'value',
         reply: 'data',
-    }
-    const errorData = {
-        code: ErrorCodes.ExternalError,
-        details: { additional: 'info' },
-        message: 'Test error',
     }
 
     beforeEach(() => {
@@ -720,7 +725,7 @@ describe('service and proxy', () => {
                 'throwErrorMethod',
                 {
                     ...message,
-                    data: unknownError.toJSON(),
+                    data: errorMatcher(ErrorCodes.UnknownError),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -729,7 +734,7 @@ describe('service and proxy', () => {
                 'throwSyncOtErrorMethod',
                 {
                     ...message,
-                    data: externalError.toJSON(),
+                    data: errorMatcher(ErrorCodes.ExternalError),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -738,7 +743,7 @@ describe('service and proxy', () => {
                 'rejectErrorMethod',
                 {
                     ...message,
-                    data: unknownError.toJSON(),
+                    data: errorMatcher(ErrorCodes.UnknownError),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -747,7 +752,7 @@ describe('service and proxy', () => {
                 'rejectSyncOtErrorMethod',
                 {
                     ...message,
-                    data: externalError.toJSON(),
+                    data: errorMatcher(ErrorCodes.ExternalError),
                     name: null,
                     type: MessageType.CALL_ERROR,
                 },
@@ -907,23 +912,21 @@ describe('service and proxy', () => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
-                        data: errorData,
+                        data: externalError,
                         name: actionName,
                         type: MessageType.CALL_ERROR,
                     })
                 })
                 stream2.on('data', onData)
                 await expect(
-                    proxy
-                        .returnMethod(
-                            1,
-                            'abc',
-                            [1, 2, 3],
-                            { key: 'value' },
-                            false,
-                        )
-                        .catch(errorToJson),
-                ).rejects.toEqual(errorData)
+                    proxy.returnMethod(
+                        1,
+                        'abc',
+                        [1, 2, 3],
+                        { key: 'value' },
+                        false,
+                    ),
+                ).rejects.toEqual(errorMatcher(ErrorCodes.ExternalError))
             },
         )
         test(`request, reply (reply action name: returnMethod)`, async () => {
@@ -937,14 +940,14 @@ describe('service and proxy', () => {
             })
             stream2.on('data', onData)
             await expect(
-                proxy
-                    .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                    .catch(errorToJson),
-            ).rejects.toEqual({
-                code: ErrorCodes.Disconnected,
-                details: null,
-                message: '',
-            })
+                proxy.returnMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).rejects.toEqual(errorMatcher(ErrorCodes.Disconnected))
         })
         test('request, reply, reply', async () => {
             const onDisconnect = jest.fn()
@@ -979,57 +982,67 @@ describe('service and proxy', () => {
             const onData = jest.fn(message => {
                 stream2.write({
                     ...message,
-                    data: errorData,
+                    data: externalError,
                     name: undefined,
                     type: MessageType.CALL_ERROR,
                 })
                 stream2.write({
                     ...message,
-                    data: errorData,
+                    data: externalError,
                     name: undefined,
                     type: MessageType.CALL_ERROR,
                 })
             })
             stream2.on('data', onData)
             await expect(
-                proxy
-                    .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                    .catch(errorToJson),
-            ).rejects.toEqual(errorData)
+                proxy.returnMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).rejects.toEqual(errorMatcher(ErrorCodes.ExternalError))
             expect(onDisconnect).not.toHaveBeenCalled()
         })
         test('request, disconnect', async () => {
-            const promise = proxy
-                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                .catch(errorToJson)
+            const promise = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
             connection.disconnect()
-            await expect(promise).rejects.toEqual({
-                code: ErrorCodes.Disconnected,
-                details: null,
-                message: '',
-            })
+            await expect(promise).rejects.toEqual(
+                errorMatcher(ErrorCodes.Disconnected),
+            )
         })
         test('request, destroy stream', async () => {
-            const promise = proxy
-                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                .catch(errorToJson)
+            const promise = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
             stream1.destroy()
-            await expect(promise).rejects.toEqual({
-                code: ErrorCodes.Disconnected,
-                details: null,
-                message: '',
-            })
+            await expect(promise).rejects.toEqual(
+                errorMatcher(ErrorCodes.Disconnected),
+            )
         })
         test('disconnect, request', async () => {
             connection.disconnect()
-            const promise = proxy
-                .returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
-                .catch(errorToJson)
-            await expect(promise).rejects.toEqual({
-                code: ErrorCodes.Disconnected,
-                details: null,
-                message: '',
-            })
+            const promise = proxy.returnMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
+            await expect(promise).rejects.toEqual(
+                errorMatcher(ErrorCodes.Disconnected),
+            )
         })
         test('concurrent requests - 2 proxies', async () => {
             connection.registerProxy({ actions, name: 'proxy-2' })
@@ -1140,10 +1153,12 @@ describe('service and proxy', () => {
             expect(returnMethod.mock.instances[0]).toBe(service)
         })
         test('request, error', async () => {
-            ;(service.returnMethod as any).mockRejectedValue(externalError)
-            await expect(
-                proxy2.returnMethod(...params).catch(errorToJson),
-            ).rejects.toEqual(externalError.toJSON())
+            ;(service.returnMethod as any).mockImplementation(() =>
+                Promise.reject(externalError),
+            )
+            await expect(proxy2.returnMethod(...params)).rejects.toEqual(
+                errorMatcher(ErrorCodes.ExternalError),
+            )
             const returnMethod = service.returnMethod as any
             expect(returnMethod.mock.calls.length).toBe(1)
             expect(returnMethod.mock.calls[0]).toEqual(params)

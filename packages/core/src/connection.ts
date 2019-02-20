@@ -106,12 +106,22 @@ export type Message =
           data: JsonArray
       }
     | {
-          type: Exclude<
-              MessageType,
-              | MessageType.EVENT
-              | MessageType.CALL_REQUEST
-              | MessageType.STREAM_OPEN
-          >
+          type:
+              | MessageType.CALL_ERROR
+              | MessageType.STREAM_INPUT_ERROR
+              | MessageType.STREAM_OUTPUT_ERROR
+          service: ServiceName | ProxyName
+          name?: null
+          id: SessionId
+          data: Error
+      }
+    | {
+          type:
+              | MessageType.CALL_REPLY
+              | MessageType.STREAM_INPUT_DATA
+              | MessageType.STREAM_INPUT_END
+              | MessageType.STREAM_OUTPUT_DATA
+              | MessageType.STREAM_OUTPUT_END
           service: ServiceName | ProxyName
           name?: null
           id: SessionId
@@ -152,6 +162,15 @@ const validateMessage: Validator<Message> = validate([
             message.type === MessageType.STREAM_OPEN
         ) {
             return Array.isArray(message.data)
+                ? undefined
+                : invalid(message, 'data')
+        }
+        if (
+            message.type === MessageType.CALL_ERROR ||
+            message.type === MessageType.STREAM_INPUT_ERROR ||
+            message.type === MessageType.STREAM_OUTPUT_ERROR
+        ) {
+            return message.data instanceof Error
                 ? undefined
                 : invalid(message, 'data')
         }
@@ -362,14 +381,14 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                         }
                                         this.send({
                                             ...message,
-                                            data: (error instanceof SyncOtError
-                                                ? error
-                                                : new SyncOtError(
-                                                      ErrorCodes.UnknownError,
-                                                      undefined,
-                                                      error,
-                                                  )
-                                            ).toJSON(),
+                                            data:
+                                                error instanceof SyncOtError
+                                                    ? error
+                                                    : new SyncOtError(
+                                                          ErrorCodes.UnknownError,
+                                                          undefined,
+                                                          error,
+                                                      ),
                                             name: null,
                                             type: MessageType.CALL_ERROR,
                                         })
@@ -382,9 +401,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                             }
                             this.send({
                                 ...message,
-                                data: new SyncOtError(
-                                    ErrorCodes.NoService,
-                                ).toJSON(),
+                                data: new SyncOtError(ErrorCodes.NoService),
                                 name: null,
                                 type: MessageType.CALL_ERROR,
                             })
@@ -398,9 +415,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         }
                         this.send({
                             ...message,
-                            data: new SyncOtError(
-                                ErrorCodes.NoService,
-                            ).toJSON(),
+                            data: new SyncOtError(ErrorCodes.NoService),
                             name: null,
                             type: MessageType.STREAM_OUTPUT_ERROR,
                         })
@@ -418,7 +433,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             SessionId,
             {
                 resolve: (value: JsonValue) => void
-                reject: (error: SyncOtError) => void
+                reject: (error: Error) => void
             }
         > = new Map()
 
@@ -464,7 +479,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         const session = actionSessions.get(id)
                         if (session) {
                             actionSessions.delete(id)
-                            session.reject(SyncOtError.fromJSON(message.data))
+                            session.reject(message.data)
                         }
                         break
                     }
@@ -517,14 +532,14 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                 case MessageType.CALL_REQUEST:
                     return this.send({
                         ...message,
-                        data: new SyncOtError(ErrorCodes.NoService).toJSON(),
+                        data: new SyncOtError(ErrorCodes.NoService),
                         name: null,
                         type: MessageType.CALL_ERROR,
                     })
                 case MessageType.STREAM_OPEN:
                     return this.send({
                         ...message,
-                        data: new SyncOtError(ErrorCodes.NoService).toJSON(),
+                        data: new SyncOtError(ErrorCodes.NoService),
                         name: null,
                         type: MessageType.STREAM_OUTPUT_ERROR,
                     })

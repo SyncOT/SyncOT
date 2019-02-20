@@ -1,6 +1,3 @@
-// TODO use sensible default messages per error code
-// TODO strong typing for details per error code
-
 import { JsonValue } from './json'
 
 /**
@@ -85,22 +82,7 @@ export enum ErrorCodes {
     UnexpectedSequenceNumber = 'UnexpectedSequenceNumber',
 }
 
-function isErrorCode(code: any): code is ErrorCodes {
-    return typeof code === 'string' && ErrorCodes[code as any] === code
-}
-
 export class SyncOtError extends Error {
-    public static fromJSON(json: JsonValue): SyncOtError {
-        return json &&
-            typeof json === 'object' &&
-            !Array.isArray(json) &&
-            isErrorCode(json.code) &&
-            (typeof json.message === 'string' ||
-                typeof json.message === 'undefined')
-            ? new SyncOtError(json.code, json.message, json.details)
-            : new SyncOtError(ErrorCodes.UnknownError, undefined, json)
-    }
-
     public code: ErrorCodes
     public details: JsonValue
 
@@ -110,13 +92,5 @@ export class SyncOtError extends Error {
             ? code
             : ErrorCodes.UnknownError
         this.details = details
-    }
-
-    public toJSON(): { code: ErrorCodes; details: JsonValue; message: string } {
-        return {
-            code: this.code,
-            details: this.details,
-            message: this.message,
-        }
     }
 }
