@@ -96,3 +96,25 @@ test('objectMode=true', async () => {
     expect(endA).toHaveBeenCalledTimes(1)
     expect(endB).toHaveBeenCalledTimes(1)
 })
+
+test('end stream 0 and receive "end" event', async () => {
+    const onEnd = jest.fn()
+    const [a, b] = invertedStreams()
+    a.on('end', onEnd)
+    a.resume()
+    b.resume()
+    a.end()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(onEnd).toHaveBeenCalled()
+})
+
+test('end stream 1 and receive "end" event', async () => {
+    const onEnd = jest.fn()
+    const [a, b] = invertedStreams()
+    b.on('end', onEnd)
+    a.resume()
+    b.resume()
+    b.end()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(onEnd).toHaveBeenCalled()
+})

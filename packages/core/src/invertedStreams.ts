@@ -6,6 +6,7 @@ import { Duplex } from 'stream'
  */
 export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
     const a = new Duplex({
+        allowHalfOpen: false,
         objectMode,
         read() {
             return
@@ -20,6 +21,7 @@ export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
         },
     })
     const b = new Duplex({
+        allowHalfOpen: false,
         objectMode,
         read() {
             return
