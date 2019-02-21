@@ -70,14 +70,27 @@ export function createNotInitializedError(message: string): Error {
     return createError('SyncOtError NotInitialized', message)
 }
 
+export interface TypeNotFoundError extends Error {
+    typeName: string
+}
+
+/**
+ * Creates a new error informing that a type has not been found.
+ * @param typeName Type name.
+ */
+export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
+    assertString('typeName', typeName)
+    return createError({
+        message: `Type "${typeName}" not found.`,
+        name: 'SyncOtError TypeNotFound',
+        typeName,
+    }) as TypeNotFoundError
+}
+
 /**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
-    /**
-     * A type implementation necessary to process an operation or snapshot has not been found.
-     */
-    TypeNotFound = 'TypeNotFound',
     /**
      * A service can't be initialized because it has been initialized already.
      */

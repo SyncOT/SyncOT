@@ -1,10 +1,10 @@
 import { strict as assert } from 'assert'
-import { ErrorCodes, SyncOtError } from './error'
+import { createTypeNotFoundError } from './error'
 import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
 import { Interface } from './util'
 
 function typeNotFound(name: TypeName): never {
-    throw new SyncOtError(ErrorCodes.TypeNotFound, `Type not found: ${name}`)
+    throw createTypeNotFoundError(name)
 }
 
 /**

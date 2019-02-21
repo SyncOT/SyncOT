@@ -1,12 +1,4 @@
-import {
-    createTypeManager,
-    ErrorCodes,
-    Operation,
-    Snapshot,
-    SyncOtError,
-    Type,
-    TypeManager,
-} from '.'
+import { createTypeManager, Operation, Snapshot, Type, TypeManager } from '.'
 
 const client = 'client-id'
 const id = 'document-id'
@@ -62,17 +54,11 @@ Object.freeze(unknownOperation)
 let type: Type
 let typeManager: TypeManager
 
-const expectTypeNotFound = (fn: () => void) => {
-    let error
-    try {
-        fn()
-    } catch (caughtError) {
-        error = caughtError
-    }
-    expect(error).toBeInstanceOf(SyncOtError)
-    expect(error.code).toBe(ErrorCodes.TypeNotFound)
-    expect(error.message).toBe(`Type not found: ${unknownTypeName}`)
-}
+const errorMatcher = expect.objectContaining({
+    message: `Type "${unknownTypeName}" not found.`,
+    name: 'SyncOtError TypeNotFound',
+    typeName: unknownTypeName,
+})
 
 beforeEach(() => {
     type = {
@@ -115,7 +101,9 @@ describe('getType', () => {
 
 describe('create', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() => typeManager.create(unknownTypeName, '1'))
+        expect(() => typeManager.create(unknownTypeName, '1')).toThrow(
+            errorMatcher,
+        )
     })
     test('calls Type#create', () => {
         ;(type.create as any).mockReturnValue(snapshot1)
@@ -128,9 +116,9 @@ describe('create', () => {
 
 describe('apply', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() =>
+        expect(() =>
             typeManager.apply(unknownSnapshot, unknownOperation),
-        )
+        ).toThrow(errorMatcher)
     })
     test('calls Type#apply', () => {
         ;(type.apply as any).mockReturnValue(snapshot2)
@@ -144,9 +132,9 @@ describe('apply', () => {
 describe('transform', () => {
     describe('priority=true', () => {
         test('fails, if type not found', () => {
-            expectTypeNotFound(() =>
+            expect(() =>
                 typeManager.transform(unknownOperation, unknownOperation, true),
-            )
+            ).toThrow(errorMatcher)
         })
         test('calls Type#transform', () => {
             ;(type.transform as any).mockReturnValue(operation3)
@@ -186,13 +174,13 @@ describe('transform', () => {
 
     describe('priority=false', () => {
         test('fails, if type not found', () => {
-            expectTypeNotFound(() =>
+            expect(() =>
                 typeManager.transform(
                     unknownOperation,
                     unknownOperation,
                     false,
                 ),
-            )
+            ).toThrow(errorMatcher)
         })
         test('calls Type#transform', () => {
             ;(type.transform as any).mockReturnValue(operation3)
@@ -233,9 +221,9 @@ describe('transform', () => {
 
 describe('transformX', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() =>
+        expect(() =>
             typeManager.transformX(unknownOperation, unknownOperation),
-        )
+        ).toThrow(errorMatcher)
     })
     test('calls Type#transformX', () => {
         const returnValue = [operation3, operation4]
@@ -282,9 +270,9 @@ describe('transformX', () => {
 
 describe('diff', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() =>
+        expect(() =>
             typeManager.diff(unknownSnapshot, unknownSnapshot, 3),
-        )
+        ).toThrow(errorMatcher)
     })
     test('calls Type#diff', () => {
         ;(type.diff as any).mockReturnValue(operation1)
@@ -301,12 +289,12 @@ describe('diff', () => {
 
 describe('compose', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() =>
+        expect(() =>
             typeManager.compose(
                 unknownOperation,
                 unknownOperation,
             ),
-        )
+        ).toThrow(errorMatcher)
     })
     test('calls Type#compose', () => {
         ;(type.compose as any).mockReturnValue(operation3)
@@ -333,7 +321,7 @@ describe('compose', () => {
 
 describe('invert', () => {
     test('fails, if type not found', () => {
-        expectTypeNotFound(() => typeManager.invert(unknownOperation))
+        expect(() => typeManager.invert(unknownOperation)).toThrow(errorMatcher)
     })
     test('calls Type#invert', () => {
         ;(type.invert as any).mockReturnValue(operation2)

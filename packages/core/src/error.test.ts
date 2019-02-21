@@ -3,6 +3,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createTypeNotFoundError,
 } from './error'
 
 describe('createInvalidEntityError', () => {
@@ -95,5 +96,23 @@ describe('createNotInitializedError', () => {
         expect(error).toBeInstanceOf(Error)
         expect(error.name).toBe('SyncOtError NotInitialized')
         expect(error.message).toBe('test')
+    })
+})
+
+describe('createTypeNotFoundError', () => {
+    test('invalid typeName', () => {
+        expect(() => createTypeNotFoundError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "typeName" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid typeName', () => {
+        const error = createTypeNotFoundError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError TypeNotFound')
+        expect(error.message).toBe('Type "test" not found.')
+        expect(error.typeName).toBe('test')
     })
 })
