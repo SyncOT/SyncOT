@@ -66,32 +66,38 @@ describe('connection', () => {
     })
     test('disconnect', async () => {
         const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
         const closeCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
         stream1.on('close', closeCallback)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(disconnectCallback).toHaveBeenCalledWith(null)
         await delay()
         expect(closeCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).not.toHaveBeenCalled()
     })
     test('disconnect twice', () => {
         const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
         connection.disconnect()
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(disconnectCallback).toHaveBeenCalledWith(null)
+        expect(errorCallback).not.toHaveBeenCalled()
     })
     test('connect, disconnect, connect, disconnect', () => {
         const connectCallback = jest.fn()
+        const errorCallback = jest.fn()
         const disconnectCallback = jest.fn()
         connection.on('connect', connectCallback)
         connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
         connection.connect(stream1)
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
@@ -102,53 +108,79 @@ describe('connection', () => {
         expect(connection.isConnected()).toBe(false)
         expect(connectCallback).toHaveBeenCalledTimes(2)
         expect(disconnectCallback).toHaveBeenCalledTimes(2)
-        expect(disconnectCallback).toHaveBeenCalledWith(null)
-    })
-    test('disconnect with an error', async () => {
-        const disconnectCallback = jest.fn()
-        const closeCallback = jest.fn()
-        connection.connect(stream1)
-        connection.on('disconnect', disconnectCallback)
-        stream1.on('close', closeCallback)
-        connection.disconnect(error)
-        expect(connection.isConnected()).toBe(false)
-        expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(disconnectCallback).toHaveBeenCalledWith(error)
-        await delay()
-        expect(closeCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).not.toHaveBeenCalled()
     })
     test('end stream', async () => {
         const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream1.push(null) // End the read stream.
-        stream1.end() // End the write stream.
+        connection.on('error', errorCallback)
+        stream2.end()
         await delay()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(disconnectCallback).toHaveBeenCalledWith(null)
+        expect(errorCallback).not.toHaveBeenCalled()
     })
     test('destroy stream', async () => {
         const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
         stream1.destroy()
         await delay()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(disconnectCallback.mock.calls[0][0]).toBeObject() // Premature close error.
+        expect(errorCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).toHaveBeenCalledBefore(disconnectCallback)
+        expect(errorCallback).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: 'Premature close',
+                name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
+            }),
+        )
+    })
+    test('stream error', async () => {
+        const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
+        connection.connect(stream1)
+        connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
+        stream1.emit('error', error)
+        await delay()
+        expect(connection.isConnected()).toBe(false)
+        expect(disconnectCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).toHaveBeenCalledBefore(disconnectCallback)
+        expect(errorCallback).toHaveBeenCalledWith(testErrorMatcher)
     })
     test('close stream and disconnect', async () => {
         const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        stream1.push(null) // End the read stream.
-        stream1.end() // End the write stream.
+        connection.on('error', errorCallback)
+        stream1.end()
+        stream2.end()
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
         await delay()
         expect(disconnectCallback).toHaveBeenCalledTimes(1) // Called only once.
-        expect(disconnectCallback).toHaveBeenCalledWith(null)
+        expect(errorCallback).not.toHaveBeenCalled()
+    })
+    test('destroy stream and disconnect', async () => {
+        const errorCallback = jest.fn()
+        const disconnectCallback = jest.fn()
+        connection.connect(stream1)
+        connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
+        stream1.destroy()
+        connection.disconnect()
+        await delay()
+        expect(connection.isConnected()).toBe(false)
+        expect(disconnectCallback).toHaveBeenCalledTimes(1) // Called only once.
+        expect(errorCallback).not.toHaveBeenCalled()
     })
 })
 
@@ -463,22 +495,27 @@ describe('message validation', () => {
         ['invalid type (too big)', { ...message, type: 11 }, 'type'],
     ])('%s', async (_, invalidMessage, property) => {
         const onDisconnect = jest.fn()
+        const onError = jest.fn()
         connection.on('disconnect', onDisconnect)
+        connection.on('error', onError)
         stream2.write(invalidMessage)
         await delay()
-        expect(onDisconnect.mock.calls.length).toBe(1)
-        expect(onDisconnect.mock.calls[0][0]).toBeInstanceOf(Error)
-        expect(onDisconnect.mock.calls[0][0].name).toBe(
-            'SyncOtError InvalidEntity',
+        expect(connection.isConnected()).toBe(false)
+        expect(onDisconnect).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledBefore(onDisconnect)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                entity: invalidMessage,
+                entityName: 'Message',
+                key: property,
+                message:
+                    property == null
+                        ? 'Invalid "Message".'
+                        : `Invalid "Message.${property}".`,
+                name: 'SyncOtError InvalidEntity',
+            }),
         )
-        expect(onDisconnect.mock.calls[0][0].message).toBe(
-            property == null
-                ? 'Invalid "Message".'
-                : `Invalid "Message.${property}".`,
-        )
-        expect(onDisconnect.mock.calls[0][0].entityName).toBe('Message')
-        expect(onDisconnect.mock.calls[0][0].entity).toBe(invalidMessage)
-        expect(onDisconnect.mock.calls[0][0].key).toBe(property)
     })
     test.each([
         ['valid message', { ...message }],
@@ -570,10 +607,13 @@ describe('message validation', () => {
         ['valid data (boolean)', { ...message, data: false }],
     ])('%s', async (_, validMessage) => {
         const onDisconnect = jest.fn()
+        const onError = jest.fn()
         connection.on('disconnect', onDisconnect)
+        connection.on('error', onError)
         stream2.write(validMessage)
         await delay()
         expect(onDisconnect).not.toHaveBeenCalled()
+        expect(onError).not.toHaveBeenCalled()
     })
 })
 
@@ -669,7 +709,9 @@ describe('service and proxy', () => {
         returnMethod(...args: JsonValue[]): Promise<JsonValue>
         resolveMethod(...args: JsonValue[]): Promise<JsonValue>
         throwErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+        throwNonErrorMethod(...args: JsonValue[]): Promise<JsonValue>
         rejectErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+        rejectNonErrorMethod(...args: JsonValue[]): Promise<JsonValue>
     }
     type TestProxy = TestService
     let proxy: TestProxy
@@ -679,7 +721,9 @@ describe('service and proxy', () => {
         'returnMethod',
         'resolveMethod',
         'throwErrorMethod',
+        'throwNonErrorMethod',
         'rejectErrorMethod',
+        'rejectNonErrorMethod',
     ])
     const params = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
     const replyData = {
@@ -694,7 +738,11 @@ describe('service and proxy', () => {
         service.throwErrorMethod = jest.fn(() => {
             throw error
         })
+        service.throwNonErrorMethod = jest.fn(() => {
+            throw 5
+        })
         service.rejectErrorMethod = jest.fn(() => Promise.reject(error))
+        service.rejectNonErrorMethod = jest.fn(() => Promise.reject(5))
         connection.connect(stream1)
         connection.registerService({
             actions,
@@ -764,6 +812,29 @@ describe('service and proxy', () => {
             expect(onData.mock.calls.length).toBe(1)
             expect(onData.mock.calls[0][0]).toEqual(response)
         })
+        test.each(['throwNonErrorMethod', 'rejectNonErrorMethod'])(
+            '%s',
+            async method => {
+                const onError = jest.fn()
+                const onDisconnect = jest.fn()
+                connection.on('error', onError)
+                connection.on('disconnect', onDisconnect)
+                stream2.write({
+                    ...message,
+                    name: method,
+                })
+                await delay()
+                expect(onDisconnect).toHaveBeenCalledTimes(1)
+                expect(onError).toHaveBeenCalledTimes(1)
+                expect(onError).toHaveBeenCalledBefore(onDisconnect)
+                expect(onError).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: 'Invalid "Message.data".',
+                        name: 'SyncOtError InvalidEntity',
+                    }),
+                )
+            },
+        )
         test('service call with params', async () => {
             const onData = jest.fn()
             stream2.on('data', onData)
@@ -846,6 +917,10 @@ describe('service and proxy', () => {
         })
         test('destroy stream before resolving', async () => {
             const onData = jest.fn()
+            const onError = jest.fn()
+            const onDisconnect = jest.fn()
+            connection.on('disconnect', onDisconnect)
+            connection.on('error', onError)
             const noop = () => undefined
             let resolvePromise: () => void = noop
             const promise = new Promise(
@@ -860,9 +935,22 @@ describe('service and proxy', () => {
             resolvePromise()
             await delay()
             expect(onData).not.toHaveBeenCalled()
+            expect(onDisconnect).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledBefore(onDisconnect)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Cannot call write after a stream was destroyed',
+                    name: 'Error [ERR_STREAM_DESTROYED]',
+                }),
+            )
         })
         test('destroy stream before rejecting', async () => {
             const onData = jest.fn()
+            const onError = jest.fn()
+            const onDisconnect = jest.fn()
+            connection.on('disconnect', onDisconnect)
+            connection.on('error', onError)
             const noop = () => undefined
             let rejectPromise: (error: Error) => void = noop
             const promise = new Promise((_, reject) => (rejectPromise = reject))
@@ -875,6 +963,15 @@ describe('service and proxy', () => {
             rejectPromise(error)
             await delay()
             expect(onData).not.toHaveBeenCalled()
+            expect(onDisconnect).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledBefore(onDisconnect)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Cannot call write after a stream was destroyed',
+                    name: 'Error [ERR_STREAM_DESTROYED]',
+                }),
+            )
         })
     })
 
@@ -926,6 +1023,8 @@ describe('service and proxy', () => {
             },
         )
         test(`request, reply (reply action name: returnMethod)`, async () => {
+            const onError = jest.fn()
+            const onDisconnect = jest.fn()
             const onData = jest.fn(message => {
                 stream2.write({
                     ...message,
@@ -934,6 +1033,8 @@ describe('service and proxy', () => {
                     type: MessageType.CALL_REPLY,
                 })
             })
+            connection.on('error', onError)
+            connection.on('disconnect', onDisconnect)
             stream2.on('data', onData)
             await expect(
                 proxy.returnMethod(
@@ -948,6 +1049,16 @@ describe('service and proxy', () => {
                     'SyncOtError Disconnected',
                     'Disconnected, request failed.',
                 ),
+            )
+            expect(connection.isConnected()).toBe(false)
+            expect(onDisconnect).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledBefore(onDisconnect)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Invalid "Message.name".',
+                    name: 'SyncOtError InvalidEntity',
+                }),
             )
         })
         test('request, reply, reply', async () => {
@@ -1023,6 +1134,7 @@ describe('service and proxy', () => {
             )
         })
         test('request, destroy stream', async () => {
+            const onError = jest.fn()
             const promise = proxy.returnMethod(
                 1,
                 'abc',
@@ -1030,12 +1142,20 @@ describe('service and proxy', () => {
                 { key: 'value' },
                 false,
             )
+            connection.on('error', onError)
             stream1.destroy()
             await expect(promise).rejects.toEqual(
                 errorMatcher(
                     'SyncOtError Disconnected',
                     'Disconnected, request failed.',
                 ),
+            )
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Premature close',
+                    name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
+                }),
             )
         })
         test('disconnect, request', async () => {
@@ -1050,7 +1170,7 @@ describe('service and proxy', () => {
             await expect(promise).rejects.toEqual(
                 errorMatcher(
                     'SyncOtError Disconnected',
-                    'Disconnected, failed to send a message.',
+                    'Disconnected, request failed.',
                 ),
             )
         })

@@ -46,7 +46,8 @@ export interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
 
 interface Events {
     connect: void
-    disconnect: Error | null
+    disconnect: void
+    error: Error
 }
 
 /**
@@ -201,7 +202,7 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
      * When the `stream` is finished, the `Connection` emits the `'disconnect'` event.
      *
      * If the `stream` emits an `error` event, it is automatically destroyed and
-     * the `Connection` emits the `'disconnect'` event with the `error`.
+     * the `Connection` emits the `error` event followed by the `'disconnect'` event.
      *
      * Throws an error, if this connection is already associated with a different stream or
      * the specified `stream` is not a `Duplex` stream.
@@ -218,25 +219,41 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             'Connection is already associated with a stream.',
         )
         this.stream = stream
-        stream.on('data', data => this.stream === stream && this.onData(data))
-        finished(
-            stream,
-            error => this.stream === stream && this.disconnect(error),
-        )
+
+        stream.on('data', data => {
+            if (this.stream === stream) {
+                this.onData(data)
+            }
+        })
+
+        finished(stream, error => {
+            if (this.stream === stream) {
+                if (error) {
+                    // The `finished` function reports the original stream error as
+                    // well as its own internal errors.
+                    this.emit('error', error)
+                }
+                this.disconnect()
+            }
+        })
+
+        // Just in case, destroy the stream on error becasue some streams remain open.
+        stream.on('error', () => stream.destroy())
+
         this.emit('connect')
     }
 
     /**
-     * Destroys the stream associated with this connection.
-     * Emits the `'disconnect'` event with the optional `error`.
+     * Destroys the stream associated with this connection and emits the `'disconnect'` event.
+     * It is safe to call it at any time.
      */
-    public disconnect(error?: Error): void {
+    public disconnect(): void {
         const stream = this.stream
 
         if (stream) {
             this.stream = null
             stream.destroy()
-            this.emit('disconnect', error || null)
+            this.emit('disconnect')
         }
     }
 
@@ -343,9 +360,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                 )
                                 .then(
                                     data => {
-                                        if (!this.isConnected()) {
-                                            return
-                                        }
                                         const typeOfData = typeof data
                                         this.send({
                                             ...message,
@@ -361,9 +375,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                         })
                                     },
                                     error => {
-                                        if (!this.isConnected()) {
-                                            return
-                                        }
                                         this.send({
                                             ...message,
                                             data: error,
@@ -373,10 +384,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                     },
                                 )
                         } else {
-                            /* istanbul ignore if */
-                            if (!this.isConnected()) {
-                                return
-                            }
                             this.send({
                                 ...message,
                                 data: createNoServiceError(
@@ -391,10 +398,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                         break
                     }
                     case MessageType.STREAM_OPEN: {
-                        /* istanbul ignore if */
-                        if (!this.isConnected()) {
-                            return
-                        }
                         this.send({
                             ...message,
                             data: createNoServiceError(
@@ -428,17 +431,25 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             ;(proxy as any)[action] = (
                 ...args: JsonValue[]
             ): Promise<JsonValue> => {
-                const sessionId = nextSessionId++
-                return new Promise<JsonValue>((resolve, reject) => {
-                    actionSessions.set(sessionId, { resolve, reject })
-                    this.send({
-                        data: args,
-                        id: sessionId,
-                        name: action,
-                        service: proxyName,
-                        type: MessageType.CALL_REQUEST,
+                if (this.stream) {
+                    return new Promise<JsonValue>((resolve, reject) => {
+                        const sessionId = nextSessionId++
+                        actionSessions.set(sessionId, { resolve, reject })
+                        this.send({
+                            data: args,
+                            id: sessionId,
+                            name: action,
+                            service: proxyName,
+                            type: MessageType.CALL_REQUEST,
+                        })
                     })
-                })
+                } else {
+                    return Promise.reject(
+                        createDisconnectedError(
+                            'Disconnected, request failed.',
+                        ),
+                    )
+                }
             }
         })
         ;(this as EventEmitter).on(
@@ -483,22 +494,24 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
     }
 
     private send(message: Message): void {
-        throwError(validateMessage(message))
+        if (!this.stream) {
+            return
+        }
 
-        if (this.stream) {
+        try {
+            throwError(validateMessage(message))
             this.stream.write(message)
-        } else {
-            throw createDisconnectedError(
-                'Disconnected, failed to send a message.',
-            )
+        } catch (error) {
+            this.stream.destroy(error)
         }
     }
 
     private onData(message: Message): void {
-        const error = validateMessage(message)
-
-        if (error) {
-            return this.disconnect(error)
+        try {
+            throwError(validateMessage(message))
+        } catch (error) {
+            this.stream!.destroy(error)
+            return
         }
 
         // Emit an internal event for the services and proxies.
@@ -508,10 +521,6 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
         )
 
         if (!handled) {
-            /* istanbul ignore if */
-            if (!this.isConnected()) {
-                return
-            }
             switch (message.type) {
                 case MessageType.CALL_REQUEST:
                     return this.send({
@@ -545,8 +554,13 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
  * The other end of the stream should be connected to another `Connection`.
  *
  * @event connect Emitted when this `Connection` gets associated with a stream.
- * @event disconnect Emitted with a `null` payload when the associated stream finishes.
- *   Emitted with an `error`, if the stream is destroyed due to an error.
+ * @event disconnect Emitted when the associated stream finishes.
+ * @event error Emitted when an error occurs. The associated stream is automatically disconnected
+ *   after any error. The Connection automatically recovers from errors. Possible errors are:
+ *
+ *   - `SyncOtError InvalidEntity` - emitted when sending or receiving an invalid message.
+ *     It indicates presence of a bug in SyncOT or the client code.
+ *   - Errors from the associated stream are emitted as `Connection` errors.
  */
 export interface Connection extends Interface<ConnectionImpl> {}
 
