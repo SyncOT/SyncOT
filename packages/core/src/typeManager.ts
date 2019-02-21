@@ -1,5 +1,5 @@
+import { createTypeNotFoundError } from '@syncot/error'
 import { strict as assert } from 'assert'
-import { createTypeNotFoundError } from './error'
 import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
 import { Interface } from './util'
 

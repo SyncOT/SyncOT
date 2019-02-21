@@ -1,4 +1,4 @@
-import { createInvalidEntityError } from './error'
+import { createInvalidEntityError } from '@syncot/error'
 import { JsonMap, JsonValue } from './json'
 import { throwError, validate, Validator } from './util'
 

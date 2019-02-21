@@ -2,11 +2,6 @@ import {
     assertOperation,
     assertSnapshot,
     ClientId,
-    createAlreadyInitializedError,
-    createNotInitializedError,
-    createUnexpectedClientIdError,
-    createUnexpectedSequenceNumberError,
-    createUnexpectedVersionNumberError,
     DocumentId,
     DocumentVersion,
     Interface,
@@ -16,6 +11,13 @@ import {
     TypeManager,
     TypeName,
 } from '@syncot/core'
+import {
+    createAlreadyInitializedError,
+    createNotInitializedError,
+    createUnexpectedClientIdError,
+    createUnexpectedSequenceNumberError,
+    createUnexpectedVersionNumberError,
+} from '@syncot/error'
 
 interface Context {
     lastRemoteVersion: DocumentVersion

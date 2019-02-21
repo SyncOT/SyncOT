@@ -1,7 +1,7 @@
+import { InvalidEntityError } from '@syncot/error'
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { StrictEventEmitter } from 'strict-event-emitter-types'
-import { InvalidEntityError } from './error'
 
 /**
  * A simple function which throws an error, when a theoretically unreachable code path is executed anyway.
