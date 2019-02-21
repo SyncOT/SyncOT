@@ -203,18 +203,26 @@ export const clientStorageTests = (
 
         describe('uninitialized', () => {
             test('load', async () => {
-                expect.assertions(2)
-                await clientStorage
-                    .load(typeName, 'id-2')
-                    .catch(expectError(ErrorCodes.NotInitialized))
+                await expect(
+                    clientStorage.load(typeName, 'id-2'),
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        message: 'Client storage not initialized.',
+                        name: 'SyncOtError NotInitialized',
+                    }),
+                )
             })
             describe('store', () => {
                 test.each([undefined, false, true])('local=%s', async local => {
-                    expect.assertions(2)
                     await clientStorage.clear(typeName, id)
-                    await clientStorage
-                        .store(operation, local)
-                        .catch(expectError(ErrorCodes.NotInitialized))
+                    await expect(
+                        clientStorage.store(operation, local),
+                    ).rejects.toEqual(
+                        expect.objectContaining({
+                            message: 'Client storage not initialized.',
+                            name: 'SyncOtError NotInitialized',
+                        }),
+                    )
                 })
             })
         })

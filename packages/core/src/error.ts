@@ -62,6 +62,15 @@ export function createDisconnectedError(message: string): Error {
 }
 
 /**
+ * Creates a new error informing that an entity has not been initialized.
+ * @param message The error message.
+ */
+export function createNotInitializedError(message: string): Error {
+    assertString('message', message)
+    return createError('SyncOtError NotInitialized', message)
+}
+
+/**
  * A list of all possible error codes.
  */
 export enum ErrorCodes {
@@ -69,10 +78,6 @@ export enum ErrorCodes {
      * A type implementation necessary to process an operation or snapshot has not been found.
      */
     TypeNotFound = 'TypeNotFound',
-    /**
-     * A service is not initialized.
-     */
-    NotInitialized = 'NotInitialized',
     /**
      * A service can't be initialized because it has been initialized already.
      */

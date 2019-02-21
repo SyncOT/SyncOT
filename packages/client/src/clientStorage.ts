@@ -2,6 +2,7 @@ import {
     assertOperation,
     assertSnapshot,
     ClientId,
+    createNotInitializedError,
     DocumentId,
     DocumentVersion,
     ErrorCodes,
@@ -134,7 +135,8 @@ class MemoryClientStorage {
      * It fails with
      *
      * - `SyncOtError InvalidEntity`, if `operation` is not valid.
-     * - `NotInitialized`, if this `ClientStorage` has not been initialized for `operation.type` and `operation.id`.
+     * - `SyncOtError NotInitialized`, if this `ClientStorage` has not been initialized
+     *   for `operation.type` and `operation.id`.
      *
      * If `local` is `false`, then it fails with:
      *
@@ -273,7 +275,7 @@ class MemoryClientStorage {
         const context = this.getContext(typeName, id)
 
         if (context == null) {
-            throw new SyncOtError(ErrorCodes.NotInitialized)
+            throw createNotInitializedError('Client storage not initialized.')
         }
 
         return context

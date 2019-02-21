@@ -2,6 +2,7 @@ import {
     createDisconnectedError,
     createInvalidEntityError,
     createNoServiceError,
+    createNotInitializedError,
 } from './error'
 
 describe('createInvalidEntityError', () => {
@@ -76,6 +77,23 @@ describe('createDisconnectedError', () => {
         const error = createDisconnectedError('test')
         expect(error).toBeInstanceOf(Error)
         expect(error.name).toBe('SyncOtError Disconnected')
+        expect(error.message).toBe('test')
+    })
+})
+
+describe('createNotInitializedError', () => {
+    test('invalid message', () => {
+        expect(() => createNotInitializedError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createNotInitializedError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError NotInitialized')
         expect(error.message).toBe('test')
     })
 })
