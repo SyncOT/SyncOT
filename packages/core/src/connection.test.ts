@@ -110,12 +110,26 @@ describe('connection', () => {
         expect(disconnectCallback).toHaveBeenCalledTimes(2)
         expect(errorCallback).not.toHaveBeenCalled()
     })
-    test('end stream', async () => {
+    test('end stream1', async () => {
         const disconnectCallback = jest.fn()
         const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
         connection.on('error', errorCallback)
+        stream2.resume()
+        stream1.end()
+        await delay()
+        expect(connection.isConnected()).toBe(false)
+        expect(disconnectCallback).toHaveBeenCalledTimes(1)
+        expect(errorCallback).not.toHaveBeenCalled()
+    })
+    test('end stream2', async () => {
+        const disconnectCallback = jest.fn()
+        const errorCallback = jest.fn()
+        connection.connect(stream1)
+        connection.on('disconnect', disconnectCallback)
+        connection.on('error', errorCallback)
+        stream2.resume()
         stream2.end()
         await delay()
         expect(connection.isConnected()).toBe(false)
@@ -684,8 +698,8 @@ describe('no service', () => {
             type: inputCode,
         })
         await delay()
-        expect(onData.mock.calls.length).toBe(1)
-        expect(onData.mock.calls[0][0]).toEqual(
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith(
             expect.objectContaining({
                 ...message,
                 data: errorMatcher(
@@ -972,6 +986,46 @@ describe('service and proxy', () => {
                     name: 'Error [ERR_STREAM_DESTROYED]',
                 }),
             )
+        })
+        test('request, disconnect, connect, reply ok', async () => {
+            const onData1 = jest.fn()
+            const onData2 = jest.fn()
+            let resolvePromise: () => void = () => expect.fail('')
+            ;(service.returnMethod as any).mockReturnValue(
+                new Promise((resolve, _) => (resolvePromise = resolve)),
+            )
+            stream2.on('data', onData1)
+            stream2.write(message)
+            await delay()
+            expect(service.returnMethod).toHaveBeenCalledTimes(1)
+            connection.disconnect()
+            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            stream2.on('data', onData2)
+            connection.connect(stream1)
+            resolvePromise()
+            await delay()
+            expect(onData1).not.toHaveBeenCalled()
+            expect(onData2).not.toHaveBeenCalled()
+        })
+        test('request, disconnect, connect, reply error', async () => {
+            const onData1 = jest.fn()
+            const onData2 = jest.fn()
+            let rejectPromise: (_: any) => void = () => expect.fail('')
+            ;(service.returnMethod as any).mockReturnValue(
+                new Promise((_, reject) => (rejectPromise = reject)),
+            )
+            stream2.on('data', onData1)
+            stream2.write(message)
+            await delay()
+            expect(service.returnMethod).toHaveBeenCalledTimes(1)
+            connection.disconnect()
+            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            stream2.on('data', onData2)
+            connection.connect(stream1)
+            rejectPromise(error)
+            await delay()
+            expect(onData1).not.toHaveBeenCalled()
+            expect(onData2).not.toHaveBeenCalled()
         })
     })
 

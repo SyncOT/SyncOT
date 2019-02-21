@@ -4,7 +4,7 @@ import { StrictEventEmitter } from 'strict-event-emitter-types'
 import { InvalidEntityError } from './error'
 
 /**
- * A simple function which throws an error, if a theoretically unreachable code path is executed anyway.
+ * A simple function which throws an error, when a theoretically unreachable code path is executed anyway.
  * @param _never An optional parameter which can be used by the client code to ensura that a variable
  *   has type `never`.
  */

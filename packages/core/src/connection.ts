@@ -348,18 +348,19 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
             (message: Message) => {
                 switch (message.type) {
                     case MessageType.CALL_REQUEST: {
+                        const stream = this.stream
                         const action = message.name
 
                         if (actions.has(action)) {
                             Promise.resolve()
                                 .then(() =>
-                                    (service as any)[action].apply(
-                                        service,
-                                        message.data,
-                                    ),
+                                    (service as any)[action](...message.data),
                                 )
                                 .then(
                                     data => {
+                                        if (this.stream !== stream) {
+                                            return
+                                        }
                                         const typeOfData = typeof data
                                         this.send({
                                             ...message,
@@ -375,6 +376,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
                                         })
                                     },
                                     error => {
+                                        if (this.stream !== stream) {
+                                            return
+                                        }
                                         this.send({
                                             ...message,
                                             data: error,
@@ -494,8 +498,9 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
     }
 
     private send(message: Message): void {
+        /* istanbul ignore if */
         if (!this.stream) {
-            return
+            return assertUnreachable()
         }
 
         try {
@@ -507,10 +512,15 @@ class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
     }
 
     private onData(message: Message): void {
+        /* istanbul ignore if */
+        if (!this.stream) {
+            return assertUnreachable()
+        }
+
         try {
             throwError(validateMessage(message))
         } catch (error) {
-            this.stream!.destroy(error)
+            this.stream.destroy(error)
             return
         }
 
