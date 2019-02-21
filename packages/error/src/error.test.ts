@@ -6,6 +6,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createTsonError,
     createTypeNotFoundError,
     createUnexpectedClientIdError,
     createUnexpectedSequenceNumberError,
@@ -118,6 +119,23 @@ describe('createError', () => {
     })
     test('forbidden property: details.stack', () => {
         expect(() => createError({ stack: '' })).toThrow(AssertionError)
+    })
+})
+
+describe('createTsonError', () => {
+    test('invalid message', () => {
+        expect(() => createTsonError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createTsonError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('TsonError')
+        expect(error.message).toBe('test')
     })
 })
 

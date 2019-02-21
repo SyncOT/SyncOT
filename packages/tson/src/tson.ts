@@ -1,5 +1,5 @@
+import { createTsonError } from '@syncot/error'
 import { SmartBuffer } from 'smart-buffer'
-import { createTsonError } from './util'
 
 /**
  * A list of types supported by TSON.

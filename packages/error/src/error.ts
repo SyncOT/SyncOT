@@ -118,6 +118,11 @@ const assertString = (argumentName: string, argument: string): void =>
         `Argument "${argumentName}" must be a string.`,
     )
 
+export function createTsonError(message: string): Error {
+    assertString('message', message)
+    return createError('TsonError', message)
+}
+
 export interface InvalidEntityError extends Error {
     entityName: string
     entity: any
