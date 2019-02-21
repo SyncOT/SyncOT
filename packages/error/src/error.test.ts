@@ -2,10 +2,10 @@ import { AssertionError } from 'assert'
 import {
     createAlreadyInitializedError,
     createDisconnectedError,
-    createError,
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createSyncOtError,
     createTsonError,
     createTypeNotFoundError,
     createUnexpectedClientIdError,
@@ -13,9 +13,10 @@ import {
     createUnexpectedVersionNumberError,
 } from '.'
 
-describe('createError', () => {
-    const defaultName = 'Error'
+describe('createSyncOtError', () => {
+    const defaultName = 'SyncOtError'
     const name = 'AnError'
+    const fullName = `${defaultName} ${name}`
     const message = 'A message.'
     const causeName = 'Error'
     const causeMessage = 'A cause.'
@@ -25,33 +26,42 @@ describe('createError', () => {
     const extra2 = 123
 
     test('name, message', () => {
-        const error = createError(name, message)
+        const error = createSyncOtError(name, message)
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
-        expect(error.name).toBe(name)
+        expect(error.name).toBe(fullName)
         expect(error.message).toBe(message)
         expect(error.cause).not.toBeDefined()
-        expect(error.toString()).toBe(`${name}: ${message}`)
+        expect(error.toString()).toBe(`${fullName}: ${message}`)
     })
-    test('name, message, cause', () => {
-        const error = createError(name, message, cause)
+    test('empty name, message', () => {
+        const error = createSyncOtError('', message)
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
-        expect(error.name).toBe(name)
+        expect(error.name).toBe(defaultName)
+        expect(error.message).toBe(message)
+        expect(error.cause).not.toBeDefined()
+        expect(error.toString()).toBe(`${defaultName}: ${message}`)
+    })
+    test('name, message, cause', () => {
+        const error = createSyncOtError(name, message, cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.propertyIsEnumerable('name')).toBe(false)
+        expect(error.name).toBe(fullName)
         expect(error.message).toBe(messageWithCause)
         expect(error.cause).toBe(cause)
         expect(error.toString()).toBe(
-            `${name}: ${message} => ${causeName}: ${causeMessage}`,
+            `${fullName}: ${message} => ${causeName}: ${causeMessage}`,
         )
     })
     test('name, message, invalid cause', () => {
-        expect(() => createError(name, message, {} as any)).toThrow(
+        expect(() => createSyncOtError(name, message, {} as any)).toThrow(
             AssertionError,
         )
     })
 
     test('message', () => {
-        const error = createError(message)
+        const error = createSyncOtError(message)
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
@@ -60,7 +70,7 @@ describe('createError', () => {
         expect(error.toString()).toBe(`${defaultName}: ${message}`)
     })
     test('message, cause', () => {
-        const error = createError(message, cause)
+        const error = createSyncOtError(message, cause)
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
@@ -71,11 +81,13 @@ describe('createError', () => {
         )
     })
     test('message, invalid cause', () => {
-        expect(() => createError(message, {} as any)).toThrow(AssertionError)
+        expect(() => createSyncOtError(message, {} as any)).toThrow(
+            AssertionError,
+        )
     })
 
     test('no arguments', () => {
-        const error = createError()
+        const error = createSyncOtError()
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
@@ -84,7 +96,7 @@ describe('createError', () => {
         expect(error.toString()).toBe(defaultName)
     })
     test('empty details', () => {
-        const error = createError({})
+        const error = createSyncOtError({})
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
         expect(error.name).toBe(defaultName)
@@ -93,32 +105,44 @@ describe('createError', () => {
         expect(error.toString()).toBe(defaultName)
     })
     test('all details', () => {
-        const error = createError({ cause, extra1, extra2, message, name })
+        const error = createSyncOtError({
+            cause,
+            extra1,
+            extra2,
+            message,
+            name,
+        })
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBe(false)
-        expect(error.name).toBe(name)
+        expect(error.name).toBe(fullName)
         expect(error.message).toBe(messageWithCause)
         expect(error.cause).toBe(cause)
         expect(error.extra1).toBe(extra1)
         expect(error.extra2).toBe(extra2)
         expect(error.toString()).toBe(
-            `${name}: ${message} => ${causeName}: ${causeMessage}`,
+            `${fullName}: ${message} => ${causeName}: ${causeMessage}`,
         )
     })
     test('invalid details', () => {
-        expect(() => createError(5 as any)).toThrow(AssertionError)
+        expect(() => createSyncOtError(5 as any)).toThrow(AssertionError)
     })
     test('invalid details.name', () => {
-        expect(() => createError({ name: 5 as any })).toThrow(AssertionError)
+        expect(() => createSyncOtError({ name: 5 as any })).toThrow(
+            AssertionError,
+        )
     })
     test('invalid details.message', () => {
-        expect(() => createError({ message: 5 as any })).toThrow(AssertionError)
+        expect(() => createSyncOtError({ message: 5 as any })).toThrow(
+            AssertionError,
+        )
     })
     test('invalid details.cause', () => {
-        expect(() => createError({ cause: 5 as any })).toThrow(AssertionError)
+        expect(() => createSyncOtError({ cause: 5 as any })).toThrow(
+            AssertionError,
+        )
     })
     test('forbidden property: details.stack', () => {
-        expect(() => createError({ stack: '' })).toThrow(AssertionError)
+        expect(() => createSyncOtError({ stack: '' })).toThrow(AssertionError)
     })
 })
 
@@ -134,7 +158,7 @@ describe('createTsonError', () => {
     test('valid message', () => {
         const error = createTsonError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('TsonError')
+        expect(error.name).toBe('SyncOtError TSON')
         expect(error.message).toBe('test')
     })
 })

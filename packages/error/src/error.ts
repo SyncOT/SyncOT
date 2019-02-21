@@ -12,19 +12,19 @@ export interface SyncOtError extends Error {
     [key: string]: any
 }
 
-export function createError(
+export function createSyncOtError(
     name: string,
     message: string,
     cause?: Error,
 ): SyncOtError
-export function createError(message: string, cause?: Error): SyncOtError
-export function createError(details?: ErrorDetails): SyncOtError
-export function createError(
+export function createSyncOtError(message: string, cause?: Error): SyncOtError
+export function createSyncOtError(details?: ErrorDetails): SyncOtError
+export function createSyncOtError(
     one?: string | ErrorDetails,
     two?: string | Error,
     three?: Error,
 ): SyncOtError {
-    let name: string = 'Error'
+    let name: string = ''
     let message: string = ''
     let cause: Error | null | undefined = null
     let info: { [key: string]: any } | null = null
@@ -87,7 +87,7 @@ export function createError(
     const error = new Error(message) as SyncOtError
     Object.defineProperty(error, 'name', {
         configurable: true,
-        value: name,
+        value: name ? `SyncOtError ${name}` : 'SyncOtError',
         writable: true,
     })
 
@@ -120,7 +120,7 @@ const assertString = (argumentName: string, argument: string): void =>
 
 export function createTsonError(message: string): Error {
     assertString('message', message)
-    return createError('TsonError', message)
+    return createSyncOtError('TSON', message)
 }
 
 export interface InvalidEntityError extends Error {
@@ -145,7 +145,7 @@ export function createInvalidEntityError(
         typeof key === 'string' || key === null,
         'Argument "key" must be a string or null.',
     )
-    return createError({
+    return createSyncOtError({
         entity,
         entityName,
         key,
@@ -153,7 +153,7 @@ export function createInvalidEntityError(
             key === null
                 ? `Invalid "${entityName}".`
                 : `Invalid "${entityName}.${key}".`,
-        name: 'SyncOtError InvalidEntity',
+        name: 'InvalidEntity',
     }) as InvalidEntityError
 }
 
@@ -163,9 +163,9 @@ export function createInvalidEntityError(
  */
 export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
     assertString('typeName', typeName)
-    return createError({
+    return createSyncOtError({
         message: `Type "${typeName}" not found.`,
-        name: 'SyncOtError TypeNotFound',
+        name: 'TypeNotFound',
         typeName,
     }) as TypeNotFoundError
 }
@@ -176,7 +176,7 @@ export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
  */
 export function createNoServiceError(message: string): Error {
     assertString('message', message)
-    return createError('SyncOtError NoService', message)
+    return createSyncOtError('NoService', message)
 }
 
 /**
@@ -185,7 +185,7 @@ export function createNoServiceError(message: string): Error {
  */
 export function createDisconnectedError(message: string): Error {
     assertString('message', message)
-    return createError('SyncOtError Disconnected', message)
+    return createSyncOtError('Disconnected', message)
 }
 
 /**
@@ -194,7 +194,7 @@ export function createDisconnectedError(message: string): Error {
  */
 export function createNotInitializedError(message: string): Error {
     assertString('message', message)
-    return createError('SyncOtError NotInitialized', message)
+    return createSyncOtError('NotInitialized', message)
 }
 
 export interface TypeNotFoundError extends Error {
@@ -207,7 +207,7 @@ export interface TypeNotFoundError extends Error {
  */
 export function createAlreadyInitializedError(message: string): Error {
     assertString('message', message)
-    return createError('SyncOtError AlreadyInitialized', message)
+    return createSyncOtError('AlreadyInitialized', message)
 }
 
 /**
@@ -218,7 +218,7 @@ export function createUnexpectedClientIdError(
     message: string = 'Unexpected client id.',
 ): Error {
     assertString('message', message)
-    return createError('SyncOtError UnexpectedClientId', message)
+    return createSyncOtError('UnexpectedClientId', message)
 }
 
 /**
@@ -229,7 +229,7 @@ export function createUnexpectedVersionNumberError(
     message: string = 'Unexpected version number.',
 ): Error {
     assertString('message', message)
-    return createError('SyncOtError UnexpectedVersionNumber', message)
+    return createSyncOtError('UnexpectedVersionNumber', message)
 }
 
 /**
@@ -240,5 +240,5 @@ export function createUnexpectedSequenceNumberError(
     message: string = 'Unexpected sequence number.',
 ): Error {
     assertString('message', message)
-    return createError('SyncOtError UnexpectedSequenceNumber', message)
+    return createSyncOtError('UnexpectedSequenceNumber', message)
 }

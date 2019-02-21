@@ -5,7 +5,7 @@ import { Type } from './tson'
 const errorMatcher = (message: string) =>
     expect.objectContaining({
         message,
-        name: 'TsonError',
+        name: 'SyncOtError TSON',
     })
 
 const encodeToSmartBuffer = (data: any) => {
