@@ -1,6 +1,5 @@
 import { createError } from '@syncot/error'
 import { strict as assert } from 'assert'
-import { JsonValue } from './json'
 
 const assertString = (argumentName: string, argument: string): void =>
     assert.equal(
@@ -44,6 +43,19 @@ export function createInvalidEntityError(
 }
 
 /**
+ * Creates a new error informing that a type has not been found.
+ * @param typeName Type name.
+ */
+export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
+    assertString('typeName', typeName)
+    return createError({
+        message: `Type "${typeName}" not found.`,
+        name: 'SyncOtError TypeNotFound',
+        typeName,
+    }) as TypeNotFoundError
+}
+
+/**
  * Creates a new error informing that there's been no service to handle a request.
  * @param message The error message.
  */
@@ -75,47 +87,43 @@ export interface TypeNotFoundError extends Error {
 }
 
 /**
- * Creates a new error informing that a type has not been found.
- * @param typeName Type name.
+ * Creates a new error informing that an entity has been already initialized.
+ * @param message An error message.
  */
-export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
-    assertString('typeName', typeName)
-    return createError({
-        message: `Type "${typeName}" not found.`,
-        name: 'SyncOtError TypeNotFound',
-        typeName,
-    }) as TypeNotFoundError
+export function createAlreadyInitializedError(message: string): Error {
+    assertString('message', message)
+    return createError('SyncOtError AlreadyInitialized', message)
 }
 
 /**
- * A list of all possible error codes.
+ * Creates a new error informing about an unexpected client id.
+ * @param message An error message.
  */
-export enum ErrorCodes {
-    /**
-     * A service can't be initialized because it has been initialized already.
-     */
-    AlreadyInitialized = 'AlreadyInitialized',
-    /**
-     * An operation has an unexpected clientId value.
-     */
-    UnexpectedClientId = 'UnexpectedClientId',
-    /**
-     * An operation has an unexpected version number.
-     */
-    UnexpectedVersionNumber = 'UnexpectedVersionNumber',
-    /**
-     * An operation has an unexpected sequence number.
-     */
-    UnexpectedSequenceNumber = 'UnexpectedSequenceNumber',
+export function createUnexpectedClientIdError(
+    message: string = 'Unexpected client id.',
+): Error {
+    assertString('message', message)
+    return createError('SyncOtError UnexpectedClientId', message)
 }
 
-export class SyncOtError extends Error {
-    public code: ErrorCodes
-    public details: JsonValue
+/**
+ * Creates a new error informing about an unexpected version number.
+ * @param message An error message.
+ */
+export function createUnexpectedVersionNumberError(
+    message: string = 'Unexpected version number.',
+): Error {
+    assertString('message', message)
+    return createError('SyncOtError UnexpectedVersionNumber', message)
+}
 
-    constructor(code: ErrorCodes, message?: string, details: JsonValue = null) {
-        super(message)
-        this.code = code
-        this.details = details
-    }
+/**
+ * Creates a new error informing about an unexpected sequence number.
+ * @param message An error message.
+ */
+export function createUnexpectedSequenceNumberError(
+    message: string = 'Unexpected sequence number.',
+): Error {
+    assertString('message', message)
+    return createError('SyncOtError UnexpectedSequenceNumber', message)
 }

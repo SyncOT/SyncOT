@@ -2,10 +2,8 @@ import {
     ClientId,
     createTypeManager,
     DocumentId,
-    ErrorCodes,
     Operation,
     Snapshot,
-    SyncOtError,
     Type,
     TypeManager,
     TypeName,
@@ -73,11 +71,6 @@ const type: Type = {
 }
 Object.freeze(type)
 typeManager.registerType(type)
-
-const expectError = (code: ErrorCodes) => (error: any) => {
-    expect(error).toBeInstanceOf(SyncOtError)
-    expect(error.code).toBe(code)
-}
 
 export const clientStorageTests = (
     createClientStorage: (options: {
@@ -164,11 +157,13 @@ export const clientStorageTests = (
         })
 
         test('init twice', async () => {
-            expect.assertions(4)
             await clientStorage.init(snapshot)
-            await clientStorage
-                .init(snapshot)
-                .catch(expectError(ErrorCodes.AlreadyInitialized))
+            await expect(clientStorage.init(snapshot)).rejects.toEqual(
+                expect.objectContaining({
+                    message: 'Client storage already initialized.',
+                    name: 'SyncOtError AlreadyInitialized',
+                }),
+            )
             await expect(getStatus()).resolves.toEqual(status)
             await expect(load()).resolves.toEqual([])
         })
@@ -256,10 +251,14 @@ export const clientStorageTests = (
                 await expect(load()).resolves.toEqual([remoteOperation])
             })
             test('local=true', async () => {
-                expect.assertions(4)
-                await clientStorage
-                    .store(remoteOperation, true)
-                    .catch(expectError(ErrorCodes.UnexpectedClientId))
+                await expect(
+                    clientStorage.store(remoteOperation, true),
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        message: 'Unexpected client id.',
+                        name: 'SyncOtError UnexpectedClientId',
+                    }),
+                )
                 await expect(getStatus()).resolves.toEqual(status)
                 await expect(load()).resolves.toEqual([])
             })
@@ -267,10 +266,14 @@ export const clientStorageTests = (
 
         describe('store a local operation', () => {
             test.each([undefined, false])('local=undefined', async local => {
-                expect.assertions(4)
-                await clientStorage
-                    .store(operation, local)
-                    .catch(expectError(ErrorCodes.UnexpectedClientId))
+                await expect(
+                    clientStorage.store(operation, local),
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        message: 'Unexpected client id.',
+                        name: 'SyncOtError UnexpectedClientId',
+                    }),
+                )
                 await expect(getStatus()).resolves.toEqual(status)
                 await expect(load()).resolves.toEqual([])
             })
@@ -302,18 +305,32 @@ export const clientStorageTests = (
 
             describe('UnexpectedVersionNumber', () => {
                 test.each([undefined, false])('local=%s', async local => {
-                    expect.assertions(4)
-                    await clientStorage
-                        .store({ ...remoteOperation, version: 8 }, local)
-                        .catch(expectError(ErrorCodes.UnexpectedVersionNumber))
+                    await expect(
+                        clientStorage.store(
+                            { ...remoteOperation, version: 8 },
+                            local,
+                        ),
+                    ).rejects.toEqual(
+                        expect.objectContaining({
+                            message: 'Unexpected version number.',
+                            name: 'SyncOtError UnexpectedVersionNumber',
+                        }),
+                    )
                     await expect(getStatus()).resolves.toEqual(initialStatus)
                     await expect(load()).resolves.toEqual([o0, o1])
                 })
                 test('local=true', async () => {
-                    expect.assertions(4)
-                    await clientStorage
-                        .store({ ...operation, sequence: 3, version: 6 }, true)
-                        .catch(expectError(ErrorCodes.UnexpectedVersionNumber))
+                    await expect(
+                        clientStorage.store(
+                            { ...operation, sequence: 3, version: 6 },
+                            true,
+                        ),
+                    ).rejects.toEqual(
+                        expect.objectContaining({
+                            message: 'Unexpected version number.',
+                            name: 'SyncOtError UnexpectedVersionNumber',
+                        }),
+                    )
                     await expect(getStatus()).resolves.toEqual(initialStatus)
                     await expect(load()).resolves.toEqual([o0, o1])
                 })
@@ -321,18 +338,32 @@ export const clientStorageTests = (
 
             describe('UnexpectedSequenceNumber', () => {
                 test.each([undefined, false])('local=%s', async local => {
-                    expect.assertions(4)
-                    await clientStorage
-                        .store({ ...operation, sequence: 4, version: 6 }, local)
-                        .catch(expectError(ErrorCodes.UnexpectedSequenceNumber))
+                    await expect(
+                        clientStorage.store(
+                            { ...operation, sequence: 4, version: 6 },
+                            local,
+                        ),
+                    ).rejects.toEqual(
+                        expect.objectContaining({
+                            message: 'Unexpected sequence number.',
+                            name: 'SyncOtError UnexpectedSequenceNumber',
+                        }),
+                    )
                     await expect(getStatus()).resolves.toEqual(initialStatus)
                     await expect(load()).resolves.toEqual([o0, o1])
                 })
                 test('local=true', async () => {
-                    expect.assertions(4)
-                    await clientStorage
-                        .store({ ...operation, sequence: 4, version: 8 }, true)
-                        .catch(expectError(ErrorCodes.UnexpectedSequenceNumber))
+                    await expect(
+                        clientStorage.store(
+                            { ...operation, sequence: 4, version: 8 },
+                            true,
+                        ),
+                    ).rejects.toEqual(
+                        expect.objectContaining({
+                            message: 'Unexpected sequence number.',
+                            name: 'SyncOtError UnexpectedSequenceNumber',
+                        }),
+                    )
                     await expect(getStatus()).resolves.toEqual(initialStatus)
                     await expect(load()).resolves.toEqual([o0, o1])
                 })

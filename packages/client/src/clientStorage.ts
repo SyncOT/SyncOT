@@ -2,15 +2,17 @@ import {
     assertOperation,
     assertSnapshot,
     ClientId,
+    createAlreadyInitializedError,
     createNotInitializedError,
+    createUnexpectedClientIdError,
+    createUnexpectedSequenceNumberError,
+    createUnexpectedVersionNumberError,
     DocumentId,
     DocumentVersion,
-    ErrorCodes,
     Interface,
     Operation,
     SequenceNumber,
     Snapshot,
-    SyncOtError,
     TypeManager,
     TypeName,
 } from '@syncot/core'
@@ -72,7 +74,9 @@ class MemoryClientStorage {
         }
 
         if (idMap.has(id)) {
-            throw new SyncOtError(ErrorCodes.AlreadyInitialized)
+            throw createAlreadyInitializedError(
+                'Client storage already initialized.',
+            )
         }
 
         idMap.set(id, {
@@ -169,15 +173,15 @@ class MemoryClientStorage {
         if (local) {
             // Store a new local operation.
             if (operation.client !== this.clientId) {
-                throw new SyncOtError(ErrorCodes.UnexpectedClientId)
+                throw createUnexpectedClientIdError()
             }
 
             if (operation.sequence !== context.lastSequence + 1) {
-                throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+                throw createUnexpectedSequenceNumberError()
             }
 
             if (operation.version !== context.lastVersion + 1) {
-                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+                throw createUnexpectedVersionNumberError()
             }
 
             context.operations.push(operation)
@@ -185,20 +189,20 @@ class MemoryClientStorage {
             context.lastSequence++
         } else {
             if (operation.version !== context.lastRemoteVersion + 1) {
-                throw new SyncOtError(ErrorCodes.UnexpectedVersionNumber)
+                throw createUnexpectedVersionNumberError()
             }
 
             if (operation.client === this.clientId) {
                 // Store own remote operation.
                 if (context.localIndex >= context.operations.length) {
-                    throw new SyncOtError(ErrorCodes.UnexpectedClientId)
+                    throw createUnexpectedClientIdError()
                 }
 
                 if (
                     operation.sequence !==
                     context.operations[context.localIndex].sequence
                 ) {
-                    throw new SyncOtError(ErrorCodes.UnexpectedSequenceNumber)
+                    throw createUnexpectedSequenceNumberError()
                 }
 
                 context.localIndex++

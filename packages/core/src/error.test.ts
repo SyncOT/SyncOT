@@ -1,9 +1,13 @@
 import {
+    createAlreadyInitializedError,
     createDisconnectedError,
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
     createTypeNotFoundError,
+    createUnexpectedClientIdError,
+    createUnexpectedSequenceNumberError,
+    createUnexpectedVersionNumberError,
 } from './error'
 
 describe('createInvalidEntityError', () => {
@@ -45,6 +49,24 @@ describe('createInvalidEntityError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(key)
+    })
+})
+
+describe('createTypeNotFoundError', () => {
+    test('invalid typeName', () => {
+        expect(() => createTypeNotFoundError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "typeName" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid typeName', () => {
+        const error = createTypeNotFoundError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError TypeNotFound')
+        expect(error.message).toBe('Type "test" not found.')
+        expect(error.typeName).toBe('test')
     })
 })
 
@@ -99,20 +121,88 @@ describe('createNotInitializedError', () => {
     })
 })
 
-describe('createTypeNotFoundError', () => {
-    test('invalid typeName', () => {
-        expect(() => createTypeNotFoundError(5 as any)).toThrow(
+describe('createAlreadyInitializedError', () => {
+    test('invalid message', () => {
+        expect(() => createAlreadyInitializedError(5 as any)).toThrow(
             expect.objectContaining({
-                message: 'Argument "typeName" must be a string.',
+                message: 'Argument "message" must be a string.',
                 name: 'AssertionError [ERR_ASSERTION]',
             }),
         )
     })
-    test('valid typeName', () => {
-        const error = createTypeNotFoundError('test')
+    test('valid message', () => {
+        const error = createAlreadyInitializedError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError TypeNotFound')
-        expect(error.message).toBe('Type "test" not found.')
-        expect(error.typeName).toBe('test')
+        expect(error.name).toBe('SyncOtError AlreadyInitialized')
+        expect(error.message).toBe('test')
+    })
+})
+
+describe('createUnexpectedClientIdError', () => {
+    test('invalid message', () => {
+        expect(() => createUnexpectedClientIdError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createUnexpectedClientIdError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedClientId')
+        expect(error.message).toBe('test')
+    })
+    test('no message', () => {
+        const error = createUnexpectedClientIdError()
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedClientId')
+        expect(error.message).toBe('Unexpected client id.')
+    })
+})
+
+describe('createUnexpectedSequenceNumberError', () => {
+    test('invalid message', () => {
+        expect(() => createUnexpectedSequenceNumberError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createUnexpectedSequenceNumberError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedSequenceNumber')
+        expect(error.message).toBe('test')
+    })
+    test('no message', () => {
+        const error = createUnexpectedSequenceNumberError()
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedSequenceNumber')
+        expect(error.message).toBe('Unexpected sequence number.')
+    })
+})
+
+describe('createUnexpectedVersionNumberError', () => {
+    test('invalid message', () => {
+        expect(() => createUnexpectedVersionNumberError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createUnexpectedVersionNumberError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedVersionNumber')
+        expect(error.message).toBe('test')
+    })
+    test('no message', () => {
+        const error = createUnexpectedVersionNumberError()
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError UnexpectedVersionNumber')
+        expect(error.message).toBe('Unexpected version number.')
     })
 })
