@@ -175,10 +175,6 @@ export interface TypeNotFoundError extends Error {
     name: 'SyncOtError TypeNotFound'
     typeName: string
 }
-/**
- * Creates a new error informing that a type has not been found.
- * @param typeName Type name.
- */
 export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
     assertString('typeName', typeName)
     return createSyncOtError({
@@ -194,10 +190,6 @@ export function isTypeNotFoundError(error: any): error is TypeNotFoundError {
 export interface NoServiceError extends Error {
     name: 'SyncOtError NoService'
 }
-/**
- * Creates a new error informing that there's been no service to handle a request.
- * @param message The error message.
- */
 export function createNoServiceError(message: string): NoServiceError {
     assertString('message', message)
     return createSyncOtError('NoService', message) as NoServiceError
@@ -209,10 +201,6 @@ export function isNoServiceError(error: any): error is NoServiceError {
 export interface DisconnectedError extends Error {
     name: 'SyncOtError Disconnected'
 }
-/**
- * Creates a new error informing that there's no active connection.
- * @param message The error message.
- */
 export function createDisconnectedError(message: string): DisconnectedError {
     assertString('message', message)
     return createSyncOtError('Disconnected', message) as DisconnectedError
@@ -224,10 +212,6 @@ export function isDisconnectedError(error: any): error is DisconnectedError {
 export interface NotInitializedError extends Error {
     name: 'SyncOtError NotInitialized'
 }
-/**
- * Creates a new error informing that an entity has not been initialized.
- * @param message The error message.
- */
 export function createNotInitializedError(
     message: string,
 ): NotInitializedError {
@@ -243,10 +227,6 @@ export function isNotInitializedError(
 export interface AlreadyInitializedError extends Error {
     name: 'SyncOtError AlreadyInitialized'
 }
-/**
- * Creates a new error informing that an entity has been already initialized.
- * @param message An error message.
- */
 export function createAlreadyInitializedError(
     message: string,
 ): AlreadyInitializedError {
@@ -268,10 +248,6 @@ export function isAlreadyInitializedError(
 export interface UnexpectedClientIdError extends Error {
     name: 'SyncOtError UnexpectedClientId'
 }
-/**
- * Creates a new error informing about an unexpected client id.
- * @param message An error message.
- */
 export function createUnexpectedClientIdError(
     message: string = 'Unexpected client id.',
 ): UnexpectedClientIdError {
@@ -293,10 +269,6 @@ export function isUnexpectedClientIdError(
 export interface UnexpectedVersionNumberError extends Error {
     name: 'SyncOtError UnexpectedVersionNumber'
 }
-/**
- * Creates a new error informing about an unexpected version number.
- * @param message An error message.
- */
 export function createUnexpectedVersionNumberError(
     message: string = 'Unexpected version number.',
 ): UnexpectedVersionNumberError {
@@ -318,10 +290,6 @@ export function isUnexpectedVersionNumberError(
 export interface UnexpectedSequenceNumberError extends Error {
     name: 'SyncOtError UnexpectedSequenceNumber'
 }
-/**
- * Creates a new error informing about an unexpected sequence number.
- * @param message An error message.
- */
 export function createUnexpectedSequenceNumberError(
     message: string = 'Unexpected sequence number.',
 ): UnexpectedSequenceNumberError {
@@ -338,4 +306,17 @@ export function isUnexpectedSequenceNumberError(
         error instanceof Error &&
         error.name === 'SyncOtError UnexpectedSequenceNumber'
     )
+}
+
+export interface SocketClosedError extends Error {
+    name: 'SyncOtError SocketClosed'
+}
+export function createSocketClosedError(
+    message: string = 'Socket closed.',
+): SocketClosedError {
+    assertString('message', message)
+    return createSyncOtError('SocketClosed', message) as SocketClosedError
+}
+export function isSocketClosedError(error: any): error is SocketClosedError {
+    return error instanceof Error && error.name === 'SyncOtError SocketClosed'
 }

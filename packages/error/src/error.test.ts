@@ -4,6 +4,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createSocketClosedError,
     createSyncOtError,
     createTsonError,
     createTypeNotFoundError,
@@ -15,6 +16,7 @@ import {
     isInvalidEntityError,
     isNoServiceError,
     isNotInitializedError,
+    isSocketClosedError,
     isSyncOtError,
     isTsonError,
     isTypeNotFoundError,
@@ -478,5 +480,36 @@ describe('createUnexpectedVersionNumberError', () => {
     test('not a UnexpectedVersionNumberError', () => {
         expect(isUnexpectedVersionNumberError(new Error())).toBeFalse()
         expect(isUnexpectedVersionNumberError({})).toBeFalse()
+    })
+})
+
+describe('createSocketClosedError', () => {
+    test('invalid message', () => {
+        expect(() => createSocketClosedError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createSocketClosedError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError SocketClosed')
+        expect(error.message).toBe('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSocketClosedError(error)).toBeTrue()
+    })
+    test('no message', () => {
+        const error = createSocketClosedError()
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError SocketClosed')
+        expect(error.message).toBe('Socket closed.')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSocketClosedError(error)).toBeTrue()
+    })
+    test('not a SocketClosedError', () => {
+        expect(isSocketClosedError(new Error())).toBeFalse()
+        expect(isSocketClosedError({})).toBeFalse()
     })
 })
