@@ -3,6 +3,7 @@
   "private": true,
   "devDependencies": {
     "@types/jest": "^24.0.6",
+    "@types/ws": "^6.0.1",
     "husky": "^1.3.1",
     "jest": "^24.1.0",
     "jest-extended": "^0.11.1",
@@ -12,7 +13,8 @@
     "ts-jest": "^24.0.0",
     "tslint": "^5.12.1",
     "tslint-config-prettier": "^1.18.0",
-    "typescript": "^3.3.3"
+    "typescript": "^3.3.3",
+    "ws": "^6.1.4"
   },
   "author": "Greg Kubisa <gkubisa@gmail.com>",
   "license": "MIT",
@@ -38,6 +40,7 @@
     "@syncot/core": "file:packages/core",
     "@syncot/error": "file:packages/error",
     "@syncot/server": "file:packages/server",
-    "@syncot/tson": "file:packages/tson"
+    "@syncot/tson": "file:packages/tson",
+    "@syncot/tson-websocket-stream": "file:packages/tson-websocket-stream"
   }
 }

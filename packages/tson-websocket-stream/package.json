@@ -1,0 +1,30 @@
+{
+  "name": "@syncot/tson-websocket-stream",
+  "version": "0.0.0",
+  "description": "A Duplex object stream backed by a browser WebSocket exchanging TSON encoded messages.",
+  "keywords": [
+    "browser",
+    "stream",
+    "tson",
+    "websocket"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "dependencies": {
+    "@syncot/tson": "file:../tson",
+    "@types/node": "^10.12.21",
+    "smart-buffer": "^4.0.2",
+    "tslib": "^1.9.3"
+  }
+}
