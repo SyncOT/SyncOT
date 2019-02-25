@@ -23,9 +23,7 @@ export class TsonWebSocketStream extends Duplex {
      * @param webSocket A browser WebSocket.
      */
     constructor(private webSocket: WebSocket) {
-        super({
-            objectMode: true,
-        })
+        super({ objectMode: true })
         assert.ok(
             this.webSocket instanceof WebSocket,
             'Argument "webSocket" must be an instance of "WebSocket".',
