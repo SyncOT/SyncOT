@@ -4,30 +4,38 @@ import { strict as assert } from 'assert'
 import { Duplex } from 'stream'
 
 /**
- * A Duplex object stream backed by a browser WebSocket exchanging TSON encoded messages.
+ * A Duplex object stream backed by a (browser or ws) `WebSocket` exchanging TSON encoded messages.
  *
- * If the stream ends, the WebSocket is closed automaticall.
- * If the WebSocket is closed, the stream is ended automatically.
- * In case of any errors, the stream is destroyed and the WebSocket closed.
- * WebSocket errors are ignored.
+ * When the stream is finished, the `WebSocket` is closed automatically.
+ * When the `WebSocket` is closed, the stream is destroyed automatically.
+ * In case of any `TsonWebSocketStream` errors, the stream is destroyed and the `WebSocket` closed.
+ *
+ * WebSocket errors are completely ignored by `TsonWebSocketStream` because:
+ *
+ * - handling them is not strictly necessary, as the connection is closed on errors anyway.
+ * - the error payload is different between the browser and `ws` WebSockets.
+ * - the error events contain no useful information in the browser.
+ * - the error events in `ws` are sometimes emitted unnecessarily,
+ *   eg `WebSocket` closed before a connection has been established.
+ * - the error events contain no useful information and are sometimes emitted unnecessarily in `jsdom`,
+ *   eg whenever `close` is called.
+ *
+ * The client code should still attach `error` event listeners to WebSockets and handle the reported errors
+ * to avoid unnecessary crashes on trivial issues and to report serious problems.
  *
  * The stream emits the following errors:
  *
  * - `TypeError`: If receiving anything other than an `ArrayBuffer`, or if the decoded received data is `null`.
  * - `SyncOtError TSON`: If serializing or parsing TSON fails.
- * - `SyncOtError SocketClosed`: If trying to send data to a closing or closed WebSocket.
+ * - `SyncOtError SocketClosed`: If trying to send data to a closing or closed `WebSocket`.
  */
 export class TsonWebSocketStream extends Duplex {
     /**
-     * Creates a new instance of TsonWebSocketStream backed by the specified WebSocket.
-     * @param webSocket A browser WebSocket.
+     * Creates a new instance of `TsonWebSocketStream` backed by the specified `WebSocket`.
+     * @param webSocket A WebSocket instance.
      */
     constructor(private webSocket: WebSocket) {
         super({ objectMode: true })
-        assert.ok(
-            this.webSocket instanceof WebSocket,
-            'Argument "webSocket" must be an instance of "WebSocket".',
-        )
 
         this.webSocket.binaryType = 'arraybuffer'
         this.webSocket.addEventListener('close', () => {

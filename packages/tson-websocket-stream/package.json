@@ -1,9 +1,10 @@
 {
   "name": "@syncot/tson-websocket-stream",
   "version": "0.0.0",
-  "description": "A Duplex object stream backed by a browser WebSocket exchanging TSON encoded messages.",
+  "description": "A Duplex object stream backed by a (browser or ws) WebSocket exchanging TSON encoded messages.",
   "keywords": [
     "browser",
+    "ws",
     "stream",
     "tson",
     "websocket"
