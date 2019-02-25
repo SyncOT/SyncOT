@@ -25,7 +25,6 @@
     "@syncot/error": "file:../error",
     "@syncot/tson": "file:../tson",
     "@types/node": "^10.12.21",
-    "smart-buffer": "^4.0.2",
     "tslib": "^1.9.3"
   }
 }
