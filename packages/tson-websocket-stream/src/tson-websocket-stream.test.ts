@@ -3,8 +3,7 @@
  */
 import { decode, encode } from '@syncot/tson'
 import ws from 'ws'
-import { TsonWebSocketStream } from '.'
-import { TsonWebSocket } from './tson-websocket-stream'
+import { TsonWebSocket, TsonWebSocketStream } from '.'
 
 const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
 
