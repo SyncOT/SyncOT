@@ -4,6 +4,38 @@ import { strict as assert } from 'assert'
 import { Duplex } from 'stream'
 
 /**
+ * A subset of the WebSocket interface that is sufficient to implement TsonWebSocketStream and compatible
+ * with multiple WebSocket implementations, eg browser, ws module, SockJS.
+ */
+export declare class TsonWebSocket {
+    public static CONNECTING: 0
+    public static OPEN: 1
+    public static CLOSING: 2
+    public static CLOSED: 3
+
+    public binaryType: string
+    public readyState: number
+
+    public send(data: any): void
+    public close(): void
+
+    public addEventListener(name: 'open' | 'close', callback: () => void): void
+    public addEventListener(
+        name: 'message',
+        callback: (event: { data: any }) => void,
+    ): void
+
+    public removeEventListener(
+        name: 'open' | 'close',
+        callback: () => void,
+    ): void
+    public removeEventListener(
+        name: 'message',
+        callback: (event: { data: any }) => void,
+    ): void
+}
+
+/**
  * A Duplex object stream backed by a (browser or ws) `WebSocket` exchanging TSON encoded messages.
  *
  * When the stream is finished, the `WebSocket` is closed automatically.
@@ -34,7 +66,7 @@ export class TsonWebSocketStream extends Duplex {
      * Creates a new instance of `TsonWebSocketStream` backed by the specified `WebSocket`.
      * @param webSocket A WebSocket instance.
      */
-    constructor(private webSocket: WebSocket) {
+    constructor(private webSocket: TsonWebSocket) {
         super({ objectMode: true })
 
         this.webSocket.binaryType = 'arraybuffer'

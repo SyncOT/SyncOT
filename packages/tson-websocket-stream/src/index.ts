@@ -1,1 +1,1 @@
-export * from './tson-websocket-stream'
+export { TsonWebSocketStream } from './tson-websocket-stream'

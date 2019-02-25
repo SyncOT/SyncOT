@@ -4,10 +4,11 @@
 import { decode, encode } from '@syncot/tson'
 import ws from 'ws'
 import { TsonWebSocketStream } from '.'
+import { TsonWebSocket } from './tson-websocket-stream'
 
 const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
 
-const whenOpen = (socket: WebSocket) =>
+const whenOpen = (socket: TsonWebSocket) =>
     new Promise((resolve, reject) => {
         if (socket.readyState === WebSocket.CONNECTING) {
             const onOpen = () => {
@@ -35,7 +36,7 @@ const whenOpen = (socket: WebSocket) =>
         }
     })
 
-const whenClosed = (socket: WebSocket) =>
+const whenClosed = (socket: TsonWebSocket) =>
     new Promise(resolve => {
         if (socket.readyState === WebSocket.CLOSED) {
             resolve()
@@ -67,6 +68,7 @@ let server: ws.Server
 let clientSocket: WebSocket
 let serverSocket: ws
 let clientStream: TsonWebSocketStream
+let serverStream: TsonWebSocketStream
 
 describe.each([['browser', WebSocket], ['ws', ws]])(
     '%s',
@@ -91,6 +93,7 @@ describe.each([['browser', WebSocket], ['ws', ws]])(
             })
             server.once('connection', newServerSocket => {
                 serverSocket = newServerSocket
+                serverStream = new TsonWebSocketStream(serverSocket)
                 done()
             })
         })
@@ -347,6 +350,55 @@ describe.each([['browser', WebSocket], ['ws', ws]])(
             expect(decode(onMessage.mock.calls[2][0])).toEqual(m3)
         })
 
+        test('end stream with a CONNECTING socket with pending writes', async () => {
+            const onWrite = jest.fn()
+            expect(clientSocket.readyState).toBe(WebSocket.CONNECTING)
+            clientStream.write('message 1', onWrite)
+            clientStream.write('message 2', onWrite)
+            clientStream.write('message 3', onWrite)
+            clientStream.end()
+            await whenClosed(clientSocket)
+            // The first write failed, so nodejs cancelled the other 2 writes.
+            expect(onWrite).toHaveBeenCalledTimes(3)
+            expect(onWrite).toHaveBeenCalledWith()
+        })
+
+        test('destroy a stream with a CONNECTING socket with pending writes', async () => {
+            const onWrite = jest.fn()
+            const onError = jest.fn()
+            clientStream.on('error', onError)
+            expect(clientSocket.readyState).toBe(WebSocket.CONNECTING)
+            clientStream.write('message 1', onWrite)
+            clientStream.write('message 2', onWrite)
+            clientStream.write('message 3', onWrite)
+            clientStream.destroy()
+            await whenClosed(clientSocket)
+            // The first write failed, so nodejs cancelled the other 2 writes.
+            expect(onWrite).toHaveBeenCalledTimes(1)
+            expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+        })
+
+        test('destroy a stream with an error with a CONNECTING socket with pending writes', async () => {
+            const error = new Error('test error')
+            const onWrite = jest.fn()
+            const onError = jest.fn()
+            clientStream.on('error', onError)
+            expect(clientSocket.readyState).toBe(WebSocket.CONNECTING)
+            clientStream.write('message 1', onWrite)
+            clientStream.write('message 2', onWrite)
+            clientStream.write('message 3', onWrite)
+            clientStream.destroy(error)
+            await whenClosed(clientSocket)
+            // The first write failed, so nodejs cancelled the other 2 writes.
+            expect(onWrite).toHaveBeenCalledTimes(1)
+            expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onError).toHaveBeenCalledTimes(2)
+            expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onError).toHaveBeenCalledWith(error)
+        })
+
         test('close a CONNECTING socket with pending writes', async () => {
             const onWrite = jest.fn()
             const onError = jest.fn()
@@ -365,79 +417,180 @@ describe.each([['browser', WebSocket], ['ws', ws]])(
         })
 
         test('close serverSocket', async () => {
-            const onSocketClose = jest.fn()
-            const onStreamClose = jest.fn()
-            clientSocket.addEventListener('close', onSocketClose)
-            clientStream.on('close', onStreamClose)
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
             serverSocket.close()
             await whenClosed(clientSocket)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         })
 
         test('close clientSocket', async () => {
-            const onSocketClose = jest.fn()
-            const onStreamClose = jest.fn()
-            clientSocket.addEventListener('close', onSocketClose)
-            clientStream.on('close', onStreamClose)
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
             clientSocket.close()
             await whenClosed(clientSocket)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         })
 
-        test('end stream', async () => {
-            const onSocketClose = jest.fn()
-            const onStreamClose = jest.fn()
-            clientSocket.addEventListener('close', onSocketClose)
-            clientStream.on('close', onStreamClose)
+        test('end clientStream', async () => {
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
             clientStream.end()
             await whenClosed(clientSocket)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         })
 
-        test('destroy stream without error', async () => {
-            const onSocketClose = jest.fn()
-            const onStreamClose = jest.fn()
-            clientSocket.addEventListener('close', onSocketClose)
-            clientStream.on('close', onStreamClose)
+        test('end serverStream', async () => {
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
+            serverStream.end()
+            await whenClosed(clientSocket)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
+        })
+
+        test('destroy client stream without error', async () => {
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
             clientStream.destroy()
             await whenClosed(clientSocket)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         })
 
-        test('destroy stream with error', async () => {
+        test('destroy server stream without error', async () => {
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
+            serverStream.destroy()
+            await whenClosed(clientSocket)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
+        })
+
+        test('destroy client stream with error', async () => {
             const error = new Error()
             const onError = jest.fn()
-            const onSocketClose = jest.fn()
-            const onStreamClose = jest.fn()
-            clientSocket.addEventListener('close', onSocketClose)
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
             clientStream.on('error', onError)
-            clientStream.on('close', onStreamClose)
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
             clientStream.destroy(error)
             await whenClosed(clientSocket)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(error)
         })
 
-        test('destroy stream and close socket on error', async () => {
-            const error = new Error('test error')
+        test('destroy server stream with error', async () => {
+            const error = new Error()
             const onError = jest.fn()
-            const onStreamClose = jest.fn()
-            const onSocketClose = jest.fn()
-            clientStream.on('error', onError)
-            clientStream.on('close', onStreamClose)
-            clientSocket.addEventListener('close', onSocketClose)
-            clientStream.emit('error', error)
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            serverStream.on('error', onError)
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
+            serverStream.destroy(error)
             await whenClosed(clientSocket)
-            expect(onStreamClose).toHaveBeenCalledTimes(1)
-            expect(onSocketClose).toHaveBeenCalledTimes(1)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(error)
+        })
+
+        test('destroy stream and close socket on client stream error', async () => {
+            const error = new Error('test error')
+            const onError = jest.fn()
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            clientStream.on('error', onError)
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
+            clientStream.emit('error', error)
+            await whenClosed(clientSocket)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(error)
+        })
+
+        test('destroy stream and close socket on server stream error', async () => {
+            const error = new Error('test error')
+            const onError = jest.fn()
+            const onClientStreamClose = jest.fn()
+            const onServerStreamClose = jest.fn()
+            serverStream.on('error', onError)
+            clientStream.on('close', onClientStreamClose)
+            serverStream.on('close', onServerStreamClose)
+            serverStream.emit('error', error)
+            await whenClosed(clientSocket)
+            await whenClosed(serverSocket)
+            expect(onClientStreamClose).toHaveBeenCalledTimes(1)
+            expect(onServerStreamClose).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(error)
+        })
+
+        test('end-to-end send and receive', async () => {
+            const message1 = { key: 'message 1' }
+            const message2 = { key: 'message 2' }
+            const message3 = { key: 'message 3' }
+            const message4 = { key: 'message 4' }
+
+            let resolvePromise: undefined | (() => void)
+            const promise = new Promise(resolve => (resolvePromise = resolve))
+
+            let calls = 0
+            const ready = () => {
+                if (++calls === 4) {
+                    resolvePromise!()
+                }
+            }
+            const onClientData = jest.fn(ready)
+            const onServerData = jest.fn(ready)
+
+            clientStream.on('data', onClientData)
+            serverStream.on('data', onServerData)
+
+            clientStream.write(message1)
+            serverStream.write(message2)
+            clientStream.write(message3)
+            serverStream.write(message4)
+
+            await promise
+
+            expect(onClientData).toBeCalledTimes(2)
+            expect(onClientData).toBeCalledWith(message2)
+            expect(onClientData).toBeCalledWith(message4)
+
+            expect(onServerData).toBeCalledTimes(2)
+            expect(onServerData).toBeCalledWith(message1)
+            expect(onServerData).toBeCalledWith(message3)
         })
     },
 )
