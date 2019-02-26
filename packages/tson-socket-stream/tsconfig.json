@@ -2,8 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "./lib",
-    "lib": ["es2018", "dom"]
+    "outDir": "./lib"
   },
   "references": [{ "path": "../tson" }]
 }
