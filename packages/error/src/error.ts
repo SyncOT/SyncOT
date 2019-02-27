@@ -245,24 +245,24 @@ export function isAlreadyInitializedError(
     )
 }
 
-export interface UnexpectedClientIdError extends Error {
-    name: 'SyncOtError UnexpectedClientId'
+export interface UnexpectedSessionIdError extends Error {
+    name: 'SyncOtError UnexpectedSessionId'
 }
-export function createUnexpectedClientIdError(
-    message: string = 'Unexpected client id.',
-): UnexpectedClientIdError {
+export function createUnexpectedSessionIdError(
+    message: string = 'Unexpected session id.',
+): UnexpectedSessionIdError {
     assertString('message', message)
     return createSyncOtError(
-        'UnexpectedClientId',
+        'UnexpectedSessionId',
         message,
-    ) as UnexpectedClientIdError
+    ) as UnexpectedSessionIdError
 }
-export function isUnexpectedClientIdError(
+export function isUnexpectedSessionIdError(
     error: any,
-): error is UnexpectedClientIdError {
+): error is UnexpectedSessionIdError {
     return (
         error instanceof Error &&
-        error.name === 'SyncOtError UnexpectedClientId'
+        error.name === 'SyncOtError UnexpectedSessionId'
     )
 }
 

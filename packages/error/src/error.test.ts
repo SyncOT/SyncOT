@@ -8,8 +8,8 @@ import {
     createSyncOtError,
     createTsonError,
     createTypeNotFoundError,
-    createUnexpectedClientIdError,
     createUnexpectedSequenceNumberError,
+    createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
     isAlreadyInitializedError,
     isDisconnectedError,
@@ -20,8 +20,8 @@ import {
     isSyncOtError,
     isTsonError,
     isTypeNotFoundError,
-    isUnexpectedClientIdError,
     isUnexpectedSequenceNumberError,
+    isUnexpectedSessionIdError,
     isUnexpectedVersionNumberError,
 } from '.'
 
@@ -390,9 +390,9 @@ describe('createAlreadyInitializedError', () => {
     })
 })
 
-describe('createUnexpectedClientIdError', () => {
+describe('createUnexpectedSessionIdError', () => {
     test('invalid message', () => {
-        expect(() => createUnexpectedClientIdError(5 as any)).toThrow(
+        expect(() => createUnexpectedSessionIdError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
                 name: 'AssertionError [ERR_ASSERTION]',
@@ -400,24 +400,24 @@ describe('createUnexpectedClientIdError', () => {
         )
     })
     test('valid message', () => {
-        const error = createUnexpectedClientIdError('test')
+        const error = createUnexpectedSessionIdError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError UnexpectedClientId')
+        expect(error.name).toBe('SyncOtError UnexpectedSessionId')
         expect(error.message).toBe('test')
         expect(isSyncOtError(error)).toBeTrue()
-        expect(isUnexpectedClientIdError(error)).toBeTrue()
+        expect(isUnexpectedSessionIdError(error)).toBeTrue()
     })
     test('no message', () => {
-        const error = createUnexpectedClientIdError()
+        const error = createUnexpectedSessionIdError()
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError UnexpectedClientId')
-        expect(error.message).toBe('Unexpected client id.')
+        expect(error.name).toBe('SyncOtError UnexpectedSessionId')
+        expect(error.message).toBe('Unexpected session id.')
         expect(isSyncOtError(error)).toBeTrue()
-        expect(isUnexpectedClientIdError(error)).toBeTrue()
+        expect(isUnexpectedSessionIdError(error)).toBeTrue()
     })
-    test('UnexpectedClientIdError', () => {
-        expect(isUnexpectedClientIdError(new Error())).toBeFalse()
-        expect(isUnexpectedClientIdError({})).toBeFalse()
+    test('UnexpectedSessionIdError', () => {
+        expect(isUnexpectedSessionIdError(new Error())).toBeFalse()
+        expect(isUnexpectedSessionIdError({})).toBeFalse()
     })
 })
 

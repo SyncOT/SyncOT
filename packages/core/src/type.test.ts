@@ -8,23 +8,23 @@ import {
 } from './type'
 
 const operation: Operation = {
-    client: 'c',
     data: null,
     id: '1',
     kind: 'Operation',
     meta: null,
     sequence: 2,
+    session: 'c',
     type: 't',
     version: 1,
 }
 
 const snapshot: Snapshot = {
-    client: 'c',
     data: null,
     id: '1',
     kind: 'Snapshot',
     meta: null,
     sequence: 2,
+    session: 'c',
     type: 't',
     version: 1,
 }
@@ -43,12 +43,12 @@ describe('validateOperation', () => {
         expect(error!.key).toEqual(null)
     })
     test.each([
-        'client',
         'data',
         'id',
         'kind',
         'meta',
         'sequence',
+        'session',
         'type',
         'version',
     ])('invalid %s', property => {
@@ -93,12 +93,12 @@ describe('validateSnapshot', () => {
         expect(error!.key).toBe(null)
     })
     test.each([
-        'client',
         'data',
         'id',
         'kind',
         'meta',
         'sequence',
+        'session',
         'type',
         'version',
     ])('invalid %s', property => {

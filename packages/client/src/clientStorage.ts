@@ -1,12 +1,12 @@
 import {
     assertOperation,
     assertSnapshot,
-    ClientId,
     DocumentId,
     DocumentVersion,
     Interface,
     Operation,
     SequenceNumber,
+    SessionId,
     Snapshot,
     TypeManager,
     TypeName,
@@ -14,8 +14,8 @@ import {
 import {
     createAlreadyInitializedError,
     createNotInitializedError,
-    createUnexpectedClientIdError,
     createUnexpectedSequenceNumberError,
+    createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
 } from '@syncot/error'
 
@@ -30,12 +30,12 @@ interface Context {
 type ContextMap = Map<TypeName, Map<DocumentId, Context>>
 
 export interface ClientStorageStatus {
-    readonly clientId: ClientId
     readonly id: DocumentId
     readonly initialized: boolean
     readonly lastRemoteVersion: DocumentVersion
     readonly lastSequence: SequenceNumber
     readonly lastVersion: DocumentVersion
+    readonly sessionId: SessionId
     readonly typeName: TypeName
 }
 
@@ -46,7 +46,7 @@ class MemoryClientStorage {
     private contexts: ContextMap = new Map()
 
     public constructor(
-        private clientId: ClientId,
+        private sessionId: SessionId,
         private typeManager: TypeManager,
     ) {}
 
@@ -114,22 +114,22 @@ class MemoryClientStorage {
 
         if (context) {
             return {
-                clientId: this.clientId,
                 id,
                 initialized: true,
                 lastRemoteVersion: context.lastRemoteVersion,
                 lastSequence: context.lastSequence,
                 lastVersion: context.lastVersion,
+                sessionId: this.sessionId,
                 typeName,
             }
         } else {
             return {
-                clientId: this.clientId,
                 id,
                 initialized: false,
                 lastRemoteVersion: 0,
                 lastSequence: 0,
                 lastVersion: 0,
+                sessionId: this.sessionId,
                 typeName,
             }
         }
@@ -147,14 +147,14 @@ class MemoryClientStorage {
      * If `local` is `false`, then it fails with:
      *
      * - `UnexpectedVersionNumber`, if `operation.version` is not equal to `lastRemoteVersion + 1`.
-     * - `UnexpectedClientId`, if `operation.client` is the `clientId` of this ClientStorage instance
+     * - `UnexpectedSessionId`, if `operation.session` is the `sessionId` of this ClientStorage instance
      *   and there are no existing local operations.
-     * - `UnexpectedSequenceNumber`, if `operation.client` is the `clientId` of this ClientStorage instance and
+     * - `UnexpectedSequenceNumber`, if `operation.session` is the `sessionId` of this ClientStorage instance and
      *   `operation.sequence` is not equal to `sequence` of the first local operation.
      *
      * If `local` is `true`, then it fails with:
      *
-     * - `UnexpectedClientId`, if `operation.client` is not the `clientId` of this ClientStorage instance.
+     * - `UnexpectedSessionId`, if `operation.session` is not the `sessionId` of this ClientStorage instance.
      * - `UnexpectedSequenceNumber`, if `operation.sequence` is not equal to `lastSequence + 1`.
      * - `UnexpectedVersionNumber`, if `operation.version` is not equal to `lastVersion + 1`.
      *
@@ -174,8 +174,8 @@ class MemoryClientStorage {
 
         if (local) {
             // Store a new local operation.
-            if (operation.client !== this.clientId) {
-                throw createUnexpectedClientIdError()
+            if (operation.session !== this.sessionId) {
+                throw createUnexpectedSessionIdError()
             }
 
             if (operation.sequence !== context.lastSequence + 1) {
@@ -194,10 +194,10 @@ class MemoryClientStorage {
                 throw createUnexpectedVersionNumberError()
             }
 
-            if (operation.client === this.clientId) {
+            if (operation.session === this.sessionId) {
                 // Store own remote operation.
                 if (context.localIndex >= context.operations.length) {
-                    throw createUnexpectedClientIdError()
+                    throw createUnexpectedSessionIdError()
                 }
 
                 if (
@@ -292,7 +292,7 @@ class MemoryClientStorage {
  * Options for `createClientStorage`.
  */
 export interface CreateClientStorageParams {
-    clientId: ClientId
+    sessionId: SessionId
     typeManager: TypeManager
 }
 
@@ -309,8 +309,8 @@ export interface ClientStorage extends Interface<MemoryClientStorage> {}
  * Creates a new `ClientStorage` instance, which stores the data in memory.
  */
 export function createClientStorage({
-    clientId,
+    sessionId,
     typeManager,
 }: CreateClientStorageParams): ClientStorage {
-    return new MemoryClientStorage(clientId, typeManager)
+    return new MemoryClientStorage(sessionId, typeManager)
 }

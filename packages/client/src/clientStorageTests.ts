@@ -1,8 +1,8 @@
 import {
-    ClientId,
     createTypeManager,
     DocumentId,
     Operation,
+    SessionId,
     Snapshot,
     Type,
     TypeManager,
@@ -18,19 +18,19 @@ interface ListOperation extends Operation {
 }
 const transformError = new Error('transform-error')
 const typeName: TypeName = 'list-type'
-const client: ClientId = 'client-id'
-const remoteClient: ClientId = 'remote-client-id'
+const session: SessionId = 'session-id'
+const remoteSession: SessionId = 'remote-session-id'
 const typeManager: TypeManager = createTypeManager()
 const type: Type = {
     name: typeName,
     create(id: DocumentId): ListSnapshot {
         return {
-            client: '',
             data: [],
             id,
             kind: 'Snapshot',
             meta: null,
             sequence: 0,
+            session: '',
             type: typeName,
             version: 0,
         }
@@ -38,11 +38,11 @@ const type: Type = {
     apply(snapshot: ListSnapshot, operation: ListOperation): ListSnapshot {
         return {
             ...snapshot,
-            client: operation.client,
             data: snapshot.data
                 .slice()
                 .splice(operation.data.index, operation.data.value),
             sequence: operation.sequence,
+            session: operation.session,
             version: operation.version,
         }
     },
@@ -74,38 +74,38 @@ typeManager.registerType(type)
 
 export const clientStorageTests = (
     createClientStorage: (options: {
-        clientId: ClientId
+        sessionId: SessionId
         typeManager: TypeManager
     }) => ClientStorage,
 ) => {
     const id: DocumentId = 'id-1'
     const operation: Operation = {
-        client,
         data: { index: 0, value: 0 },
         id,
         kind: 'Operation',
         meta: null,
         sequence: 1,
+        session,
         type: typeName,
         version: 6,
     }
     const snapshot: Snapshot = {
-        client,
         data: { index: 0, value: 0 },
         id,
         kind: 'Snapshot',
         meta: null,
         sequence: 5,
+        session,
         type: typeName,
         version: 5,
     }
     const status: ClientStorageStatus = {
-        clientId: client,
         id,
         initialized: true,
         lastRemoteVersion: 5,
         lastSequence: 0,
         lastVersion: 5,
+        sessionId: session,
         typeName,
     }
 
@@ -125,7 +125,7 @@ export const clientStorageTests = (
 
     beforeEach(() => {
         clientStorage = createClientStorage({
-            clientId: client,
+            sessionId: session,
             typeManager,
         })
     })
@@ -190,7 +190,7 @@ export const clientStorageTests = (
     })
 
     describe('store, load', () => {
-        const remoteOperation = { ...operation, client: remoteClient }
+        const remoteOperation = { ...operation, session: remoteSession }
 
         beforeEach(() => {
             clientStorage.init(snapshot)
@@ -255,8 +255,8 @@ export const clientStorageTests = (
                     clientStorage.store(remoteOperation, true),
                 ).rejects.toEqual(
                     expect.objectContaining({
-                        message: 'Unexpected client id.',
-                        name: 'SyncOtError UnexpectedClientId',
+                        message: 'Unexpected session id.',
+                        name: 'SyncOtError UnexpectedSessionId',
                     }),
                 )
                 await expect(getStatus()).resolves.toEqual(status)
@@ -270,8 +270,8 @@ export const clientStorageTests = (
                     clientStorage.store(operation, local),
                 ).rejects.toEqual(
                     expect.objectContaining({
-                        message: 'Unexpected client id.',
-                        name: 'SyncOtError UnexpectedClientId',
+                        message: 'Unexpected session id.',
+                        name: 'SyncOtError UnexpectedSessionId',
                     }),
                 )
                 await expect(getStatus()).resolves.toEqual(status)
@@ -370,7 +370,7 @@ export const clientStorageTests = (
             })
         })
 
-        describe('store a remote operation with a local clientId', () => {
+        describe('store a remote operation with a local sessionId', () => {
             test.each([undefined, false])('local=%s', async local => {
                 const o1 = operation
                 const o2 = { ...operation, sequence: 2, version: 7 }
