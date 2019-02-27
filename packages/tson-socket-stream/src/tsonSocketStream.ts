@@ -17,7 +17,7 @@ export interface TsonSocket {
     binaryType: string
     readyState: number
 
-    send(data: any): void
+    send(data: ArrayBuffer): void
     close(): void
 
     addEventListener(name: 'open' | 'close', callback: () => void): void

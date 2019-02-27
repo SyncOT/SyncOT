@@ -3,52 +3,19 @@
  */
 /// <reference lib="dom" />
 import { decode, encode } from '@syncot/tson'
+import * as http from 'http'
+import { AddressInfo } from 'net'
+import * as sockJs from 'sockjs'
+import SockJsClient from 'sockjs-client'
 import ws from 'ws'
 import { TsonSocket, TsonSocketStream } from '.'
+import {
+    sockJsClientConnectionToTsonSocket,
+    sockJsServerConnectionToTsonSocket,
+} from './sockJsAdapters'
 import { ReadyState } from './tsonSocketStream'
 
 const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
-
-const whenOpen = (socket: TsonSocket) =>
-    new Promise((resolve, reject) => {
-        if (socket.readyState === ReadyState.CONNECTING) {
-            const onOpen = () => {
-                socket.removeEventListener('open', onOpen)
-                socket.removeEventListener('close', onClose)
-                resolve()
-            }
-            const onClose = () => {
-                socket.removeEventListener('open', onOpen)
-                socket.removeEventListener('close', onClose)
-                reject(new Error('Socket closed.'))
-            }
-            socket.addEventListener('open', onOpen)
-            socket.addEventListener('close', onClose)
-        } else if (socket.readyState === ReadyState.OPEN) {
-            resolve()
-        } else {
-            reject(
-                new Error(
-                    socket.readyState === ReadyState.CLOSING
-                        ? 'Socket closing.'
-                        : 'Socket closed.',
-                ),
-            )
-        }
-    })
-
-const whenClosed = (socket: TsonSocket) =>
-    new Promise(resolve => {
-        if (socket.readyState === ReadyState.CLOSED) {
-            resolve()
-        } else {
-            const onClose = () => {
-                socket.removeEventListener('close', onClose)
-                resolve()
-            }
-            socket.addEventListener('close', onClose)
-        }
-    })
 
 const streamDestroyedMatcher = expect.objectContaining({
     message: 'Cannot call write after a stream was destroyed',
@@ -65,17 +32,33 @@ const socketClosedMatcher = expect.objectContaining({
     name: 'SyncOtError SocketClosed',
 })
 
-let server: ws.Server
+let httpServer: http.Server
+let sockJsServer: sockJs.Server
+let wsServer: ws.Server
 let clientSocket: TsonSocket
 let serverSocket: TsonSocket
 let clientStream: TsonSocketStream
 let serverStream: TsonSocketStream
+let allOpen: Promise<void>
+let allClosed: Promise<any>
+
+const setUpPromises = () => {
+    allOpen = new Promise(resolve =>
+        clientSocket.addEventListener('open', resolve),
+    )
+    allClosed = Promise.all([
+        new Promise(resolve => clientSocket.addEventListener('close', resolve)),
+        new Promise(resolve => clientStream.on('close', resolve)),
+        new Promise(resolve => serverSocket.addEventListener('close', resolve)),
+        new Promise(resolve => serverStream.on('close', resolve)),
+    ])
+}
 
 const setUpWebSocket = (webSocketConstructor: any) => () => {
     beforeEach(done => {
-        server = new ws.Server({ port: 0 })
-        server.once('listening', () => {
-            const { address, family, port } = server.address() as ws.AddressInfo
+        wsServer = new ws.Server({ port: 0 })
+        wsServer.once('listening', () => {
+            const { address, family, port } = wsServer.address() as AddressInfo
             clientSocket = new webSocketConstructor(
                 family === 'IPv6'
                     ? `ws://[${address}]:${port}`
@@ -86,58 +69,107 @@ const setUpWebSocket = (webSocketConstructor: any) => () => {
             })
             clientStream = new TsonSocketStream(clientSocket)
         })
-        server.once('connection', newServerSocket => {
+        wsServer.once('connection', newServerSocket => {
             serverSocket = newServerSocket
             serverStream = new TsonSocketStream(serverSocket)
+            setUpPromises()
             done()
         })
     })
 
     afterEach(done => {
-        server.close(done)
+        wsServer.close(done)
+    })
+}
+
+const setUpSockJs = () => {
+    beforeEach(done => {
+        httpServer = http.createServer()
+        sockJsServer = sockJs.createServer({ log: () => undefined })
+        sockJsServer.installHandlers(httpServer)
+        httpServer.once('listening', () => {
+            const {
+                address,
+                family,
+                port,
+            } = httpServer.address() as AddressInfo
+            clientSocket = sockJsClientConnectionToTsonSocket(
+                new SockJsClient(
+                    family === 'IPv6'
+                        ? `http://[${address}]:${port}`
+                        : `http://${address}:${port}`,
+                ),
+            )
+            clientStream = new TsonSocketStream(clientSocket)
+        })
+        sockJsServer.once('connection', sockJsConnection => {
+            serverSocket = sockJsServerConnectionToTsonSocket(sockJsConnection)
+            serverStream = new TsonSocketStream(serverSocket)
+            setUpPromises()
+            done()
+        })
+        httpServer.listen()
+    })
+
+    afterEach(done => {
+        clientSocket.close()
+        serverSocket.close()
+        httpServer.close(done)
     })
 }
 
 describe.each([
     ['WebSocket', setUpWebSocket(WebSocket)],
-    ['ws module', setUpWebSocket(ws)],
-])('%s', (_, setUp) => {
+    ['ws', setUpWebSocket(ws)],
+    ['SockJS', setUpSockJs],
+])('%s', (socketType, setUp) => {
     setUp()
 
-    test('receive non-ArrayBuffer', async () => {
-        const onData = jest.fn()
-        const onError = jest.fn()
-        const onStreamClose = jest.fn()
-        const onSocketClose = jest.fn()
-        clientStream.on('data', onData)
-        clientStream.on('error', onError)
-        clientStream.on('close', onStreamClose)
-        clientSocket.addEventListener('close', onSocketClose)
-        serverSocket.send('abc')
-        await whenClosed(clientSocket)
-        expect(onData).not.toHaveBeenCalled()
-        expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Received data must be an ArrayBuffer.',
-                name: 'TypeError',
-            }),
-        )
-        expect(onStreamClose).toHaveBeenCalledTimes(1)
-        expect(onSocketClose).toHaveBeenCalledTimes(1)
-    })
+    if (socketType === 'SockJS') {
+        describe('adapters', () => {
+            test('binaryType', () => {
+                expect(clientSocket.binaryType).toBe('arraybuffer')
+                expect(serverSocket.binaryType).toBe('arraybuffer')
+                clientSocket.binaryType = 'arraybuffer'
+                serverSocket.binaryType = 'arraybuffer'
+                const errorMatcher = expect.objectContaining({
+                    message: 'Argument "binaryType" must be "arraybuffer".',
+                    name: 'AssertionError [ERR_ASSERTION]',
+                })
+                expect(
+                    () => (clientSocket.binaryType = 'non-arraybuffer'),
+                ).toThrow(errorMatcher)
+                expect(
+                    () => (serverSocket.binaryType = 'non-arraybuffer'),
+                ).toThrow(errorMatcher)
+            })
+        })
+    } else {
+        test('client receives non-ArrayBuffer', async () => {
+            const onData = jest.fn()
+            const onError = jest.fn()
+            clientStream.on('data', onData)
+            clientStream.on('error', onError)
+            serverSocket.send('abc' as any)
+            await allClosed
+            expect(onData).not.toHaveBeenCalled()
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Received data must be an ArrayBuffer.',
+                    name: 'TypeError',
+                }),
+            )
+        })
+    }
 
     test('receive TSON-encoded `null` value', async () => {
         const onData = jest.fn()
         const onError = jest.fn()
-        const onStreamClose = jest.fn()
-        const onSocketClose = jest.fn()
         clientStream.on('data', onData)
         clientStream.on('error', onError)
-        clientStream.on('close', onStreamClose)
-        clientSocket.addEventListener('close', onSocketClose)
         serverSocket.send(encode(null))
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onData).not.toHaveBeenCalled()
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -146,21 +178,15 @@ describe.each([
                 name: 'TypeError',
             }),
         )
-        expect(onStreamClose).toHaveBeenCalledTimes(1)
-        expect(onSocketClose).toHaveBeenCalledTimes(1)
     })
 
     test('receive invalid TSON data', async () => {
         const onData = jest.fn()
         const onError = jest.fn()
-        const onStreamClose = jest.fn()
-        const onSocketClose = jest.fn()
         clientStream.on('data', onData)
         clientStream.on('error', onError)
-        clientStream.on('close', onStreamClose)
-        clientSocket.addEventListener('close', onSocketClose)
-        serverSocket.send(Buffer.allocUnsafe(0))
-        await whenClosed(clientSocket)
+        serverSocket.send(new ArrayBuffer(0))
+        await allClosed
         expect(onData).not.toHaveBeenCalled()
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -169,8 +195,6 @@ describe.each([
                 name: 'SyncOtError TSON',
             }),
         )
-        expect(onStreamClose).toHaveBeenCalledTimes(1)
-        expect(onSocketClose).toHaveBeenCalledTimes(1)
     })
 
     test('receive some data', async () => {
@@ -181,7 +205,7 @@ describe.each([
         serverSocket.send(encode(message1))
         serverSocket.send(encode(message2))
         serverSocket.close()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onData).toHaveBeenCalledTimes(2)
         expect(onData).toHaveBeenNthCalledWith(1, message1)
         expect(onData).toHaveBeenNthCalledWith(2, message2)
@@ -197,7 +221,7 @@ describe.each([
         serverSocket.addEventListener('message', onMessage)
         expect(clientSocket.readyState).toBe(ReadyState.CONNECTING)
         clientStream.write(invalidData, onWrite)
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(tsonErrorMatcher)
         expect(onWrite).toHaveBeenCalledTimes(1)
@@ -213,10 +237,10 @@ describe.each([
         invalidData.name = 5 as any // `error.name` must be a string.
         clientStream.on('error', onError)
         serverSocket.addEventListener('message', onMessage)
-        await whenOpen(clientSocket)
+        await allOpen
         expect(clientSocket.readyState).toBe(ReadyState.OPEN)
         clientStream.write(invalidData, onWrite)
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(tsonErrorMatcher)
         expect(onWrite).toHaveBeenCalledTimes(1)
@@ -232,11 +256,11 @@ describe.each([
         invalidData.name = 5 as any // `error.name` must be a string.
         clientStream.on('error', onError)
         serverSocket.addEventListener('message', onMessage)
-        await whenOpen(clientSocket)
+        await allOpen
         clientSocket.close()
         expect(clientSocket.readyState).toBe(ReadyState.CLOSING)
         clientStream.write(invalidData, onWrite)
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
         expect(onWrite).toHaveBeenCalledTimes(1)
@@ -252,9 +276,9 @@ describe.each([
         invalidData.name = 5 as any // `error.name` must be a string.
         clientStream.on('error', onError)
         serverSocket.addEventListener('message', onMessage)
-        await whenOpen(clientSocket)
+        await allOpen
         clientSocket.close()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(clientSocket.readyState).toBe(ReadyState.CLOSED)
         clientStream.write(invalidData, onWrite)
         await delay()
@@ -273,7 +297,7 @@ describe.each([
         expect(clientSocket.readyState).toBe(ReadyState.CONNECTING)
         clientStream.write(data, onWrite)
         clientStream.end()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith()
         expect(onMessage).toBeCalledTimes(1)
@@ -285,11 +309,11 @@ describe.each([
         const onMessage = jest.fn()
         const data = { key: 'value' }
         serverSocket.addEventListener('message', onMessage)
-        await whenOpen(clientSocket)
+        await allOpen
         expect(clientSocket.readyState).toBe(ReadyState.OPEN)
         clientStream.write(data, onWrite)
         clientStream.end()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith()
         expect(onMessage).toBeCalledTimes(1)
@@ -303,11 +327,11 @@ describe.each([
         const data = { key: 'value' }
         serverSocket.addEventListener('message', onMessage)
         clientStream.on('error', onError)
-        await whenOpen(clientSocket)
+        await allOpen
         clientSocket.close()
         expect(clientSocket.readyState).toBe(ReadyState.CLOSING)
         clientStream.write(data, onWrite)
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
         expect(onMessage).not.toBeCalled()
@@ -322,9 +346,9 @@ describe.each([
         const data = { key: 'value' }
         serverSocket.addEventListener('message', onMessage)
         clientStream.on('error', onError)
-        await whenOpen(clientSocket)
+        await allOpen
         clientSocket.close()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(clientSocket.readyState).toBe(ReadyState.CLOSED)
         clientStream.write(data, onWrite)
         await delay()
@@ -345,7 +369,7 @@ describe.each([
         clientStream.write(m2)
         clientStream.write(m3)
         clientStream.end()
-        await whenClosed(clientSocket)
+        await allClosed
         expect(onMessage).toHaveBeenCalledTimes(3)
         expect(decode(onMessage.mock.calls[0][0].data)).toEqual(m1)
         expect(decode(onMessage.mock.calls[1][0].data)).toEqual(m2)
@@ -359,7 +383,7 @@ describe.each([
         clientStream.write('message 2', onWrite)
         clientStream.write('message 3', onWrite)
         clientStream.end()
-        await whenClosed(clientSocket)
+        await allClosed
         // The first write failed, so nodejs cancelled the other 2 writes.
         expect(onWrite).toHaveBeenCalledTimes(3)
         expect(onWrite).toHaveBeenCalledWith()
@@ -374,7 +398,7 @@ describe.each([
         clientStream.write('message 2', onWrite)
         clientStream.write('message 3', onWrite)
         clientStream.destroy()
-        await whenClosed(clientSocket)
+        await allClosed
         // The first write failed, so nodejs cancelled the other 2 writes.
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
@@ -392,7 +416,7 @@ describe.each([
         clientStream.write('message 2', onWrite)
         clientStream.write('message 3', onWrite)
         clientStream.destroy(error)
-        await whenClosed(clientSocket)
+        await allClosed
         // The first write failed, so nodejs cancelled the other 2 writes.
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
@@ -410,7 +434,7 @@ describe.each([
         clientStream.write('message 2', onWrite)
         clientStream.write('message 3', onWrite)
         clientSocket.close()
-        await whenClosed(clientSocket)
+        await allClosed
         // The first write failed, so nodejs cancelled the other 2 writes.
         expect(onWrite).toHaveBeenCalledTimes(1)
         expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
@@ -424,8 +448,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         serverSocket.close()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -436,8 +459,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         clientSocket.close()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -448,8 +470,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         clientStream.end()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -460,8 +481,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         serverStream.end()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -472,8 +492,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         clientStream.destroy()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -484,8 +503,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         serverStream.destroy()
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
     })
@@ -499,8 +517,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         clientStream.destroy(error)
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledTimes(1)
@@ -516,8 +533,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         serverStream.destroy(error)
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledTimes(1)
@@ -533,8 +549,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         clientStream.emit('error', error)
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledTimes(1)
@@ -550,8 +565,7 @@ describe.each([
         clientStream.on('close', onClientStreamClose)
         serverStream.on('close', onServerStreamClose)
         serverStream.emit('error', error)
-        await whenClosed(clientSocket)
-        await whenClosed(serverSocket)
+        await allClosed
         expect(onClientStreamClose).toHaveBeenCalledTimes(1)
         expect(onServerStreamClose).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledTimes(1)
