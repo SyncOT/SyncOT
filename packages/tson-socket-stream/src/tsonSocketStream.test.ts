@@ -5,7 +5,7 @@
 import { decode, encode } from '@syncot/tson'
 import ws from 'ws'
 import { TsonSocket, TsonSocketStream } from '.'
-import { ReadyState } from './tson-socket-stream'
+import { ReadyState } from './tsonSocketStream'
 
 const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
 

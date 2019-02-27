@@ -1,1 +1,1 @@
-export { TsonSocket, TsonSocketStream } from './tson-socket-stream'
+export { TsonSocket, TsonSocketStream } from './tsonSocketStream'
