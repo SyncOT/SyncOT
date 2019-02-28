@@ -1,10 +1,9 @@
 {
-  "name": "@syncot/tson",
+  "name": "@syncot/util",
   "version": "0.0.0",
-  "description": "A typed, flexible and efficient binary (de)serializer.",
+  "description": "A collection of utilities required by other @syncot modules.",
   "keywords": [
-    "serialization",
-    "binary"
+    "util"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -20,10 +19,7 @@
     "url": "git+https://github.com/SyncOT/SyncOT.git"
   },
   "dependencies": {
-    "@syncot/error": "file:../error",
-    "@syncot/util": "file:../util",
     "@types/node": "^10.12.21",
-    "smart-buffer": "^4.0.2",
     "tslib": "^1.9.3"
   }
 }

@@ -45,6 +45,7 @@
     "@syncot/error": "file:packages/error",
     "@syncot/server": "file:packages/server",
     "@syncot/tson": "file:packages/tson",
-    "@syncot/tson-socket-stream": "file:packages/tson-socket-stream"
+    "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
+    "@syncot/util": "file:packages/util"
   }
 }

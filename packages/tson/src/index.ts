@@ -1,1 +1,1 @@
-export { encode, decode, toBuffer } from './tson'
+export { encode, decode } from './tson'

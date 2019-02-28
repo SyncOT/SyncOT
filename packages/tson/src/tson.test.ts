@@ -1,5 +1,6 @@
+import { toBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
-import { decode, encode, toBuffer } from '.'
+import { decode, encode } from '.'
 import { Type } from './tson'
 
 const errorMatcher = (message: string) =>
@@ -76,47 +77,6 @@ const testTypedArrays = [
 ]
 initBinaryTestData(testArrayBuffer)
 initBinaryTestData(testSharedArrayBuffer)
-
-describe('toBuffer', () => {
-    test('Buffer', () => {
-        const originalBuffer = Buffer.allocUnsafe(4)
-        const buffer = toBuffer(originalBuffer)
-        expect(buffer).toBe(originalBuffer)
-    })
-    test.each([[ArrayBuffer], [SharedArrayBuffer]])(
-        '%s',
-        arrayBufferConstructor => {
-            const arrayBuffer = new arrayBufferConstructor(4) as ArrayBuffer
-            const buffer = toBuffer(arrayBuffer)
-            expect(buffer).toBeInstanceOf(Buffer)
-            expect(buffer.buffer).toBe(arrayBuffer)
-            expect(buffer.byteOffset).toBe(0)
-            expect(buffer.byteLength).toBe(4)
-            expect(toBuffer(arrayBuffer)).toBe(buffer)
-        },
-    )
-    test.each([
-        [DataView],
-        [Int8Array],
-        [Uint8Array],
-        [Uint8ClampedArray],
-        [Int16Array],
-        [Uint16Array],
-        [Int32Array],
-        [Uint32Array],
-        [Float32Array],
-        [Float64Array],
-    ])('%s', viewConstructor => {
-        const arrayBuffer = new ArrayBuffer(128)
-        const view = new viewConstructor(arrayBuffer, 8, 2) as ArrayBufferView
-        const buffer = toBuffer(view)
-        expect(buffer).toBeInstanceOf(Buffer)
-        expect(buffer.buffer).toBe(arrayBuffer)
-        expect(buffer.byteOffset).toBe(view.byteOffset)
-        expect(buffer.byteLength).toBe(view.byteLength)
-        expect(toBuffer(view)).toBe(buffer)
-    })
-})
 
 describe('encode', () => {
     describe('unsupported type', () => {

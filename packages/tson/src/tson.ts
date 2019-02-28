@@ -1,4 +1,5 @@
 import { createTsonError } from '@syncot/error'
+import { BinaryType, toBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 
 /**
@@ -121,45 +122,6 @@ export const enum Type {
      * Encoding: `0x15 <string> <string> <plain-object-or-null>`.
      */
     ERROR,
-}
-
-const buffers = new WeakMap<ArrayBuffer | ArrayBufferView, Buffer>()
-
-type BinaryType = Buffer | ArrayBuffer | ArrayBufferView
-/**
- * Returns a `Buffer` sharing memory with the specified binary type.
- * It caches the params and the corresponding `Buffer`s in a `WeakMap` to
- * avoid unnecessary allocations.
- * @param binary A binary type.
- * @returns A `Buffer`.
- */
-export function toBuffer(binary: BinaryType): Buffer
-export function toBuffer(binary: any): Buffer | undefined
-export function toBuffer(binary: any): Buffer | undefined {
-    if (Buffer.isBuffer(binary)) {
-        return binary
-    }
-
-    let buffer = buffers.get(binary)
-
-    if (!buffer) {
-        if (
-            binary instanceof ArrayBuffer ||
-            binary instanceof SharedArrayBuffer
-        ) {
-            buffer = Buffer.from(binary)
-            buffers.set(binary, buffer)
-        } else if (ArrayBuffer.isView(binary)) {
-            buffer = Buffer.from(
-                binary.buffer,
-                binary.byteOffset,
-                binary.byteLength,
-            )
-            buffers.set(binary, buffer)
-        }
-    }
-
-    return buffer
 }
 
 const floatPrecisionTestingMemory = Buffer.allocUnsafeSlow(4)
