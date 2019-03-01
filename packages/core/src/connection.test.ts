@@ -20,7 +20,10 @@ const testErrorMatcher = expect.objectContaining({
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
-let instance: EventEmitter
+let instance: EventEmitter & {
+    testAction?: (..._args: any) => any
+    anotherAction?: (..._args: any) => any
+}
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 const errorMatcher = (errorName: string, errorMessage: string) =>
@@ -238,7 +241,7 @@ describe('service registration', () => {
         )
     })
     test('register with a missing action', () => {
-        ;(instance as any).testAction = () => null
+        instance.testAction = () => null
         expect(() =>
             connection.registerService({
                 actions: new Set(['testAction', 'anotherAction']),
@@ -253,8 +256,8 @@ describe('service registration', () => {
         )
     })
     test('register', () => {
-        ;(instance as any).anotherAction = () => null
-        ;(instance as any).testAction = () => null
+        instance.anotherAction = () => null
+        instance.testAction = () => null
         connection.registerService({
             actions: new Set(['testAction', 'anotherAction']),
             instance,
@@ -282,8 +285,8 @@ describe('service registration', () => {
         const actions = new Set(['testAction', 'anotherAction'])
         const anotherName = 'another-service'
         const anotherInstance = new EventEmitter()
-        ;(instance as any).anotherAction = () => null
-        ;(instance as any).testAction = () => null
+        instance.anotherAction = () => null
+        instance.testAction = () => null
         connection.registerService({
             actions,
             instance,
@@ -368,8 +371,8 @@ describe('proxy registration', () => {
         )
     })
     test('get registered services', () => {
-        ;(instance as any).testAction = expect.any(Function)
-        ;(instance as any).anotherAction = expect.any(Function)
+        instance.testAction = expect.any(Function)
+        instance.anotherAction = expect.any(Function)
         const actions = new Set(['testAction', 'anotherAction'])
         const anotherName = 'another-service'
         const anotherInstance = new EventEmitter()
@@ -719,15 +722,22 @@ describe('no service', () => {
 })
 
 describe('service and proxy', () => {
-    interface TestService extends Service, Proxy {
-        returnMethod(...args: JsonValue[]): Promise<JsonValue>
-        resolveMethod(...args: JsonValue[]): Promise<JsonValue>
-        throwErrorMethod(...args: JsonValue[]): Promise<JsonValue>
-        throwNonErrorMethod(...args: JsonValue[]): Promise<JsonValue>
-        rejectErrorMethod(...args: JsonValue[]): Promise<JsonValue>
-        rejectNonErrorMethod(...args: JsonValue[]): Promise<JsonValue>
+    interface TestService extends Service {
+        returnMethod: jest.Mock<JsonValue, JsonValue[]>
+        resolveMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
+        throwErrorMethod: jest.Mock<never, JsonValue[]>
+        throwNonErrorMethod: jest.Mock<never, JsonValue[]>
+        rejectErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        rejectNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
     }
-    type TestProxy = TestService
+    interface TestProxy extends Proxy {
+        returnMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
+        resolveMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
+        throwErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        throwNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        rejectErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        rejectNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+    }
     let proxy: TestProxy
     let service: TestService
     const serviceName = 'a-service'
@@ -746,17 +756,24 @@ describe('service and proxy', () => {
     }
 
     beforeEach(() => {
-        service = new EventEmitter() as TestService
-        service.returnMethod = jest.fn(() => 5 as any)
-        service.resolveMethod = jest.fn(() => Promise.resolve(5))
-        service.throwErrorMethod = jest.fn(() => {
-            throw error
+        service = Object.assign(new EventEmitter(), {
+            rejectErrorMethod: jest.fn((..._args: JsonValue[]) =>
+                Promise.reject(error),
+            ),
+            rejectNonErrorMethod: jest.fn((..._args: JsonValue[]) =>
+                Promise.reject(5),
+            ),
+            resolveMethod: jest.fn((..._args: JsonValue[]) =>
+                Promise.resolve(5),
+            ),
+            returnMethod: jest.fn((..._args: JsonValue[]) => 5),
+            throwErrorMethod: jest.fn((..._args: JsonValue[]) => {
+                throw error
+            }),
+            throwNonErrorMethod: jest.fn((..._args: JsonValue[]) => {
+                throw 5
+            }),
         })
-        service.throwNonErrorMethod = jest.fn(() => {
-            throw 5
-        })
-        service.rejectErrorMethod = jest.fn(() => Promise.reject(error))
-        service.rejectNonErrorMethod = jest.fn(() => Promise.reject(5))
         connection.connect(stream1)
         connection.registerService({
             actions,
@@ -864,10 +881,9 @@ describe('service and proxy', () => {
                 name: null,
                 type: MessageType.CALL_REPLY,
             })
-            const returnMethod = service.returnMethod as any
-            expect(returnMethod.mock.calls.length).toBe(1)
-            expect(returnMethod.mock.calls[0]).toEqual(params)
-            expect(returnMethod.mock.instances[0]).toBe(service)
+            expect(service.returnMethod.mock.calls.length).toBe(1)
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
+            expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
         test.each([
             [5],
@@ -880,7 +896,7 @@ describe('service and proxy', () => {
             [() => true],
             [Symbol()],
         ])('service returned value: %p', async value => {
-            ;(service.returnMethod as any).mockReturnValue(value)
+            service.returnMethod.mockReturnValue(value)
             const onData = jest.fn()
             stream2.on('data', onData)
             stream2.write(message)
@@ -901,12 +917,12 @@ describe('service and proxy', () => {
             const onData = jest.fn()
             const noop = () => undefined
             let resolvePromise: () => void = noop
-            const promise = new Promise(
+            const promise = new Promise<JsonValue>(
                 (resolve, _) => (resolvePromise = resolve),
             )
-            ;(service.returnMethod as any).mockReturnValue(promise)
+            service.resolveMethod.mockReturnValue(promise)
             stream2.on('data', onData)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'resolveMethod' })
             await delay()
             expect(resolvePromise).not.toBe(noop)
             connection.disconnect()
@@ -918,10 +934,12 @@ describe('service and proxy', () => {
             const onData = jest.fn()
             const noop = () => undefined
             let rejectPromise: (error: Error) => void = noop
-            const promise = new Promise((_, reject) => (rejectPromise = reject))
-            ;(service.returnMethod as any).mockReturnValue(promise)
+            const promise = new Promise<never>(
+                (_, reject) => (rejectPromise = reject),
+            )
+            service.rejectErrorMethod.mockReturnValue(promise)
             stream2.on('data', onData)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'rejectErrorMethod' })
             await delay()
             expect(rejectPromise).not.toBe(noop)
             connection.disconnect()
@@ -937,12 +955,12 @@ describe('service and proxy', () => {
             connection.on('error', onError)
             const noop = () => undefined
             let resolvePromise: () => void = noop
-            const promise = new Promise(
+            const promise = new Promise<JsonValue>(
                 (resolve, _) => (resolvePromise = resolve),
             )
-            ;(service.returnMethod as any).mockReturnValue(promise)
+            service.resolveMethod.mockReturnValue(promise)
             stream2.on('data', onData)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'resolveMethod' })
             await delay()
             expect(resolvePromise).not.toBe(noop)
             stream1.destroy()
@@ -967,10 +985,12 @@ describe('service and proxy', () => {
             connection.on('error', onError)
             const noop = () => undefined
             let rejectPromise: (error: Error) => void = noop
-            const promise = new Promise((_, reject) => (rejectPromise = reject))
-            ;(service.returnMethod as any).mockReturnValue(promise)
+            const promise = new Promise<never>(
+                (_, reject) => (rejectPromise = reject),
+            )
+            service.rejectErrorMethod.mockReturnValue(promise)
             stream2.on('data', onData)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'rejectErrorMethod' })
             await delay()
             expect(rejectPromise).not.toBe(noop)
             stream1.destroy()
@@ -991,13 +1011,15 @@ describe('service and proxy', () => {
             const onData1 = jest.fn()
             const onData2 = jest.fn()
             let resolvePromise: () => void = () => expect.fail('')
-            ;(service.returnMethod as any).mockReturnValue(
-                new Promise((resolve, _) => (resolvePromise = resolve)),
+            service.resolveMethod.mockReturnValue(
+                new Promise<JsonValue>(
+                    (resolve, _) => (resolvePromise = resolve),
+                ),
             )
             stream2.on('data', onData1)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'resolveMethod' })
             await delay()
-            expect(service.returnMethod).toHaveBeenCalledTimes(1)
+            expect(service.resolveMethod).toHaveBeenCalledTimes(1)
             connection.disconnect()
             ;[stream1, stream2] = invertedStreams({ objectMode: true })
             stream2.on('data', onData2)
@@ -1011,13 +1033,13 @@ describe('service and proxy', () => {
             const onData1 = jest.fn()
             const onData2 = jest.fn()
             let rejectPromise: (_: any) => void = () => expect.fail('')
-            ;(service.returnMethod as any).mockReturnValue(
-                new Promise((_, reject) => (rejectPromise = reject)),
+            service.rejectErrorMethod.mockReturnValue(
+                new Promise<never>((_, reject) => (rejectPromise = reject)),
             )
             stream2.on('data', onData1)
-            stream2.write(message)
+            stream2.write({ ...message, name: 'rejectErrorMethod' })
             await delay()
-            expect(service.returnMethod).toHaveBeenCalledTimes(1)
+            expect(service.rejectErrorMethod).toHaveBeenCalledTimes(1)
             connection.disconnect()
             ;[stream1, stream2] = invertedStreams({ objectMode: true })
             stream2.on('data', onData2)
@@ -1327,7 +1349,7 @@ describe('service and proxy', () => {
         })
 
         test('request, reply', async () => {
-            ;(service.returnMethod as any).mockResolvedValue(replyData)
+            service.returnMethod.mockReturnValue(replyData)
             await expect(proxy2.returnMethod(...params)).resolves.toEqual(
                 replyData,
             )
