@@ -10,6 +10,7 @@
     "jest": "^24.1.0",
     "jest-extended": "^0.11.1",
     "lerna": "^3.13.0",
+    "node-webcrypto-ossl": "^1.0.42",
     "prettier": "^1.16.4",
     "rimraf": "^2.6.3",
     "sockjs": "^0.3.19",
