@@ -1,7 +1,5 @@
 import { InvalidEntityError } from '@syncot/error'
 import { strict as assert } from 'assert'
-import { EventEmitter } from 'events'
-import { StrictEventEmitter } from 'strict-event-emitter-types'
 
 /**
  * A simple function which throws an error, when a theoretically unreachable code path is executed anyway.
@@ -54,11 +52,3 @@ export const validate = <T>(validators: Array<Validator<T>>) => (
  * See https://github.com/Microsoft/TypeScript/issues/471#issuecomment-381842426
  */
 export type Interface<T> = { [P in keyof T]: T[P] }
-
-/**
- * A strongly typed nodejs `EventEmitter`.
- */
-export type NodeEventEmitter<Events> = new () => StrictEventEmitter<
-    EventEmitter,
-    Events
->

@@ -3,6 +3,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
 } from '@syncot/error'
+import { NodeEventEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
@@ -10,7 +11,6 @@ import { JsonArray, JsonValue } from './json'
 import {
     assertUnreachable,
     Interface,
-    NodeEventEmitter,
     throwError,
     validate,
     Validator,
