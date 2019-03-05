@@ -45,6 +45,7 @@
     "@syncot/core": "file:packages/core",
     "@syncot/error": "file:packages/error",
     "@syncot/server": "file:packages/server",
+    "@syncot/session": "file:packages/session",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
     "@syncot/util": "file:packages/util"

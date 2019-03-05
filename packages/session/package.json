@@ -1,0 +1,26 @@
+{
+  "name": "@syncot/session",
+  "version": "0.0.0",
+  "description": "Interfaces and type definitions related to session management.",
+  "keywords": [
+    "interface",
+    "session"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "dependencies": {
+    "@syncot/util": "file:../util",
+    "tslib": "^1.9.3"
+  }
+}
