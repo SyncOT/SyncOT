@@ -4,7 +4,4 @@ import { StrictEventEmitter } from 'strict-event-emitter-types'
 /**
  * A strongly typed nodejs `EventEmitter`.
  */
-export type NodeEventEmitter<Events> = new () => StrictEventEmitter<
-    EventEmitter,
-    Events
->
+export type NodeEventEmitter<Events> = StrictEventEmitter<EventEmitter, Events>

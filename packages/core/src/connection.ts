@@ -191,7 +191,9 @@ const validateMessage: Validator<Message> = validate([
     },
 ])
 
-class ConnectionImpl extends (EventEmitter as NodeEventEmitter<Events>) {
+class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
+    Events
+>) {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()

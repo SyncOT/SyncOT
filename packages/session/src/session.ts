@@ -7,7 +7,10 @@ import { NodeEventEmitter } from '@syncot/util'
  */
 export type SessionId = ArrayBuffer
 
-interface Events {
+/**
+ * Events emitted by `SessionManager`.
+ */
+export interface SessionEvents {
     error: Error
     sessionOpen: SessionId
     sessionActive: SessionId
@@ -27,7 +30,7 @@ interface Events {
  *
  *   - `SyncOtError Session`: A session-related error occurred.
  */
-export interface SessionManager extends NodeEventEmitter<Events> {
+export interface SessionManager extends NodeEventEmitter<SessionEvents> {
     /**
      * Returns the ID of the current session, or `undefined`, if there's no session.
      */
