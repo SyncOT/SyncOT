@@ -16,16 +16,22 @@ class CryptoSessionManager
 
     public constructor(private readonly connection: Connection) {
         super()
+        this.connection.on('connect', () => {
+            //
+        })
+        this.connection.on('disconnect', () => {
+            this.sessionId = undefined
+        })
     }
 
     public async submitPublicKey(
-        publicKey: any,
-        sessionId: SessionId,
+        _publicKey: any,
+        _sessionId: SessionId,
     ): Promise<Challenge> {
         return new ArrayBuffer(0)
     }
 
-    public async initSession(challangeReply: ChallengeReply): Promise<void> {
+    public async initSession(_challangeReply: ChallengeReply): Promise<void> {
         return
     }
 

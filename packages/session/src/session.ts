@@ -12,23 +12,20 @@ export type SessionId = ArrayBuffer
  */
 export interface SessionEvents {
     error: Error
-    sessionOpen: SessionId
-    sessionActive: SessionId
-    sessionInactive: SessionId
-    sessionClose: SessionId
+    sessionOpen: void
+    sessionActive: void
+    sessionInactive: void
+    sessionClose: void
 }
 
 /**
  * Manages a session on the client or server side.
  *
- * @event sessionOpen Emitted when an existing session is loaded or a new session created.
- * @event sessionActive Emitted when a session is activated between a client and a server.
- * @event sessionInactive Emitted when a session is deactivated between a client and a server.
- * @event sessionClose Emitted when a session is closed.
- * @event error Emitted when a session related error occurs. The system will attempt to recover
- *   automatically as soon as possible. The following errors may be emitted:
- *
- *   - `SyncOtError Session`: A session-related error occurred.
+ * @event sessionOpen An existing session has been loaded or a new session created.
+ * @event sessionActive A session has been activated between a client and a server.
+ * @event sessionInactive A session has been deactivated between a client and a server.
+ * @event sessionClose A session has been closed.
+ * @event error A session-related error has occurred. The system will attempt to recover automatically.
  */
 export interface SessionManager extends NodeEventEmitter<SessionEvents> {
     /**

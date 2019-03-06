@@ -2,10 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "rootDir": "./src",
-    "outDir": "./lib"
+    "outDir": "./lib",
+    "lib": ["es2018", "dom"]
   },
   "references": [
     { "path": "../core" },
+    { "path": "../error" },
     { "path": "../session" },
     { "path": "../util" }
   ]
