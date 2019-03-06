@@ -2,6 +2,7 @@ import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
 import { NodeEventEmitter } from '@syncot/util'
+import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 
 type Challenge = ArrayBuffer
@@ -11,7 +12,10 @@ type ChallengeReply = ArrayBuffer
  * The interface of the server-side session manager used for establishing a session.
  */
 interface SessionService extends NodeEventEmitter<{}> {
-    submitPublicKey(publicKey: any, sessionId: SessionId): Promise<Challenge>
+    submitPublicKey(
+        publicKeyPem: string,
+        sessionId: SessionId,
+    ): Promise<Challenge>
     initSession(challangeReply: ChallengeReply): Promise<void>
 }
 
@@ -21,6 +25,7 @@ interface SessionService extends NodeEventEmitter<{}> {
 class CryptoSessionManager
     extends (EventEmitter as new () => NodeEventEmitter<SessionEvents>)
     implements SessionManager {
+    private destroyed: boolean = false
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKeyPem: string | undefined = undefined
     private sessionId: SessionId | undefined = undefined
@@ -37,22 +42,9 @@ class CryptoSessionManager
             'session',
         ) as SessionService
 
-        this.generateKey().then(
-            () => {
-                this.emit('sessionOpen')
-            },
-            error => {
-                this.emit(
-                    'error',
-                    createSessionError('Failed to generate a key pair.', error),
-                )
-            },
-        )
-
-        // TODO Remove - these are here only temporarily to avoid TypeScript "unread variable" errors.
-        this.sessionService = this.sessionService
-        this.keyPair = this.keyPair
-        this.publicKeyPem = this.publicKeyPem
+        this.openSession()
+            .then(() => this.init())
+            .catch(error => this.emitError(error))
     }
 
     public getSessionId(): SessionId | undefined {
@@ -68,30 +60,77 @@ class CryptoSessionManager
     }
 
     public destroy(): void {
-        return
+        this.connection.off('connect', this.onConnect)
+        this.connection.off('disconnect', this.onDisconnect)
+        this.destroyed = true
     }
 
-    private async generateKey(): Promise<void> {
-        const keyPair = await crypto.subtle.generateKey(
-            {
-                hash: 'SHA-256',
-                modulusLength: 4096,
-                name: 'RSASSA-PKCS1-v1_5',
-                publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
-            },
-            false,
-            ['sign', 'verify'],
-        )
-        const publicKeySpki = await crypto.subtle.exportKey(
-            'spki',
-            keyPair.publicKey,
-        )
-        const publicKeyPem = this.spkiToPem(publicKeySpki)
-        const sessionId = await this.pemToSessionId(publicKeyPem)
+    private init(): void {
+        this.assertNotDestroyed()
+        this.connection.on('connect', this.onConnect)
+        this.connection.on('disconnect', this.onDisconnect)
+        if (this.connection.isConnected()) {
+            this.activateSession()
+        }
+    }
 
-        this.keyPair = keyPair
-        this.publicKeyPem = publicKeyPem
-        this.sessionId = sessionId
+    private onConnect = () => {
+        this.activateSession()
+    }
+
+    private onDisconnect = () => {
+        if (this.active) {
+            this.active = false
+            this.emit('sessionInactive')
+        }
+    }
+
+    private activateSession(): void {
+        assert.equal(
+            typeof this.publicKeyPem,
+            'string',
+            'Property "publicKeyPem" should be a string.',
+        )
+        assert.ok(
+            this.sessionId instanceof ArrayBuffer,
+            'Property "sessionId" should be an ArrayBuffer.',
+        )
+
+        this.sessionService
+            .submitPublicKey(this.publicKeyPem!, this.sessionId!)
+            // TODO implement
+            .then()
+    }
+
+    private async openSession(): Promise<void> {
+        try {
+            const keyPair = await crypto.subtle.generateKey(
+                {
+                    hash: 'SHA-256',
+                    modulusLength: 4096,
+                    name: 'RSASSA-PKCS1-v1_5',
+                    publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                },
+                false,
+                ['sign', 'verify'],
+            )
+            const publicKeySpki = await crypto.subtle.exportKey(
+                'spki',
+                keyPair.publicKey,
+            )
+            const publicKeyPem = this.spkiToPem(publicKeySpki)
+            const sessionId = await this.pemToSessionId(publicKeyPem)
+
+            this.assertNotDestroyed()
+            this.assertNoSession()
+            this.keyPair = keyPair
+            this.publicKeyPem = publicKeyPem
+            this.sessionId = sessionId
+        } catch (error) {
+            throw createSessionError('Failed to open a session.', error)
+        }
+
+        this.emit('sessionOpen')
     }
 
     private spkiToPem(publicKey: ArrayBuffer): string {
@@ -124,6 +163,44 @@ class CryptoSessionManager
             buffer.byteOffset,
             buffer.byteOffset + buffer.byteLength,
         )
+    }
+
+    /**
+     * Throws an error, if a session already exists.
+     */
+    private assertNoSession(): void {
+        assert.equal(
+            this.keyPair,
+            undefined,
+            'Session already exists (keyPair).',
+        )
+        assert.equal(
+            this.publicKeyPem,
+            undefined,
+            'Session already exists (publicKeyPem).',
+        )
+        assert.equal(
+            this.sessionId,
+            undefined,
+            'Session already exists (sessionId).',
+        )
+    }
+
+    /**
+     * Throws an error, if this SessionManager has been already destroyed.
+     */
+    private assertNotDestroyed(): void {
+        assert.equal(this.destroyed, false, 'SessionManager already destroyed.')
+    }
+
+    /**
+     * Emits an error event with the specified error,
+     * unless this SessionManager has been already destroyed.
+     */
+    private emitError(error: Error): void {
+        if (!this.destroyed) {
+            this.emit('error', error)
+        }
     }
 }
 
