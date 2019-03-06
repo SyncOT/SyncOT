@@ -4,6 +4,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createSessionError,
     createSocketClosedError,
     createSyncOtError,
     createTsonError,
@@ -16,6 +17,7 @@ import {
     isInvalidEntityError,
     isNoServiceError,
     isNotInitializedError,
+    isSessionError,
     isSocketClosedError,
     isSyncOtError,
     isTsonError,
@@ -511,5 +513,40 @@ describe('createSocketClosedError', () => {
     test('not a SocketClosedError', () => {
         expect(isSocketClosedError(new Error())).toBeFalse()
         expect(isSocketClosedError({})).toBeFalse()
+    })
+})
+
+describe('createSessionError', () => {
+    test('invalid message', () => {
+        expect(() => createSessionError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createSessionError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Session')
+        expect(error.message).toBe('test')
+        expect(error.cause).toBe(undefined)
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSessionError(error)).toBeTrue()
+    })
+    test('not a SessionError', () => {
+        expect(isSessionError(new Error())).toBeFalse()
+        expect(isSessionError({})).toBeFalse()
+    })
+    test('with cause', () => {
+        const cause = new Error('Test cause!')
+        const error = createSessionError('Test message.', cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Session')
+        expect(error.message).toBe('Test message. => Error: Test cause!')
+        expect(error.toString()).toBe(
+            'SyncOtError Session: Test message. => Error: Test cause!',
+        )
+        expect(error.cause).toBe(cause)
     })
 })

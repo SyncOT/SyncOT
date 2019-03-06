@@ -320,3 +320,18 @@ export function createSocketClosedError(
 export function isSocketClosedError(error: any): error is SocketClosedError {
     return error instanceof Error && error.name === 'SyncOtError SocketClosed'
 }
+
+export interface SessionError extends Error {
+    cause?: Error
+    name: 'SyncOtError Session'
+}
+export function createSessionError(
+    message: string,
+    cause?: Error,
+): SessionError {
+    assertString('message', message)
+    return createSyncOtError('Session', message, cause) as SessionError
+}
+export function isSessionError(error: any): error is SessionError {
+    return error instanceof Error && error.name === 'SyncOtError Session'
+}
