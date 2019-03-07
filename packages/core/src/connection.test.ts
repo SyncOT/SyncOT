@@ -1,9 +1,9 @@
+import { invertedStreams } from '@syncot/util'
 import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import {
     Connection,
     createConnection,
-    invertedStreams,
     JsonValue,
     Message,
     MessageType,

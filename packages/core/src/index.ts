@@ -1,5 +1,4 @@
 export * from './connection'
-export * from './invertedStreams'
 export * from './json'
 export * from './messageBus'
 export * from './type'
