@@ -2,8 +2,14 @@ import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
 import { NodeEventEmitter } from '@syncot/util'
-import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
+
+/**
+ * Creates a client-side cryptographic session manager on the specified connection.
+ */
+export function createSessionManager(connection: Connection): SessionManager {
+    return new CryptoSessionManager(connection)
+}
 
 type Challenge = ArrayBuffer
 type ChallengeReply = ArrayBuffer
@@ -12,11 +18,29 @@ type ChallengeReply = ArrayBuffer
  * The interface of the server-side session manager used for establishing a session.
  */
 interface SessionService extends NodeEventEmitter<{}> {
-    submitPublicKey(
+    getChallenge(): Promise<Challenge>
+    activateSession(
         publicKeyPem: string,
         sessionId: SessionId,
-    ): Promise<Challenge>
-    initSession(challangeReply: ChallengeReply): Promise<void>
+        challangeReply: ChallengeReply,
+    ): Promise<void>
+}
+
+/**
+ * Converts the specified public key in the SPKI format to the PEM format.
+ * @param publicKey A public key in the SPKI format.
+ * @returns A public key in the PEM format.
+ */
+function spkiToPem(publicKey: ArrayBuffer): string {
+    let pem = '-----BEGIN PUBLIC KEY-----\n'
+    const key = Buffer.from(publicKey).toString('base64')
+
+    for (let i = 0, l = key.length; i < l; i += 64) {
+        pem += key.substring(i, i + 64) + '\n'
+    }
+
+    pem += '-----END PUBLIC KEY-----'
+    return pem
 }
 
 /**
@@ -25,6 +49,7 @@ interface SessionService extends NodeEventEmitter<{}> {
 class CryptoSessionManager
     extends (EventEmitter as new () => NodeEventEmitter<SessionEvents>)
     implements SessionManager {
+    private connectionNumber: number = 0
     private destroyed: boolean = false
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKeyPem: string | undefined = undefined
@@ -34,17 +59,16 @@ class CryptoSessionManager
 
     public constructor(private readonly connection: Connection) {
         super()
+
         this.connection.registerProxy({
-            actions: new Set(['submitPublicKey', 'initSession']),
+            actions: new Set(['getChallenge', 'activateSession']),
             name: 'session',
         })
         this.sessionService = this.connection.getProxy(
             'session',
         ) as SessionService
 
-        this.openSession()
-            .then(() => this.init())
-            .catch(error => this.emitError(error))
+        this.init()
     }
 
     public getSessionId(): SessionId | undefined {
@@ -60,49 +84,32 @@ class CryptoSessionManager
     }
 
     public destroy(): void {
+        if (this.destroyed) {
+            return
+        }
         this.connection.off('connect', this.onConnect)
         this.connection.off('disconnect', this.onDisconnect)
+        this.keyPair = undefined
+        this.publicKeyPem = undefined
+        this.sessionId = undefined
+        this.active = false
         this.destroyed = true
-    }
-
-    private init(): void {
-        this.assertNotDestroyed()
-        this.connection.on('connect', this.onConnect)
-        this.connection.on('disconnect', this.onDisconnect)
-        if (this.connection.isConnected()) {
-            this.activateSession()
-        }
+        this.emit('destroy')
     }
 
     private onConnect = () => {
+        this.connectionNumber++
         this.activateSession()
     }
 
     private onDisconnect = () => {
-        if (this.active) {
+        if (!this.destroyed && this.active) {
             this.active = false
             this.emit('sessionInactive')
         }
     }
 
-    private activateSession(): void {
-        assert.equal(
-            typeof this.publicKeyPem,
-            'string',
-            'Property "publicKeyPem" should be a string.',
-        )
-        assert.ok(
-            this.sessionId instanceof ArrayBuffer,
-            'Property "sessionId" should be an ArrayBuffer.',
-        )
-
-        this.sessionService
-            .submitPublicKey(this.publicKeyPem!, this.sessionId!)
-            // TODO implement
-            .then()
-    }
-
-    private async openSession(): Promise<void> {
+    private async init(): Promise<void> {
         try {
             const keyPair = await crypto.subtle.generateKey(
                 {
@@ -114,99 +121,99 @@ class CryptoSessionManager
                 false,
                 ['sign', 'verify'],
             )
-            const publicKeySpki = await crypto.subtle.exportKey(
+            const spki = await crypto.subtle.exportKey(
                 'spki',
                 keyPair.publicKey,
             )
-            const publicKeyPem = this.spkiToPem(publicKeySpki)
-            const sessionId = await this.pemToSessionId(publicKeyPem)
+            const publicKeyPem = spkiToPem(spki)
+            const publicKeyHash = await crypto.subtle.digest(
+                'SHA-256',
+                Buffer.from(publicKeyPem),
+            )
+            // Keeping only some of the SHA-256 bits is safe.
+            // See https://crypto.stackexchange.com/questions/3153/sha-256-vs-any-256-bits-of-sha-512-which-is-more-secure/3156#3156
+            //
+            // 16 bytes (128 bits) are sufficient to avoid accidental session ID collisions.
+            //
+            // Collision attacks on the session ID are not feasible because session IDs are
+            // derived from public keys and the server verifies that the clients know the
+            // corresponding private keys. So, the session IDs are essentially as secure as
+            // the corresponding private keys, which are generated in the browser and are
+            // not exportable.
+            const shortHash = Buffer.from(publicKeyHash).slice(0, 16)
+            const sessionId = shortHash.buffer.slice(
+                shortHash.byteOffset,
+                shortHash.byteOffset + shortHash.byteLength,
+            )
 
-            this.assertNotDestroyed()
-            this.assertNoSession()
+            if (this.destroyed) {
+                return
+            }
+
             this.keyPair = keyPair
             this.publicKeyPem = publicKeyPem
             this.sessionId = sessionId
         } catch (error) {
-            throw createSessionError('Failed to open a session.', error)
+            if (!this.destroyed) {
+                this.emit(
+                    'error',
+                    createSessionError('Failed to open a session.', error),
+                )
+                this.destroy()
+            }
+            return
+        }
+
+        this.connection.on('connect', this.onConnect)
+        this.connection.on('disconnect', this.onDisconnect)
+        if (this.connection.isConnected()) {
+            this.activateSession()
         }
 
         this.emit('sessionOpen')
     }
 
-    private spkiToPem(publicKey: ArrayBuffer): string {
-        let pem = '-----BEGIN PUBLIC KEY-----\n'
-        const key = Buffer.from(publicKey).toString('base64')
-
-        for (let i = 0, l = key.length; i < l; i += 64) {
-            pem += key.substring(i, i + 64) + '\n'
+    private async activateSession(): Promise<void> {
+        if (this.destroyed || !this.connection.isConnected()) {
+            return
         }
 
-        pem += '-----END PUBLIC KEY-----'
-        return pem
-    }
+        const connectionNumber = this.connectionNumber
 
-    private async pemToSessionId(pem: string): Promise<SessionId> {
-        const hash = await crypto.subtle.digest('SHA-256', Buffer.from(pem))
+        try {
+            const challenge = await this.sessionService.getChallenge()
+            const challengeReply = await crypto.subtle.sign(
+                'RSASSA-PKCS1-v1_5',
+                this.keyPair!.privateKey,
+                challenge,
+            )
+            await this.sessionService.activateSession(
+                this.publicKeyPem!,
+                this.sessionId!,
+                challengeReply,
+            )
+        } catch (error) {
+            if (
+                !this.destroyed &&
+                this.connection.isConnected() &&
+                this.connectionNumber === connectionNumber
+            ) {
+                this.emit(
+                    'error',
+                    createSessionError('Failed to activate session.', error),
+                )
+            }
+            return
+        }
 
-        // Keeping only some of the SHA-256 bits is safe.
-        // See https://crypto.stackexchange.com/questions/3153/sha-256-vs-any-256-bits-of-sha-512-which-is-more-secure/3156#3156
-        //
-        // 16 bytes (128 bits) are sufficient to avoid accidental session ID collisions.
-        //
-        // Collision attacks on the session ID are not feasible because session IDs are
-        // derived from public keys and the server verifies that the clients know the
-        // corresponding private keys. So, the session IDs are essentially as secure as
-        // the corresponding private keys, which are generated in the browser and are
-        // not exportable.
-        const buffer = Buffer.from(hash).slice(0, 16)
-        return buffer.buffer.slice(
-            buffer.byteOffset,
-            buffer.byteOffset + buffer.byteLength,
-        )
-    }
-
-    /**
-     * Throws an error, if a session already exists.
-     */
-    private assertNoSession(): void {
-        assert.equal(
-            this.keyPair,
-            undefined,
-            'Session already exists (keyPair).',
-        )
-        assert.equal(
-            this.publicKeyPem,
-            undefined,
-            'Session already exists (publicKeyPem).',
-        )
-        assert.equal(
-            this.sessionId,
-            undefined,
-            'Session already exists (sessionId).',
-        )
-    }
-
-    /**
-     * Throws an error, if this SessionManager has been already destroyed.
-     */
-    private assertNotDestroyed(): void {
-        assert.equal(this.destroyed, false, 'SessionManager already destroyed.')
-    }
-
-    /**
-     * Emits an error event with the specified error,
-     * unless this SessionManager has been already destroyed.
-     */
-    private emitError(error: Error): void {
-        if (!this.destroyed) {
-            this.emit('error', error)
+        if (
+            !this.destroyed &&
+            this.connection.isConnected() &&
+            this.connectionNumber === connectionNumber &&
+            !this.active
+        ) {
+            this.active = true
+            this.emit('sessionActive')
         }
     }
-}
-
-/**
- * Creates a client-side cryptographic session manager on the specified connection.
- */
-export function createSessionManager(connection: Connection): SessionManager {
-    return new CryptoSessionManager(connection)
 }

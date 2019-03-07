@@ -24,14 +24,15 @@ class CryptoSessionManager
         })
     }
 
-    public async submitPublicKey(
-        _publicKey: any,
-        _sessionId: SessionId,
-    ): Promise<Challenge> {
+    public async getChallenge(): Promise<Challenge> {
         return new ArrayBuffer(0)
     }
 
-    public async initSession(_challangeReply: ChallengeReply): Promise<void> {
+    public async activateSession(
+        _publicKeyPem: string,
+        _sessionId: SessionId,
+        _challangeReply: ChallengeReply,
+    ): Promise<void> {
         return
     }
 

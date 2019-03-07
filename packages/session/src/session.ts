@@ -11,11 +11,12 @@ export type SessionId = ArrayBuffer
  * Events emitted by `SessionManager`.
  */
 export interface SessionEvents {
-    error: Error
     sessionOpen: void
     sessionActive: void
     sessionInactive: void
     sessionClose: void
+    error: Error
+    destroy: void
 }
 
 /**
@@ -26,6 +27,7 @@ export interface SessionEvents {
  * @event sessionInactive A session has been deactivated between a client and a server.
  * @event sessionClose A session has been closed.
  * @event error A session-related error has occurred. The system will attempt to recover automatically.
+ * @event destroy The SessionManager has been destroyed.
  */
 export interface SessionManager extends NodeEventEmitter<SessionEvents> {
     /**
