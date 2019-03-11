@@ -174,10 +174,6 @@ class CryptoSessionManager
     }
 
     private async activateSession(): Promise<void> {
-        if (this.destroyed || !this.connection.isConnected()) {
-            return
-        }
-
         const connectionNumber = this.connectionNumber
 
         try {
