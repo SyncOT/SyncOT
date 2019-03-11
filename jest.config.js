@@ -7,6 +7,7 @@ module.exports = {
                 name,
                 displayName: name,
                 preset: 'ts-jest',
+                setupFiles: ['<rootDir>/scripts/jestSetUp'],
                 setupFilesAfterEnv: ['jest-extended'],
                 moduleNameMapper: {
                     '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',

@@ -68,7 +68,7 @@ class CryptoSessionManager
             'session',
         ) as SessionService
 
-        this.init()
+        Promise.resolve().then(() => this.init())
     }
 
     public getSessionId(): SessionId | undefined {
