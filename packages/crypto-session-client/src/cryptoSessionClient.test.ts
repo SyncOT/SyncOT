@@ -135,7 +135,12 @@ test('error', async () => {
         sessionManager.on('sessionOpen', onSessionOpen)
         await promise
         expect(onError).toHaveBeenCalledTimes(1)
-        // TODO check onError
+        expect(onError.mock.calls[0][0]).toBeInstanceOf(Error)
+        expect(onError.mock.calls[0][0].name).toBe('SyncOtError Session')
+        expect(onError.mock.calls[0][0].message).toBe(
+            "Failed to open a session. => TypeError: Cannot read property 'subtle' of undefined",
+        )
+        expect(onError.mock.calls[0][0].cause).toBeInstanceOf(TypeError)
         expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(onDestroy).toHaveBeenCalledAfter(onError)
         expect(onSessionOpen).not.toHaveBeenCalled()
@@ -144,7 +149,6 @@ test('error', async () => {
     }
 })
 test('destroy then error', async () => {
-    sessionManager.destroy()
     // The only way I can imagine SessionManager failing before
     // sessionOpen is if the WebCrypto API is not properly supported
     // in the target environment, so we emulate it here in a crude way.
@@ -157,9 +161,10 @@ test('destroy then error', async () => {
         sessionManager.on('error', onError)
         sessionManager.on('destroy', onDestroy)
         sessionManager.on('sessionOpen', onSessionOpen)
-        delay()
+        sessionManager.destroy()
+        await delay()
         expect(onError).not.toHaveBeenCalled()
-        expect(onDestroy).not.toHaveBeenCalled()
+        expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(onSessionOpen).not.toHaveBeenCalled()
     } finally {
         ;(window as any).crypto = crypto
@@ -174,12 +179,15 @@ test('create twice on the same connection', () => {
     )
 })
 test('disconnect', async () => {
+    const onSessionInactive = jest.fn()
+    sessionManager.on('sessionInactive', onSessionInactive)
     clientConnection.disconnect()
     await new Promise(resolve => sessionManager.on('sessionOpen', resolve))
     expect(sessionManager.hasSession()).toBeTrue()
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(sessionManager.getSessionId()).toBeInstanceOf(ArrayBuffer)
     expect(Buffer.from(sessionManager.getSessionId()!).length).toBe(16)
+    expect(onSessionInactive).not.toBeCalled()
 })
 
 describe('sessionOpen', () => {
@@ -193,6 +201,26 @@ describe('sessionOpen', () => {
         expect(sessionManager.getSessionId()).toBeInstanceOf(ArrayBuffer)
         expect(Buffer.from(sessionManager.getSessionId()!).length).toBe(16)
     })
+    test('disconnect', async () => {
+        const onSessionInactive = jest.fn()
+        sessionManager.on('sessionInactive', onSessionInactive)
+        clientConnection.disconnect()
+        await delay()
+        expect(onSessionInactive).not.toBeCalled()
+    })
+    test('disconnect, connect', async () => {
+        const onSessionActive = jest.fn()
+        const onSessionInactive = jest.fn()
+        sessionManager.on('sessionActive', onSessionActive)
+        sessionManager.on('sessionInactive', onSessionInactive)
+        clientConnection.disconnect()
+        serverConnection.disconnect()
+        await delay()
+        await connect()
+        expect(onSessionActive).toBeCalledTimes(1)
+        expect(onSessionInactive).not.toBeCalled()
+        expect(sessionManager.hasActiveSession()).toBeTrue()
+    })
     test('destroy', () => {
         const onDestroy = jest.fn()
         sessionManager.on('destroy', onDestroy)
@@ -204,6 +232,21 @@ describe('sessionOpen', () => {
         expect(sessionManager.hasSession()).toBeFalse()
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(sessionManager.getSessionId()).toBeUndefined()
+    })
+    test('destroy then error', async () => {
+        await delay()
+        sessionService.activateSession.mockRejectedValueOnce(testError)
+        const onError = jest.fn()
+        const onDestroy = jest.fn()
+        const onSessionOpen = jest.fn()
+        sessionManager.on('error', onError)
+        sessionManager.on('destroy', onDestroy)
+        sessionManager.on('sessionOpen', onSessionOpen)
+        sessionManager.destroy()
+        await delay()
+        expect(onError).not.toHaveBeenCalled()
+        expect(onDestroy).toHaveBeenCalledTimes(1)
+        expect(onSessionOpen).not.toHaveBeenCalled()
     })
 
     describe('sessionActive', () => {
