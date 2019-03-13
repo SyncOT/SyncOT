@@ -45,3 +45,31 @@ export function toBuffer(binary: any): Buffer | undefined {
 
     return buffer
 }
+
+/**
+ * If given an ArrayBuffer or SharedArrayBuffer, returns it unchanged.
+ * If given a Buffer, DataView or a Typed Array,
+ * returns a new ArrayBuffer with data copied from the `binary` parameter.
+ * Otherwise returns undefined.
+ */
+export function toArrayBuffer(binary: BinaryType): ArrayBuffer
+export function toArrayBuffer(binary: any): ArrayBuffer | undefined
+export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
+    if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
+        return binary
+    } else if (ArrayBuffer.isView(binary) || Buffer.isBuffer(binary)) {
+        return binary.buffer.slice(
+            binary.byteOffset,
+            binary.byteOffset + binary.byteLength,
+        )
+    } else {
+        return undefined
+    }
+}
+
+/**
+ * Returns true, if the two binary objects contain the same data, otherwise returns false.
+ */
+export function binaryEqual(binary1: BinaryType, binary2: BinaryType): boolean {
+    return toBuffer(binary1).compare(toBuffer(binary2)) === 0
+}
