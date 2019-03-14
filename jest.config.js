@@ -28,6 +28,7 @@ module.exports = {
         '<rootDir>/packages/*/src/**/*.{ts,tsx,js,jsx}',
         '!<rootDir>/packages/*/src/**/*.test.{ts,tsx,js,jsx}',
         '!<rootDir>/packages/*/src/**/*Tests.{ts,tsx,js,jsx}',
+        '!<rootDir>/**/*.d.{ts,tsx,js,jsx}',
         '!<rootDir>/node_modules/',
     ],
 }
