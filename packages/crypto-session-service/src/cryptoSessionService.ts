@@ -1,9 +1,9 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
-import { NodeEventEmitter, toBuffer } from '@syncot/util'
+import { binaryEqual, NodeEventEmitter, toBuffer } from '@syncot/util'
 import { strict as assert } from 'assert'
-import { createHash, createVerify } from 'crypto'
+import { createHash, createPublicKey, createVerify } from 'crypto'
 import { EventEmitter } from 'events'
 
 type Challenge = ArrayBuffer
@@ -48,7 +48,7 @@ class CryptoSessionManager
     }
 
     public activateSession(
-        publicKeyPem: string,
+        publicKeyDer: ArrayBuffer,
         sessionId: SessionId,
         challangeReply: ChallengeReply,
     ): void {
@@ -59,20 +59,21 @@ class CryptoSessionManager
             throw createSessionError('Session already exists.')
         }
 
+        const publicKey = createPublicKey({
+            format: 'der',
+            key: toBuffer(publicKeyDer),
+            type: 'spki',
+        })
+
         const verify = createVerify('SHA256')
         verify.update(toBuffer(this.challenge))
-        if (!verify.verify(publicKeyPem, Buffer.from(challangeReply))) {
+        if (!verify.verify(publicKey, toBuffer(challangeReply))) {
             throw createSessionError('Invalid challenge reply.')
         }
 
         const hash = createHash('SHA256')
-        hash.update(Buffer.from(publicKeyPem))
-        if (
-            hash
-                .digest()
-                .slice(0, 16)
-                .compare(toBuffer(sessionId)) !== 0
-        ) {
+        hash.update(toBuffer(publicKeyDer))
+        if (!binaryEqual(hash.digest().slice(0, 16), sessionId)) {
             throw createSessionError('Invalid session ID.')
         }
 

@@ -1,4 +1,4 @@
-import { toBuffer } from '@syncot/util'
+import { binaryEqual, toArrayBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 import { decode, encode } from '.'
 import { Type } from './tson'
@@ -1164,7 +1164,7 @@ describe('decode', () => {
             const data = Buffer.allocUnsafe(length).fill(0x46)
             const output = decode(encode(data)) as ArrayBuffer
             expect(output).toBeInstanceOf(ArrayBuffer)
-            expect(toBuffer(output).compare(data)).toBe(0)
+            expect(binaryEqual(output, data)).toBeTrue()
         },
     )
 
@@ -1174,10 +1174,7 @@ describe('decode', () => {
         smartBuffer.writeInt32LE(0)
         smartBuffer.writeInt32LE(0)
         const buffer = smartBuffer.toBuffer()
-        const arrayBuffer = buffer.buffer.slice(
-            buffer.byteOffset,
-            buffer.byteOffset + buffer.byteLength,
-        )
+        const arrayBuffer = toArrayBuffer(buffer)
         expect(arrayBuffer.byteLength).toBe(9)
         expect(() => decode(arrayBuffer)).toThrow(
             errorMatcher('Cannot decode a 64-bit integer.'),

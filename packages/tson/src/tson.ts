@@ -1,5 +1,5 @@
 import { createTsonError } from '@syncot/error'
-import { BinaryType, toBuffer } from '@syncot/util'
+import { BinaryType, toArrayBuffer, toBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 
 /**
@@ -170,10 +170,7 @@ export function encode(data: any): ArrayBuffer {
         // Both `buffer` and `smartBuffer` reference the same data.
         const buffer = smartBuffer.toBuffer()
         // Copy the encoded data into a new ArrayBuffer and return it.
-        return buffer.buffer.slice(
-            buffer.byteOffset,
-            buffer.byteOffset + buffer.byteLength,
-        )
+        return toArrayBuffer(buffer)
     } finally {
         encoding = false
     }
@@ -432,30 +429,21 @@ function decodeAny(
             const length = buffer.readUInt8()
             assertBytes(buffer, length, 'BINARY8 data')
             const readBuffer = buffer.readBuffer(length)
-            return readBuffer.buffer.slice(
-                readBuffer.byteOffset,
-                readBuffer.byteOffset + readBuffer.byteLength,
-            )
+            return toArrayBuffer(readBuffer)
         }
         case Type.BINARY16: {
             assertBytes(buffer, 2, 'BINARY16 length')
             const length = buffer.readUInt16LE()
             assertBytes(buffer, length, 'BINARY16 data')
             const readBuffer = buffer.readBuffer(length)
-            return readBuffer.buffer.slice(
-                readBuffer.byteOffset,
-                readBuffer.byteOffset + readBuffer.byteLength,
-            )
+            return toArrayBuffer(readBuffer)
         }
         case Type.BINARY32: {
             assertBytes(buffer, 4, 'BINARY32 length')
             const length = buffer.readUInt32LE()
             assertBytes(buffer, length, 'BINARY32 data')
             const readBuffer = buffer.readBuffer(length)
-            return readBuffer.buffer.slice(
-                readBuffer.byteOffset,
-                readBuffer.byteOffset + readBuffer.byteLength,
-            )
+            return toArrayBuffer(readBuffer)
         }
         case Type.ARRAY8: {
             assertBytes(buffer, 1, 'ARRAY8 length')

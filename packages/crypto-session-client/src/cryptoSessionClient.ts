@@ -20,27 +20,10 @@ type ChallengeReply = ArrayBuffer
 interface SessionService extends NodeEventEmitter<{}> {
     getChallenge(): Promise<Challenge>
     activateSession(
-        publicKeyPem: string,
+        publicKey: ArrayBuffer,
         sessionId: SessionId,
         challangeReply: ChallengeReply,
     ): Promise<void>
-}
-
-/**
- * Converts the specified public key in the SPKI format to the PEM format.
- * @param publicKey A public key in the SPKI format.
- * @returns A public key in the PEM format.
- */
-function spkiToPem(publicKey: ArrayBuffer): string {
-    let pem = '-----BEGIN PUBLIC KEY-----\n'
-    const key = Buffer.from(publicKey).toString('base64')
-
-    for (let i = 0, l = key.length; i < l; i += 64) {
-        pem += key.substring(i, i + 64) + '\n'
-    }
-
-    pem += '-----END PUBLIC KEY-----'
-    return pem
 }
 
 /**
@@ -52,7 +35,7 @@ class CryptoSessionManager
     private connectionNumber: number = 0
     private destroyed: boolean = false
     private keyPair: CryptoKeyPair | undefined = undefined
-    private publicKeyPem: string | undefined = undefined
+    private publicKey: ArrayBuffer | undefined = undefined
     private sessionId: SessionId | undefined = undefined
     private active: boolean = false
     private readonly sessionService: SessionService
@@ -90,7 +73,7 @@ class CryptoSessionManager
         this.connection.off('connect', this.onConnect)
         this.connection.off('disconnect', this.onDisconnect)
         this.keyPair = undefined
-        this.publicKeyPem = undefined
+        this.publicKey = undefined
         this.sessionId = undefined
         this.active = false
         this.destroyed = true
@@ -125,11 +108,6 @@ class CryptoSessionManager
                 'spki',
                 keyPair.publicKey,
             )
-            const publicKeyPem = spkiToPem(spki)
-            const publicKeyHash = await crypto.subtle.digest(
-                'SHA-256',
-                Buffer.from(publicKeyPem),
-            )
             // Keeping only some of the SHA-256 bits is safe.
             // See https://crypto.stackexchange.com/questions/3153/sha-256-vs-any-256-bits-of-sha-512-which-is-more-secure/3156#3156
             //
@@ -140,18 +118,17 @@ class CryptoSessionManager
             // corresponding private keys. So, the session IDs are essentially as secure as
             // the corresponding private keys, which are generated in the browser and are
             // not exportable.
-            const shortHash = Buffer.from(publicKeyHash).slice(0, 16)
-            const sessionId = shortHash.buffer.slice(
-                shortHash.byteOffset,
-                shortHash.byteOffset + shortHash.byteLength,
-            )
+            const sessionId = (await crypto.subtle.digest(
+                'SHA-256',
+                spki,
+            )).slice(0, 16)
 
             if (this.destroyed) {
                 return
             }
 
             this.keyPair = keyPair
-            this.publicKeyPem = publicKeyPem
+            this.publicKey = spki
             this.sessionId = sessionId
         } catch (error) {
             if (!this.destroyed) {
@@ -184,7 +161,7 @@ class CryptoSessionManager
                 challenge,
             )
             await this.sessionService.activateSession(
-                this.publicKeyPem!,
+                this.publicKey!,
                 this.sessionId!,
                 challengeReply,
             )

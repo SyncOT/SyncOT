@@ -3,8 +3,8 @@
  */
 import { Connection, createConnection } from '@syncot/core'
 import { SessionId, SessionManager } from '@syncot/session'
-import { invertedStreams } from '@syncot/util'
-import { createHash, createVerify } from 'crypto'
+import { invertedStreams, toArrayBuffer, toBuffer } from '@syncot/util'
+import { createHash, createPublicKey, createVerify } from 'crypto'
 import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -23,7 +23,7 @@ let sessionService: EventEmitter & {
     getChallenge: jest.Mock<Promise<ArrayBuffer>>
     activateSession: jest.Mock<
         Promise<void>,
-        [string, ArrayBuffer, ArrayBuffer]
+        [ArrayBuffer, ArrayBuffer, ArrayBuffer]
     >
 }
 
@@ -49,31 +49,34 @@ const connect = async () => {
 beforeEach(() => {
     const buffer = Buffer.allocUnsafe(8)
     buffer.writeDoubleLE(Math.random(), 0)
-    challenge = buffer.buffer.slice(
-        buffer.byteOffset,
-        buffer.byteOffset + buffer.byteLength,
-    )
+    challenge = toArrayBuffer(buffer)
 
     sessionService = Object.assign(new EventEmitter(), {
         activateSession: jest.fn(
             async (
-                publicKeyPem: string,
+                publicKeyDer: ArrayBuffer,
                 sessionId: SessionId,
                 challangeReply: ArrayBuffer,
             ) => {
+                const publicKey = createPublicKey({
+                    format: 'der',
+                    key: toBuffer(publicKeyDer),
+                    type: 'spki',
+                })
+
                 const verify = createVerify('SHA256')
-                verify.update(Buffer.from(challenge))
-                if (!verify.verify(publicKeyPem, Buffer.from(challangeReply))) {
+                verify.update(toBuffer(challenge))
+                if (!verify.verify(publicKey, toBuffer(challangeReply))) {
                     throw new Error('Invalid signature.')
                 }
 
                 const hash = createHash('SHA256')
-                hash.update(Buffer.from(publicKeyPem))
+                hash.update(toBuffer(publicKeyDer))
                 if (
                     hash
                         .digest()
                         .slice(0, 16)
-                        .compare(Buffer.from(sessionId)) !== 0
+                        .compare(toBuffer(sessionId)) !== 0
                 ) {
                     throw new Error('Invalid session ID.')
                 }
@@ -186,7 +189,7 @@ test('disconnect', async () => {
     expect(sessionManager.hasSession()).toBeTrue()
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(sessionManager.getSessionId()).toBeInstanceOf(ArrayBuffer)
-    expect(Buffer.from(sessionManager.getSessionId()!).length).toBe(16)
+    expect(sessionManager.getSessionId()!.byteLength).toBe(16)
     expect(onSessionInactive).not.toBeCalled()
 })
 
@@ -199,7 +202,7 @@ describe('sessionOpen', () => {
         expect(sessionManager.hasSession()).toBeTrue()
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(sessionManager.getSessionId()).toBeInstanceOf(ArrayBuffer)
-        expect(Buffer.from(sessionManager.getSessionId()!).length).toBe(16)
+        expect(sessionManager.getSessionId()!.byteLength).toBe(16)
     })
     test('disconnect', async () => {
         const onSessionInactive = jest.fn()

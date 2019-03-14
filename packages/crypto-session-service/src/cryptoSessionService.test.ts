@@ -1,6 +1,11 @@
 import { Connection, createConnection } from '@syncot/core'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { invertedStreams, NodeEventEmitter, toBuffer } from '@syncot/util'
+import {
+    invertedStreams,
+    NodeEventEmitter,
+    toArrayBuffer,
+    toBuffer,
+} from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -8,26 +13,23 @@ import { createSessionManager } from '.'
 interface SessionManagerProxy extends NodeEventEmitter<SessionEvents> {
     getChallenge(): Promise<ArrayBuffer>
     activateSession(
-        publicKeyPem: string,
+        publicKey: ArrayBuffer,
         sessionId: ArrayBuffer,
         challengeReply: ArrayBuffer,
     ): Promise<void>
 }
 
-const { privateKey, publicKey } = (generateKeyPairSync as any)('rsa', {
+const { privateKey, publicKey } = generateKeyPairSync('rsa', {
     modulusLength: 4096,
-    privateKeyEncoding: {
-        format: 'pem',
-        type: 'pkcs8',
-    },
     publicExponent: 0x10001,
-    publicKeyEncoding: {
-        format: 'pem',
-        type: 'spki',
-    },
 })
+const publicKeyDer = publicKey.export({
+    format: 'der',
+    type: 'spki',
+})
+
 const hash = createHash('SHA256')
-hash.update(Buffer.from(publicKey))
+hash.update(publicKeyDer)
 const sessionId = hash.digest().slice(0, 16)
 
 let clientStream: Duplex
@@ -41,8 +43,12 @@ const activateSession = async () => {
     const challenge = await proxy.getChallenge()
     const sign = createSign('SHA256')
     sign.update(toBuffer(challenge))
-    const signature = sign.sign(privateKey)
-    await proxy.activateSession(publicKey, sessionId, signature)
+    const signature = sign.sign(privateKey as any)
+    await proxy.activateSession(
+        toArrayBuffer(publicKeyDer),
+        sessionId,
+        signature,
+    )
 }
 
 beforeEach(() => {
@@ -102,7 +108,7 @@ test('getChllenge', async () => {
     expect(challenge.byteLength).toBe(16)
 })
 
-test('activeSession', async () => {
+test('activateSession', async () => {
     const onSessionOpen = jest.fn()
     const onSessionActive = jest.fn()
     const onSessionInactive = jest.fn()
@@ -124,7 +130,11 @@ test('activeSession', async () => {
 
 test('invalid challenge reply', async () => {
     await expect(
-        proxy.activateSession(publicKey, sessionId, new ArrayBuffer(8)),
+        proxy.activateSession(
+            toArrayBuffer(publicKeyDer),
+            sessionId,
+            new ArrayBuffer(8),
+        ),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Invalid challenge reply.',
@@ -138,9 +148,13 @@ test('invalid session id', async () => {
     const challenge = await proxy.getChallenge()
     const sign = createSign('SHA256')
     sign.update(toBuffer(challenge))
-    const signature = sign.sign(privateKey)
+    const signature = sign.sign(privateKey as any) // as any - node typings are out of date
     await expect(
-        proxy.activateSession(publicKey, new ArrayBuffer(16), signature),
+        proxy.activateSession(
+            toArrayBuffer(publicKeyDer),
+            new ArrayBuffer(16),
+            signature,
+        ),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Invalid session ID.',
