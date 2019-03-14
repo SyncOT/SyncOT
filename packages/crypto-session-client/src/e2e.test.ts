@@ -55,10 +55,6 @@ test('establish a session', async () => {
 })
 
 test('disconnect, reconnect', async () => {
-    const onClientError = jest.fn()
-    const onServerError = jest.fn()
-    clientConnection.on('error', onClientError)
-    serverConnection.on('error', onServerError)
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
     const sessionId = sessionClient.getSessionId()!
@@ -77,12 +73,4 @@ test('disconnect, reconnect', async () => {
     expect(binaryEqual(sessionClient.getSessionId()!, sessionId)).toBeTrue()
     expect(sessionServer.getSessionId()).toBeInstanceOf(ArrayBuffer)
     expect(binaryEqual(sessionServer.getSessionId()!, sessionId)).toBeTrue()
-    expect(onClientError).not.toHaveBeenCalled()
-    expect(onServerError).toHaveBeenCalledTimes(1)
-    expect(onServerError).toHaveBeenCalledWith(
-        expect.objectContaining({
-            message: 'Premature close',
-            name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
-        }),
-    )
 })

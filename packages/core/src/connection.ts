@@ -230,9 +230,14 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
 
         finished(stream, error => {
             if (this.stream === stream) {
-                if (error) {
+                if (
+                    error &&
+                    error.name !== 'Error [ERR_STREAM_PREMATURE_CLOSE]'
+                ) {
                     // The `finished` function reports the original stream error as
                     // well as its own internal errors.
+                    // The premature close error happens when calling destroy on the
+                    // stream. It isn't really a problem, so we don't emit it.
                     this.emit('error', error)
                 }
                 this.disconnect()

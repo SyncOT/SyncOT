@@ -141,22 +141,12 @@ describe('connection', () => {
     })
     test('destroy stream', async () => {
         const disconnectCallback = jest.fn()
-        const errorCallback = jest.fn()
         connection.connect(stream1)
         connection.on('disconnect', disconnectCallback)
-        connection.on('error', errorCallback)
         stream1.destroy()
         await delay()
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(errorCallback).toHaveBeenCalledTimes(1)
-        expect(errorCallback).toHaveBeenCalledBefore(disconnectCallback)
-        expect(errorCallback).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Premature close',
-                name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
-            }),
-        )
     })
     test('stream error', async () => {
         const disconnectCallback = jest.fn()
@@ -1210,7 +1200,6 @@ describe('service and proxy', () => {
             )
         })
         test('request, destroy stream', async () => {
-            const onError = jest.fn()
             const promise = proxy.returnMethod(
                 1,
                 'abc',
@@ -1218,20 +1207,12 @@ describe('service and proxy', () => {
                 { key: 'value' },
                 false,
             )
-            connection.on('error', onError)
             stream1.destroy()
             await expect(promise).rejects.toEqual(
                 errorMatcher(
                     'SyncOtError Disconnected',
                     'Disconnected, request failed.',
                 ),
-            )
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Premature close',
-                    name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
-                }),
             )
         })
         test('disconnect, request', async () => {
