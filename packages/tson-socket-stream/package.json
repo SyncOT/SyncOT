@@ -22,6 +22,9 @@
     "type": "git",
     "url": "git+https://github.com/SyncOT/SyncOT.git"
   },
+  "engines": {
+    "node": ">=11.6.0 <=11.10.1"
+  },
   "dependencies": {
     "@syncot/error": "file:../error",
     "@syncot/tson": "file:../tson",

@@ -27,6 +27,9 @@
     "type": "git",
     "url": "https://github.com/SyncOT/SyncOT.git"
   },
+  "engines": {
+    "node": ">=11.6.0 <=11.10.1"
+  },
   "scripts": {
     "clean": "rimraf packages/*/lib",
     "prettier": "prettier --list-different 'packages/*/src/**/*' 'packages/*/*.json' '*.json' '*.MD' '.prettierrc'",
