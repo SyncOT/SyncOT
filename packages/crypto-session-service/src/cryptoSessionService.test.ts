@@ -5,6 +5,8 @@ import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
 
+const delay = () => new Promise(resolve => setTimeout(resolve, 0))
+
 interface SessionManagerProxy extends NodeEventEmitter<SessionEvents> {
     getChallenge(): Promise<ArrayBuffer>
     activateSession(
@@ -83,9 +85,11 @@ test('destroy', () => {
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
-test('disconnect', () => {
+test('disconnect', async () => {
+    const onError = jest.fn()
     const onSessionInactive = jest.fn()
     const onSessionClose = jest.fn()
+    clientConnection.on('error', onError)
     sessionManager.on('sessionInactive', onSessionInactive)
     sessionManager.on('sessionClose', onSessionClose)
     serverConnection.disconnect()
@@ -94,6 +98,14 @@ test('disconnect', () => {
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(onSessionInactive).not.toHaveBeenCalled()
     expect(onSessionClose).not.toHaveBeenCalled()
+    await delay()
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+            message: 'Premature close',
+            name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
+        }),
+    )
 })
 
 test('getChllenge', async () => {
@@ -171,9 +183,11 @@ describe('active session', () => {
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
 
-    test('disconnect', () => {
+    test('disconnect', async () => {
+        const onError = jest.fn()
         const onSessionInactive = jest.fn()
         const onSessionClose = jest.fn()
+        clientConnection.on('error', onError)
         sessionManager.on('sessionInactive', onSessionInactive)
         sessionManager.on('sessionClose', onSessionClose)
         serverConnection.disconnect()
@@ -183,6 +197,14 @@ describe('active session', () => {
         expect(onSessionInactive).toHaveBeenCalledTimes(1)
         expect(onSessionClose).toHaveBeenCalledTimes(1)
         expect(onSessionInactive).toHaveBeenCalledBefore(onSessionClose)
+        await delay()
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: 'Premature close',
+                name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
+            }),
+        )
     })
 
     test('session already exists', async () => {

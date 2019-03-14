@@ -202,11 +202,20 @@ describe('sessionOpen', () => {
         expect(Buffer.from(sessionManager.getSessionId()!).length).toBe(16)
     })
     test('disconnect', async () => {
+        const onError = jest.fn()
         const onSessionInactive = jest.fn()
+        serverConnection.on('error', onError)
         sessionManager.on('sessionInactive', onSessionInactive)
         clientConnection.disconnect()
         await delay()
         expect(onSessionInactive).not.toBeCalled()
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: 'Premature close',
+                name: 'Error [ERR_STREAM_PREMATURE_CLOSE]',
+            }),
+        )
     })
     test('disconnect, connect', async () => {
         const onSessionActive = jest.fn()

@@ -19,6 +19,10 @@ export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
             b.push(null)
             callback()
         },
+        destroy(error, callback) {
+            b.destroy()
+            callback(error)
+        },
     })
     const b = new Duplex({
         allowHalfOpen: false,
@@ -33,6 +37,10 @@ export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
         final(callback) {
             a.push(null)
             callback()
+        },
+        destroy(error, callback) {
+            a.destroy()
+            callback(error)
         },
     })
 
