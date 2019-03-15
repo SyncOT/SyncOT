@@ -1,0 +1,31 @@
+{
+  "name": "@syncot/anonymous-auth",
+  "version": "0.0.0",
+  "description": "A client and server auth module providing anonymous read-write access to all documents.",
+  "keywords": [
+    "anonymous",
+    "auth"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "engines": {
+    "node": ">=11.6.0 <=11.10.1"
+  },
+  "dependencies": {
+    "@syncot/auth": "file:../auth",
+    "@syncot/core": "file:../core",
+    "@syncot/util": "file:../util",
+    "tslib": "^1.9.3"
+  }
+}
