@@ -46,20 +46,16 @@ export interface AuthManager extends NodeEventEmitter<AuthEvents> {
     hasActiveUserId(): boolean
 
     /**
-     * Returns true, or a Promise which resolves to true, if the user may
-     * read from the specified document.
-     * Returns false, or a Promise which resolves to false, if the user may not
-     * read from the specified document.
+     * Resolves to true, if the user may read from the specified document,
+     * otherwise resolves to false.
      */
-    mayRead(type: TypeName, id: DocumentId): boolean | Promise<boolean>
+    mayRead(type: TypeName, id: DocumentId): Promise<boolean>
 
     /**
-     * Returns true, or a Promise which resolves to true, if the user may
-     * write to the specified document.
-     * Returns false, or a Promise which resolves to false, if the user may not
-     * write to the specified document.
+     * Resolves to true, if the user may write to the specified document,
+     * otherwise resolves to false.
      */
-    mayWrite(type: TypeName, id: DocumentId): boolean | Promise<boolean>
+    mayWrite(type: TypeName, id: DocumentId): Promise<boolean>
 
     /**
      * Destroys this component.
