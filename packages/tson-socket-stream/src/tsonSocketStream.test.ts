@@ -119,7 +119,7 @@ const setUpSockJs = () => {
     })
 }
 
-describe.each([
+describe.each<[string, () => void]>([
     ['WebSocket', setUpWebSocket(WebSocket)],
     ['ws', setUpWebSocket(ws)],
     ['SockJS', setUpSockJs],

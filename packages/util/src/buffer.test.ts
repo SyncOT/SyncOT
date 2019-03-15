@@ -1,5 +1,5 @@
 import { toBuffer } from '.'
-import { binaryEqual, toArrayBuffer } from './buffer'
+import { binaryEqual, BinaryType, toArrayBuffer } from './buffer'
 
 describe('toBuffer', () => {
     test('Buffer', () => {
@@ -8,20 +8,28 @@ describe('toBuffer', () => {
         expect(buffer).toBe(originalBuffer)
     })
 
-    test.each([[ArrayBuffer], [SharedArrayBuffer]])(
-        '%s',
-        arrayBufferConstructor => {
-            const arrayBuffer = new arrayBufferConstructor(4) as ArrayBuffer
-            const buffer = toBuffer(arrayBuffer)
-            expect(buffer).toBeInstanceOf(Buffer)
-            expect(buffer.buffer).toBe(arrayBuffer)
-            expect(buffer.byteOffset).toBe(0)
-            expect(buffer.byteLength).toBe(4)
-            expect(toBuffer(arrayBuffer)).toBe(buffer)
-        },
-    )
+    test.each<[ArrayBufferConstructor | SharedArrayBufferConstructor]>([
+        [ArrayBuffer],
+        [SharedArrayBuffer],
+    ])('%s', arrayBufferConstructor => {
+        const arrayBuffer = new arrayBufferConstructor(4)
+        const buffer = toBuffer(arrayBuffer)
+        expect(buffer).toBeInstanceOf(Buffer)
+        expect(buffer.buffer).toBe(arrayBuffer)
+        expect(buffer.byteOffset).toBe(0)
+        expect(buffer.byteLength).toBe(4)
+        expect(toBuffer(arrayBuffer)).toBe(buffer)
+    })
 
-    test.each([
+    test.each<
+        [
+            new (
+                arrayBuffer: ArrayBuffer,
+                offset: number,
+                length: number,
+            ) => ArrayBufferView
+        ]
+    >([
         [DataView],
         [Int8Array],
         [Uint8Array],
@@ -34,7 +42,7 @@ describe('toBuffer', () => {
         [Float64Array],
     ])('%s', viewConstructor => {
         const arrayBuffer = new ArrayBuffer(128)
-        const view = new viewConstructor(arrayBuffer, 8, 2) as ArrayBufferView
+        const view = new viewConstructor(arrayBuffer, 8, 2)
         const buffer = toBuffer(view)
         expect(buffer).toBeInstanceOf(Buffer)
         expect(buffer.buffer).toBe(arrayBuffer)
@@ -71,12 +79,15 @@ describe('toArrayBuffer', () => {
         expect(Buffer.from(arrayBuffer).compare(buffer)).toBe(0)
     })
 
-    test.each([[ArrayBuffer], [SharedArrayBuffer]])('%s', constructor => {
-        const arrayBuffer = new constructor()
+    test.each<[ArrayBufferConstructor | SharedArrayBufferConstructor]>([
+        [ArrayBuffer],
+        [SharedArrayBuffer],
+    ])('%s', constructor => {
+        const arrayBuffer = new constructor(8)
         expect(toArrayBuffer(arrayBuffer)).toBe(arrayBuffer)
     })
 
-    test.each([
+    test.each<[new (arrayBuffer: ArrayBuffer) => ArrayBufferView]>([
         [DataView],
         [Int8Array],
         [Uint8Array],
@@ -89,7 +100,7 @@ describe('toArrayBuffer', () => {
         [Float64Array],
     ])('%p', viewConstructor => {
         const data = new ArrayBuffer(16)
-        const view = new viewConstructor(data) as ArrayBufferView
+        const view = new viewConstructor(data)
         const buffer = Buffer.from(data)
         buffer.writeUInt32LE(0x00010203, 0)
         buffer.writeUInt32LE(0x04050607, 4)
@@ -119,7 +130,7 @@ describe('toArrayBuffer', () => {
 })
 
 describe('binaryEqual', () => {
-    test.each([
+    test.each<[BinaryType, BinaryType, boolean]>([
         [Buffer.from('some data'), Buffer.from('some data'), true],
         [Buffer.allocUnsafe(0), Buffer.allocUnsafe(0), true],
         [Buffer.from('some data'), Buffer.from('some data!'), false],

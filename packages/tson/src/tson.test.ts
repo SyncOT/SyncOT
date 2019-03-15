@@ -1,4 +1,4 @@
-import { binaryEqual, toArrayBuffer } from '@syncot/util'
+import { binaryEqual, BinaryType, toArrayBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 import { decode, encode } from '.'
 import { Type } from './tson'
@@ -387,13 +387,16 @@ describe('encode', () => {
 
     describe('BINARY', () => {
         test.each(
-            [
+            ([
                 ['ArrayBuffer', testArrayBuffer.slice(8, 32)],
                 ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
                 ['DataView', testDataView],
                 ['Buffer', testBuffer],
-            ].concat(
-                testTypedArrays.map(array => [array.constructor.name, array]),
+            ] as Array<[string, BinaryType]>).concat(
+                testTypedArrays.map(
+                    array =>
+                        [array.constructor.name, array] as [string, BinaryType],
+                ),
             ),
         )('type: %s', (_message, data) => {
             const buffer = encodeToSmartBuffer(data)
@@ -960,12 +963,17 @@ describe('encode', () => {
 
 describe('decode', () => {
     test.each(
-        [
+        ([
             ['ArrayBuffer', testArrayBuffer.slice(8, 32)],
             ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
             ['DataView', testDataView],
             ['Buffer', testBuffer],
-        ].concat(testTypedArrays.map(array => [array.constructor.name, array])),
+        ] as Array<[string, BinaryType]>).concat(
+            testTypedArrays.map(
+                array =>
+                    [array.constructor.name, array] as [string, BinaryType],
+            ),
+        ),
     )('input type: %s', (_message, data) => {
         expect(decode(data)).toBe('abcdefghijklmnopqrstuv')
     })
@@ -1217,7 +1225,7 @@ describe('decode', () => {
         })
     })
 
-    test.each([
+    test.each<[string, number[]]>([
         ['Type code', []],
         ['INT8', [Type.INT8]],
         ['INT16', [Type.INT16, 0]],
@@ -1248,7 +1256,7 @@ describe('decode', () => {
         )
     })
 
-    test.each([
+    test.each<[string, number[]]>([
         ['OBJECT8', [Type.OBJECT8, 1, Type.TRUE, Type.TRUE]],
         ['OBJECT16', [Type.OBJECT16, 1, 0, Type.TRUE, Type.TRUE]],
         ['OBJECT32', [Type.OBJECT32, 1, 0, 0, 0, Type.TRUE, Type.TRUE]],
@@ -1258,7 +1266,7 @@ describe('decode', () => {
         )
     })
 
-    test.each([
+    test.each<[string, number[]]>([
         [
             'Error name not a string.',
             [Type.ERROR, Type.ARRAY8, 2, Type.TRUE, Type.FALSE],

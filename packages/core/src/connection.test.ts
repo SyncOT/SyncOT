@@ -524,7 +524,7 @@ describe('message validation', () => {
             }),
         )
     })
-    test.each([
+    test.each<[string, { [P in keyof Message]: any }]>([
         ['valid message', { ...message }],
         ['valid message (type=EVENT)', { ...message, type: MessageType.EVENT }],
         [
@@ -1044,7 +1044,7 @@ describe('service and proxy', () => {
     describe('proxy actions', () => {
         test.each([null, undefined])(
             'request, reply (reply action name: %s)',
-            async (actionName: string) => {
+            async actionName => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
@@ -1067,7 +1067,7 @@ describe('service and proxy', () => {
         )
         test.each([null, undefined])(
             'request, error (error action name: %s)',
-            async (actionName: string) => {
+            async actionName => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
