@@ -44,6 +44,7 @@
     }
   },
   "dependencies": {
+    "@syncot/auth": "file:packages/auth",
     "@syncot/client": "file:packages/client",
     "@syncot/core": "file:packages/core",
     "@syncot/crypto-session-client": "file:packages/crypto-session-client",
