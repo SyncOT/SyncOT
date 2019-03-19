@@ -1,5 +1,4 @@
 import { invertedStreams } from '@syncot/util'
-import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import {
     Connection,
@@ -20,7 +19,7 @@ const testErrorMatcher = expect.objectContaining({
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
-let instance: EventEmitter & {
+let instance: {
     testAction?: (..._args: any) => any
     anotherAction?: (..._args: any) => any
 }
@@ -32,7 +31,7 @@ const errorMatcher = (errorName: string, errorMessage: string) =>
 beforeEach(() => {
     connection = createConnection()
     ;[stream1, stream2] = invertedStreams({ objectMode: true })
-    instance = new EventEmitter()
+    instance = {}
 })
 
 describe('connection', () => {
@@ -194,11 +193,19 @@ describe('connection', () => {
 describe('service registration', () => {
     test('register with an invalid instance', () => {
         expect(() =>
-            connection.registerService({ name, instance: {} as any }),
+            connection.registerService({ name, instance: 5 as any }),
         ).toThrow(
             errorMatcher(
                 'AssertionError [ERR_ASSERTION]',
-                'Argument "instance" must be an EventEmitter.',
+                'Argument "instance" must be an object.',
+            ),
+        )
+        expect(() =>
+            connection.registerService({ name, instance: null as any }),
+        ).toThrow(
+            errorMatcher(
+                'AssertionError [ERR_ASSERTION]',
+                'Argument "instance" must be an object.',
             ),
         )
     })
@@ -261,7 +268,7 @@ describe('service registration', () => {
         })
         expect(() =>
             connection.registerService({
-                instance: new EventEmitter(),
+                instance: {},
                 name,
             }),
         ).toThrow(
@@ -274,7 +281,7 @@ describe('service registration', () => {
     test('get registered services', () => {
         const actions = new Set(['testAction', 'anotherAction'])
         const anotherName = 'another-service'
-        const anotherInstance = new EventEmitter()
+        const anotherInstance = { test: () => undefined }
         instance.anotherAction = () => null
         instance.testAction = () => null
         connection.registerService({
@@ -335,13 +342,13 @@ describe('proxy registration', () => {
     test('register with an action conflict', () => {
         expect(() =>
             connection.registerProxy({
-                actions: new Set(['testAction', 'addListener']),
+                actions: new Set(['testAction', 'toString']),
                 name,
             }),
         ).toThrow(
             errorMatcher(
                 'AssertionError [ERR_ASSERTION]',
-                'Proxy.addListener already exists.',
+                'Proxy.toString already exists.',
             ),
         )
     })
@@ -365,7 +372,7 @@ describe('proxy registration', () => {
         instance.anotherAction = expect.any(Function)
         const actions = new Set(['testAction', 'anotherAction'])
         const anotherName = 'another-service'
-        const anotherInstance = new EventEmitter()
+        const anotherInstance = {}
         connection.registerProxy({ actions, name })
         connection.registerProxy({ name: anotherName })
         expect(connection.getProxyNames()).toEqual([name, anotherName])
@@ -653,7 +660,7 @@ describe('no service', () => {
     beforeEach(() => {
         connection.connect(stream1)
         connection.registerService({
-            instance: new EventEmitter(),
+            instance: {},
             name: 'a-service',
         })
     })
@@ -746,7 +753,7 @@ describe('service and proxy', () => {
     }
 
     beforeEach(() => {
-        service = Object.assign(new EventEmitter(), {
+        service = {
             rejectErrorMethod: jest.fn((..._args: JsonValue[]) =>
                 Promise.reject(error),
             ),
@@ -763,7 +770,7 @@ describe('service and proxy', () => {
             throwNonErrorMethod: jest.fn((..._args: JsonValue[]) => {
                 throw 5
             }),
-        })
+        }
         connection.connect(stream1)
         connection.registerService({
             actions,

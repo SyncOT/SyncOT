@@ -3,9 +3,8 @@ import {
     createInvalidEntityError,
     createNoServiceError,
 } from '@syncot/error'
-import { NodeEventEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
-import { EventEmitter } from 'events'
 import { Duplex, finished } from 'stream'
 import { JsonArray, JsonValue } from './json'
 import {
@@ -23,7 +22,7 @@ type ActionName = string
 type EventName = string
 type StreamName = string
 
-export type Service = EventEmitter
+export type Service = object
 export interface ServiceDescriptor {
     name: ServiceName
     actions?: Set<ActionName>
@@ -33,7 +32,7 @@ export interface ServiceDescriptor {
 }
 export interface RegisteredServiceDescriptor
     extends Required<ServiceDescriptor> {}
-export type Proxy = EventEmitter
+export type Proxy = object
 export interface ProxyDescriptor {
     name: ProxyName
     actions?: Set<ActionName>
@@ -191,9 +190,7 @@ const validateMessage: Validator<Message> = validate([
     },
 ])
 
-class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
-    Events
->) {
+class ConnectionImpl extends SyncOtEmitter<Events> {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
@@ -279,8 +276,8 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
         instance,
     }: ServiceDescriptor): void {
         assert.ok(
-            instance instanceof EventEmitter,
-            'Argument "instance" must be an EventEmitter.',
+            instance != null && typeof instance === 'object',
+            'Argument "instance" must be an object.',
         )
         assert.ok(
             !this.services.has(name),
@@ -350,8 +347,8 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
         serviceName: ServiceName,
         actions: Set<ActionName>,
     ): void {
-        ;(this as EventEmitter).on(
-            `message.${Source.PROXY}.${serviceName}`,
+        this.on(
+            `message.${Source.PROXY}.${serviceName}` as any,
             (message: Message) => {
                 switch (message.type) {
                     case MessageType.CALL_REQUEST: {
@@ -427,7 +424,7 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
     }
 
     private createProxy(proxyName: ProxyName, actions: Set<ActionName>): Proxy {
-        const proxy = new EventEmitter()
+        const proxy = {}
         let nextSessionId = 1
         const actionSessions: Map<
             SessionId,
@@ -463,8 +460,9 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
                 }
             }
         })
-        ;(this as EventEmitter).on(
-            `message.${Source.SERVICE}.${proxyName}`,
+
+        this.on(
+            `message.${Source.SERVICE}.${proxyName}` as any,
             (message: Message) => {
                 switch (message.type) {
                     case MessageType.CALL_REPLY: {
@@ -532,8 +530,8 @@ class ConnectionImpl extends (EventEmitter as new () => NodeEventEmitter<
         }
 
         // Emit an internal event for the services and proxies.
-        const handled: boolean = (this as EventEmitter).emit(
-            `message.${getSource(message)}.${message.service}`,
+        const handled: boolean = this.emit(
+            `message.${getSource(message)}.${message.service}` as any,
             message,
         )
 
