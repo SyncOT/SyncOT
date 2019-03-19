@@ -1,3 +1,4 @@
+import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { StrictEventEmitter } from 'strict-event-emitter-types'
 
@@ -189,5 +190,9 @@ export class SyncOtEmitter<Events> extends typedEmitter<
             this._destroyed = true
             this.emitAsyncForce('destroy' as any)
         }
+    }
+
+    protected assertNotDestroyed(): void {
+        assert.ok(!this._destroyed, 'Already destroyed.')
     }
 }

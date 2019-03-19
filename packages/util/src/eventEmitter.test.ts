@@ -33,6 +33,24 @@ test('destroy', async () => {
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
+test('assertNotDestroyed', () => {
+    class Test extends SyncOtEmitter<{}> {
+        public test(): void {
+            this.assertNotDestroyed()
+        }
+    }
+
+    const test = new Test()
+    test.test()
+    test.destroy()
+    expect(() => test.test()).toThrow(
+        expect.objectContaining({
+            message: 'Already destroyed.',
+            name: 'AssertionError [ERR_ASSERTION]',
+        }),
+    )
+})
+
 describe('emit', () => {
     test('emit an event', () => {
         emitter.emit('event', ...params)
