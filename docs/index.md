@@ -39,3 +39,7 @@ Some of that metadata might be relevant only for a short time, eg the cursor pos
 # Immutable Data
 
 All `Operation`s and `Snapshot`s are immutable across the whole system, which makes it significantly simpler and less error prone compared to one in which mutations are allowed. One important consequence of this decision is that any `Type` updates must be backwards compatible down to the very first version. Any breaking changes in a `Type` implementation would require definition of a new `Type` and manual data migration, which is outside the scope of this project.
+
+# Events
+
+All events are emitted asynchronously by default by SyncOt components to avoid corrupting the state of the emitters and for consistency. An important consequence of this decission is that all state-change events must be seen as happening in the past, for example, a `connect` event means that a component has been connected a moment ago but it is possible that it is no longer connected when the event listener is called. Interestingly, this situation would not be prevented even if events were dispatched synchronously - an "earlier" event listener could synchronously change the state before the "following" listeners are called.
