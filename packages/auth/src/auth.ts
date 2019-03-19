@@ -15,7 +15,6 @@ export interface AuthEvents {
     authEnd: void
     userEnd: void
     error: Error
-    destroy: void
 }
 
 /**

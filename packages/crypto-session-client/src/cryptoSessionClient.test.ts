@@ -5,7 +5,6 @@ import { Connection, createConnection } from '@syncot/core'
 import { SessionId, SessionManager } from '@syncot/session'
 import { invertedStreams, toArrayBuffer, toBuffer } from '@syncot/util'
 import { createHash, createPublicKey, createVerify } from 'crypto'
-import { EventEmitter } from 'events'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
 
@@ -19,7 +18,7 @@ let clientStream: Duplex
 let serverConnection: Connection
 let clientConnection: Connection
 let sessionManager: SessionManager
-let sessionService: EventEmitter & {
+let sessionService: {
     getChallenge: jest.Mock<Promise<ArrayBuffer>>
     activateSession: jest.Mock<
         Promise<void>,
@@ -51,7 +50,7 @@ beforeEach(() => {
     buffer.writeDoubleLE(Math.random(), 0)
     challenge = toArrayBuffer(buffer)
 
-    sessionService = Object.assign(new EventEmitter(), {
+    sessionService = {
         activateSession: jest.fn(
             async (
                 publicKeyDer: ArrayBuffer,
@@ -83,7 +82,7 @@ beforeEach(() => {
             },
         ),
         getChallenge: jest.fn(async () => challenge),
-    })
+    }
     ;[serverStream, clientStream] = invertedStreams({ objectMode: true })
     serverConnection = createConnection()
     serverConnection.connect(serverStream)
@@ -109,17 +108,18 @@ test('state', () => {
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(sessionManager.getSessionId()).toBeUndefined()
 })
-test('destroy', () => {
+test('destroy', async () => {
     const onDestroy = jest.fn()
     sessionManager.on('destroy', onDestroy)
     sessionManager.destroy()
-    expect(onDestroy).toHaveBeenCalledTimes(1)
-    sessionManager.destroy()
-    sessionManager.destroy()
-    expect(onDestroy).toHaveBeenCalledTimes(1)
     expect(sessionManager.hasSession()).toBeFalse()
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(sessionManager.getSessionId()).toBeUndefined()
+    await Promise.resolve()
+    expect(onDestroy).toHaveBeenCalledTimes(1)
+    sessionManager.destroy()
+    await Promise.resolve()
+    expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 test('error', async () => {
     // The only way I can imagine SessionManager failing before
@@ -224,17 +224,15 @@ describe('sessionOpen', () => {
         expect(onSessionInactive).not.toBeCalled()
         expect(sessionManager.hasActiveSession()).toBeTrue()
     })
-    test('destroy', () => {
+    test('destroy', async () => {
         const onDestroy = jest.fn()
         sessionManager.on('destroy', onDestroy)
         sessionManager.destroy()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-        sessionManager.destroy()
-        sessionManager.destroy()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(sessionManager.hasSession()).toBeFalse()
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(sessionManager.getSessionId()).toBeUndefined()
+        await Promise.resolve()
+        expect(onDestroy).toHaveBeenCalledTimes(1)
     })
     test('destroy then error', async () => {
         await delay()
@@ -262,17 +260,15 @@ describe('sessionOpen', () => {
             expect(sessionManager.hasActiveSession()).toBeTrue()
             expect(sessionManager.getSessionId()).toBeInstanceOf(ArrayBuffer)
         })
-        test('destroy', () => {
+        test('destroy', async () => {
             const onDestroy = jest.fn()
             sessionManager.on('destroy', onDestroy)
             sessionManager.destroy()
-            expect(onDestroy).toHaveBeenCalledTimes(1)
-            sessionManager.destroy()
-            sessionManager.destroy()
-            expect(onDestroy).toHaveBeenCalledTimes(1)
             expect(sessionManager.hasSession()).toBeFalse()
             expect(sessionManager.hasActiveSession()).toBeFalse()
             expect(sessionManager.getSessionId()).toBeUndefined()
+            await Promise.resolve()
+            expect(onDestroy).toHaveBeenCalledTimes(1)
         })
         test('disconnect, reconnect', async () => {
             await disconnect()

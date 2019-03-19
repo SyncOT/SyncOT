@@ -1,10 +1,9 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
-import { binaryEqual, NodeEventEmitter, toBuffer } from '@syncot/util'
+import { binaryEqual, SyncOtEmitter, toBuffer } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { createHash, createPublicKey, createVerify } from 'crypto'
-import { EventEmitter } from 'events'
 
 type Challenge = ArrayBuffer
 type ChallengeReply = ArrayBuffer
@@ -14,8 +13,7 @@ const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
 /**
  * Server-side cryptographic session manager.
  */
-class CryptoSessionManager
-    extends (EventEmitter as new () => NodeEventEmitter<SessionEvents>)
+class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private sessionId: SessionId | undefined = undefined
     private readonly challenge: Challenge
@@ -23,7 +21,6 @@ class CryptoSessionManager
      * Used to ensure that the client code does not mess up the component's state.
      */
     private busy: boolean = false
-    private destroyed: boolean = false
 
     public constructor(private readonly connection: Connection) {
         super()
@@ -104,10 +101,9 @@ class CryptoSessionManager
         if (this.destroyed) {
             return
         }
-        this.destroyed = true
         this.sessionId = undefined
         this.connection.off('disconnect', this.onDisconnect)
-        this.emit('destroy')
+        super.destroy()
     }
 
     private onDisconnect = () => {

@@ -1,4 +1,4 @@
-import { NodeEventEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * A globally unique session id.
@@ -16,7 +16,6 @@ export interface SessionEvents {
     sessionInactive: void
     sessionClose: void
     error: Error
-    destroy: void
 }
 
 /**
@@ -29,7 +28,7 @@ export interface SessionEvents {
  * @event error A session-related error has occurred. The system will attempt to recover automatically.
  * @event destroy The SessionManager has been destroyed.
  */
-export interface SessionManager extends NodeEventEmitter<SessionEvents> {
+export interface SessionManager extends SyncOtEmitter<SessionEvents> {
     /**
      * Returns the ID of the current session, or `undefined`, if there's no session.
      */
@@ -44,9 +43,4 @@ export interface SessionManager extends NodeEventEmitter<SessionEvents> {
      * Returns `true`, if there is an active session, otherwise `false`.
      */
     hasActiveSession(): boolean
-
-    /**
-     * Destroys this component, so that it won't establish sessions anymore.
-     */
-    destroy(): void
 }

@@ -1,8 +1,7 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
-import { NodeEventEmitter } from '@syncot/util'
-import { EventEmitter } from 'events'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a client-side cryptographic session manager on the specified connection.
@@ -17,7 +16,7 @@ type ChallengeReply = ArrayBuffer
 /**
  * The interface of the server-side session manager used for establishing a session.
  */
-interface SessionService extends NodeEventEmitter<{}> {
+interface SessionService {
     getChallenge(): Promise<Challenge>
     activateSession(
         publicKey: ArrayBuffer,
@@ -29,11 +28,9 @@ interface SessionService extends NodeEventEmitter<{}> {
 /**
  * A cryptographic client-side session manager.
  */
-class CryptoSessionManager
-    extends (EventEmitter as new () => NodeEventEmitter<SessionEvents>)
+class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private connectionNumber: number = 0
-    private destroyed: boolean = false
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKey: ArrayBuffer | undefined = undefined
     private sessionId: SessionId | undefined = undefined
@@ -76,8 +73,7 @@ class CryptoSessionManager
         this.publicKey = undefined
         this.sessionId = undefined
         this.active = false
-        this.destroyed = true
-        this.emit('destroy')
+        super.destroy()
     }
 
     private onConnect = () => {

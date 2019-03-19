@@ -1,16 +1,11 @@
 import { Connection, createConnection } from '@syncot/core'
-import { SessionEvents, SessionManager } from '@syncot/session'
-import {
-    invertedStreams,
-    NodeEventEmitter,
-    toArrayBuffer,
-    toBuffer,
-} from '@syncot/util'
+import { SessionManager } from '@syncot/session'
+import { invertedStreams, toArrayBuffer, toBuffer } from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
 
-interface SessionManagerProxy extends NodeEventEmitter<SessionEvents> {
+interface SessionManagerProxy {
     getChallenge(): Promise<ArrayBuffer>
     activateSession(
         publicKey: ArrayBuffer,
@@ -80,12 +75,14 @@ test('create twice on the same connection', () => {
     )
 })
 
-test('destroy', () => {
+test('destroy', async () => {
     const onDestroy = jest.fn()
     sessionManager.on('destroy', onDestroy)
     sessionManager.destroy()
+    await Promise.resolve()
     expect(onDestroy).toHaveBeenCalledTimes(1)
     sessionManager.destroy()
+    await Promise.resolve()
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
@@ -169,7 +166,7 @@ describe('active session', () => {
         await activateSession()
     })
 
-    test('destroy', () => {
+    test('destroy', async () => {
         const onDestroy = jest.fn()
         const onSessionInactive = jest.fn()
         const onSessionClose = jest.fn()
@@ -182,6 +179,7 @@ describe('active session', () => {
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(onSessionInactive).not.toHaveBeenCalled()
         expect(onSessionClose).not.toHaveBeenCalled()
+        await Promise.resolve()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
 
