@@ -1,7 +1,6 @@
 import { AuthEvents, AuthManager, UserId } from '@syncot/auth'
 import { Connection } from '@syncot/core'
-import { EventEmitter } from 'events'
-import { NodeEventEmitter } from '../../util/lib'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a new AuthManager which allows anonymous read-write access to all documents.
@@ -15,12 +14,10 @@ export function createAuthManager(connection: Connection): AuthManager {
  * An auth module providing anonymous read-write access to all documents.
  * It's suitable for use on both the client and server sides.
  */
-class AnonymousAuthManager
-    extends (EventEmitter as new () => NodeEventEmitter<AuthEvents>)
+class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
     implements AuthManager {
     private userId: UserId | undefined = undefined
     private authenticated: boolean = false
-    private destroyed: boolean = false
 
     public constructor(private connection: Connection) {
         super()
@@ -51,12 +48,11 @@ class AnonymousAuthManager
         if (this.destroyed) {
             return
         }
-        this.destroyed = true
         this.userId = undefined
         this.authenticated = false
         this.connection.off('connect', this.onConnect)
         this.connection.off('disconnect', this.onDisconnect)
-        this.emit('destroy')
+        super.destroy()
     }
 
     private init(): void {

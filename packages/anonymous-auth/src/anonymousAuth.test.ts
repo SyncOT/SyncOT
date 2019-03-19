@@ -96,6 +96,7 @@ describe('right after create', () => {
         authManager.on('destroy', onDestroy)
         connection.connect(stream)
         await Promise.resolve()
+        await Promise.resolve()
         expect(onAuth).not.toHaveBeenCalled()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })

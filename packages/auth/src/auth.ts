@@ -1,5 +1,5 @@
 import { DocumentId, TypeName } from '@syncot/core'
-import { NodeEventEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * Type of the user ID.
@@ -28,7 +28,7 @@ export interface AuthEvents {
  * @event error An auth-related error has occurred. The system will attempt to recover automatically.
  * @event destroy The AuthManager has been destroyed.
  */
-export interface AuthManager extends NodeEventEmitter<AuthEvents> {
+export interface AuthManager extends SyncOtEmitter<AuthEvents> {
     /**
      * Gets the user ID, if present, otherwise returns undefined.
      */
@@ -55,9 +55,4 @@ export interface AuthManager extends NodeEventEmitter<AuthEvents> {
      * otherwise resolves to false.
      */
     mayWrite(type: TypeName, id: DocumentId): Promise<boolean>
-
-    /**
-     * Destroys this component.
-     */
-    destroy(): void
 }
