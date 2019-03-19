@@ -122,6 +122,7 @@ describe('initially disconnected', () => {
         const onAuth = jest.fn()
         authManager.on('auth', onAuth)
         connection.connect(stream)
+        await Promise.resolve()
         expect(onAuth).toHaveBeenCalledTimes(1)
         expect(authManager.hasAuthenticatedUserId()).toBeTrue()
     })
@@ -156,10 +157,11 @@ describe('initially connected', () => {
     test('mayWrite', async () => {
         await expect(authManager.mayWrite('', '')).resolves.toBeTrue()
     })
-    test('disconnect', () => {
+    test('disconnect', async () => {
         const onAuthEnd = jest.fn()
         authManager.on('authEnd', onAuthEnd)
         connection.disconnect()
+        await Promise.resolve()
         expect(onAuthEnd).toHaveBeenCalledTimes(1)
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
     })

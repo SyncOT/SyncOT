@@ -86,12 +86,13 @@ test('destroy', async () => {
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
-test('disconnect', () => {
+test('disconnect', async () => {
     const onSessionInactive = jest.fn()
     const onSessionClose = jest.fn()
     sessionManager.on('sessionInactive', onSessionInactive)
     sessionManager.on('sessionClose', onSessionClose)
     serverConnection.disconnect()
+    await Promise.resolve()
     expect(sessionManager.getSessionId()).toBeUndefined()
     expect(sessionManager.hasSession()).toBeFalse()
     expect(sessionManager.hasActiveSession()).toBeFalse()
@@ -183,12 +184,13 @@ describe('active session', () => {
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
 
-    test('disconnect', () => {
+    test('disconnect', async () => {
         const onSessionInactive = jest.fn()
         const onSessionClose = jest.fn()
         sessionManager.on('sessionInactive', onSessionInactive)
         sessionManager.on('sessionClose', onSessionClose)
         serverConnection.disconnect()
+        await Promise.resolve()
         expect(sessionManager.getSessionId()).toBeUndefined()
         expect(sessionManager.hasSession()).toBeFalse()
         expect(sessionManager.hasActiveSession()).toBeFalse()

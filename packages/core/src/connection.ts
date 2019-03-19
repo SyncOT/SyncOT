@@ -209,6 +209,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
      * @param stream The stream to connect to.
      */
     public connect(stream: Duplex): void {
+        this.assertNotDestroyed()
         assert.ok(
             stream instanceof Duplex,
             'Argument "stream" must be a Duplex.',
@@ -235,7 +236,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     // well as its own internal errors.
                     // The premature close error happens when calling destroy on the
                     // stream. It isn't really a problem, so we don't emit it.
-                    this.emit('error', error)
+                    this.emitAsync('error', error)
                 }
                 this.disconnect()
             }
@@ -244,7 +245,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         // Just in case, destroy the stream on error becasue some streams remain open.
         stream.on('error', () => stream.destroy())
 
-        this.emit('connect')
+        this.emitAsync('connect')
     }
 
     /**
@@ -257,7 +258,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         if (stream) {
             this.stream = null
             stream.destroy()
-            this.emit('disconnect')
+            this.emitAsync('disconnect')
         }
     }
 
@@ -275,6 +276,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         streams = new Set(),
         instance,
     }: ServiceDescriptor): void {
+        this.assertNotDestroyed()
         assert.ok(
             instance != null && typeof instance === 'object',
             'Argument "instance" must be an object.',
@@ -317,6 +319,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         events = new Set(),
         streams = new Set(),
     }: ProxyDescriptor): void {
+        this.assertNotDestroyed()
         assert.ok(
             !this.proxies.has(name),
             `Proxy "${name}" has been already registered.`,
@@ -340,6 +343,14 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     public getProxy(name: ProxyName): Proxy | undefined {
         const descriptor = this.proxies.get(name)
         return descriptor && descriptor.instance
+    }
+
+    public destroy(): void {
+        if (this.destroyed) {
+            return
+        }
+        this.disconnect()
+        super.destroy()
     }
 
     private initService(
@@ -576,6 +587,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
  *   - `SyncOtError InvalidEntity` - emitted when sending or receiving an invalid message.
  *     It indicates presence of a bug in SyncOT or the client code.
  *   - Errors from the associated stream are emitted as `Connection` errors.
+ * @event destroy Emitted when the Connection is destroyed.
  */
 export interface Connection extends Interface<ConnectionImpl> {}
 

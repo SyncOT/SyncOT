@@ -16,6 +16,10 @@ const testErrorMatcher = expect.objectContaining({
     message: 'test error',
     name: 'Error',
 })
+const alreadyDestroyedMatcher = expect.objectContaining({
+    message: 'Already destroyed.',
+    name: 'AssertionError [ERR_ASSERTION]',
+})
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
@@ -38,14 +42,44 @@ describe('connection', () => {
     test('initially disconnected', () => {
         expect(connection.isConnected()).toBe(false)
     })
-    test('connect', () => {
+    test('connect', async () => {
         const connectedCallback = jest.fn()
         connection.on('connect', connectedCallback)
         connection.connect(stream1)
         expect(connection.isConnected()).toBe(true)
+        await Promise.resolve()
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
-    test('connect twice', () => {
+    test('destroy, connect', () => {
+        connection.destroy()
+        expect(() => connection.connect(stream1)).toThrow(
+            alreadyDestroyedMatcher,
+        )
+    })
+    test('connect, destroy', async () => {
+        const connectedCallback = jest.fn()
+        const disconnectedCallback = jest.fn()
+        const destroyedCallback = jest.fn()
+        connection.on('connect', connectedCallback)
+        connection.on('disconnect', disconnectedCallback)
+        connection.on('destroy', destroyedCallback)
+        connection.connect(stream1)
+        connection.destroy()
+        expect(connection.isConnected()).toBe(false)
+        await Promise.resolve()
+        expect(connectedCallback).not.toHaveBeenCalled()
+        expect(disconnectedCallback).not.toHaveBeenCalled()
+        expect(destroyedCallback).toHaveBeenCalledTimes(1)
+    })
+    test('destroy twice', async () => {
+        const onDestroy = jest.fn()
+        connection.on('destroy', onDestroy)
+        connection.destroy()
+        connection.destroy()
+        await Promise.resolve()
+        expect(onDestroy).toBeCalledTimes(1)
+    })
+    test('connect twice', async () => {
         const connectedCallback = jest.fn()
         connection.on('connect', connectedCallback)
         connection.connect(stream1)
@@ -56,6 +90,7 @@ describe('connection', () => {
             ),
         )
         expect(connection.isConnected()).toBe(true)
+        await Promise.resolve()
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('connect with an invalid stream', () => {
@@ -67,21 +102,26 @@ describe('connection', () => {
         )
     })
     test('disconnect', async () => {
+        const connectCallback = jest.fn()
         const disconnectCallback = jest.fn()
         const errorCallback = jest.fn()
         const closeCallback = jest.fn()
         connection.connect(stream1)
+        connection.on('connect', connectCallback)
         connection.on('disconnect', disconnectCallback)
         connection.on('error', errorCallback)
         stream1.on('close', closeCallback)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
+        await Promise.resolve()
+        expect(connectCallback).toHaveBeenCalledTimes(1)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
+        expect(connectCallback).toHaveBeenCalledBefore(disconnectCallback)
         await delay()
         expect(closeCallback).toHaveBeenCalledTimes(1)
         expect(errorCallback).not.toHaveBeenCalled()
     })
-    test('disconnect twice', () => {
+    test('disconnect twice', async () => {
         const disconnectCallback = jest.fn()
         const errorCallback = jest.fn()
         connection.connect(stream1)
@@ -90,10 +130,11 @@ describe('connection', () => {
         connection.disconnect()
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
+        await Promise.resolve()
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
         expect(errorCallback).not.toHaveBeenCalled()
     })
-    test('connect, disconnect, connect, disconnect', () => {
+    test('connect, disconnect, connect, disconnect', async () => {
         const connectCallback = jest.fn()
         const errorCallback = jest.fn()
         const disconnectCallback = jest.fn()
@@ -108,6 +149,7 @@ describe('connection', () => {
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
+        await Promise.resolve()
         expect(connectCallback).toHaveBeenCalledTimes(2)
         expect(disconnectCallback).toHaveBeenCalledTimes(2)
         expect(errorCallback).not.toHaveBeenCalled()
@@ -313,6 +355,15 @@ describe('service registration', () => {
         expect(connection.getServiceDescriptor('missing')).toBe(undefined)
         expect(connection.getService('missing')).toBe(undefined)
     })
+    test('after destroy', () => {
+        connection.destroy()
+        expect(() =>
+            connection.registerService({
+                instance,
+                name,
+            }),
+        ).toThrow(alreadyDestroyedMatcher)
+    })
 })
 
 describe('proxy registration', () => {
@@ -394,6 +445,14 @@ describe('proxy registration', () => {
         expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
         expect(connection.getProxyDescriptor('missing')).toBe(undefined)
         expect(connection.getProxy('missing')).toBe(undefined)
+    })
+    test('after destroy', () => {
+        connection.destroy()
+        expect(() =>
+            connection.registerProxy({
+                name,
+            }),
+        ).toThrow(alreadyDestroyedMatcher)
     })
 })
 
