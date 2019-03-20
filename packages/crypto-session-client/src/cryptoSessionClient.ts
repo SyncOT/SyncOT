@@ -63,7 +63,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         return this.active
     }
 
-    public destroy(): void {
+    public destroy(error?: Error): void {
         if (this.destroyed) {
             return
         }
@@ -73,18 +73,22 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         this.publicKey = undefined
         this.sessionId = undefined
         this.active = false
-        super.destroy()
+        super.destroy(error)
     }
 
     private onConnect = () => {
-        this.connectionNumber++
-        this.activateSession()
+        if (!this.destroyed) {
+            this.activateSession()
+        }
     }
 
     private onDisconnect = () => {
-        if (!this.destroyed && this.active) {
-            this.active = false
-            this.emit('sessionInactive')
+        if (!this.destroyed) {
+            this.connectionNumber++
+            if (this.active) {
+                this.active = false
+                this.emitAsync('sessionInactive')
+            }
         }
     }
 
@@ -126,24 +130,16 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             this.keyPair = keyPair
             this.publicKey = spki
             this.sessionId = sessionId
-        } catch (error) {
-            if (!this.destroyed) {
-                this.emit(
-                    'error',
-                    createSessionError('Failed to open a session.', error),
-                )
-                this.destroy()
+            this.emitAsync('sessionOpen')
+
+            this.connection.on('connect', this.onConnect)
+            this.connection.on('disconnect', this.onDisconnect)
+            if (this.connection.isConnected()) {
+                this.activateSession()
             }
-            return
+        } catch (error) {
+            this.destroy(createSessionError('Failed to open a session.', error))
         }
-
-        this.connection.on('connect', this.onConnect)
-        this.connection.on('disconnect', this.onDisconnect)
-        if (this.connection.isConnected()) {
-            this.activateSession()
-        }
-
-        this.emit('sessionOpen')
     }
 
     private async activateSession(): Promise<void> {
@@ -161,28 +157,22 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
                 this.sessionId!,
                 challengeReply,
             )
-        } catch (error) {
+
             if (
                 !this.destroyed &&
-                this.connection.isConnected() &&
-                this.connectionNumber === connectionNumber
+                this.connectionNumber === connectionNumber &&
+                !this.active
             ) {
-                this.emit(
+                this.active = true
+                this.emitAsync('sessionActive')
+            }
+        } catch (error) {
+            if (!this.destroyed && this.connectionNumber === connectionNumber) {
+                this.emitAsync(
                     'error',
                     createSessionError('Failed to activate session.', error),
                 )
             }
-            return
-        }
-
-        if (
-            !this.destroyed &&
-            this.connection.isConnected() &&
-            this.connectionNumber === connectionNumber &&
-            !this.active
-        ) {
-            this.active = true
-            this.emit('sessionActive')
         }
     }
 }
