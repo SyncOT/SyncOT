@@ -110,10 +110,11 @@ const typedEmitter: new <ListenEvents, EmitEvents>() => TypedEventEmitter<
  * The `Events` type param defines the events that can be emitted and
  * listened for. The format is the same as for `TypedEventEmitter`.
  *
+ * @emits error Emitted asynchronously when `destroy` is called with an error argument.
  * @emits destroy Emitted asynchronously when this emitter is destroyed.
  */
 export class SyncOtEmitter<Events> extends typedEmitter<
-    Events & { destroy: void },
+    Events & { destroy: void; error: Error },
     Events
 > {
     private _destroyed: boolean = false
@@ -184,10 +185,15 @@ export class SyncOtEmitter<Events> extends typedEmitter<
 
     /**
      * Destroys this event emitter and emits a destroy event asynchronously.
+     * If an error is specified, it is emitted as an "error" event before the "destroy" event.
+     * Does nothing, if the object is already destroyed.
      */
-    public destroy(): void {
+    public destroy(error?: Error): void {
         if (!this._destroyed) {
             this._destroyed = true
+            if (error) {
+                this.emitAsyncForce('error' as any, error)
+            }
             this.emitAsyncForce('destroy' as any)
         }
     }
@@ -196,3 +202,11 @@ export class SyncOtEmitter<Events> extends typedEmitter<
         assert.ok(!this._destroyed, 'Already destroyed.')
     }
 }
+
+/**
+ * A type which excludes functions for emitting events.
+ */
+export type NoEmit<T> = Pick<
+    T,
+    Exclude<keyof T, 'emit' | 'emitForce' | 'emitAsync' | 'emitAsyncForce'>
+>
