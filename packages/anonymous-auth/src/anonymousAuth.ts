@@ -60,33 +60,29 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
             return
         }
 
-        this.userId = new ArrayBuffer(0)
-        this.emit('user')
-
-        if (this.destroyed) {
-            return
-        }
-
         this.connection.on('connect', this.onConnect)
         this.connection.on('disconnect', this.onDisconnect)
 
+        this.userId = new ArrayBuffer(0)
+        this.emitAsync('user')
+
         this.authenticated = this.connection.isConnected()
         if (this.authenticated) {
-            this.emit('auth')
+            this.emitAsync('auth')
         }
     }
 
     private onConnect = () => {
         if (!this.destroyed && !this.authenticated) {
             this.authenticated = true
-            this.emit('auth')
+            this.emitAsync('auth')
         }
     }
 
     private onDisconnect = () => {
         if (!this.destroyed && this.authenticated) {
             this.authenticated = false
-            this.emit('authEnd')
+            this.emitAsync('authEnd')
         }
     }
 }

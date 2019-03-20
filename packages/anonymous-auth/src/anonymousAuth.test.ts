@@ -4,6 +4,9 @@ import { binaryEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthManager } from '.'
 
+const delay = (time: number = 0) =>
+    new Promise(resolve => setTimeout(resolve, time))
+
 const createDuplex = () =>
     new Duplex({
         read: () => undefined,
@@ -41,7 +44,7 @@ describe('right after create', () => {
         authManager = createAuthManager(connection)
         authManager.on('user', onUser)
         authManager.on('auth', onAuth)
-        await Promise.resolve()
+        await delay()
         expect(onUser).toHaveBeenCalledTimes(1)
         expect(onAuth).not.toHaveBeenCalled()
     })
@@ -52,7 +55,7 @@ describe('right after create', () => {
         authManager = createAuthManager(connection)
         authManager.on('user', onUser)
         authManager.on('auth', onAuth)
-        await Promise.resolve()
+        await delay()
         expect(onUser).toHaveBeenCalledTimes(1)
         expect(onAuth).toHaveBeenCalledTimes(1)
         expect(onAuth).toHaveBeenCalledAfter(onUser)
@@ -66,7 +69,7 @@ describe('right after create', () => {
         authManager.on('auth', onAuth)
         authManager.on('destroy', onDestroy)
         authManager.destroy()
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(onUser).not.toHaveBeenCalled()
         expect(onAuth).not.toHaveBeenCalled()
@@ -82,7 +85,7 @@ describe('right after create', () => {
         authManager.on('destroy', onDestroy)
         authManager.destroy()
         authManager.destroy()
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
     test('destroy on user event', async () => {
@@ -95,8 +98,7 @@ describe('right after create', () => {
         authManager.on('auth', onAuth)
         authManager.on('destroy', onDestroy)
         connection.connect(stream)
-        await Promise.resolve()
-        await Promise.resolve()
+        await delay()
         expect(onAuth).not.toHaveBeenCalled()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
@@ -122,7 +124,7 @@ describe('initially disconnected', () => {
         const onAuth = jest.fn()
         authManager.on('auth', onAuth)
         connection.connect(stream)
-        await Promise.resolve()
+        await delay()
         expect(onAuth).toHaveBeenCalledTimes(1)
         expect(authManager.hasAuthenticatedUserId()).toBeTrue()
     })
@@ -130,7 +132,7 @@ describe('initially disconnected', () => {
         const onDestroy = jest.fn()
         authManager.on('destroy', onDestroy)
         authManager.destroy()
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(authManager.getUserId()).toBeUndefined()
         expect(authManager.hasUserId()).toBeFalse()
@@ -161,7 +163,7 @@ describe('initially connected', () => {
         const onAuthEnd = jest.fn()
         authManager.on('authEnd', onAuthEnd)
         connection.disconnect()
-        await Promise.resolve()
+        await delay()
         expect(onAuthEnd).toHaveBeenCalledTimes(1)
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
     })
@@ -169,7 +171,7 @@ describe('initially connected', () => {
         const onDestroy = jest.fn()
         authManager.on('destroy', onDestroy)
         authManager.destroy()
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(authManager.getUserId()).toBeUndefined()
         expect(authManager.hasUserId()).toBeFalse()
