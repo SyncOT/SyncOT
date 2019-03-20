@@ -1,5 +1,5 @@
 import { DocumentId, TypeName } from '@syncot/core'
-import { SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Type of the user ID.
@@ -27,7 +27,8 @@ export interface AuthEvents {
  * @event error An auth-related error has occurred. The system will attempt to recover automatically.
  * @event destroy The AuthManager has been destroyed.
  */
-export interface AuthManager extends SyncOtEmitter<AuthEvents> {
+export interface AuthManager
+    extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
     /**
      * Gets the user ID, if present, otherwise returns undefined.
      */

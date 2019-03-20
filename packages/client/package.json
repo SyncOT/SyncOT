@@ -21,6 +21,7 @@
   "dependencies": {
     "@syncot/core": "file:../core",
     "@syncot/error": "file:../error",
+    "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }
 }

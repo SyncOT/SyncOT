@@ -1,7 +1,7 @@
 import { createTypeNotFoundError } from '@syncot/error'
+import { Interface } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
-import { Interface } from './util'
 
 function typeNotFound(name: TypeName): never {
     throw createTypeNotFoundError(name)

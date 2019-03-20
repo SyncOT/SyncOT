@@ -4,5 +4,9 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../core" }, { "path": "../error" }]
+  "references": [
+    { "path": "../core" },
+    { "path": "../error" },
+    { "path": "../util" }
+  ]
 }

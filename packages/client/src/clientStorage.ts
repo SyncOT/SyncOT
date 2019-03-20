@@ -3,7 +3,6 @@ import {
     assertSnapshot,
     DocumentId,
     DocumentVersion,
-    Interface,
     Operation,
     SequenceNumber,
     SessionId,
@@ -18,6 +17,7 @@ import {
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
 } from '@syncot/error'
+import { Interface } from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: DocumentVersion

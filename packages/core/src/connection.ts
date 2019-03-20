@@ -3,17 +3,11 @@ import {
     createInvalidEntityError,
     createNoServiceError,
 } from '@syncot/error'
-import { SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex, finished } from 'stream'
 import { JsonArray, JsonValue } from './json'
-import {
-    assertUnreachable,
-    Interface,
-    throwError,
-    validate,
-    Validator,
-} from './util'
+import { assertUnreachable, throwError, validate, Validator } from './util'
 
 type SessionId = number
 type ServiceName = string
@@ -589,7 +583,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
  *   - Errors from the associated stream are emitted as `Connection` errors.
  * @event destroy Emitted when the Connection is destroyed.
  */
-export interface Connection extends Interface<ConnectionImpl> {}
+export interface Connection extends EmitterInterface<ConnectionImpl> {}
 
 /**
  * Creates a new `Connection`.

@@ -1,4 +1,4 @@
-import { SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
 /**
  * A globally unique session id.
@@ -28,7 +28,8 @@ export interface SessionEvents {
  * @event error A session-related error has occurred. The system will attempt to recover automatically.
  * @event destroy The SessionManager has been destroyed.
  */
-export interface SessionManager extends SyncOtEmitter<SessionEvents> {
+export interface SessionManager
+    extends EmitterInterface<SyncOtEmitter<SessionEvents>> {
     /**
      * Returns the ID of the current session, or `undefined`, if there's no session.
      */

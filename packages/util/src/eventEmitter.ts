@@ -1,6 +1,7 @@
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { StrictEventEmitter } from 'strict-event-emitter-types'
+import { Interface } from './types'
 
 /**
  * A strongly typed nodejs `EventEmitter`.
@@ -204,9 +205,17 @@ export class SyncOtEmitter<Events> extends typedEmitter<
 }
 
 /**
- * A type which excludes functions for emitting events.
+ * Extracts a public interface from an event emitter.
  */
-export type NoEmit<T> = Pick<
-    T,
-    Exclude<keyof T, 'emit' | 'emitForce' | 'emitAsync' | 'emitAsyncForce'>
->
+export type EmitterInterface<T extends Interface<EventEmitter>> = Pick<
+    Interface<T>,
+    Exclude<
+        keyof T,
+        'emit' | 'emitForce' | 'emitAsync' | 'emitAsyncForce' | 'destroy'
+    >
+> &
+    (Interface<T> extends { destroy(error?: Error): void }
+        ? {
+              destroy(): void
+          }
+        : {})
