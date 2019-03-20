@@ -17,10 +17,6 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private sessionId: SessionId | undefined = undefined
     private readonly challenge: Challenge
-    /**
-     * Used to ensure that the client code does not mess up the component's state.
-     */
-    private busy: boolean = false
 
     public constructor(private readonly connection: Connection) {
         super()
@@ -49,7 +45,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         sessionId: SessionId,
         challangeReply: ChallengeReply,
     ): void {
-        this.assertReady()
+        this.assertNotDestroyed()
         assert.ok(this.connection.isConnected(), 'Connection must be active.')
 
         if (this.sessionId != null) {
@@ -75,14 +71,8 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         }
 
         this.sessionId = sessionId
-
-        try {
-            this.busy = true
-            this.emitIfNotDestroyed('sessionOpen')
-            this.emitIfNotDestroyed('sessionActive')
-        } finally {
-            this.busy = false
-        }
+        this.emitAsync('sessionOpen')
+        this.emitAsync('sessionActive')
     }
 
     public getSessionId(): SessionId | undefined {
@@ -107,35 +97,10 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     }
 
     private onDisconnect = () => {
-        this.assertReady()
-
-        if (this.sessionId != null) {
+        if (!this.destroyed && this.sessionId != null) {
             this.sessionId = undefined
-
-            try {
-                this.busy = true
-                this.emitIfNotDestroyed('sessionInactive')
-                this.emitIfNotDestroyed('sessionClose')
-            } finally {
-                this.busy = false
-            }
-        }
-    }
-
-    private assertReady(): void {
-        assert.ok(!this.destroyed, 'SessionManager already destroyed.')
-        assert.ok(!this.busy, 'SessionManager is busy.')
-    }
-
-    private emitIfNotDestroyed(
-        eventName:
-            | 'sessionOpen'
-            | 'sessionClose'
-            | 'sessionActive'
-            | 'sessionInactive',
-    ): void {
-        if (!this.destroyed) {
-            this.emit(eventName)
+            this.emitAsync('sessionInactive')
+            this.emitAsync('sessionClose')
         }
     }
 }

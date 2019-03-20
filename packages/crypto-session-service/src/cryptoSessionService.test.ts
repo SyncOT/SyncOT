@@ -5,6 +5,9 @@ import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
 
+const delay = (time: number = 0) =>
+    new Promise(resolve => setTimeout(resolve, time))
+
 interface SessionManagerProxy {
     getChallenge(): Promise<ArrayBuffer>
     activateSession(
@@ -190,7 +193,7 @@ describe('active session', () => {
         sessionManager.on('sessionInactive', onSessionInactive)
         sessionManager.on('sessionClose', onSessionClose)
         serverConnection.disconnect()
-        await Promise.resolve()
+        await delay()
         expect(sessionManager.getSessionId()).toBeUndefined()
         expect(sessionManager.hasSession()).toBeFalse()
         expect(sessionManager.hasActiveSession()).toBeFalse()
