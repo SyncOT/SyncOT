@@ -335,3 +335,18 @@ export function createSessionError(
 export function isSessionError(error: any): error is SessionError {
     return error instanceof Error && error.name === 'SyncOtError Session'
 }
+
+export interface PresenceError extends Error {
+    cause?: Error
+    name: 'SyncOtError Presence'
+}
+export function createPresenceError(
+    message: string,
+    cause?: Error,
+): PresenceError {
+    assertString('message', message)
+    return createSyncOtError('Presence', message, cause) as PresenceError
+}
+export function isPresenceError(error: any): error is PresenceError {
+    return error instanceof Error && error.name === 'SyncOtError Presence'
+}

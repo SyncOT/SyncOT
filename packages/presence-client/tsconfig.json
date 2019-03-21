@@ -7,6 +7,7 @@
   "references": [
     { "path": "../auth" },
     { "path": "../core" },
+    { "path": "../error" },
     { "path": "../presence" },
     { "path": "../session" },
     { "path": "../util" }

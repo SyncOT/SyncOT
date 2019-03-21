@@ -1,5 +1,6 @@
 import { AuthManager, UserId } from '@syncot/auth'
 import { Connection } from '@syncot/core'
+import { createPresenceError } from '@syncot/error'
 import {
     Location,
     Presence,
@@ -145,7 +146,13 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             this.presenceService
                 .submitPresence(this.localPresence)
                 .catch(error => {
-                    this.emitAsync(error)
+                    this.emitAsync(
+                        'error',
+                        createPresenceError(
+                            'Failed to submit presence.',
+                            error,
+                        ),
+                    )
                 })
         }
     }

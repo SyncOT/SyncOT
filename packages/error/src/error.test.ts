@@ -4,6 +4,7 @@ import {
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
+    createPresenceError,
     createSessionError,
     createSocketClosedError,
     createSyncOtError,
@@ -17,6 +18,7 @@ import {
     isInvalidEntityError,
     isNoServiceError,
     isNotInitializedError,
+    isPresenceError,
     isSessionError,
     isSocketClosedError,
     isSyncOtError,
@@ -546,6 +548,41 @@ describe('createSessionError', () => {
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
             'SyncOtError Session: Test message. => Error: Test cause!',
+        )
+        expect(error.cause).toBe(cause)
+    })
+})
+
+describe('createPresenceError', () => {
+    test('invalid message', () => {
+        expect(() => createPresenceError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createPresenceError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Presence')
+        expect(error.message).toBe('test')
+        expect(error.cause).toBe(undefined)
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isPresenceError(error)).toBeTrue()
+    })
+    test('not a PresenceError', () => {
+        expect(isPresenceError(new Error())).toBeFalse()
+        expect(isPresenceError({})).toBeFalse()
+    })
+    test('with cause', () => {
+        const cause = new Error('Test cause!')
+        const error = createPresenceError('Test message.', cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Presence')
+        expect(error.message).toBe('Test message. => Error: Test cause!')
+        expect(error.toString()).toBe(
+            'SyncOtError Presence: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
