@@ -51,6 +51,7 @@
     "@syncot/crypto-session-client": "file:packages/crypto-session-client",
     "@syncot/crypto-session-service": "file:packages/crypto-session-service",
     "@syncot/error": "file:packages/error",
+    "@syncot/presence": "file:packages/presence",
     "@syncot/session": "file:packages/session",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
