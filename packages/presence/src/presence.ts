@@ -20,8 +20,7 @@ export interface Presence {
  * Events emitted by `PresenceClient`.
  */
 export interface PresenceClientEvents {
-    ready: void
-    presenceChange: void
+    localPresence: void
     online: void
     offline: void
     error: Error
@@ -37,9 +36,7 @@ export interface PresenceServiceEvents {
 /**
  * Manages presence on the client side and synchronizes it with PresenceService.
  *
- * @event ready The PresenceClient has been initialized.
- *   It is an error to use PresenceClient before it fires the "ready" event.
- * @event presenceChange The local presence object has changed.
+ * @event localPresence When the local presence has changed.
  * @event online The PresenceClient has connected to PresenceService.
  * @event offline The PresenceClient has disconnected from PresenceService.
  * @event error A presence-related error has occurred.
@@ -47,15 +44,15 @@ export interface PresenceServiceEvents {
  */
 export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
-    /**
-     * Get the current local presence object.
-     */
-    getCurrentPresence(): Presence
+    readonly sessionId: SessionId | undefined
+    readonly userId: UserId | undefined
+    location: Location
+    readonly localPresence: Presence | undefined
+    readonly online: boolean
 
-    /**
-     * Sets the location of the local presence object.
-     */
-    setLocation(location: Location): void
+    getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
+    getPresenceByUserId(userId: UserId): Promise<Presence[]>
+    getPresenceByLocation(location: Location): Promise<Presence[]>
 }
 
 /**
@@ -67,16 +64,11 @@ export interface PresenceClient
 export interface PresenceService
     extends EmitterInterface<SyncOtEmitter<PresenceServiceEvents>> {
     /**
-     * Initializes PresenceService with the specified presence object.
+     * Submits a new presence object for the current session.
      */
-    init(presence: Presence): Promise<void>
+    submitPresence(presence: Presence): Promise<void>
 
-    /**
-     * Sets the location to the specified value.
-     */
-    setLocation(location: Location): Promise<void>
-
-    getPresenceBySessionId(sessionId: SessionId): Promise<Presence>
+    getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
     getPresenceByLocation(location: Location): Promise<Presence[]>
 }
