@@ -71,7 +71,7 @@ export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
  * Returns true, if the two provided values are binary and contain the same data,
  * otherwise returns false.
  */
-export function binaryEqual(binary1: any, binary2: any): boolean {
+export function binaryEqual(binary1: BinaryType, binary2: BinaryType): boolean {
     const buffer1 = toBuffer(binary1)
 
     if (!buffer1) {

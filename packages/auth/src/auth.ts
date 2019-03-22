@@ -1,10 +1,38 @@
 import { DocumentId, TypeName } from '@syncot/core'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
 
 /**
  * Type of the user ID.
  */
 export type UserId = ArrayBuffer | string | number
+
+/**
+ * Returns true, if user id is valid, otherwise returns false.
+ */
+export function isValidUserId(userId: UserId): boolean {
+    const type = typeof userId
+    return (
+        type === 'string' || type === 'number' || userId instanceof ArrayBuffer
+    )
+}
+
+/**
+ * Returns true, if the two provided user IDs are valid and equal, otherwise returns false.
+ */
+export function userIdEqual(userId1: UserId, userId2: UserId): boolean {
+    const type = typeof userId1
+
+    if (type === 'string' || type === 'number') {
+        return userId1 === userId2
+    } else if (
+        userId1 instanceof ArrayBuffer &&
+        userId2 instanceof ArrayBuffer
+    ) {
+        return toBuffer(userId1).compare(toBuffer(userId2)) === 0
+    } else {
+        return false
+    }
+}
 
 /**
  * Events emitted by `AuthManager`.

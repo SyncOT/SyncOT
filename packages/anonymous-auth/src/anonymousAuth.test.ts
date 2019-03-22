@@ -1,6 +1,5 @@
-import { AuthManager } from '@syncot/auth'
+import { AuthManager, userIdEqual } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/core'
-import { binaryEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthManager } from '.'
 
@@ -110,7 +109,7 @@ describe('initially disconnected', () => {
     })
 
     test('initial state', async () => {
-        expect(binaryEqual(authManager.getUserId()!, userId)).toBeTrue()
+        expect(userIdEqual(authManager.getUserId()!, userId)).toBeTrue()
         expect(authManager.hasUserId()).toBeTrue()
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
     })
@@ -149,7 +148,7 @@ describe('initially connected', () => {
     })
 
     test('initial state', async () => {
-        expect(binaryEqual(authManager.getUserId()!, userId)).toBeTrue()
+        expect(userIdEqual(authManager.getUserId()!, userId)).toBeTrue()
         expect(authManager.hasUserId()).toBeTrue()
         expect(authManager.hasAuthenticatedUserId()).toBeTrue()
     })
