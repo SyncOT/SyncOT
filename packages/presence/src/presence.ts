@@ -1,6 +1,8 @@
 import { UserId } from '@syncot/auth'
 import { SessionId } from '@syncot/session'
 import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
+// import { Validator, validate } from '@syncot/core'
+// import { createInvalidEntityError } from '@syncot/error'
 
 export type LocationId = ArrayBuffer | string | number | null
 
@@ -74,3 +76,10 @@ export interface PresenceService
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
     getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
 }
+
+// export const validatePresence: Validator<Presence> = validate([
+//     presence =>
+//         typeof presence === 'object' && presence != null ? undefined : createInvalidEntityError('Presence', presence, null),
+//     presence =>
+//         typeof presence
+// ])

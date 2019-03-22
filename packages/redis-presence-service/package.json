@@ -1,0 +1,35 @@
+{
+  "name": "@syncot/redis-presence-service",
+  "version": "0.0.0",
+  "description": "A presence service based on Redis.",
+  "keywords": [
+    "redis",
+    "presence",
+    "service"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "engines": {
+    "node": ">=11.6.0 <=11.10.1"
+  },
+  "dependencies": {
+    "@syncot/auth": "file:../auth",
+    "@syncot/core": "file:../core",
+    "@syncot/error": "file:../error",
+    "@syncot/presence": "file:../presence",
+    "@syncot/session": "file:../session",
+    "@syncot/util": "file:../util",
+    "tslib": "^1.9.3"
+  }
+}

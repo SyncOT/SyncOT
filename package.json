@@ -53,6 +53,7 @@
     "@syncot/error": "file:packages/error",
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
+    "@syncot/redis-presence-service": "file:packages/redis-presence-service",
     "@syncot/session": "file:packages/session",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",

@@ -77,6 +77,12 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         super()
 
         this.connection.registerProxy({
+            actions: new Set([
+                'submitPresence',
+                'getPresenceBySessionId',
+                'getPresenceByUserId',
+                'getPresenceByLocationId',
+            ]),
             name: 'presence',
         })
         this.presenceService = this.connection.getProxy(
