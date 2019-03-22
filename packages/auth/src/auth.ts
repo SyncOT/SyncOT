@@ -7,28 +7,25 @@ import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
 export type UserId = ArrayBuffer | string | number
 
 /**
- * Returns true, if user id is valid, otherwise returns false.
+ * Returns true, if the specified value is a user id, otherwise returns false.
  */
-export function isValidUserId(userId: UserId): boolean {
-    const type = typeof userId
+export function isUserId(value: any): value is UserId {
+    const type = typeof value
     return (
-        type === 'string' || type === 'number' || userId instanceof ArrayBuffer
+        type === 'string' || type === 'number' || value instanceof ArrayBuffer
     )
 }
 
 /**
- * Returns true, if the two provided user IDs are valid and equal, otherwise returns false.
+ * Returns true, if the two provided values are equal user IDs, otherwise returns false.
  */
-export function userIdEqual(userId1: UserId, userId2: UserId): boolean {
-    const type = typeof userId1
+export function userIdEqual(value1: any, value2: any): boolean {
+    const type = typeof value1
 
     if (type === 'string' || type === 'number') {
-        return userId1 === userId2
-    } else if (
-        userId1 instanceof ArrayBuffer &&
-        userId2 instanceof ArrayBuffer
-    ) {
-        return toBuffer(userId1).compare(toBuffer(userId2)) === 0
+        return value1 === value2
+    } else if (value1 instanceof ArrayBuffer && value2 instanceof ArrayBuffer) {
+        return toBuffer(value1).compare(toBuffer(value2)) === 0
     } else {
         return false
     }

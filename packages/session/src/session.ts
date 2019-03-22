@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
 
 /**
  * A globally unique session id.
@@ -6,6 +6,24 @@ import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
  * so some other, secret information must be used to securely create and restore sessions.
  */
 export type SessionId = ArrayBuffer
+
+/**
+ * Returns true, if the specified value is a session ID, otherwise returns false.
+ */
+export function isSessionId(value: any): value is SessionId {
+    return value instanceof ArrayBuffer
+}
+
+/**
+ * Returns true, if the two provided values are equal session IDs, otherwise returns false.
+ */
+export function sessionIdEqual(value1: any, value2: any): boolean {
+    return (
+        value1 instanceof ArrayBuffer &&
+        value2 instanceof ArrayBuffer &&
+        toBuffer(value1).compare(toBuffer(value2)) === 0
+    )
+}
 
 /**
  * Events emitted by `SessionManager`.
