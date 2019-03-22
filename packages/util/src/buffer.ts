@@ -68,8 +68,33 @@ export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
 }
 
 /**
- * Returns true, if the two binary objects contain the same data, otherwise returns false.
+ * Returns true, if the two provided values are binary and contain the same data,
+ * otherwise returns false.
  */
-export function binaryEqual(binary1: BinaryType, binary2: BinaryType): boolean {
-    return toBuffer(binary1).compare(toBuffer(binary2)) === 0
+export function binaryEqual(binary1: any, binary2: any): boolean {
+    const buffer1 = toBuffer(binary1)
+
+    if (!buffer1) {
+        return false
+    }
+
+    const buffer2 = toBuffer(binary2)
+
+    if (!buffer2) {
+        return false
+    }
+
+    return buffer1.compare(buffer2) === 0
+}
+
+/**
+ * Returns true, if value is binary, otherwise returns false.
+ */
+export function isBinary(value: any): value is BinaryType {
+    return (
+        Buffer.isBuffer(value) ||
+        ArrayBuffer.isView(value) ||
+        value instanceof ArrayBuffer ||
+        value instanceof SharedArrayBuffer
+    )
 }

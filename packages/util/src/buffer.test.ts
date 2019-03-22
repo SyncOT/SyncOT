@@ -1,5 +1,5 @@
 import { toBuffer } from '.'
-import { binaryEqual, BinaryType, toArrayBuffer } from './buffer'
+import { binaryEqual, isBinary, toArrayBuffer } from './buffer'
 
 describe('toBuffer', () => {
     test('Buffer', () => {
@@ -130,7 +130,7 @@ describe('toArrayBuffer', () => {
 })
 
 describe('binaryEqual', () => {
-    test.each<[BinaryType, BinaryType, boolean]>([
+    test.each<[any, any, boolean]>([
         [Buffer.from('some data'), Buffer.from('some data'), true],
         [Buffer.allocUnsafe(0), Buffer.allocUnsafe(0), true],
         [Buffer.from('some data'), Buffer.from('some data!'), false],
@@ -157,23 +157,44 @@ describe('binaryEqual', () => {
             Buffer.from('test'),
             true,
         ],
+        [0, Buffer.allocUnsafe(0), false],
+        [Buffer.allocUnsafe(0), 0, false],
+        [[], Buffer.allocUnsafe(0), false],
+        [Buffer.allocUnsafe(0), [], false],
     ])('test #%#', (binary1, binary2, result) => {
         expect(binaryEqual(binary1, binary2)).toBe(result)
     })
+})
 
-    test('invalid first param', () => {
-        expect(() => binaryEqual(5 as any, Buffer.allocUnsafe(0))).toThrow(
-            expect.objectContaining({
-                name: 'TypeError',
-            }),
-        )
-    })
-
-    test('invalid second param', () => {
-        expect(() => binaryEqual(Buffer.allocUnsafe(0), 5 as any)).toThrow(
-            expect.objectContaining({
-                name: 'TypeError [ERR_INVALID_ARG_TYPE]',
-            }),
-        )
+describe('isBinary', () => {
+    test.each<[string, any, boolean]>(
+        ([
+            ['string', 'test', false],
+            ['number', 5, false],
+            ['null', null, false],
+            ['undefined', undefined, false],
+            ['object', {}, false],
+            ['array', [], false],
+            ['ArrayBuffer', new ArrayBuffer(0), true],
+            ['SharedArrayBuffer', new SharedArrayBuffer(0), true],
+            ['Buffer', Buffer.allocUnsafe(0), true],
+        ] as Array<[string, any, boolean]>).concat([
+            DataView,
+            Int8Array,
+            Uint8Array,
+            Uint8ClampedArray,
+            Int16Array,
+            Uint16Array,
+            Int32Array,
+            Uint32Array,
+            Float32Array,
+            Float64Array,
+        ].map(constructor => [
+            constructor.name,
+            new constructor(new ArrayBuffer(8)),
+            true,
+        ]) as Array<[string, any, boolean]>),
+    )('%s', (_, value, expectedResult) => {
+        expect(isBinary(value)).toBe(expectedResult)
     })
 })
