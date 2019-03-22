@@ -29,7 +29,7 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
     }
 
     public hasUserId(): boolean {
-        return !!this.userId
+        return this.userId !== undefined
     }
 
     public hasAuthenticatedUserId(): boolean {

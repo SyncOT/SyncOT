@@ -4,7 +4,7 @@ import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 /**
  * Type of the user ID.
  */
-export type UserId = ArrayBuffer
+export type UserId = ArrayBuffer | string | number
 
 /**
  * Events emitted by `AuthManager`.
