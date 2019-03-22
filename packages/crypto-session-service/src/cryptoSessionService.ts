@@ -48,7 +48,10 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         this.assertNotDestroyed()
         assert.ok(this.connection.isConnected(), 'Connection must be active.')
 
-        if (this.sessionId != null) {
+        const sameSessionId =
+            this.sessionId != null && binaryEqual(this.sessionId, sessionId)
+
+        if (this.sessionId != null && !sameSessionId) {
             throw createSessionError('Session already exists.')
         }
 
@@ -70,9 +73,11 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             throw createSessionError('Invalid session ID.')
         }
 
-        this.sessionId = sessionId
-        this.emitAsync('sessionOpen')
-        this.emitAsync('sessionActive')
+        if (!sameSessionId) {
+            this.sessionId = sessionId
+            this.emitAsync('sessionOpen')
+            this.emitAsync('sessionActive')
+        }
     }
 
     public getSessionId(): SessionId | undefined {

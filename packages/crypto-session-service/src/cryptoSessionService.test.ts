@@ -202,10 +202,95 @@ describe('active session', () => {
         expect(onSessionInactive).toHaveBeenCalledBefore(onSessionClose)
     })
 
-    test('session already exists', async () => {
-        await expect(activateSession()).rejects.toEqual(
+    test('activate session again - the same input', async () => {
+        const onSessionOpen = jest.fn()
+        const onSessionActive = jest.fn()
+        sessionManager.on('sessionOpen', onSessionOpen)
+        sessionManager.on('sessionActive', onSessionActive)
+        await expect(activateSession()).resolves.toBeUndefined()
+        expect(sessionManager.getSessionId()).toBe(sessionId)
+        expect(onSessionActive).not.toHaveBeenCalled()
+        expect(onSessionOpen).not.toHaveBeenCalled()
+    })
+
+    test('activate session again - different input', async () => {
+        const {
+            privateKey: privateKey2,
+            publicKey: publicKey2,
+        } = generateKeyPairSync('rsa', {
+            modulusLength: 4096,
+            publicExponent: 0x10001,
+        })
+        const publicKeyDer2 = publicKey2.export({
+            format: 'der',
+            type: 'spki',
+        })
+
+        const hash2 = createHash('SHA256')
+        hash2.update(publicKeyDer2)
+        const sessionId2 = hash2.digest().slice(0, 16)
+
+        const challenge = await proxy.getChallenge()
+        const sign = createSign('SHA256')
+        sign.update(toBuffer(challenge))
+        const signature = sign.sign(privateKey2 as any)
+        await expect(
+            proxy.activateSession(
+                toArrayBuffer(publicKeyDer2),
+                sessionId2,
+                signature,
+            ),
+        ).rejects.toEqual(
             expect.objectContaining({
                 message: 'Session already exists.',
+                name: 'SyncOtError Session',
+            }),
+        )
+        expect(sessionManager.getSessionId()).toBe(sessionId)
+    })
+
+    test('activate session again - invalid sessionId', async () => {
+        const {
+            privateKey: privateKey2,
+            publicKey: publicKey2,
+        } = generateKeyPairSync('rsa', {
+            modulusLength: 4096,
+            publicExponent: 0x10001,
+        })
+        const publicKeyDer2 = publicKey2.export({
+            format: 'der',
+            type: 'spki',
+        })
+
+        const challenge = await proxy.getChallenge()
+        const sign = createSign('SHA256')
+        sign.update(toBuffer(challenge))
+        const signature = sign.sign(privateKey2 as any)
+        await expect(
+            proxy.activateSession(
+                toArrayBuffer(publicKeyDer2), // new public key
+                sessionId, // old sessionId
+                signature, // new signature
+            ),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'Invalid session ID.',
+                name: 'SyncOtError Session',
+            }),
+        )
+        expect(sessionManager.getSessionId()).toBe(sessionId)
+    })
+
+    test('activate session again - invalid challenge reply', async () => {
+        await expect(
+            proxy.activateSession(
+                toArrayBuffer(publicKeyDer),
+                sessionId,
+                new ArrayBuffer(8), // invalid signature
+            ),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'Invalid challenge reply.',
                 name: 'SyncOtError Session',
             }),
         )
