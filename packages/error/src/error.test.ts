@@ -1,5 +1,6 @@
 import {
     createAlreadyInitializedError,
+    createAuthError,
     createDisconnectedError,
     createInvalidEntityError,
     createNoServiceError,
@@ -14,6 +15,7 @@ import {
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
     isAlreadyInitializedError,
+    isAuthError,
     isDisconnectedError,
     isInvalidEntityError,
     isNoServiceError,
@@ -583,6 +585,41 @@ describe('createPresenceError', () => {
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
             'SyncOtError Presence: Test message. => Error: Test cause!',
+        )
+        expect(error.cause).toBe(cause)
+    })
+})
+
+describe('createAuthError', () => {
+    test('invalid message', () => {
+        expect(() => createAuthError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createAuthError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Auth')
+        expect(error.message).toBe('test')
+        expect(error.cause).toBe(undefined)
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isAuthError(error)).toBeTrue()
+    })
+    test('not an AuthError', () => {
+        expect(isAuthError(new Error())).toBeFalse()
+        expect(isAuthError({})).toBeFalse()
+    })
+    test('with cause', () => {
+        const cause = new Error('Test cause!')
+        const error = createAuthError('Test message.', cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Auth')
+        expect(error.message).toBe('Test message. => Error: Test cause!')
+        expect(error.toString()).toBe(
+            'SyncOtError Auth: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })

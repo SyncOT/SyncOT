@@ -350,3 +350,15 @@ export function createPresenceError(
 export function isPresenceError(error: any): error is PresenceError {
     return error instanceof Error && error.name === 'SyncOtError Presence'
 }
+
+export interface AuthError extends Error {
+    cause?: Error
+    name: 'SyncOtError Auth'
+}
+export function createAuthError(message: string, cause?: Error): AuthError {
+    assertString('message', message)
+    return createSyncOtError('Auth', message, cause) as AuthError
+}
+export function isAuthError(error: any): error is AuthError {
+    return error instanceof Error && error.name === 'SyncOtError Auth'
+}
