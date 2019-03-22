@@ -2,10 +2,11 @@ import { AuthManager, UserId } from '@syncot/auth'
 import { Connection } from '@syncot/core'
 import { createPresenceError } from '@syncot/error'
 import {
-    Location,
+    LocationId,
     Presence,
     PresenceClient,
     PresenceClientEvents,
+    PresenceData,
     PresenceService,
 } from '@syncot/presence'
 import { SessionId, SessionManager } from '@syncot/session'
@@ -38,13 +39,22 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this.authClient.getUserId()
     }
 
-    private _location: Location = null
-    public set location(location: Location) {
-        this._location = location
+    private _locationId: LocationId = null
+    public set locationId(locationId: LocationId) {
+        this._locationId = locationId
         this.updateLocalPresence()
     }
-    public get location(): Location {
-        return this._location
+    public get locationId(): LocationId {
+        return this._locationId
+    }
+
+    private _presenceData: PresenceData = null
+    public set presenceData(presenceData: PresenceData) {
+        this._presenceData = presenceData
+        this.updateLocalPresence()
+    }
+    public get presenceData(): PresenceData {
+        return this._presenceData
     }
 
     private _localPresence: Presence | undefined = undefined
@@ -108,14 +118,17 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this.presenceService.getPresenceByUserId(userId)
     }
 
-    public getPresenceByLocation(location: Location): Promise<Presence[]> {
-        return this.presenceService.getPresenceByLocation(location)
+    public getPresenceByLocationId(
+        locationId: LocationId,
+    ): Promise<Presence[]> {
+        return this.presenceService.getPresenceByLocationId(locationId)
     }
 
     private updateLocalPresence = (): void => {
         if (this.sessionId !== undefined && this.userId !== undefined) {
             this._localPresence = {
-                location: this.location,
+                data: this.presenceData,
+                locationId: this.locationId,
                 sessionId: this.sessionId,
                 userId: this.userId,
             }

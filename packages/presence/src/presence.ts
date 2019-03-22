@@ -2,23 +2,28 @@ import { UserId } from '@syncot/auth'
 import { SessionId } from '@syncot/session'
 import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
-/**
- * The type of a "place" where a user might be present.
- */
-export type Location = ArrayBuffer | string | number | boolean | null
+export type LocationId = ArrayBuffer | string | number | null
 
-/**
- * Defines user presence.
- */
+export interface PresenceDataArray extends Array<PresenceData> {}
+export interface PresenceDataObject {
+    [key: string]: PresenceData
+}
+export type PresenceData =
+    | ArrayBuffer
+    | string
+    | number
+    | boolean
+    | null
+    | PresenceDataArray
+    | PresenceDataObject
+
 export interface Presence {
     readonly sessionId: SessionId
     readonly userId: UserId
-    readonly location: Location
+    readonly locationId: LocationId
+    readonly data: PresenceData
 }
 
-/**
- * Events emitted by `PresenceClient`.
- */
 export interface PresenceClientEvents {
     localPresence: void
     online: void
@@ -26,9 +31,6 @@ export interface PresenceClientEvents {
     error: Error
 }
 
-/**
- * Events emitted by `PresenceService`.
- */
 export interface PresenceServiceEvents {
     error: Error
 }
@@ -46,13 +48,13 @@ export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
     readonly sessionId: SessionId | undefined
     readonly userId: UserId | undefined
-    location: Location
+    locationId: LocationId
     readonly localPresence: Presence | undefined
     readonly online: boolean
 
     getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
-    getPresenceByLocation(location: Location): Promise<Presence[]>
+    getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
 }
 
 /**
@@ -70,5 +72,5 @@ export interface PresenceService
 
     getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
-    getPresenceByLocation(location: Location): Promise<Presence[]>
+    getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
 }
