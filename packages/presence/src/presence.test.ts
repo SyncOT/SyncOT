@@ -1,7 +1,7 @@
 import { toArrayBuffer } from '@syncot/util'
-import { isUserId, userIdEqual } from '.'
+import { isLocationId, locationIdEqual } from '.'
 
-describe('isUserId', () => {
+describe('isLocationId', () => {
     test.each<[any, boolean]>([
         ['abc', true],
         [0, true],
@@ -11,14 +11,14 @@ describe('isUserId', () => {
         [new DataView(new ArrayBuffer(0)), false],
         [false, false],
         [true, false],
-        [null, false],
+        [null, true],
         [undefined, false],
-    ])('%s', (userId, expectedResult) => {
-        expect(isUserId(userId)).toBe(expectedResult)
+    ])('%s', (locationId, expectedResult) => {
+        expect(isLocationId(locationId)).toBe(expectedResult)
     })
 })
 
-describe('userIdEqual', () => {
+describe('locationIdEqual', () => {
     test.each<[any, any, boolean]>([
         [5, '5', false],
         ['5', 5, false],
@@ -39,7 +39,7 @@ describe('userIdEqual', () => {
             toArrayBuffer(Buffer.from([1, 2, 3, 4])),
             false,
         ],
-        [null, null, false],
+        [null, null, true],
         [null, undefined, false],
         [undefined, null, false],
         [undefined, undefined, false],
@@ -49,7 +49,7 @@ describe('userIdEqual', () => {
         [0, null, false],
         ['', 0, false],
         ['', null, false],
-    ])('(%p === %p) is %p', (userId1, userId2, expectedResult) => {
-        expect(userIdEqual(userId1, userId2)).toBe(expectedResult)
+    ])('(%p === %p) is %p', (locationId1, locationId2, expectedResult) => {
+        expect(locationIdEqual(locationId1, locationId2)).toBe(expectedResult)
     })
 })

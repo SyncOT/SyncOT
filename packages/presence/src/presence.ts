@@ -1,10 +1,38 @@
 import { UserId } from '@syncot/auth'
 import { SessionId } from '@syncot/session'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
 // import { Validator, validate } from '@syncot/core'
 // import { createInvalidEntityError } from '@syncot/error'
 
 export type LocationId = ArrayBuffer | string | number | null
+
+/**
+ * Returns true, if the specified value is a location ID, otherwise returns false.
+ */
+export function isLocationId(value: any): value is LocationId {
+    const type = typeof value
+    return (
+        type === 'string' ||
+        type === 'number' ||
+        value === null ||
+        value instanceof ArrayBuffer
+    )
+}
+
+/**
+ * Returns true, if the two provided values are equal location IDs, otherwise returns false.
+ */
+export function locationIdEqual(value1: any, value2: any): boolean {
+    const type = typeof value1
+
+    if (type === 'string' || type === 'number' || value1 === null) {
+        return value1 === value2
+    } else if (value1 instanceof ArrayBuffer && value2 instanceof ArrayBuffer) {
+        return toBuffer(value1).compare(toBuffer(value2)) === 0
+    } else {
+        return false
+    }
+}
 
 export interface PresenceDataArray extends Array<PresenceData> {}
 export interface PresenceDataObject {

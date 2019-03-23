@@ -15,7 +15,7 @@ import { SyncOtEmitter } from '@syncot/util'
 /**
  * Creates a new presence client communicating with a presence service
  * through the specified `connection`. The `sessionClient` and `authClient` are
- * used for authentication and authorization.
+ * needed to get the `sessionId` and `userId` respectively.
  */
 export function createPresenceClient({
     connection,

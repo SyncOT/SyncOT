@@ -46,9 +46,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             instance: this,
             name: 'presence',
         })
-
-        // TODO remove
-        this.sessionService.getSessionId()
     }
 
     public async submitPresence(_presence: Presence): Promise<void> {
@@ -74,7 +71,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private assertAuthenticated(): void {
-        if (!this.authService.hasAuthenticatedUserId()) {
+        if (
+            !this.authService.hasAuthenticatedUserId() ||
+            !this.sessionService.hasActiveSession()
+        ) {
             throw createAuthError('Not authenticated.')
         }
     }
