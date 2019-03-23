@@ -6,7 +6,6 @@ import {
     Presence,
     PresenceClient,
     PresenceClientEvents,
-    PresenceData,
     PresenceService,
 } from '@syncot/presence'
 import { SessionId, SessionManager } from '@syncot/session'
@@ -48,12 +47,12 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this._locationId
     }
 
-    private _presenceData: PresenceData = null
-    public set presenceData(presenceData: PresenceData) {
+    private _presenceData: any = null
+    public set presenceData(presenceData: any) {
         this._presenceData = presenceData
         this.updateLocalPresence()
     }
-    public get presenceData(): PresenceData {
+    public get presenceData(): any {
         return this._presenceData
     }
 
@@ -134,6 +133,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         if (this.sessionId !== undefined && this.userId !== undefined) {
             this._localPresence = {
                 data: this.presenceData,
+                lastModified: Date.now(),
                 locationId: this.locationId,
                 sessionId: this.sessionId,
                 userId: this.userId,

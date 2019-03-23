@@ -1,8 +1,8 @@
-import { UserId } from '@syncot/auth'
-import { SessionId } from '@syncot/session'
+import { isUserId, UserId } from '@syncot/auth'
+import { validate, Validator } from '@syncot/core'
+import { createInvalidEntityError } from '@syncot/error'
+import { isSessionId, SessionId } from '@syncot/session'
 import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
-// import { Validator, validate } from '@syncot/core'
-// import { createInvalidEntityError } from '@syncot/error'
 
 export type LocationId = ArrayBuffer | string | number | null
 
@@ -34,25 +34,41 @@ export function locationIdEqual(value1: any, value2: any): boolean {
     }
 }
 
-export interface PresenceDataArray extends Array<PresenceData> {}
-export interface PresenceDataObject {
-    [key: string]: PresenceData
-}
-export type PresenceData =
-    | ArrayBuffer
-    | string
-    | number
-    | boolean
-    | null
-    | PresenceDataArray
-    | PresenceDataObject
-
 export interface Presence {
     readonly sessionId: SessionId
     readonly userId: UserId
     readonly locationId: LocationId
-    readonly data: PresenceData
+    readonly data: any
+    readonly lastModified: number
 }
+
+export const validatePresence: Validator<Presence> = validate([
+    presence =>
+        typeof presence === 'object' && presence != null
+            ? undefined
+            : createInvalidEntityError('Presence', presence, null),
+    presence =>
+        isSessionId(presence.sessionId)
+            ? undefined
+            : createInvalidEntityError('Presence', presence, 'sessionId'),
+    presence =>
+        isUserId(presence.userId)
+            ? undefined
+            : createInvalidEntityError('Presence', presence, 'userId'),
+    presence =>
+        isLocationId(presence.locationId)
+            ? undefined
+            : createInvalidEntityError('Presence', presence, 'locationId'),
+    presence =>
+        typeof presence.lastModified === 'number' &&
+        Number.isFinite(presence.lastModified)
+            ? undefined
+            : createInvalidEntityError('Presence', presence, 'lastModified'),
+    presence =>
+        presence.hasOwnProperty('data')
+            ? undefined
+            : createInvalidEntityError('Presence', presence, 'data'),
+])
 
 export interface PresenceClientEvents {
     localPresence: void
@@ -104,10 +120,3 @@ export interface PresenceService
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
     getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
 }
-
-// export const validatePresence: Validator<Presence> = validate([
-//     presence =>
-//         typeof presence === 'object' && presence != null ? undefined : createInvalidEntityError('Presence', presence, null),
-//     presence =>
-//         typeof presence
-// ])
