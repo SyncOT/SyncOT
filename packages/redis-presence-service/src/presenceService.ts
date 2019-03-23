@@ -1,13 +1,14 @@
-import { AuthManager, UserId } from '@syncot/auth'
-import { Connection } from '@syncot/core'
-import { createAuthError } from '@syncot/error'
+import { AuthManager, UserId, userIdEqual } from '@syncot/auth'
+import { Connection, throwError } from '@syncot/core'
+import { createAuthError, createPresenceError } from '@syncot/error'
 import {
     LocationId,
     Presence,
     PresenceService,
     PresenceServiceEvents,
+    validatePresence,
 } from '@syncot/presence'
-import { SessionId, SessionManager } from '@syncot/session'
+import { SessionId, sessionIdEqual, SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
 
 /**
@@ -48,8 +49,22 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         })
     }
 
-    public async submitPresence(_presence: Presence): Promise<void> {
+    public async submitPresence(presence: Presence): Promise<void> {
         this.assertAuthenticated()
+        throwError(validatePresence(presence))
+
+        if (
+            !sessionIdEqual(
+                presence.sessionId,
+                this.sessionService.getSessionId(),
+            )
+        ) {
+            throw createPresenceError('Session ID mismatch.')
+        }
+
+        if (!userIdEqual(presence.userId, this.authService.getUserId())) {
+            throw createPresenceError('User ID mismatch.')
+        }
 
         return
     }
