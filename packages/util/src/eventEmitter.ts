@@ -1,13 +1,6 @@
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
-import { StrictEventEmitter } from 'strict-event-emitter-types'
 import { Interface } from './types'
-
-/**
- * A strongly typed nodejs `EventEmitter`.
- * @deprecated Use TypedEventEmitter or SyncOtEmitter instead.
- */
-export type NodeEventEmitter<Events> = StrictEventEmitter<EventEmitter, Events>
 
 /**
  * Converts T to an Array type as follows:
@@ -74,8 +67,13 @@ interface OtherMethods<ListenerEvents, EmitEvents> {
     listenerCount(event: symbol): number
 }
 
+type TypedEventEmitterInterface<ListenEvents, EmitEvents> = ListenerMethods<
+    ListenEvents
+> &
+    OtherMethods<ListenEvents, EmitEvents>
+
 /**
- * Strongly-typed nodejs EventEmitter.
+ * Strongly-typed nodejs `EventEmitter`.
  *
  * `ListenEvents` defines events that can be listened for, and `EmitEvents` defines those
  * that can be emitted - they will usually be the same. The events are defined as a record:
@@ -92,15 +90,11 @@ interface OtherMethods<ListenerEvents, EmitEvents> {
  * }
  * ```
  */
-export type TypedEventEmitter<
+// tslint:disable-next-line:variable-name
+export const TypedEventEmitter: new <
     ListenEvents,
     EmitEvents = ListenEvents
-> = ListenerMethods<ListenEvents> & OtherMethods<ListenEvents, EmitEvents>
-
-const typedEmitter: new <ListenEvents, EmitEvents>() => TypedEventEmitter<
-    ListenEvents,
-    EmitEvents
-> = EventEmitter
+>() => TypedEventEmitterInterface<ListenEvents, EmitEvents> = EventEmitter
 
 /**
  * A strongly-typed event emitter based on nodejs `EventEmitter`.
@@ -114,7 +108,7 @@ const typedEmitter: new <ListenEvents, EmitEvents>() => TypedEventEmitter<
  * @emits error Emitted asynchronously when `destroy` is called with an error argument.
  * @emits destroy Emitted asynchronously when this emitter is destroyed.
  */
-export class SyncOtEmitter<Events> extends typedEmitter<
+export class SyncOtEmitter<Events> extends TypedEventEmitter<
     Events & { destroy: void; error: Error },
     Events
 > {

@@ -31,5 +31,9 @@
     "@syncot/session": "file:../session",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
+  },
+  "peerDependencies": {
+    "@types/ioredis": "^4.0.10",
+    "ioredis": "^4.9.0"
   }
 }

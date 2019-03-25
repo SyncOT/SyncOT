@@ -10,6 +10,15 @@ import {
 } from '@syncot/presence'
 import { SessionId, sessionIdEqual, SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
+import { Redis } from 'ioredis'
+
+export interface PresenceServiceConfig {
+    connection: Connection
+    sessionService: SessionManager
+    authService: AuthManager
+    redis: Redis
+    redisSubscriber: Redis
+}
 
 /**
  * Creates a new presence service based on Redis and communicating with a presence client
@@ -20,11 +29,7 @@ export function createPresenceService({
     connection,
     sessionService,
     authService,
-}: {
-    connection: Connection
-    sessionService: SessionManager
-    authService: AuthManager
-}): PresenceService {
+}: PresenceServiceConfig): PresenceService {
     return new RedisPresenceService(connection, sessionService, authService)
 }
 
@@ -50,6 +55,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     public async submitPresence(presence: Presence): Promise<void> {
+        this.assertNotDestroyed()
         this.assertAuthenticated()
         throwError(validatePresence(presence))
 
@@ -71,16 +77,19 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public async getPresenceBySessionId(
         _sessionId: SessionId,
     ): Promise<Presence | undefined> {
+        this.assertNotDestroyed()
         this.assertAuthenticated()
         return
     }
     public async getPresenceByUserId(_userId: UserId): Promise<Presence[]> {
+        this.assertNotDestroyed()
         this.assertAuthenticated()
         return []
     }
     public async getPresenceByLocationId(
         _locationId: LocationId,
     ): Promise<Presence[]> {
+        this.assertNotDestroyed()
         this.assertAuthenticated()
         return []
     }
