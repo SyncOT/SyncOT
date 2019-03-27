@@ -19,6 +19,7 @@ export interface PresenceServiceConfig {
     sessionService: SessionManager
     authService: AuthManager
     redis: Redis.Redis
+    redisPublisher: Redis.Redis
     redisSubscriber: Redis.Redis
 }
 
@@ -40,6 +41,12 @@ export interface PresenceServiceOptions {
  * Creates a new presence service based on Redis and communicating with a presence client
  * through the specified `connection`.
  * The `sessionService` and `authService` are used for authentication and authorization.
+ * `redis` is used for storing data in and retrieving it from Redis.
+ * `redisPublisher` is used for publishing events to Redis.
+ * It can be the same instance as `redis`.
+ * `redisSubscriber` is used for subscribing to Redis events.
+ * It must be a different instance from `redis` and `redisPublisher`.
+ * It must be connected to the same Redis instance as `redisPublisher`.
  */
 export function createPresenceService(
     {
@@ -47,6 +54,7 @@ export function createPresenceService(
         sessionService,
         authService,
         redis,
+        redisPublisher,
         redisSubscriber,
     }: PresenceServiceConfig,
     options: PresenceServiceOptions = {},
@@ -56,6 +64,7 @@ export function createPresenceService(
         sessionService,
         authService,
         redis,
+        redisPublisher,
         redisSubscriber,
         options,
     )
@@ -76,6 +85,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly sessionService: SessionManager,
         private readonly authService: AuthManager,
         private readonly redis: Redis.Redis,
+        // @ts-ignore Unused parameter.
+        private readonly redisPublisher: Redis.Redis,
         // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
         options: PresenceServiceOptions,
@@ -106,8 +117,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         if (this.destroyed) {
             return
         }
-        this.presenceValue = undefined
-        this.modified = true
+        if (this.presenceValue) {
+            this.presenceValue = undefined
+            this.modified = true
+        }
         this.updateRedis()
         super.destroy()
     }
