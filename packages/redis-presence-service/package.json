@@ -29,6 +29,7 @@
     "@syncot/error": "file:../error",
     "@syncot/presence": "file:../presence",
     "@syncot/session": "file:../session",
+    "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   },

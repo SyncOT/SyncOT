@@ -10,6 +10,7 @@
     { "path": "../error" },
     { "path": "../presence" },
     { "path": "../session" },
+    { "path": "../tson" },
     { "path": "../util" }
   ]
 }
