@@ -69,21 +69,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     private updatingRedis: boolean = false
     private updateHandle: NodeJS.Timeout | undefined
     private modified: boolean = false
-
-    private _inSync: boolean = true
-    // @ts-ignore Unused property.
-    private get inSync(): boolean {
-        return this._inSync
-    }
-    private set inSync(inSync: boolean) {
-        if (this._inSync && !inSync) {
-            this._inSync = false
-            this.emitAsync('outOfSync')
-        } else if (!this._inSync && inSync) {
-            this._inSync = true
-            this.emitAsync('inSync')
-        }
-    }
+    private inSync: boolean = true
 
     public constructor(
         private readonly connection: Connection,
@@ -211,7 +197,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.updatingRedis = true
 
             if (this.modified) {
-                this.inSync = false
+                this.emitOutOfSync()
                 this.modified = false
             }
 
@@ -228,7 +214,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             if (this.modified) {
                 this.updateRedis()
             } else {
-                this.inSync = true
+                this.emitInSync()
             }
         } catch (error) {
             if (wasModified) {
@@ -238,6 +224,20 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.updateRedis(randomInteger(1000, 10000))
         } finally {
             this.updatingRedis = false
+        }
+    }
+
+    private emitInSync(): void {
+        if (!this.inSync) {
+            this.inSync = true
+            this.emitAsync('inSync')
+        }
+    }
+
+    private emitOutOfSync(): void {
+        if (this.inSync) {
+            this.inSync = false
+            this.emitAsync('outOfSync')
         }
     }
 }
