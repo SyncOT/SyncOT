@@ -233,7 +233,13 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             if (wasModified) {
                 this.modified = true
             }
-            this.emitAsync('error', error)
+            this.emitAsync(
+                'error',
+                createPresenceError(
+                    'Failed to sync presence with Redis.',
+                    error,
+                ),
+            )
             this.scheduleUpdateRedis(randomInteger(1000, 10000))
         } finally {
             this.updatingRedis = false

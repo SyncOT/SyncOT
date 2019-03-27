@@ -274,6 +274,44 @@ describe('submitPresence', () => {
             }),
         )
     })
+    test('storage error', async () => {
+        const onError = jest.fn()
+        const onOutOfSync = jest.fn()
+        const onInSync = jest.fn()
+        presenceService.on('outOfSync', onOutOfSync)
+        presenceService.on('inSync', onInSync)
+
+        redis.disconnect()
+        await presenceProxy.submitPresence(presence)
+        presenceService.once('error', onError)
+        clock.next() // Attempt to store presence.
+        await new Promise(resolve => presenceService.once('error', resolve))
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cause: expect.objectContaining({
+                    message: 'Connection is closed.',
+                    name: 'Error',
+                }),
+                message:
+                    'Failed to sync presence with Redis. => Error: Connection is closed.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+
+        await redis.connect()
+        await expect(redis.exists(presenceKey)).resolves.toBe(0)
+        clock.next() // Attempt to store presence again.
+        await new Promise(resolve => presenceService.once('inSync', resolve))
+        // Detailed validation of the stored data is in the "storage" test below.
+        await expect(redis.exists(presenceKey)).resolves.toBe(1)
+        // The retry is scheduled with a random delay between 1 and 10 seconds.
+        expect(Date.now()).toBeGreaterThanOrEqual(now + 1000)
+        expect(Date.now()).toBeLessThan(now + 11000)
+
+        expect(onOutOfSync).toHaveBeenCalledTimes(1)
+        expect(onInSync).toHaveBeenCalledTimes(1)
+        expect(onInSync).toHaveBeenCalledAfter(onOutOfSync)
+    })
 
     describe.each<[undefined | number, number]>([
         [undefined, 600],
