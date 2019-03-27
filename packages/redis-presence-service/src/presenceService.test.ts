@@ -8,15 +8,20 @@ import {
 } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
 import { decode } from '@syncot/tson'
-import { invertedStreams, SyncOtEmitter, toArrayBuffer } from '@syncot/util'
+import {
+    invertedStreams,
+    randomInteger,
+    SyncOtEmitter,
+    toArrayBuffer,
+} from '@syncot/util'
 import Redis from 'ioredis'
+import { Clock, install as installClock, InstalledClock } from 'lolex'
 import RedisServer from 'redis-server'
 import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
-const randomPort = () => Math.floor(1024 + Math.random() * (0x10000 - 1024))
-const delay = (time: number = 0) =>
-    new Promise(resolve => setTimeout(resolve, time))
+const now = 12345
+let clock: InstalledClock<Clock>
 
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
@@ -77,7 +82,7 @@ beforeAll(async () => {
     let attempt = 1
     while (true) {
         try {
-            port = randomPort()
+            port = randomInteger(0x400, 0x10000)
             redisServer = new RedisServer(port)
             await redisServer.open()
             return
@@ -96,6 +101,7 @@ afterAll(async () => {
 })
 
 beforeEach(async () => {
+    clock = installClock({ now })
     const options = {
         lazyConnect: true,
         port,
@@ -135,6 +141,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+    clock.uninstall()
     connection1.disconnect()
     connection2.disconnect()
     presenceService.destroy()
@@ -147,7 +154,7 @@ test('destroy', async () => {
     const onDestroy = jest.fn()
     presenceService.on('destroy', onDestroy)
     presenceService.destroy()
-    await delay()
+    await new Promise(resolve => presenceService.once('destroy', resolve))
     expect(onDestroy).toHaveBeenCalledTimes(1)
     await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
         alreadyDestroyedMatcher,
@@ -291,7 +298,20 @@ describe('submitPresence', () => {
         }
 
         test('storage', async () => {
+            const onOutOfSync = jest.fn()
+            const onInSync = jest.fn()
+            presenceService.on('outOfSync', onOutOfSync)
+            presenceService.on('inSync', onInSync)
+
             await presenceProxy.submitPresence(presence)
+            clock.runAll()
+            await new Promise(resolve =>
+                presenceService.once('inSync', resolve),
+            )
+
+            expect(onOutOfSync).toHaveBeenCalledTimes(1)
+            expect(onInSync).toHaveBeenCalledTimes(1)
+            expect(onInSync).toHaveBeenCalledAfter(onOutOfSync)
 
             const ttl = await redis.ttl(presenceKey)
             expect(ttl).toBeLessThanOrEqual(effectiveTtl)
@@ -311,7 +331,7 @@ describe('submitPresence', () => {
             expect(userIdEqual(loadedUserId, userId)).toBeTrue()
             expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
             expect(loadedData).toEqual(data)
-            expect(loadedLastModified).toBe(lastModified)
+            expect(loadedLastModified).toBe(now)
         })
     })
 })

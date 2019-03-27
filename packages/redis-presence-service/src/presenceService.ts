@@ -10,7 +10,7 @@ import {
 } from '@syncot/presence'
 import { SessionId, sessionIdEqual, SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'
-import { SyncOtEmitter, toBuffer } from '@syncot/util'
+import { randomInteger, SyncOtEmitter, toBuffer } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 
@@ -64,12 +64,33 @@ export function createPresenceService(
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private ttl: number = 600
+    private presenceKey: Buffer | undefined = undefined
+    private presenceValue: Buffer | undefined = undefined
+    private updatingRedis: boolean = false
+    private updateHandle: NodeJS.Timeout | undefined
+    private modified: boolean = false
+
+    private _inSync: boolean = true
+    // @ts-ignore Unused property.
+    private get inSync(): boolean {
+        return this._inSync
+    }
+    private set inSync(inSync: boolean) {
+        if (this._inSync && !inSync) {
+            this._inSync = false
+            this.emitAsync('outOfSync')
+        } else if (!this._inSync && inSync) {
+            this._inSync = true
+            this.emitAsync('inSync')
+        }
+    }
 
     public constructor(
         private readonly connection: Connection,
         private readonly sessionService: SessionManager,
         private readonly authService: AuthManager,
         private readonly redis: Redis.Redis,
+        // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
         options: PresenceServiceOptions,
     ) {
@@ -93,9 +114,16 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             instance: this,
             name: 'presence',
         })
+    }
 
-        // TODO remove this - a workaround for the unused property warning
-        this.redisSubscriber = this.redisSubscriber
+    public destroy(): void {
+        if (this.destroyed) {
+            return
+        }
+        this.presenceValue = undefined
+        this.modified = true
+        this.updateRedis()
+        super.destroy()
     }
 
     public async submitPresence(presence: Presence): Promise<void> {
@@ -112,20 +140,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        const presenceKey = getPresenceKey(sessionId)
-        await this.redis.setex(
-            presenceKey,
-            this.ttl,
-            toBuffer(
-                encode([
-                    // sessionId is already encoded in the presenceKey.
-                    userId,
-                    presence.locationId,
-                    presence.data,
-                    presence.lastModified,
-                ]),
-            ),
-        )
+        this.presenceKey = getPresenceKey(presence)
+        this.presenceValue = getPresenceValue(presence)
+        this.modified = true
+        this.updateRedis()
 
         return
     }
@@ -163,6 +181,65 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createAuthError('No active session.')
         }
     }
+
+    private updateRedis(delay: number = 0): void {
+        if (this.destroyed) {
+            return
+        }
+        this.cancelUpdateRedis()
+        this.updateHandle = setTimeout(() => {
+            this.updateHandle = undefined
+            this.updateRedisImpl()
+        }, delay)
+    }
+
+    private cancelUpdateRedis(): void {
+        if (this.updateHandle) {
+            clearTimeout(this.updateHandle)
+            this.updateHandle = undefined
+        }
+    }
+
+    private async updateRedisImpl(): Promise<void> {
+        if (this.updatingRedis || !this.presenceKey) {
+            return
+        }
+
+        const wasModified = this.modified
+
+        try {
+            this.updatingRedis = true
+
+            if (this.modified) {
+                this.inSync = false
+                this.modified = false
+            }
+
+            if (this.presenceValue) {
+                await this.redis.setex(
+                    this.presenceKey,
+                    this.ttl,
+                    this.presenceValue,
+                )
+            } else {
+                await this.redis.del(this.presenceKey)
+            }
+
+            if (this.modified) {
+                this.updateRedis()
+            } else {
+                this.inSync = true
+            }
+        } catch (error) {
+            if (wasModified) {
+                this.modified = true
+            }
+            this.emitAsync('error', error)
+            this.updateRedis(randomInteger(1000, 10000))
+        } finally {
+            this.updatingRedis = false
+        }
+    }
 }
 
 const presencePrefixString = 'presence:'
@@ -171,12 +248,24 @@ const presencePrefixBuffer = Buffer.allocUnsafeSlow(
 )
 presencePrefixBuffer.write(presencePrefixString)
 
-function getPresenceKey(sessionId: SessionId): Buffer {
-    const sessionIdBuffer = toBuffer(sessionId)
+function getPresenceKey(presence: Presence): Buffer {
+    const sessionIdBuffer = toBuffer(presence.sessionId)
     const buffer = Buffer.allocUnsafe(
         presencePrefixBuffer.length + sessionIdBuffer.length,
     )
     presencePrefixBuffer.copy(buffer)
     sessionIdBuffer.copy(buffer, presencePrefixBuffer.length)
     return buffer
+}
+
+function getPresenceValue(presence: Presence): Buffer {
+    return toBuffer(
+        encode([
+            // sessionId is already encoded in the presence key.
+            presence.userId,
+            presence.locationId,
+            presence.data,
+            Date.now(),
+        ]),
+    )
 }
