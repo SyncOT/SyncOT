@@ -121,7 +121,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.presenceValue = undefined
             this.modified = true
         }
-        this.updateRedis()
+        this.scheduleUpdateRedis()
         super.destroy()
     }
 
@@ -142,7 +142,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.presenceKey = getPresenceKey(presence)
         this.presenceValue = getPresenceValue(presence)
         this.modified = true
-        this.updateRedis()
+        this.scheduleUpdateRedis()
 
         return
     }
@@ -181,14 +181,14 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    private updateRedis(delay: number = 0): void {
+    private scheduleUpdateRedis(delay: number = 0): void {
         if (this.destroyed) {
             return
         }
         this.cancelUpdateRedis()
         this.updateHandle = setTimeout(() => {
             this.updateHandle = undefined
-            this.updateRedisImpl()
+            this.updateRedis()
         }, delay)
     }
 
@@ -199,7 +199,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    private async updateRedisImpl(): Promise<void> {
+    private async updateRedis(): Promise<void> {
         if (this.updatingRedis || !this.presenceKey) {
             return
         }
@@ -225,7 +225,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
 
             if (this.modified) {
-                this.updateRedis()
+                this.scheduleUpdateRedis()
             } else {
                 this.emitInSync()
             }
@@ -234,7 +234,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.modified = true
             }
             this.emitAsync('error', error)
-            this.updateRedis(randomInteger(1000, 10000))
+            this.scheduleUpdateRedis(randomInteger(1000, 10000))
         } finally {
             this.updatingRedis = false
         }
