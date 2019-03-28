@@ -380,6 +380,35 @@ describe('submitPresence', () => {
         expect(onInSync).toHaveBeenCalledTimes(1)
     })
 
+    test('remove presence on destroy', async () => {
+        const onDestroy = jest.fn()
+        presenceService.on('destroy', onDestroy)
+
+        await presenceProxy.submitPresence(presence)
+        clock.tick(0) // Save presence in Redis.
+        await new Promise(resolve => presenceService.once('inSync', resolve))
+        await expect(redis.exists(presenceKey)).resolves.toBe(1)
+
+        presenceService.destroy()
+        const monitor = await redis.monitor()
+        await expect(redis.exists(presenceKey)).resolves.toBe(1)
+        expect(onDestroy).toHaveBeenCalledTimes(1)
+        clock.tick(0) // Delete presence from Redis.
+
+        // Wait until the DEL command is received by the Redis server.
+        await new Promise(resolve =>
+            monitor.on('monitor', (_, args) => {
+                if (args[0].toLowerCase() === 'del') {
+                    resolve()
+                }
+            }),
+        )
+        ;(monitor as any).disconnect()
+
+        // Ensure the data is gone.
+        await expect(redis.exists(presenceKey)).resolves.toBe(0)
+    })
+
     describe.each<[undefined | number, number]>([
         [undefined, 600],
         [1, 10],
