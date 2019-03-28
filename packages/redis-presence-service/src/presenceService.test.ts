@@ -155,6 +155,51 @@ afterEach(() => {
     redisSubscriber.disconnect()
 })
 
+test('invalid ttl', () => {
+    connection1.disconnect()
+    connection2.disconnect()
+    connection1 = createConnection()
+    expect(() =>
+        createPresenceService(
+            {
+                authService,
+                connection: connection1,
+                redis,
+                redisPublisher,
+                redisSubscriber,
+                sessionService,
+            },
+            {
+                ttl: '123' as any,
+            },
+        ),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "options.ttl" must be undefined or a safe integer.',
+            name: 'AssertionError [ERR_ASSERTION]',
+        }),
+    )
+})
+
+test('create twice on the same connection', () => {
+    expect(() =>
+        createPresenceService({
+            authService,
+            connection: connection1,
+            redis,
+            redisPublisher,
+            redisSubscriber,
+            sessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Service "presence" has been already registered.',
+            name: 'AssertionError [ERR_ASSERTION]',
+        }),
+    )
+})
+
 test('destroy', async () => {
     const onDestroy = jest.fn()
     presenceService.on('destroy', onDestroy)
@@ -189,6 +234,7 @@ describe('submitPresence', () => {
             }),
         )
     })
+
     test('wrong sessionId', async () => {
         await expect(
             presenceProxy.submitPresence({
@@ -202,6 +248,7 @@ describe('submitPresence', () => {
             }),
         )
     })
+
     test('invalid presence', async () => {
         await expect(presenceProxy.submitPresence(null as any)).rejects.toEqual(
             expect.objectContaining({
@@ -213,6 +260,7 @@ describe('submitPresence', () => {
             }),
         )
     })
+
     test('no active session', async () => {
         sessionService.hasActiveSession.mockReturnValue(false)
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
@@ -222,6 +270,7 @@ describe('submitPresence', () => {
             }),
         )
     })
+
     test('no authenticated user', async () => {
         authService.hasAuthenticatedUserId.mockReturnValue(false)
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
@@ -231,55 +280,15 @@ describe('submitPresence', () => {
             }),
         )
     })
-    test('invalid ttl', () => {
-        connection1.disconnect()
-        connection2.disconnect()
-        connection1 = createConnection()
-        expect(() =>
-            createPresenceService(
-                {
-                    authService,
-                    connection: connection1,
-                    redis,
-                    redisPublisher,
-                    redisSubscriber,
-                    sessionService,
-                },
-                {
-                    ttl: '123' as any,
-                },
-            ),
-        ).toThrow(
-            expect.objectContaining({
-                message:
-                    'Argument "options.ttl" must be undefined or a safe integer.',
-                name: 'AssertionError [ERR_ASSERTION]',
-            }),
-        )
-    })
-    test('create twice on the same connection', () => {
-        expect(() =>
-            createPresenceService({
-                authService,
-                connection: connection1,
-                redis,
-                redisPublisher,
-                redisSubscriber,
-                sessionService,
-            }),
-        ).toThrow(
-            expect.objectContaining({
-                message: 'Service "presence" has been already registered.',
-                name: 'AssertionError [ERR_ASSERTION]',
-            }),
-        )
-    })
+
     test('storage error', async () => {
         const onError = jest.fn()
         const onOutOfSync = jest.fn()
         const onInSync = jest.fn()
+        const onPublish = jest.fn()
         presenceService.on('outOfSync', onOutOfSync)
         presenceService.on('inSync', onInSync)
+        presenceService.on('publish', onPublish)
 
         redis.disconnect()
         await presenceProxy.submitPresence(presence)
@@ -310,7 +319,65 @@ describe('submitPresence', () => {
 
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
         expect(onInSync).toHaveBeenCalledTimes(1)
-        expect(onInSync).toHaveBeenCalledAfter(onOutOfSync)
+        expect(onPublish).toHaveBeenCalledTimes(1)
+        expect(onOutOfSync).toHaveBeenCalledBefore(onPublish)
+        expect(onPublish).toHaveBeenCalledBefore(onInSync)
+    })
+
+    test('submit new presence while saving old to Redis', async () => {
+        const onOutOfSync = jest.fn()
+        const onInSync = jest.fn()
+        const onPublish = jest.fn()
+        presenceService.on('outOfSync', onOutOfSync)
+        presenceService.on('inSync', onInSync)
+        presenceService.on('publish', onPublish)
+
+        const newData = { key: 'different value' }
+        await presenceProxy.submitPresence(presence)
+        clock.next() // Start saving the old presence to Redis.
+        await presenceProxy.submitPresence({ ...presence, data: newData })
+        await new Promise(resolve => presenceService.once('publish', resolve))
+
+        // Old presence.
+        let [
+            loadedUserId,
+            loadedLocationId,
+            loadedData,
+            loadedLastModified,
+        ] = decode(await redis.getBuffer(presenceKey)) as [
+            UserId,
+            LocationId,
+            any,
+            number
+        ]
+        expect(userIdEqual(loadedUserId, userId)).toBeTrue()
+        expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
+        expect(loadedData).toEqual(data)
+        expect(loadedLastModified).toBe(now)
+
+        clock.tick(0) // Save the new presence to Redis.
+        await new Promise(resolve => presenceService.once('publish', resolve))
+
+        // New presence.
+        ;[
+            loadedUserId,
+            loadedLocationId,
+            loadedData,
+            loadedLastModified,
+        ] = decode(await redis.getBuffer(presenceKey)) as [
+            UserId,
+            LocationId,
+            any,
+            number
+        ]
+        expect(userIdEqual(loadedUserId, userId)).toBeTrue()
+        expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
+        expect(loadedData).toEqual(newData)
+        expect(loadedLastModified).toBe(now)
+
+        expect(onPublish).toHaveBeenCalledTimes(2)
+        expect(onOutOfSync).toHaveBeenCalledTimes(1)
+        expect(onInSync).toHaveBeenCalledTimes(1)
     })
 
     describe.each<[undefined | number, number]>([
@@ -346,8 +413,10 @@ describe('submitPresence', () => {
         test('storage', async () => {
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
+            const onPublish = jest.fn()
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
+            presenceService.on('publish', onPublish)
 
             await presenceProxy.submitPresence(presence)
             clock.runAll()
@@ -357,7 +426,9 @@ describe('submitPresence', () => {
 
             expect(onOutOfSync).toHaveBeenCalledTimes(1)
             expect(onInSync).toHaveBeenCalledTimes(1)
-            expect(onInSync).toHaveBeenCalledAfter(onOutOfSync)
+            expect(onPublish).toHaveBeenCalledTimes(1)
+            expect(onOutOfSync).toHaveBeenCalledBefore(onPublish)
+            expect(onPublish).toHaveBeenCalledBefore(onInSync)
 
             const ttl = await redis.ttl(presenceKey)
             expect(ttl).toBeLessThanOrEqual(effectiveTtl)

@@ -80,6 +80,7 @@ export interface PresenceClientEvents {
 export interface PresenceServiceEvents {
     outOfSync: void
     inSync: void
+    publish: void
     error: Error
 }
 
@@ -110,6 +111,7 @@ export interface PresenceClient
  *
  * @event outOfSync The managed presence is out of sync across the presence system.
  * @event inSync The managed presence is in sync across the presence system.
+ * @event publish The managed presence has been published.
  * @event error A presence-related error has occurred.
  * @event destroy The PresenceClient has been destroyed.
  */

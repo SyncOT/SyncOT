@@ -224,6 +224,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 await this.redis.del(this.presenceKey)
             }
 
+            this.emitAsync('publish')
+
             if (this.modified) {
                 this.scheduleUpdateRedis()
             } else {
