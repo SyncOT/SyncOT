@@ -104,6 +104,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.connection.registerService({
             actions: new Set([
                 'submitPresence',
+                'removePresence',
                 'getPresenceBySessionId',
                 'getPresenceByUserId',
                 'getPresenceByLocationId',
@@ -146,6 +147,14 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.scheduleUpdateRedis()
 
         return
+    }
+
+    public async removePresence(): Promise<void> {
+        // Explicit authentication is not needed because if the user is not authenticated,
+        // then any existing presence is automatically removed and new presence cannot be
+        // submitted. Consequently, the state of this service cannot be affected by an
+        // unauthenticated user.
+        this.ensureNoPresence()
     }
 
     public async getPresenceBySessionId(

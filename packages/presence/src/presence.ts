@@ -122,6 +122,11 @@ export interface PresenceService
      */
     submitPresence(presence: Presence): Promise<void>
 
+    /**
+     * Removes the presence object from the current session.
+     */
+    removePresence(): Promise<void>
+
     getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
     getPresenceByUserId(userId: UserId): Promise<Presence[]>
     getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>

@@ -135,6 +135,7 @@ beforeEach(async () => {
     connection2.registerProxy({
         actions: new Set([
             'submitPresence',
+            'removePresence',
             'getPresenceBySessionId',
             'getPresenceByUserId',
             'getPresenceByLocationId',
@@ -514,4 +515,63 @@ describe('submitPresence', () => {
         expect(loadedData).toEqual(data)
         expect(loadedLastModified).toBe(now)
     })
+})
+
+describe('removePresence', () => {
+    test('has no presence', async () => {
+        const onOutOfSync = jest.fn()
+        const onInSync = jest.fn()
+        const onPublish = jest.fn()
+        presenceService.on('outOfSync', onOutOfSync)
+        presenceService.on('inSync', onInSync)
+        presenceService.on('publish', onPublish)
+
+        await presenceProxy.removePresence()
+        expect(clock.countTimers()).toBe(1)
+        clock.next()
+        expect(clock.countTimers()).toBe(0)
+        await Promise.resolve()
+
+        expect(onOutOfSync).not.toHaveBeenCalled()
+        expect(onInSync).not.toHaveBeenCalled()
+        expect(onPublish).not.toHaveBeenCalled()
+    })
+
+    test('has presence', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await new Promise(resolve => presenceService.once('inSync', resolve))
+        await expect(redis.exists(presenceKey)).resolves.toBe(1)
+
+        await presenceProxy.removePresence()
+        const onOutOfSync = jest.fn()
+        const onInSync = jest.fn()
+        const onPublish = jest.fn()
+        presenceService.on('outOfSync', onOutOfSync)
+        presenceService.on('inSync', onInSync)
+        presenceService.on('publish', onPublish)
+        clock.next()
+        await new Promise(resolve => presenceService.once('inSync', resolve))
+        await expect(redis.exists(presenceKey)).resolves.toBe(0)
+
+        expect(onOutOfSync).toHaveBeenCalledTimes(1)
+        expect(onInSync).toHaveBeenCalledTimes(1)
+        expect(onPublish).toHaveBeenCalledTimes(1)
+        expect(onOutOfSync).toHaveBeenCalledBefore(onPublish)
+        expect(onPublish).toHaveBeenCalledBefore(onInSync)
+    })
+
+    test('no authentication', async () => {
+        sessionService.hasActiveSession.mockReturnValue(false)
+        authService.hasAuthenticatedUserId.mockReturnValue(false)
+
+        await presenceProxy.removePresence()
+        expect(clock.countTimers()).toBe(1)
+        clock.next()
+        expect(clock.countTimers()).toBe(0)
+    })
+
+    // Note that it's not possible to have presence without authentication,
+    // thus the `removePresence` method does not perform any authentication,
+    // which makes testing that case redundant.
 })
