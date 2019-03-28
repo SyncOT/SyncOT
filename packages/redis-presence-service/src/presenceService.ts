@@ -111,17 +111,18 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             instance: this,
             name: 'presence',
         })
+
+        this.authService.on('authEnd', this.onAuthEnd)
+        this.sessionService.on('sessionInactive', this.onSessionInactive)
     }
 
     public destroy(): void {
         if (this.destroyed) {
             return
         }
-        if (this.presenceValue) {
-            this.presenceValue = undefined
-            this.modified = true
-        }
-        this.scheduleUpdateRedis()
+        this.authService.off('authEnd', this.onAuthEnd)
+        this.sessionService.off('sessionInactive', this.onSessionInactive)
+        this.ensureNoPresence()
         super.destroy()
     }
 
@@ -260,6 +261,22 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.inSync = false
             this.emitAsync('outOfSync')
         }
+    }
+
+    private ensureNoPresence(): void {
+        if (this.presenceValue) {
+            this.presenceValue = undefined
+            this.modified = true
+        }
+        this.scheduleUpdateRedis()
+    }
+
+    private onAuthEnd = (): void => {
+        this.ensureNoPresence()
+    }
+
+    private onSessionInactive = (): void => {
+        this.ensureNoPresence()
     }
 }
 
