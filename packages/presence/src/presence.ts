@@ -4,7 +4,7 @@ import { createInvalidEntityError } from '@syncot/error'
 import { isSessionId, SessionId } from '@syncot/session'
 import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
 
-export type LocationId = ArrayBuffer | string | number | null
+export type LocationId = ArrayBuffer | string | number
 
 /**
  * Returns true, if the specified value is a location ID, otherwise returns false.
@@ -12,10 +12,7 @@ export type LocationId = ArrayBuffer | string | number | null
 export function isLocationId(value: any): value is LocationId {
     const type = typeof value
     return (
-        type === 'string' ||
-        type === 'number' ||
-        value === null ||
-        value instanceof ArrayBuffer
+        type === 'string' || type === 'number' || value instanceof ArrayBuffer
     )
 }
 
@@ -25,7 +22,7 @@ export function isLocationId(value: any): value is LocationId {
 export function locationIdEqual(value1: any, value2: any): boolean {
     const type = typeof value1
 
-    if (type === 'string' || type === 'number' || value1 === null) {
+    if (type === 'string' || type === 'number') {
         return value1 === value2
     } else if (value1 instanceof ArrayBuffer && value2 instanceof ArrayBuffer) {
         return toBuffer(value1).compare(toBuffer(value2)) === 0
@@ -97,7 +94,7 @@ export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
     readonly sessionId: SessionId | undefined
     readonly userId: UserId | undefined
-    locationId: LocationId
+    locationId: LocationId | undefined
     readonly localPresence: Presence | undefined
     readonly online: boolean
 

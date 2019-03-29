@@ -38,12 +38,12 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this.authClient.getUserId()
     }
 
-    private _locationId: LocationId = null
-    public set locationId(locationId: LocationId) {
+    private _locationId: LocationId | undefined = undefined
+    public set locationId(locationId: LocationId | undefined) {
         this._locationId = locationId
         this.updateLocalPresence()
     }
-    public get locationId(): LocationId {
+    public get locationId(): LocationId | undefined {
         return this._locationId
     }
 
@@ -78,6 +78,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         this.connection.registerProxy({
             actions: new Set([
                 'submitPresence',
+                'removePresence',
                 'getPresenceBySessionId',
                 'getPresenceByUserId',
                 'getPresenceByLocationId',
@@ -130,7 +131,11 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     }
 
     private updateLocalPresence = (): void => {
-        if (this.sessionId !== undefined && this.userId !== undefined) {
+        if (
+            this.sessionId !== undefined &&
+            this.userId !== undefined &&
+            this.locationId !== undefined
+        ) {
             this._localPresence = {
                 data: this.presenceData,
                 lastModified: Date.now(),
@@ -139,10 +144,11 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
                 userId: this.userId,
             }
             this.emitAsync('localPresence')
-            this.submitPresence()
+            this.syncPresence()
         } else if (this._localPresence !== undefined) {
             this._localPresence = undefined
             this.emitAsync('localPresence')
+            this.syncPresence()
         }
     }
 
@@ -154,25 +160,25 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         if (this._online !== online) {
             this._online = online
             this.emitAsync(online ? 'online' : 'offline')
-            if (online) {
-                this.submitPresence()
-            }
+            this.syncPresence()
         }
     }
 
-    private submitPresence(): void {
-        if (!this.destroyed && this.online && this.localPresence) {
-            this.presenceService
-                .submitPresence(this.localPresence)
-                .catch(error => {
-                    this.emitAsync(
-                        'error',
-                        createPresenceError(
-                            'Failed to submit presence.',
-                            error,
-                        ),
-                    )
-                })
+    private syncPresence(): void {
+        if (this.destroyed || !this.online) {
+            return
         }
+
+        const result =
+            this.localPresence === undefined
+                ? this.presenceService.removePresence()
+                : this.presenceService.submitPresence(this.localPresence)
+
+        result.catch(error => {
+            this.emitAsync(
+                'error',
+                createPresenceError('Failed to sync presence.', error),
+            )
+        })
     }
 }

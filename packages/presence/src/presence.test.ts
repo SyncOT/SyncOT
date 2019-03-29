@@ -11,7 +11,7 @@ describe('isLocationId', () => {
         [new DataView(new ArrayBuffer(0)), false],
         [false, false],
         [true, false],
-        [null, true],
+        [null, false],
         [undefined, false],
     ])('%s', (locationId, expectedResult) => {
         expect(isLocationId(locationId)).toBe(expectedResult)
@@ -39,7 +39,7 @@ describe('locationIdEqual', () => {
             toArrayBuffer(Buffer.from([1, 2, 3, 4])),
             false,
         ],
-        [null, null, true],
+        [null, null, false],
         [null, undefined, false],
         [undefined, null, false],
         [undefined, undefined, false],
@@ -68,11 +68,11 @@ describe('validatePresence', () => {
         [{ ...presence, userId: 0 }, undefined],
         [{ ...presence, locationId: '' }, undefined],
         [{ ...presence, locationId: 0 }, undefined],
-        [{ ...presence, locationId: null }, undefined],
         [null, null],
         [() => undefined, null],
         [{ ...presence, sessionId: '' }, 'sessionId'],
         [{ ...presence, userId: null }, 'userId'],
+        [{ ...presence, locationId: null }, 'locationId'],
         [{ ...presence, locationId: false }, 'locationId'],
         [
             {
