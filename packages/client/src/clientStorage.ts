@@ -5,7 +5,6 @@ import {
     DocumentVersion,
     Operation,
     SequenceNumber,
-    SessionId,
     Snapshot,
     TypeManager,
     TypeName,
@@ -17,7 +16,7 @@ import {
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
 } from '@syncot/error'
-import { Interface } from '@syncot/util'
+import { Id, idEqual, Interface } from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: DocumentVersion
@@ -35,7 +34,7 @@ export interface ClientStorageStatus {
     readonly lastRemoteVersion: DocumentVersion
     readonly lastSequence: SequenceNumber
     readonly lastVersion: DocumentVersion
-    readonly sessionId: SessionId
+    readonly sessionId: Id
     readonly typeName: TypeName
 }
 
@@ -46,7 +45,7 @@ class MemoryClientStorage {
     private contexts: ContextMap = new Map()
 
     public constructor(
-        private sessionId: SessionId,
+        private sessionId: Id,
         private typeManager: TypeManager,
     ) {}
 
@@ -174,7 +173,7 @@ class MemoryClientStorage {
 
         if (local) {
             // Store a new local operation.
-            if (operation.session !== this.sessionId) {
+            if (!idEqual(operation.sessionId, this.sessionId)) {
                 throw createUnexpectedSessionIdError()
             }
 
@@ -194,7 +193,7 @@ class MemoryClientStorage {
                 throw createUnexpectedVersionNumberError()
             }
 
-            if (operation.session === this.sessionId) {
+            if (idEqual(operation.sessionId, this.sessionId)) {
                 // Store own remote operation.
                 if (context.localIndex >= context.operations.length) {
                     throw createUnexpectedSessionIdError()
@@ -292,7 +291,7 @@ class MemoryClientStorage {
  * Options for `createClientStorage`.
  */
 export interface CreateClientStorageParams {
-    sessionId: SessionId
+    sessionId: Id
     typeManager: TypeManager
 }
 

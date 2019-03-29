@@ -2,12 +2,12 @@ import {
     createTypeManager,
     DocumentId,
     Operation,
-    SessionId,
     Snapshot,
     Type,
     TypeManager,
     TypeName,
 } from '@syncot/core'
+import { Id } from '@syncot/util'
 import { ClientStorage, ClientStorageStatus } from '.'
 
 interface ListSnapshot extends Snapshot {
@@ -18,8 +18,8 @@ interface ListOperation extends Operation {
 }
 const transformError = new Error('transform-error')
 const typeName: TypeName = 'list-type'
-const session: SessionId = 'session-id'
-const remoteSession: SessionId = 'remote-session-id'
+const sessionId: Id = 'session-id'
+const remoteSession: Id = 'remote-session-id'
 const typeManager: TypeManager = createTypeManager()
 const type: Type = {
     name: typeName,
@@ -30,7 +30,7 @@ const type: Type = {
             kind: 'Snapshot',
             meta: null,
             sequence: 0,
-            session: '',
+            sessionId: '',
             type: typeName,
             version: 0,
         }
@@ -42,7 +42,7 @@ const type: Type = {
                 .slice()
                 .splice(operation.data.index, operation.data.value),
             sequence: operation.sequence,
-            session: operation.session,
+            sessionId: operation.sessionId,
             version: operation.version,
         }
     },
@@ -74,7 +74,7 @@ typeManager.registerType(type)
 
 export const clientStorageTests = (
     createClientStorage: (options: {
-        sessionId: SessionId
+        sessionId: Id
         typeManager: TypeManager
     }) => ClientStorage,
 ) => {
@@ -85,7 +85,7 @@ export const clientStorageTests = (
         kind: 'Operation',
         meta: null,
         sequence: 1,
-        session,
+        sessionId,
         type: typeName,
         version: 6,
     }
@@ -95,7 +95,7 @@ export const clientStorageTests = (
         kind: 'Snapshot',
         meta: null,
         sequence: 5,
-        session,
+        sessionId,
         type: typeName,
         version: 5,
     }
@@ -105,7 +105,7 @@ export const clientStorageTests = (
         lastRemoteVersion: 5,
         lastSequence: 0,
         lastVersion: 5,
-        sessionId: session,
+        sessionId,
         typeName,
     }
 
@@ -125,7 +125,7 @@ export const clientStorageTests = (
 
     beforeEach(() => {
         clientStorage = createClientStorage({
-            sessionId: session,
+            sessionId,
             typeManager,
         })
     })
@@ -190,7 +190,10 @@ export const clientStorageTests = (
     })
 
     describe('store, load', () => {
-        const remoteOperation = { ...operation, session: remoteSession }
+        const remoteOperation: Operation = {
+            ...operation,
+            sessionId: remoteSession,
+        }
 
         beforeEach(() => {
             clientStorage.init(snapshot)

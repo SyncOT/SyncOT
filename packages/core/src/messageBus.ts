@@ -1,5 +1,3 @@
-import { JsonValue } from './json'
-
 /**
  * Defines a single level in a hierarchy of topics.
  */
@@ -15,7 +13,7 @@ export type Topic = TopicItem[]
  * @param topic The topic the message was sent to.
  * @param message The sent message.
  */
-type Callback = (topic: Topic, message: JsonValue) => void
+type Callback = (topic: Topic, message: any) => void
 
 /**
  * A message bus for communication between SyncOT components.
@@ -25,7 +23,7 @@ type Callback = (topic: Topic, message: JsonValue) => void
  * @param TR Topic type for receiving messages.
  */
 export interface MessageBus<
-    M extends JsonValue = JsonValue,
+    M = any,
     TS extends Topic = Topic,
     TR extends Topic = TS
 > {
@@ -70,7 +68,7 @@ export interface MessageBus<
 class MessageBusImpl implements MessageBus {
     private listeners: Listeners = new Listeners()
 
-    public send(topic: Topic, message: JsonValue): boolean {
+    public send(topic: Topic, message: any): boolean {
         const topicCopy = topic.slice()
         const callbacks = this.listeners.getCallbacks(topic)
         Promise.resolve().then(() =>

@@ -13,7 +13,7 @@ const operation: Operation = {
     kind: 'Operation',
     meta: null,
     sequence: 2,
-    session: 'c',
+    sessionId: 'c',
     type: 't',
     version: 1,
 }
@@ -24,98 +24,82 @@ const snapshot: Snapshot = {
     kind: 'Snapshot',
     meta: null,
     sequence: 2,
-    session: 'c',
+    sessionId: 'c',
     type: 't',
     version: 1,
 }
 
 describe('validateOperation', () => {
-    test('valid', () => {
-        expect(validateOperation(operation)).toBe(undefined)
-    })
-    test('is null', () => {
-        const error = validateOperation(null as any)
-        expect(error).toBeInstanceOf(Error)
-        expect(error!.name).toBe('SyncOtError InvalidEntity')
-        expect(error!.message).toEqual('Invalid "Operation".')
-        expect(error!.entityName).toEqual('Operation')
-        expect(error!.entity).toEqual(null)
-        expect(error!.key).toEqual(null)
-    })
-    test.each([
-        'data',
-        'id',
-        'kind',
-        'meta',
-        'sequence',
-        'session',
-        'type',
-        'version',
-    ])('invalid %s', property => {
-        const entity = {
-            ...operation,
-            [property]: undefined as any,
+    test.each<[any, string | null | undefined]>([
+        [operation, undefined],
+        [{ ...operation, version: 0 }, 'version'],
+        [{ ...operation, sessionId: '' }, undefined],
+        [{ ...operation, sessionId: new ArrayBuffer(0) }, undefined],
+        [null, null],
+        [() => undefined, null],
+        [{ ...operation, data: undefined }, 'data'],
+        [{ ...operation, id: undefined }, 'id'],
+        [{ ...operation, kind: undefined }, 'kind'],
+        [{ ...operation, meta: undefined }, 'meta'],
+        [{ ...operation, sequence: undefined }, 'sequence'],
+        [{ ...operation, sessionId: undefined }, 'sessionId'],
+        [{ ...operation, type: undefined }, 'type'],
+        [{ ...operation, version: undefined }, 'version'],
+    ])('Test #%#', (data, invalidProperty) => {
+        const result = validateOperation(data)
+        if (invalidProperty === undefined) {
+            expect(result).toBeUndefined()
+        } else {
+            expect(result).toEqual(
+                expect.objectContaining({
+                    entity: data,
+                    entityName: 'Operation',
+                    key: invalidProperty,
+                    message:
+                        invalidProperty === null
+                            ? 'Invalid "Operation".'
+                            : `Invalid "Operation.${invalidProperty}".`,
+                    name: 'SyncOtError InvalidEntity',
+                }),
+            )
         }
-        const error = validateOperation(entity)
-        expect(error).toBeInstanceOf(Error)
-        expect(error!.name).toBe('SyncOtError InvalidEntity')
-        expect(error!.message).toBe(`Invalid "Operation.${property}".`)
-        expect(error!.entityName).toBe('Operation')
-        expect(error!.entity).toBe(entity)
-        expect(error!.key).toBe(property)
-    })
-    test('fail, if version is 0', () => {
-        const entity = {
-            ...operation,
-            version: 0,
-        }
-        const error = validateOperation(entity)
-        expect(error).toBeInstanceOf(Error)
-        expect(error!.name).toBe('SyncOtError InvalidEntity')
-        expect(error!.message).toBe('Invalid "Operation.version".')
-        expect(error!.entityName).toBe('Operation')
-        expect(error!.entity).toBe(entity)
-        expect(error!.key).toBe('version')
     })
 })
 
 describe('validateSnapshot', () => {
-    test('valid', () => {
-        expect(validateSnapshot(snapshot)).toBe(undefined)
-    })
-    test('is null', () => {
-        const error = validateSnapshot(null as any)
-        expect(error).toBeInstanceOf(Error)
-        expect(error!.name).toBe('SyncOtError InvalidEntity')
-        expect(error!.message).toBe('Invalid "Snapshot".')
-        expect(error!.entityName).toBe('Snapshot')
-        expect(error!.entity).toBe(null)
-        expect(error!.key).toBe(null)
-    })
-    test.each([
-        'data',
-        'id',
-        'kind',
-        'meta',
-        'sequence',
-        'session',
-        'type',
-        'version',
-    ])('invalid %s', property => {
-        const entity = {
-            ...snapshot,
-            [property]: undefined as any,
+    test.each<[any, string | null | undefined]>([
+        [snapshot, undefined],
+        [{ ...snapshot, version: 0 }, undefined],
+        [{ ...snapshot, sessionId: '' }, undefined],
+        [{ ...snapshot, sessionId: new ArrayBuffer(0) }, undefined],
+        [null, null],
+        [() => undefined, null],
+        [{ ...snapshot, data: undefined }, 'data'],
+        [{ ...snapshot, id: undefined }, 'id'],
+        [{ ...snapshot, kind: undefined }, 'kind'],
+        [{ ...snapshot, meta: undefined }, 'meta'],
+        [{ ...snapshot, sequence: undefined }, 'sequence'],
+        [{ ...snapshot, sessionId: undefined }, 'sessionId'],
+        [{ ...snapshot, type: undefined }, 'type'],
+        [{ ...snapshot, version: undefined }, 'version'],
+    ])('Test #%#', (data, invalidProperty) => {
+        const result = validateSnapshot(data)
+        if (invalidProperty === undefined) {
+            expect(result).toBeUndefined()
+        } else {
+            expect(result).toEqual(
+                expect.objectContaining({
+                    entity: data,
+                    entityName: 'Snapshot',
+                    key: invalidProperty,
+                    message:
+                        invalidProperty === null
+                            ? 'Invalid "Snapshot".'
+                            : `Invalid "Snapshot.${invalidProperty}".`,
+                    name: 'SyncOtError InvalidEntity',
+                }),
+            )
         }
-        const error = validateSnapshot(entity)
-        expect(error).toBeInstanceOf(Error)
-        expect(error!.name).toBe('SyncOtError InvalidEntity')
-        expect(error!.message).toBe(`Invalid "Snapshot.${property}".`)
-        expect(error!.entityName).toBe('Snapshot')
-        expect(error!.entity).toBe(entity)
-        expect(error!.key).toBe(property)
-    })
-    test('succeed, if version is 0', () => {
-        expect(validateSnapshot({ ...snapshot, version: 0 })).toBe(undefined)
     })
 })
 

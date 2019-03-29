@@ -1,6 +1,6 @@
 import { createTypeManager, Operation, Snapshot, Type, TypeManager } from '.'
 
-const session = 'session-id'
+const sessionId = 'session-id'
 const id = 'document-id'
 const unknownTypeName = 'unknown-type'
 const typeName = 'type-name'
@@ -11,7 +11,7 @@ const snapshot1: Snapshot = {
     kind: 'Snapshot',
     meta: 0,
     sequence: 0,
-    session,
+    sessionId,
     type: typeName,
     version: 0,
 }
@@ -28,7 +28,7 @@ const operation1: Operation = {
     kind: 'Operation',
     meta: 0,
     sequence: 0,
-    session,
+    sessionId,
     type: typeName,
     version: 0,
 }
