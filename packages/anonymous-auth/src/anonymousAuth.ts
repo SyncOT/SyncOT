@@ -1,6 +1,6 @@
-import { AuthEvents, AuthManager, UserId } from '@syncot/auth'
+import { AuthEvents, AuthManager } from '@syncot/auth'
 import { Connection } from '@syncot/core'
-import { SyncOtEmitter } from '@syncot/util'
+import { Id, isId, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a new AuthManager which allows anonymous read-write access to all documents.
@@ -16,7 +16,7 @@ export function createAuthManager(connection: Connection): AuthManager {
  */
 class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
     implements AuthManager {
-    private userId: UserId | undefined = undefined
+    private userId: Id | undefined = undefined
     private authenticated: boolean = false
 
     public constructor(private connection: Connection) {
@@ -24,12 +24,12 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
         Promise.resolve().then(() => this.init())
     }
 
-    public getUserId(): UserId | undefined {
+    public getUserId(): Id | undefined {
         return this.userId
     }
 
     public hasUserId(): boolean {
-        return this.userId !== undefined
+        return isId(this.userId)
     }
 
     public hasAuthenticatedUserId(): boolean {
@@ -63,7 +63,7 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
         this.connection.on('connect', this.onConnect)
         this.connection.on('disconnect', this.onDisconnect)
 
-        this.userId = new ArrayBuffer(0)
+        this.userId = 0
         this.emitAsync('user')
 
         this.authenticated = this.connection.isConnected()

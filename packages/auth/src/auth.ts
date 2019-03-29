@@ -1,35 +1,5 @@
 import { DocumentId, TypeName } from '@syncot/core'
-import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
-
-/**
- * Type of the user ID.
- */
-export type UserId = ArrayBuffer | string | number
-
-/**
- * Returns true, if the specified value is a user id, otherwise returns false.
- */
-export function isUserId(value: any): value is UserId {
-    const type = typeof value
-    return (
-        type === 'string' || type === 'number' || value instanceof ArrayBuffer
-    )
-}
-
-/**
- * Returns true, if the two provided values are equal user IDs, otherwise returns false.
- */
-export function userIdEqual(value1: any, value2: any): boolean {
-    const type = typeof value1
-
-    if (type === 'string' || type === 'number') {
-        return value1 === value2
-    } else if (value1 instanceof ArrayBuffer && value2 instanceof ArrayBuffer) {
-        return toBuffer(value1).compare(toBuffer(value2)) === 0
-    } else {
-        return false
-    }
-}
+import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `AuthManager`.
@@ -57,7 +27,7 @@ export interface AuthManager
     /**
      * Gets the user ID, if present, otherwise returns undefined.
      */
-    getUserId(): UserId | undefined
+    getUserId(): Id | undefined
 
     /**
      * Returns true, if the user ID is present, otherwise returns false.

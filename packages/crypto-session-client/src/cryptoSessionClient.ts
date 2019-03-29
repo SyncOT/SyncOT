@@ -1,7 +1,7 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
-import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
-import { SyncOtEmitter } from '@syncot/util'
+import { SessionEvents, SessionManager } from '@syncot/session'
+import { Id, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a client-side cryptographic session manager on the specified connection.
@@ -20,7 +20,7 @@ interface SessionService {
     getChallenge(): Promise<Challenge>
     activateSession(
         publicKey: ArrayBuffer,
-        sessionId: SessionId,
+        sessionId: Id,
         challangeReply: ChallengeReply,
     ): Promise<void>
 }
@@ -33,7 +33,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     private connectionNumber: number = 0
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKey: ArrayBuffer | undefined = undefined
-    private sessionId: SessionId | undefined = undefined
+    private sessionId: Id | undefined = undefined
     private active: boolean = false
     private readonly sessionService: SessionService
 
@@ -51,7 +51,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         Promise.resolve().then(() => this.init())
     }
 
-    public getSessionId(): SessionId | undefined {
+    public getSessionId(): Id | undefined {
         return this.sessionId
     }
 

@@ -5,10 +5,8 @@
     "outDir": "./lib"
   },
   "references": [
-    { "path": "../auth" },
     { "path": "../core" },
     { "path": "../error" },
-    { "path": "../session" },
     { "path": "../util" }
   ]
 }

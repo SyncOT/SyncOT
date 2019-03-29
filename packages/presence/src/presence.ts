@@ -1,40 +1,11 @@
-import { isUserId, UserId } from '@syncot/auth'
 import { validate, Validator } from '@syncot/core'
 import { createInvalidEntityError } from '@syncot/error'
-import { isSessionId, SessionId } from '@syncot/session'
-import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
-
-export type LocationId = ArrayBuffer | string | number
-
-/**
- * Returns true, if the specified value is a location ID, otherwise returns false.
- */
-export function isLocationId(value: any): value is LocationId {
-    const type = typeof value
-    return (
-        type === 'string' || type === 'number' || value instanceof ArrayBuffer
-    )
-}
-
-/**
- * Returns true, if the two provided values are equal location IDs, otherwise returns false.
- */
-export function locationIdEqual(value1: any, value2: any): boolean {
-    const type = typeof value1
-
-    if (type === 'string' || type === 'number') {
-        return value1 === value2
-    } else if (value1 instanceof ArrayBuffer && value2 instanceof ArrayBuffer) {
-        return toBuffer(value1).compare(toBuffer(value2)) === 0
-    } else {
-        return false
-    }
-}
+import { EmitterInterface, Id, isId, SyncOtEmitter } from '@syncot/util'
 
 export interface Presence {
-    readonly sessionId: SessionId
-    readonly userId: UserId
-    readonly locationId: LocationId
+    readonly sessionId: Id
+    readonly userId: Id
+    readonly locationId: Id
     readonly data: any
     readonly lastModified: number
 }
@@ -45,15 +16,15 @@ export const validatePresence: Validator<Presence> = validate([
             ? undefined
             : createInvalidEntityError('Presence', presence, null),
     presence =>
-        isSessionId(presence.sessionId)
+        isId(presence.sessionId)
             ? undefined
             : createInvalidEntityError('Presence', presence, 'sessionId'),
     presence =>
-        isUserId(presence.userId)
+        isId(presence.userId)
             ? undefined
             : createInvalidEntityError('Presence', presence, 'userId'),
     presence =>
-        isLocationId(presence.locationId)
+        isId(presence.locationId)
             ? undefined
             : createInvalidEntityError('Presence', presence, 'locationId'),
     presence =>
@@ -92,15 +63,15 @@ export interface PresenceServiceEvents {
  */
 export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
-    readonly sessionId: SessionId | undefined
-    readonly userId: UserId | undefined
-    locationId: LocationId | undefined
+    readonly sessionId: Id | undefined
+    readonly userId: Id | undefined
+    locationId: Id | undefined
     readonly localPresence: Presence | undefined
     readonly online: boolean
 
-    getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
-    getPresenceByUserId(userId: UserId): Promise<Presence[]>
-    getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
+    getPresenceBySessionId(sessionId: Id): Promise<Presence | undefined>
+    getPresenceByUserId(userId: Id): Promise<Presence[]>
+    getPresenceByLocationId(locationId: Id): Promise<Presence[]>
 }
 
 /**
@@ -124,7 +95,7 @@ export interface PresenceService
      */
     removePresence(): Promise<void>
 
-    getPresenceBySessionId(sessionId: SessionId): Promise<Presence | undefined>
-    getPresenceByUserId(userId: UserId): Promise<Presence[]>
-    getPresenceByLocationId(locationId: LocationId): Promise<Presence[]>
+    getPresenceBySessionId(sessionId: Id): Promise<Presence | undefined>
+    getPresenceByUserId(userId: Id): Promise<Presence[]>
+    getPresenceByLocationId(locationId: Id): Promise<Presence[]>
 }

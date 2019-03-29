@@ -1,5 +1,6 @@
-import { AuthManager, userIdEqual } from '@syncot/auth'
+import { AuthManager } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/core'
+import { idEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthManager } from '.'
 
@@ -12,7 +13,7 @@ const createDuplex = () =>
         write: () => undefined,
     })
 
-const userId = new ArrayBuffer(0)
+const userId = 0
 let stream: Duplex
 let connection: Connection
 let authManager: AuthManager
@@ -109,7 +110,7 @@ describe('initially disconnected', () => {
     })
 
     test('initial state', async () => {
-        expect(userIdEqual(authManager.getUserId()!, userId)).toBeTrue()
+        expect(idEqual(authManager.getUserId(), userId)).toBeTrue()
         expect(authManager.hasUserId()).toBeTrue()
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
     })
@@ -148,7 +149,7 @@ describe('initially connected', () => {
     })
 
     test('initial state', async () => {
-        expect(userIdEqual(authManager.getUserId()!, userId)).toBeTrue()
+        expect(idEqual(authManager.getUserId(), userId)).toBeTrue()
         expect(authManager.hasUserId()).toBeTrue()
         expect(authManager.hasAuthenticatedUserId()).toBeTrue()
     })

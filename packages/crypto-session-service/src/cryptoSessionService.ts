@@ -1,7 +1,7 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
-import { SessionEvents, SessionId, SessionManager } from '@syncot/session'
-import { binaryEqual, SyncOtEmitter, toBuffer } from '@syncot/util'
+import { SessionEvents, SessionManager } from '@syncot/session'
+import { binaryEqual, Id, SyncOtEmitter, toBuffer } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 
@@ -15,7 +15,7 @@ const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
  */
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
-    private sessionId: SessionId | undefined = undefined
+    private sessionId: Id | undefined = undefined
     private readonly challenge: Challenge
 
     public constructor(private readonly connection: Connection) {
@@ -42,7 +42,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
     public activateSession(
         publicKeyDer: ArrayBuffer,
-        sessionId: SessionId,
+        sessionId: Id,
         challangeReply: ChallengeReply,
     ): void {
         this.assertNotDestroyed()
@@ -80,7 +80,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         }
     }
 
-    public getSessionId(): SessionId | undefined {
+    public getSessionId(): Id | undefined {
         return this.sessionId
     }
 

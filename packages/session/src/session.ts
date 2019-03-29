@@ -1,29 +1,4 @@
-import { EmitterInterface, SyncOtEmitter, toBuffer } from '@syncot/util'
-
-/**
- * A globally unique session id.
- * It's recorded in snapshots and operations as well as shared with other clients,
- * so some other, secret information must be used to securely create and restore sessions.
- */
-export type SessionId = ArrayBuffer
-
-/**
- * Returns true, if the specified value is a session ID, otherwise returns false.
- */
-export function isSessionId(value: any): value is SessionId {
-    return value instanceof ArrayBuffer
-}
-
-/**
- * Returns true, if the two provided values are equal session IDs, otherwise returns false.
- */
-export function sessionIdEqual(value1: any, value2: any): boolean {
-    return (
-        value1 instanceof ArrayBuffer &&
-        value2 instanceof ArrayBuffer &&
-        toBuffer(value1).compare(toBuffer(value2)) === 0
-    )
-}
+import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `SessionManager`.
@@ -51,7 +26,7 @@ export interface SessionManager
     /**
      * Returns the ID of the current session, or `undefined`, if there's no session.
      */
-    getSessionId(): SessionId | undefined
+    getSessionId(): Id | undefined
 
     /**
      * Returns `true`, if there is an open session, otherwise `false`.

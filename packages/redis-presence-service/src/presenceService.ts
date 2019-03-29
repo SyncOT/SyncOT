@@ -1,16 +1,15 @@
-import { AuthManager, UserId, userIdEqual } from '@syncot/auth'
+import { AuthManager } from '@syncot/auth'
 import { Connection, throwError } from '@syncot/core'
 import { createAuthError, createPresenceError } from '@syncot/error'
 import {
-    LocationId,
     Presence,
     PresenceService,
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { SessionId, sessionIdEqual, SessionManager } from '@syncot/session'
+import { SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'
-import { randomInteger, SyncOtEmitter, toBuffer } from '@syncot/util'
+import { Id, idEqual, randomInteger, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 
@@ -73,6 +72,7 @@ export function createPresenceService(
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private ttl: number = 600
+    private sessionId: Id | undefined = undefined
     private presenceKey: Buffer | undefined = undefined
     private presenceValue: Buffer | undefined = undefined
     private updatingRedis: boolean = false
@@ -132,16 +132,19 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         throwError(validatePresence(presence))
 
         const sessionId = this.sessionService.getSessionId()!
-        if (!sessionIdEqual(presence.sessionId, sessionId)) {
+        if (!idEqual(presence.sessionId, sessionId)) {
             throw createPresenceError('Session ID mismatch.')
         }
 
         const userId = this.authService.getUserId()!
-        if (!userIdEqual(presence.userId, userId)) {
+        if (!idEqual(presence.userId, userId)) {
             throw createPresenceError('User ID mismatch.')
         }
 
-        this.presenceKey = getPresenceKey(presence)
+        if (!idEqual(this.sessionId, presence.sessionId)) {
+            this.sessionId = presence.sessionId
+            this.presenceKey = getPresenceKey(presence)
+        }
         this.presenceValue = getPresenceValue(presence)
         this.modified = true
         this.scheduleUpdateRedis()
@@ -158,20 +161,18 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     public async getPresenceBySessionId(
-        _sessionId: SessionId,
+        _sessionId: Id,
     ): Promise<Presence | undefined> {
         this.assertOk()
         return
     }
 
-    public async getPresenceByUserId(_userId: UserId): Promise<Presence[]> {
+    public async getPresenceByUserId(_userId: Id): Promise<Presence[]> {
         this.assertOk()
         return []
     }
 
-    public async getPresenceByLocationId(
-        _locationId: LocationId,
-    ): Promise<Presence[]> {
+    public async getPresenceByLocationId(_locationId: Id): Promise<Presence[]> {
         this.assertOk()
         return []
     }
@@ -289,24 +290,27 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 }
 
-const presencePrefixString = 'presence:'
-const presencePrefixBuffer = Buffer.allocUnsafeSlow(
-    Buffer.byteLength(presencePrefixString),
-)
+const presencePrefixString = 'presence:sessionId='
+const presencePrefixByteLength = Buffer.byteLength(presencePrefixString)
+const presencePrefixBuffer = Buffer.allocUnsafeSlow(presencePrefixByteLength)
 presencePrefixBuffer.write(presencePrefixString)
 
 function getPresenceKey(presence: Presence): Buffer {
-    const sessionIdBuffer = toBuffer(presence.sessionId)
-    const buffer = Buffer.allocUnsafe(
-        presencePrefixBuffer.length + sessionIdBuffer.length,
+    const sessionIdBuffer = Buffer.from(encode(presence.sessionId))
+    // We're going to keep this buffer for an indeterminate amount of time and we're
+    // likely to have lots of these buffers, so it's preferable to allocate separate memory
+    // in this case and keep the internal nodejs buffer available for other uses.
+    // See https://nodejs.org/api/buffer.html#buffer_class_method_buffer_allocunsafeslow_size
+    const buffer = Buffer.allocUnsafeSlow(
+        presencePrefixByteLength + sessionIdBuffer.length,
     )
     presencePrefixBuffer.copy(buffer)
-    sessionIdBuffer.copy(buffer, presencePrefixBuffer.length)
+    sessionIdBuffer.copy(buffer, presencePrefixByteLength)
     return buffer
 }
 
 function getPresenceValue(presence: Presence): Buffer {
-    return toBuffer(
+    return Buffer.from(
         encode([
             // sessionId is already encoded in the presence key.
             presence.userId,

@@ -23,10 +23,8 @@
     "node": ">=11.6.0 <=11.10.1"
   },
   "dependencies": {
-    "@syncot/auth": "file:../auth",
     "@syncot/core": "file:../core",
     "@syncot/error": "file:../error",
-    "@syncot/session": "file:../session",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }

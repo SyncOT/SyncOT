@@ -1,15 +1,14 @@
-import { AuthManager, UserId } from '@syncot/auth'
+import { AuthManager } from '@syncot/auth'
 import { Connection } from '@syncot/core'
 import { createPresenceError } from '@syncot/error'
 import {
-    LocationId,
     Presence,
     PresenceClient,
     PresenceClientEvents,
     PresenceService,
 } from '@syncot/presence'
-import { SessionId, SessionManager } from '@syncot/session'
-import { SyncOtEmitter } from '@syncot/util'
+import { SessionManager } from '@syncot/session'
+import { Id, isId, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a new presence client communicating with a presence service
@@ -30,20 +29,20 @@ export function createPresenceClient({
 
 class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     implements PresenceClient {
-    public get sessionId(): SessionId | undefined {
+    public get sessionId(): Id | undefined {
         return this.sessionClient.getSessionId()
     }
 
-    public get userId(): UserId | undefined {
+    public get userId(): Id | undefined {
         return this.authClient.getUserId()
     }
 
-    private _locationId: LocationId | undefined = undefined
-    public set locationId(locationId: LocationId | undefined) {
+    private _locationId: Id | undefined = undefined
+    public set locationId(locationId: Id | undefined) {
         this._locationId = locationId
         this.updateLocalPresence()
     }
-    public get locationId(): LocationId | undefined {
+    public get locationId(): Id | undefined {
         return this._locationId
     }
 
@@ -115,26 +114,24 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     }
 
     public getPresenceBySessionId(
-        sessionId: SessionId,
+        sessionId: Id,
     ): Promise<Presence | undefined> {
         return this.presenceService.getPresenceBySessionId(sessionId)
     }
 
-    public getPresenceByUserId(userId: UserId): Promise<Presence[]> {
+    public getPresenceByUserId(userId: Id): Promise<Presence[]> {
         return this.presenceService.getPresenceByUserId(userId)
     }
 
-    public getPresenceByLocationId(
-        locationId: LocationId,
-    ): Promise<Presence[]> {
+    public getPresenceByLocationId(locationId: Id): Promise<Presence[]> {
         return this.presenceService.getPresenceByLocationId(locationId)
     }
 
     private updateLocalPresence = (): void => {
         if (
-            this.sessionId !== undefined &&
-            this.userId !== undefined &&
-            this.locationId !== undefined
+            isId(this.sessionId) &&
+            isId(this.userId) &&
+            isId(this.locationId)
         ) {
             this._localPresence = {
                 data: this.presenceData,

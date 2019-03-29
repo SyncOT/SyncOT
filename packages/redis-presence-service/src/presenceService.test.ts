@@ -1,22 +1,19 @@
-import { AuthEvents, AuthManager, UserId, userIdEqual } from '@syncot/auth'
+import { AuthEvents, AuthManager } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/core'
-import {
-    LocationId,
-    locationIdEqual,
-    Presence,
-    PresenceService,
-} from '@syncot/presence'
+import { Presence, PresenceService } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { decode } from '@syncot/tson'
+import { decode, encode } from '@syncot/tson'
 import {
+    Id,
+    idEqual,
     invertedStreams,
     randomInteger,
     SyncOtEmitter,
-    toArrayBuffer,
 } from '@syncot/util'
 import Redis from 'ioredis'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import RedisServer from 'redis-server'
+import { SmartBuffer } from 'smart-buffer'
 import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
@@ -29,14 +26,12 @@ const alreadyDestroyedMatcher = expect.objectContaining({
 })
 
 const userId = 'test-user-id'
-const sessionIdArray = [0, 1, 2, 3]
-const sessionId = toArrayBuffer(Buffer.from(sessionIdArray))
-const presenceKey = Buffer.from(
-    'presence:'
-        .split('')
-        .map(c => c.charCodeAt(0))
-        .concat(sessionIdArray),
-)
+const sessionId = 'test-session-id'
+const presenceKey = new SmartBuffer()
+    .writeString('presence:sessionId=')
+    .writeBuffer(Buffer.from(encode(sessionId)))
+    .toBuffer()
+
 const locationId = 'test-location-id'
 const lastModified = 123
 const data = Object.freeze({ key: 'value' })
@@ -345,14 +340,9 @@ describe('submitPresence', () => {
             loadedLocationId,
             loadedData,
             loadedLastModified,
-        ] = decode(await redis.getBuffer(presenceKey)) as [
-            UserId,
-            LocationId,
-            any,
-            number
-        ]
-        expect(userIdEqual(loadedUserId, userId)).toBeTrue()
-        expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
+        ] = decode(await redis.getBuffer(presenceKey)) as [Id, Id, any, number]
+        expect(idEqual(loadedUserId, userId)).toBeTrue()
+        expect(idEqual(loadedLocationId, locationId)).toBeTrue()
         expect(loadedData).toEqual(data)
         expect(loadedLastModified).toBe(now)
 
@@ -365,14 +355,9 @@ describe('submitPresence', () => {
             loadedLocationId,
             loadedData,
             loadedLastModified,
-        ] = decode(await redis.getBuffer(presenceKey)) as [
-            UserId,
-            LocationId,
-            any,
-            number
-        ]
-        expect(userIdEqual(loadedUserId, userId)).toBeTrue()
-        expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
+        ] = decode(await redis.getBuffer(presenceKey)) as [Id, Id, any, number]
+        expect(idEqual(loadedUserId, userId)).toBeTrue()
+        expect(idEqual(loadedLocationId, locationId)).toBeTrue()
         expect(loadedData).toEqual(newData)
         expect(loadedLastModified).toBe(now)
 
@@ -504,14 +489,9 @@ describe('submitPresence', () => {
             loadedLocationId,
             loadedData,
             loadedLastModified,
-        ] = decode(await redis.getBuffer(presenceKey)) as [
-            UserId,
-            LocationId,
-            any,
-            number
-        ]
-        expect(userIdEqual(loadedUserId, userId)).toBeTrue()
-        expect(locationIdEqual(loadedLocationId, locationId)).toBeTrue()
+        ] = decode(await redis.getBuffer(presenceKey)) as [Id, Id, any, number]
+        expect(idEqual(loadedUserId, userId)).toBeTrue()
+        expect(idEqual(loadedLocationId, locationId)).toBeTrue()
         expect(loadedData).toEqual(data)
         expect(loadedLastModified).toBe(now)
     })
