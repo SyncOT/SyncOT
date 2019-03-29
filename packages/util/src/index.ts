@@ -1,5 +1,6 @@
 export * from './buffer'
 export * from './eventEmitter'
+export * from './id'
 export * from './invertedStreams'
 export * from './random'
 export * from './types'
