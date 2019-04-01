@@ -434,66 +434,177 @@ describe('submitPresence', () => {
         expect(onPublish).toHaveBeenCalledBefore(onInSync)
     })
 
-    test.each<[undefined | number, number]>([
+    describe.each<[undefined | number, number]>([
         [undefined, 600],
         [1, 10],
         [3600, 3600],
-    ])('store with the ttl option = %d', async (ttlOption, effectiveTtl) => {
+    ])('ttl option = %d', (ttlOption, effectiveTtl) => {
         if (ttlOption !== undefined) {
-            connection1.disconnect()
-            connection2.disconnect()
-            connection1 = createConnection()
-            ;[stream1, stream2] = invertedStreams({ objectMode: true })
-            connection1.connect(stream1)
-            connection2.connect(stream2)
+            beforeEach(() => {
+                connection1.disconnect()
+                connection2.disconnect()
+                connection1 = createConnection()
+                ;[stream1, stream2] = invertedStreams({ objectMode: true })
+                connection1.connect(stream1)
+                connection2.connect(stream2)
 
-            presenceService = createPresenceService(
-                {
-                    authService,
-                    connection: connection1,
-                    redis,
-                    redisPublisher,
-                    redisSubscriber,
-                    sessionService,
-                },
-                {
-                    ttl: ttlOption,
-                },
-            )
-            await Promise.resolve()
+                presenceService = createPresenceService(
+                    {
+                        authService,
+                        connection: connection1,
+                        redis,
+                        redisPublisher,
+                        redisSubscriber,
+                        sessionService,
+                    },
+                    {
+                        ttl: ttlOption,
+                    },
+                )
+            })
         }
 
-        const onOutOfSync = jest.fn()
-        const onInSync = jest.fn()
-        const onPublish = jest.fn()
-        presenceService.on('outOfSync', onOutOfSync)
-        presenceService.on('inSync', onInSync)
-        presenceService.on('publish', onPublish)
+        test('store', async () => {
+            const onOutOfSync = jest.fn()
+            const onInSync = jest.fn()
+            const onPublish = jest.fn()
+            presenceService.on('outOfSync', onOutOfSync)
+            presenceService.on('inSync', onInSync)
+            presenceService.on('publish', onPublish)
 
-        await presenceProxy.submitPresence(presence)
-        clock.runAll()
-        await new Promise(resolve => presenceService.once('inSync', resolve))
+            await presenceProxy.submitPresence(presence)
+            clock.next()
+            await new Promise(resolve =>
+                presenceService.once('inSync', resolve),
+            )
 
-        expect(onOutOfSync).toHaveBeenCalledTimes(1)
-        expect(onInSync).toHaveBeenCalledTimes(1)
-        expect(onPublish).toHaveBeenCalledTimes(1)
-        expect(onOutOfSync).toHaveBeenCalledBefore(onPublish)
-        expect(onPublish).toHaveBeenCalledBefore(onInSync)
+            expect(onOutOfSync).toHaveBeenCalledTimes(1)
+            expect(onInSync).toHaveBeenCalledTimes(1)
+            expect(onPublish).toHaveBeenCalledTimes(1)
+            expect(onOutOfSync).toHaveBeenCalledBefore(onPublish)
+            expect(onPublish).toHaveBeenCalledBefore(onInSync)
 
-        const ttl = await redis.ttl(presenceKey)
-        expect(ttl).toBeLessThanOrEqual(effectiveTtl)
-        expect(ttl).toBeGreaterThanOrEqual(effectiveTtl - 1)
+            expect(await redis.ttl(presenceKey)).toBe(effectiveTtl)
 
-        const [
-            loadedUserId,
-            loadedLocationId,
-            loadedData,
-            loadedLastModified,
-        ] = decode(await redis.getBuffer(presenceKey)) as [Id, Id, any, number]
-        expect(idEqual(loadedUserId, userId)).toBeTrue()
-        expect(idEqual(loadedLocationId, locationId)).toBeTrue()
-        expect(loadedData).toEqual(data)
-        expect(loadedLastModified).toBe(now)
+            const [
+                loadedUserId,
+                loadedLocationId,
+                loadedData,
+                loadedLastModified,
+            ] = decode(await redis.getBuffer(presenceKey)) as [
+                Id,
+                Id,
+                any,
+                number
+            ]
+            expect(idEqual(loadedUserId, userId)).toBeTrue()
+            expect(idEqual(loadedLocationId, locationId)).toBeTrue()
+            expect(loadedData).toEqual(data)
+            expect(loadedLastModified).toBe(now)
+        })
+
+        test('refresh before expired', async () => {
+            await presenceProxy.submitPresence(presence)
+            clock.next()
+            await new Promise(resolve =>
+                presenceService.once('inSync', resolve),
+            )
+
+            const onOutOfSync = jest.fn()
+            const onInSync = jest.fn()
+            const onPublish = jest.fn()
+            presenceService.on('outOfSync', onOutOfSync)
+            presenceService.on('inSync', onInSync)
+            presenceService.on('publish', onPublish)
+
+            await redis.expire(presenceKey, 1)
+            expect(await redis.ttl(presenceKey)).toBe(1)
+            const monitor = await redis.monitor()
+            clock.tick((effectiveTtl - 1) * 1000)
+
+            // Wait until the EXPIRE command is received by the Redis server.
+            await new Promise(resolve =>
+                monitor.on('monitor', (_, args) => {
+                    if (args[0].toLowerCase() === 'expire') {
+                        resolve()
+                    }
+                }),
+            )
+            ;(monitor as any).disconnect()
+
+            expect(await redis.ttl(presenceKey)).toBe(effectiveTtl)
+            const [
+                loadedUserId,
+                loadedLocationId,
+                loadedData,
+                loadedLastModified,
+            ] = decode(await redis.getBuffer(presenceKey)) as [
+                Id,
+                Id,
+                any,
+                number
+            ]
+            expect(idEqual(loadedUserId, userId)).toBeTrue()
+            expect(idEqual(loadedLocationId, locationId)).toBeTrue()
+            expect(loadedData).toEqual(data)
+            expect(loadedLastModified).toBe(now)
+
+            expect(onOutOfSync).not.toHaveBeenCalled()
+            expect(onInSync).not.toHaveBeenCalled()
+            expect(onPublish).not.toHaveBeenCalled()
+        })
+
+        test('refresh after expired', async () => {
+            await presenceProxy.submitPresence(presence)
+            clock.next()
+            await new Promise(resolve =>
+                presenceService.once('inSync', resolve),
+            )
+
+            const onOutOfSync = jest.fn()
+            const onInSync = jest.fn()
+            const onPublish = jest.fn()
+            presenceService.on('outOfSync', onOutOfSync)
+            presenceService.on('inSync', onInSync)
+            presenceService.on('publish', onPublish)
+
+            await redis.del(presenceKey)
+            expect(await redis.exists(presenceKey)).toBe(0)
+            const monitor = await redis.monitor()
+            clock.tick((effectiveTtl - 1) * 1000)
+
+            // Wait until the SETEX command is received by the Redis server.
+            await new Promise(resolve =>
+                monitor.on('monitor', (_, args) => {
+                    if (args[0].toLowerCase() === 'setex') {
+                        resolve()
+                    }
+                }),
+            )
+            ;(monitor as any).disconnect()
+
+            expect(await redis.ttl(presenceKey)).toBe(effectiveTtl)
+
+            const [
+                loadedUserId,
+                loadedLocationId,
+                loadedData,
+                loadedLastModified,
+            ] = decode(await redis.getBuffer(presenceKey)) as [
+                Id,
+                Id,
+                any,
+                number
+            ]
+            expect(idEqual(loadedUserId, userId)).toBeTrue()
+            expect(idEqual(loadedLocationId, locationId)).toBeTrue()
+            expect(loadedData).toEqual(data)
+            expect(loadedLastModified).toBe(now)
+
+            expect(onOutOfSync).not.toHaveBeenCalled()
+            expect(onInSync).not.toHaveBeenCalled()
+            expect(onPublish).toHaveBeenCalledTimes(1)
+        })
     })
 })
 

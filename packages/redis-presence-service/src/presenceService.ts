@@ -9,7 +9,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'
-import { Id, idEqual, randomInteger, SyncOtEmitter } from '@syncot/util'
+import { Id, idEqual, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 
@@ -192,7 +192,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    private scheduleUpdateRedis(delay: number = 0): void {
+    private scheduleUpdateRedis(delaySeconds: number = 0): void {
         if (this.destroyed) {
             return
         }
@@ -200,7 +200,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.updateHandle = setTimeout(() => {
             this.updateHandle = undefined
             this.updateRedis()
-        }, delay)
+        }, Math.max(0, Math.floor(delaySeconds * 1000)))
     }
 
     private cancelUpdateRedis(): void {
@@ -226,21 +226,30 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
 
             if (this.presenceValue) {
-                await this.redis.setex(
-                    this.presenceKey,
-                    this.ttl,
-                    this.presenceValue,
-                )
+                if (
+                    wasModified ||
+                    !(await this.redis.expire(this.presenceKey, this.ttl))
+                ) {
+                    await this.redis.setex(
+                        this.presenceKey,
+                        this.ttl,
+                        this.presenceValue,
+                    )
+                    this.emitAsync('publish')
+                }
             } else {
                 await this.redis.del(this.presenceKey)
+                this.emitAsync('publish')
             }
-
-            this.emitAsync('publish')
 
             if (this.modified) {
                 this.scheduleUpdateRedis()
             } else {
                 this.emitInSync()
+                if (this.presenceValue) {
+                    // Refresh after 90% of ttl has elapsed.
+                    this.scheduleUpdateRedis(this.ttl * 0.9)
+                }
             }
         } catch (error) {
             if (wasModified) {
@@ -253,7 +262,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                     error,
                 ),
             )
-            this.scheduleUpdateRedis(randomInteger(1000, 10000))
+            // Retry after between 1 and 10 seconds.
+            this.scheduleUpdateRedis(1 + Math.random() * 9)
         } finally {
             this.updatingRedis = false
         }
