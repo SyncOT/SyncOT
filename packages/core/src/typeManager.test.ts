@@ -1,35 +1,35 @@
 import { createTypeManager, Operation, Snapshot, Type, TypeManager } from '.'
 
 const sessionId = 'session-id'
-const id = 'document-id'
-const unknownTypeName = 'unknown-type'
-const typeName = 'type-name'
+const documentId = 'document-id'
+const documentType = 'type-name'
+const unknownDocumentType = 'unknown-type'
 
 const snapshot1: Snapshot = {
     data: 0,
-    id,
+    documentId,
+    documentType,
     kind: 'Snapshot',
     meta: 0,
     sequence: 0,
     sessionId,
-    type: typeName,
     version: 0,
 }
 const snapshot2: Snapshot = { ...snapshot1 }
 const snapshot3: Snapshot = { ...snapshot1 }
 const unknownSnapshot: Snapshot = {
     ...snapshot1,
-    type: unknownTypeName,
+    documentType: unknownDocumentType,
 }
 
 const operation1: Operation = {
     data: 0,
-    id,
+    documentId,
+    documentType,
     kind: 'Operation',
     meta: 0,
     sequence: 0,
     sessionId,
-    type: typeName,
     version: 0,
 }
 const operation2: Operation = { ...operation1 }
@@ -37,7 +37,7 @@ const operation3: Operation = { ...operation1 }
 const operation4: Operation = { ...operation1 }
 const unknownOperation: Operation = {
     ...operation1,
-    type: unknownTypeName,
+    documentType: unknownDocumentType,
 }
 
 // Freeze them just in case.
@@ -55,9 +55,9 @@ let type: Type
 let typeManager: TypeManager
 
 const errorMatcher = expect.objectContaining({
-    message: `Type "${unknownTypeName}" not found.`,
+    message: `Type "${unknownDocumentType}" not found.`,
     name: 'SyncOtError TypeNotFound',
-    typeName: unknownTypeName,
+    typeName: unknownDocumentType,
 })
 
 beforeEach(() => {
@@ -67,7 +67,7 @@ beforeEach(() => {
         create: jest.fn(),
         diff: jest.fn(),
         invert: jest.fn(),
-        name: typeName,
+        name: documentType,
         transform: jest.fn(),
         transformX: jest.fn(),
     }
@@ -95,22 +95,22 @@ describe('getType', () => {
         typeManager.registerType(anotherType)
         expect(typeManager.getType(type.name)).toBe(type)
         expect(typeManager.getType(anotherType.name)).toBe(anotherType)
-        expect(typeManager.getType(unknownTypeName)).toBe(undefined)
+        expect(typeManager.getType(unknownDocumentType)).toBe(undefined)
     })
 })
 
 describe('create', () => {
     test('fails, if type not found', () => {
-        expect(() => typeManager.create(unknownTypeName, '1')).toThrow(
+        expect(() => typeManager.create(unknownDocumentType, '1')).toThrow(
             errorMatcher,
         )
     })
     test('calls Type#create', () => {
         ;(type.create as any).mockReturnValue(snapshot1)
-        expect(typeManager.create(type.name, id)).toBe(snapshot1)
+        expect(typeManager.create(type.name, documentId)).toBe(snapshot1)
         expect(type.create).toHaveBeenCalledTimes(1)
         expect((type.create as any).mock.instances[0]).toBe(type)
-        expect(type.create).toHaveBeenCalledWith(id)
+        expect(type.create).toHaveBeenCalledWith(documentId)
     })
 })
 

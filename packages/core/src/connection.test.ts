@@ -3,12 +3,17 @@ import { Duplex } from 'stream'
 import {
     Connection,
     createConnection,
-    JsonValue,
     Message,
     MessageType,
     Proxy,
     Service,
 } from '.'
+
+function omit<T extends object>(value: T, property: keyof T) {
+    const newValue = { ...value }
+    delete newValue[property]
+    return newValue
+}
 
 const name = 'service-or-proxy-name'
 const error = new Error('test error')
@@ -469,8 +474,7 @@ describe('message validation', () => {
     })
     test.each([
         ['invalid message', true, null],
-        ['invalid data (undefined)', { ...message, data: undefined }, 'data'],
-        ['invalid data (function)', { ...message, data: () => null }, 'data'],
+        ['invalid data (missing)', omit(message, 'data'), 'data'],
         [
             'invalid data ({}; message type: CALL_REQUEST)',
             { ...message, data: {}, type: MessageType.CALL_REQUEST },
@@ -506,7 +510,6 @@ describe('message validation', () => {
             },
             'data',
         ],
-        ['invalid data (symbol)', { ...message, data: Symbol() }, 'data'],
         ['invalid id', { ...message, id: 0.5 }, 'id'],
         [
             'invalid name (type=EVENT)',
@@ -779,20 +782,20 @@ describe('no service', () => {
 
 describe('service and proxy', () => {
     interface TestService extends Service {
-        returnMethod: jest.Mock<JsonValue, JsonValue[]>
-        resolveMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
-        throwErrorMethod: jest.Mock<never, JsonValue[]>
-        throwNonErrorMethod: jest.Mock<never, JsonValue[]>
-        rejectErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
-        rejectNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        returnMethod: jest.Mock<any, any[]>
+        resolveMethod: jest.Mock<Promise<any>, any[]>
+        throwErrorMethod: jest.Mock<never, any[]>
+        throwNonErrorMethod: jest.Mock<never, any[]>
+        rejectErrorMethod: jest.Mock<Promise<never>, any[]>
+        rejectNonErrorMethod: jest.Mock<Promise<never>, any[]>
     }
     interface TestProxy extends Proxy {
-        returnMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
-        resolveMethod: jest.Mock<Promise<JsonValue>, JsonValue[]>
-        throwErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
-        throwNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
-        rejectErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
-        rejectNonErrorMethod: jest.Mock<Promise<never>, JsonValue[]>
+        returnMethod: jest.Mock<Promise<any>, any[]>
+        resolveMethod: jest.Mock<Promise<any>, any[]>
+        throwErrorMethod: jest.Mock<Promise<never>, any[]>
+        throwNonErrorMethod: jest.Mock<Promise<never>, any[]>
+        rejectErrorMethod: jest.Mock<Promise<never>, any[]>
+        rejectNonErrorMethod: jest.Mock<Promise<never>, any[]>
     }
     let proxy: TestProxy
     let service: TestService
@@ -813,20 +816,18 @@ describe('service and proxy', () => {
 
     beforeEach(() => {
         service = {
-            rejectErrorMethod: jest.fn((..._args: JsonValue[]) =>
+            rejectErrorMethod: jest.fn((..._args: any[]) =>
                 Promise.reject(error),
             ),
-            rejectNonErrorMethod: jest.fn((..._args: JsonValue[]) =>
+            rejectNonErrorMethod: jest.fn((..._args: any[]) =>
                 Promise.reject(5),
             ),
-            resolveMethod: jest.fn((..._args: JsonValue[]) =>
-                Promise.resolve(5),
-            ),
-            returnMethod: jest.fn((..._args: JsonValue[]) => 5),
-            throwErrorMethod: jest.fn((..._args: JsonValue[]) => {
+            resolveMethod: jest.fn((..._args: any[]) => Promise.resolve(5)),
+            returnMethod: jest.fn((..._args: any[]) => 5),
+            throwErrorMethod: jest.fn((..._args: any[]) => {
                 throw error
             }),
-            throwNonErrorMethod: jest.fn((..._args: JsonValue[]) => {
+            throwNonErrorMethod: jest.fn((..._args: any[]) => {
                 throw 5
             }),
         }
@@ -973,7 +974,7 @@ describe('service and proxy', () => {
             const onData = jest.fn()
             const noop = () => undefined
             let resolvePromise: () => void = noop
-            const promise = new Promise<JsonValue>(
+            const promise = new Promise<any>(
                 (resolve, _) => (resolvePromise = resolve),
             )
             service.resolveMethod.mockReturnValue(promise)
@@ -1011,7 +1012,7 @@ describe('service and proxy', () => {
             connection.on('error', onError)
             const noop = () => undefined
             let resolvePromise: () => void = noop
-            const promise = new Promise<JsonValue>(
+            const promise = new Promise<any>(
                 (resolve, _) => (resolvePromise = resolve),
             )
             service.resolveMethod.mockReturnValue(promise)
@@ -1068,9 +1069,7 @@ describe('service and proxy', () => {
             const onData2 = jest.fn()
             let resolvePromise: () => void = () => expect.fail('')
             service.resolveMethod.mockReturnValue(
-                new Promise<JsonValue>(
-                    (resolve, _) => (resolvePromise = resolve),
-                ),
+                new Promise<any>((resolve, _) => (resolvePromise = resolve)),
             )
             stream2.on('data', onData1)
             stream2.write({ ...message, name: 'resolveMethod' })

@@ -1,10 +1,5 @@
-import {
-    createMessageBus as create,
-    DocumentId,
-    MessageBus,
-    Operation,
-    TypeName,
-} from '@syncot/core'
+import { createMessageBus as create, MessageBus, Operation } from '@syncot/core'
+import { Id } from '@syncot/util'
 
 type ConnectionMessageBus = MessageBus<
     {
@@ -16,10 +11,8 @@ type OperationMessageBus = MessageBus<
     {
         operation: Operation
     },
-    ['operation', TypeName, DocumentId],
-    | ['operation', TypeName, DocumentId]
-    | ['operation', TypeName]
-    | ['operation']
+    ['operation', string, Id],
+    ['operation', string, Id] | ['operation', string] | ['operation']
 >
 export type TypedMessageBus = ConnectionMessageBus & OperationMessageBus
 

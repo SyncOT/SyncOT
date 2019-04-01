@@ -1,7 +1,9 @@
+import { Scalar, ScalarMap } from '@syncot/util'
+
 /**
  * Defines a single level in a hierarchy of topics.
  */
-type TopicItem = string | number | boolean
+type TopicItem = Scalar
 /**
  * An empty `Array` is the most generic `Topic` and can be used to receive all messages.
  * The more `TopicItem`s are appended to the `Array`, the more specific the `Topic`, which
@@ -90,7 +92,7 @@ class MessageBusImpl implements MessageBus {
 
 class Listeners {
     public callbacks: Callback[] = []
-    public children: Map<TopicItem, Listeners> = new Map()
+    public children: ScalarMap<TopicItem, Listeners> = new ScalarMap()
 
     public getCallbacks(
         topic: Topic,

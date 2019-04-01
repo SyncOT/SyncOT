@@ -1,14 +1,18 @@
 import {
     createTypeManager,
-    DocumentId,
     Operation,
     Snapshot,
     Type,
     TypeManager,
-    TypeName,
 } from '@syncot/core'
-import { Id } from '@syncot/util'
+import { Id, toArrayBuffer } from '@syncot/util'
 import { ClientStorage, ClientStorageStatus } from '.'
+
+function omit<T extends object>(value: T, property: keyof T) {
+    const newValue = { ...value }
+    delete newValue[property]
+    return newValue
+}
 
 interface ListSnapshot extends Snapshot {
     data: number[]
@@ -17,21 +21,21 @@ interface ListOperation extends Operation {
     data: { index: number; value: number }
 }
 const transformError = new Error('transform-error')
-const typeName: TypeName = 'list-type'
+const documentType: string = 'list-type'
 const sessionId: Id = 'session-id'
-const remoteSession: Id = 'remote-session-id'
+const remoteSessionId: Id = 'remote-session-id'
 const typeManager: TypeManager = createTypeManager()
 const type: Type = {
-    name: typeName,
-    create(id: DocumentId): ListSnapshot {
+    name: documentType,
+    create(documentId: Id): ListSnapshot {
         return {
             data: [],
-            id,
+            documentId,
+            documentType,
             kind: 'Snapshot',
             meta: null,
             sequence: 0,
             sessionId: '',
-            type: typeName,
             version: 0,
         }
     },
@@ -78,35 +82,35 @@ export const clientStorageTests = (
         typeManager: TypeManager
     }) => ClientStorage,
 ) => {
-    const id: DocumentId = 'id-1'
+    const documentId: Id = 'id-1'
     const operation: Operation = {
         data: { index: 0, value: 0 },
-        id,
+        documentId,
+        documentType,
         kind: 'Operation',
         meta: null,
         sequence: 1,
         sessionId,
-        type: typeName,
         version: 6,
     }
     const snapshot: Snapshot = {
         data: { index: 0, value: 0 },
-        id,
+        documentId,
+        documentType,
         kind: 'Snapshot',
         meta: null,
         sequence: 5,
         sessionId,
-        type: typeName,
         version: 5,
     }
     const status: ClientStorageStatus = {
-        id,
+        documentId,
+        documentType,
         initialized: true,
         lastRemoteVersion: 5,
         lastSequence: 0,
         lastVersion: 5,
         sessionId,
-        typeName,
     }
 
     Object.freeze(operation)
@@ -117,11 +121,11 @@ export const clientStorageTests = (
 
     let clientStorage: ClientStorage
 
-    const getStatus = (typeNameIn = typeName, idIn = id) =>
-        clientStorage.getStatus(typeNameIn, idIn)
+    const getStatus = (typeName: string = documentType, id: Id = documentId) =>
+        clientStorage.getStatus(typeName, id)
 
-    const load = (typeNameIn = typeName, idIn = id) =>
-        clientStorage.load(typeNameIn, idIn)
+    const load = (typeName: string = documentType, id: Id = documentId) =>
+        clientStorage.load(typeName, id)
 
     beforeEach(() => {
         clientStorage = createClientStorage({
@@ -152,7 +156,7 @@ export const clientStorageTests = (
 
         test('getStatus after clear', async () => {
             await clientStorage.init(snapshot)
-            await clientStorage.clear(typeName, id)
+            await clientStorage.clear(documentType, documentId)
             await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
         })
 
@@ -170,29 +174,107 @@ export const clientStorageTests = (
 
         test('clear twice', async () => {
             await clientStorage.init(snapshot)
-            await clientStorage.clear(typeName, id)
-            await clientStorage.clear(typeName, id)
+            await clientStorage.clear(documentType, documentId)
+            await clientStorage.clear(documentType, documentId)
             await expect(getStatus()).resolves.toEqual(uninitializedStatus0)
         })
 
-        test('init 2 different type-id combinations', async () => {
-            const id2 = 'id-2'
+        test('various type-id combinations', async () => {
             await clientStorage.init(snapshot)
-            await clientStorage.init({ ...snapshot, id: id2, version: 0 })
-            await expect(getStatus()).resolves.toEqual(status)
-            await expect(getStatus(typeName, id2)).resolves.toEqual({
-                ...status0,
-                id: id2,
+            await clientStorage.init({
+                ...snapshot,
+                documentType: 'type-2',
+                version: 0,
             })
-            await expect(load()).resolves.toEqual([])
-            await expect(load(typeName, id2)).resolves.toEqual([])
+            await clientStorage.init({
+                ...snapshot,
+                documentId: 'id-2',
+                version: 0,
+            })
+            await clientStorage.init({
+                ...snapshot,
+                documentId: 5,
+                version: 0,
+            })
+            await clientStorage.init({
+                ...snapshot,
+                documentId: toArrayBuffer(Buffer.from('binary-id')),
+                version: 0,
+            })
+
+            await expect(getStatus(documentType, documentId)).resolves.toEqual(
+                status,
+            )
+            await expect(getStatus('type-2', documentId)).resolves.toEqual({
+                ...status0,
+                documentType: 'type-2',
+            })
+            await expect(getStatus(documentType, 'id-2')).resolves.toEqual({
+                ...status0,
+                documentId: 'id-2',
+            })
+            await expect(getStatus(documentType, 5)).resolves.toEqual({
+                ...status0,
+                documentId: 5,
+            })
+            await expect(
+                getStatus(
+                    documentType,
+                    toArrayBuffer(Buffer.from('binary-id')),
+                ),
+            ).resolves.toEqual({
+                ...status0,
+                documentId: toArrayBuffer(Buffer.from('binary-id')),
+            })
+
+            await expect(load(documentType, documentId)).resolves.toEqual([])
+            await expect(load('type-2', documentId)).resolves.toEqual([])
+            await expect(load(documentType, 'id-2')).resolves.toEqual([])
+            await expect(load(documentType, 5)).resolves.toEqual([])
+            await expect(
+                load(documentType, toArrayBuffer(Buffer.from('binary-id'))),
+            ).resolves.toEqual([])
+
+            await clientStorage.clear(documentType, documentId)
+            await clientStorage.clear('type-2', documentId)
+            await clientStorage.clear(documentType, 'id-2')
+            await clientStorage.clear(documentType, 5)
+            await clientStorage.clear(
+                documentType,
+                toArrayBuffer(Buffer.from('binary-id')),
+            )
+
+            await expect(getStatus(documentType, documentId)).resolves.toEqual(
+                uninitializedStatus0,
+            )
+            await expect(getStatus('type-2', documentId)).resolves.toEqual({
+                ...uninitializedStatus0,
+                documentType: 'type-2',
+            })
+            await expect(getStatus(documentType, 'id-2')).resolves.toEqual({
+                ...uninitializedStatus0,
+                documentId: 'id-2',
+            })
+            await expect(getStatus(documentType, 5)).resolves.toEqual({
+                ...uninitializedStatus0,
+                documentId: 5,
+            })
+            await expect(
+                getStatus(
+                    documentType,
+                    toArrayBuffer(Buffer.from('binary-id')),
+                ),
+            ).resolves.toEqual({
+                ...uninitializedStatus0,
+                documentId: toArrayBuffer(Buffer.from('binary-id')),
+            })
         })
     })
 
     describe('store, load', () => {
         const remoteOperation: Operation = {
             ...operation,
-            sessionId: remoteSession,
+            sessionId: remoteSessionId,
         }
 
         beforeEach(() => {
@@ -202,7 +284,7 @@ export const clientStorageTests = (
         describe('uninitialized', () => {
             test('load', async () => {
                 await expect(
-                    clientStorage.load(typeName, 'id-2'),
+                    clientStorage.load(documentType, 'id-2'),
                 ).rejects.toEqual(
                     expect.objectContaining({
                         message: 'Client storage not initialized.',
@@ -212,7 +294,7 @@ export const clientStorageTests = (
             })
             describe('store', () => {
                 test.each([undefined, false, true])('local=%s', async local => {
-                    await clientStorage.clear(typeName, id)
+                    await clientStorage.clear(documentType, documentId)
                     await expect(
                         clientStorage.store(operation, local),
                     ).rejects.toEqual(
@@ -227,7 +309,7 @@ export const clientStorageTests = (
 
         describe('store an invalid operation', () => {
             test.each([undefined, false, true])('local=%s', async local => {
-                const entity = { ...operation, data: undefined as any }
+                const entity = omit(operation, 'data')
                 await expect(
                     clientStorage.store(entity, local),
                 ).rejects.toEqual(
@@ -519,43 +601,43 @@ export const clientStorageTests = (
             })
 
             test('no limit', async () => {
-                await expect(clientStorage.load(typeName, id)).resolves.toEqual(
-                    [o0, o1, o2, o3, o4, o5],
-                )
+                await expect(
+                    clientStorage.load(documentType, documentId),
+                ).resolves.toEqual([o0, o1, o2, o3, o4, o5])
             })
             test('big limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 3, 15),
+                    clientStorage.load(documentType, documentId, 3, 15),
                 ).resolves.toEqual([o0, o1, o2, o3, o4, o5])
             })
             test('lower limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 8, undefined),
+                    clientStorage.load(documentType, documentId, 8, undefined),
                 ).resolves.toEqual([o2, o3, o4, o5])
             })
             test('upper limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, undefined, 9),
+                    clientStorage.load(documentType, documentId, undefined, 9),
                 ).resolves.toEqual([o0, o1, o2, o3])
             })
             test('upper and lower limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 8, 9),
+                    clientStorage.load(documentType, documentId, 8, 9),
                 ).resolves.toEqual([o2, o3])
             })
             test('lower limit equal to higher limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 8, 8),
+                    clientStorage.load(documentType, documentId, 8, 8),
                 ).resolves.toEqual([o2])
             })
             test('out of bounds limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 15, 16),
+                    clientStorage.load(documentType, documentId, 15, 16),
                 ).resolves.toEqual([])
             })
             test('lower limit higher than upper limit', async () => {
                 await expect(
-                    clientStorage.load(typeName, id, 9, 8),
+                    clientStorage.load(documentType, documentId, 9, 8),
                 ).resolves.toEqual([])
             })
         })

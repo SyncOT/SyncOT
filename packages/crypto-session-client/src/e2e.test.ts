@@ -4,7 +4,7 @@
 import { Connection, createConnection } from '@syncot/core'
 import { createSessionManager as createSessionServer } from '@syncot/crypto-session-service'
 import { SessionManager } from '@syncot/session'
-import { binaryEqual, invertedStreams } from '@syncot/util'
+import { idEqual, invertedStreams } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createSessionManager as createSessionClient } from '.'
 
@@ -47,10 +47,7 @@ test('establish a session', async () => {
     expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
     expect(sessionServer.getSessionId()).toBeInstanceOf(ArrayBuffer)
     expect(
-        binaryEqual(
-            sessionClient.getSessionId()!,
-            sessionServer.getSessionId()!,
-        ),
+        idEqual(sessionClient.getSessionId(), sessionServer.getSessionId()),
     ).toBeTrue()
 })
 
@@ -62,7 +59,7 @@ test('disconnect, reconnect', async () => {
     await whenSessionInactive(sessionServer)
     await whenSessionInactive(sessionClient)
     expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
-    expect(binaryEqual(sessionClient.getSessionId()!, sessionId)).toBeTrue()
+    expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
     expect(sessionServer.getSessionId()).toBeUndefined()
     ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
     clientConnection.connect(clientStream)
@@ -70,7 +67,7 @@ test('disconnect, reconnect', async () => {
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
     expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
-    expect(binaryEqual(sessionClient.getSessionId()!, sessionId)).toBeTrue()
+    expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
     expect(sessionServer.getSessionId()).toBeInstanceOf(ArrayBuffer)
-    expect(binaryEqual(sessionServer.getSessionId()!, sessionId)).toBeTrue()
+    expect(idEqual(sessionServer.getSessionId(), sessionId)).toBeTrue()
 })

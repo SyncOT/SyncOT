@@ -1,7 +1,7 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { Id, SyncOtEmitter } from '@syncot/util'
+import { Id, isId, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a client-side cryptographic session manager on the specified connection.
@@ -56,7 +56,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     }
 
     public hasSession(): boolean {
-        return this.sessionId != null
+        return isId(this.sessionId)
     }
 
     public hasActiveSession(): boolean {

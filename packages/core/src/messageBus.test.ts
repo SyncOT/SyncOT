@@ -1,3 +1,4 @@
+import { toArrayBuffer } from '@syncot/util'
 import { createMessageBus, MessageBus } from '.'
 
 let messageBus: MessageBus
@@ -354,4 +355,51 @@ test('callback execution order', async () => {
     expect(listener5).toHaveBeenCalledBefore(listener7)
     expect(listener7).toHaveBeenCalledBefore(listener2)
     expect(listener2).toHaveBeenCalledBefore(listener6)
+})
+
+test('various types', async () => {
+    const listenerArrayBuffer = jest.fn()
+    const listenerBuffer = jest.fn()
+    const listenerString = jest.fn()
+    const listenerNumber = jest.fn()
+    const listenerBoolean = jest.fn()
+    const listenerUndefined = jest.fn()
+    const listenerNull = jest.fn()
+
+    messageBus
+        .on([toArrayBuffer(Buffer.from('123'))], listenerArrayBuffer)
+        .on([Buffer.from([123])], listenerBuffer)
+        .on(['123'], listenerString)
+        .on([123], listenerNumber)
+        .on([true], listenerBoolean)
+        .on([undefined], listenerUndefined)
+        .on([null], listenerNull)
+
+    messageBus.send([toArrayBuffer(Buffer.from('123'))], 'ArrayBuffer')
+    messageBus.send([Buffer.from([123])], 'Buffer')
+    messageBus.send(['123'], 'string')
+    messageBus.send([123], 'number')
+    messageBus.send([true], 'boolean')
+    messageBus.send([undefined], 'undefined')
+    messageBus.send([null], 'null')
+
+    await Promise.resolve()
+
+    expect(listenerArrayBuffer).toHaveBeenCalledTimes(1)
+    expect(listenerArrayBuffer).toHaveBeenCalledWith(
+        [toArrayBuffer(Buffer.from('123'))],
+        'ArrayBuffer',
+    )
+    expect(listenerBuffer).toHaveBeenCalledTimes(1)
+    expect(listenerBuffer).toHaveBeenCalledWith([Buffer.from([123])], 'Buffer')
+    expect(listenerString).toHaveBeenCalledTimes(1)
+    expect(listenerString).toHaveBeenCalledWith(['123'], 'string')
+    expect(listenerNumber).toHaveBeenCalledTimes(1)
+    expect(listenerNumber).toHaveBeenCalledWith([123], 'number')
+    expect(listenerBoolean).toHaveBeenCalledTimes(1)
+    expect(listenerBoolean).toHaveBeenCalledWith([true], 'boolean')
+    expect(listenerUndefined).toHaveBeenCalledTimes(1)
+    expect(listenerUndefined).toHaveBeenCalledWith([undefined], 'undefined')
+    expect(listenerNull).toHaveBeenCalledTimes(1)
+    expect(listenerNull).toHaveBeenCalledWith([null], 'null')
 })

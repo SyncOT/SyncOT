@@ -1,7 +1,14 @@
 import { Connection } from '@syncot/core'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { binaryEqual, Id, SyncOtEmitter, toBuffer } from '@syncot/util'
+import {
+    binaryEqual,
+    Id,
+    idEqual,
+    isId,
+    SyncOtEmitter,
+    toBuffer,
+} from '@syncot/util'
 import { strict as assert } from 'assert'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 
@@ -47,11 +54,11 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     ): void {
         this.assertNotDestroyed()
         assert.ok(this.connection.isConnected(), 'Connection must be active.')
+        assert.ok(isId(sessionId), 'Argument "sessionId" must be an "Id".')
 
-        const sameSessionId =
-            this.sessionId != null && binaryEqual(this.sessionId, sessionId)
+        const sameSessionId = idEqual(this.sessionId, sessionId)
 
-        if (this.sessionId != null && !sameSessionId) {
+        if (!sameSessionId && this.hasSession()) {
             throw createSessionError('Session already exists.')
         }
 
@@ -85,7 +92,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     }
 
     public hasSession(): boolean {
-        return this.sessionId != null
+        return isId(this.sessionId)
     }
 
     public hasActiveSession(): boolean {
@@ -102,7 +109,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     }
 
     private onDisconnect = () => {
-        if (!this.destroyed && this.sessionId != null) {
+        if (!this.destroyed && this.hasSession()) {
             this.sessionId = undefined
             this.emitAsync('sessionInactive')
             this.emitAsync('sessionClose')

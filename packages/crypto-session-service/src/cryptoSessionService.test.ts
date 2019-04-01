@@ -28,7 +28,7 @@ const publicKeyDer = publicKey.export({
 
 const hash = createHash('SHA256')
 hash.update(publicKeyDer)
-const sessionId = hash.digest().slice(0, 16)
+const sessionId = toArrayBuffer(hash.digest().slice(0, 16))
 
 let clientStream: Duplex
 let serverStream: Duplex
@@ -165,6 +165,26 @@ test('invalid session id', async () => {
     expect(sessionManager.getSessionId()).toBeUndefined()
 })
 
+test('invalid session id format', async () => {
+    const challenge = await proxy.getChallenge()
+    const sign = createSign('SHA256')
+    sign.update(toBuffer(challenge))
+    const signature = sign.sign(privateKey as any)
+    await expect(
+        proxy.activateSession(
+            toArrayBuffer(publicKeyDer),
+            toBuffer(sessionId), // Id may be an ArrayBuffer but not a Buffer.
+            signature,
+        ),
+    ).rejects.toEqual(
+        expect.objectContaining({
+            message: 'Argument "sessionId" must be an "Id".',
+            name: 'AssertionError [ERR_ASSERTION]',
+        }),
+    )
+    expect(sessionManager.getSessionId()).toBeUndefined()
+})
+
 describe('active session', () => {
     beforeEach(async () => {
         await activateSession()
@@ -228,7 +248,7 @@ describe('active session', () => {
 
         const hash2 = createHash('SHA256')
         hash2.update(publicKeyDer2)
-        const sessionId2 = hash2.digest().slice(0, 16)
+        const sessionId2 = toArrayBuffer(hash2.digest().slice(0, 16))
 
         const challenge = await proxy.getChallenge()
         const sign = createSign('SHA256')

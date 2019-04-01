@@ -1,4 +1,3 @@
-import { DocumentId, TypeName } from '@syncot/core'
 import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
 
 /**
@@ -43,11 +42,11 @@ export interface AuthManager
      * Resolves to true, if the user may read from the specified document,
      * otherwise resolves to false.
      */
-    mayRead(type: TypeName, id: DocumentId): Promise<boolean>
+    mayRead(typeName: string, id: Id): Promise<boolean>
 
     /**
      * Resolves to true, if the user may write to the specified document,
      * otherwise resolves to false.
      */
-    mayWrite(type: TypeName, id: DocumentId): Promise<boolean>
+    mayWrite(typeName: string, id: Id): Promise<boolean>
 }

@@ -1,9 +1,9 @@
 import { createTypeNotFoundError } from '@syncot/error'
-import { Interface } from '@syncot/util'
+import { Id, Interface } from '@syncot/util'
 import { strict as assert } from 'assert'
-import { DocumentId, Operation, Snapshot, Type, TypeName } from './type'
+import { Operation, Snapshot, Type } from './type'
 
-function typeNotFound(name: TypeName): never {
+function typeNotFound(name: string): never {
     throw createTypeNotFoundError(name)
 }
 
@@ -15,7 +15,7 @@ class TypeManagerImpl {
     /**
      * All registered types, indexed by the type name.
      */
-    private types: Map<TypeName, Type> = new Map()
+    private types: Map<string, Type> = new Map()
 
     /**
      * Registers the specified type.
@@ -32,14 +32,14 @@ class TypeManagerImpl {
     /**
      * Gets a `Type` by name.
      */
-    public getType(name: TypeName): Type | undefined {
+    public getType(name: string): Type | undefined {
         return this.types.get(name)
     }
 
     /**
      * Creates an empty snapshot of the specified type using `Type#create`.
      */
-    public create(type: TypeName, id: DocumentId): Snapshot {
+    public create(type: string, id: Id): Snapshot {
         return this._getType(type).create(id)
     }
 
@@ -47,7 +47,7 @@ class TypeManagerImpl {
      * Forwards the call to `Type#apply`.
      */
     public apply(snapshot: Snapshot, operation: Operation): Snapshot {
-        return this._getType(operation.type).apply(snapshot, operation)
+        return this._getType(operation.documentType).apply(snapshot, operation)
     }
 
     /**
@@ -62,7 +62,7 @@ class TypeManagerImpl {
         anotherOperation: Operation,
         priority: boolean,
     ): Operation {
-        const type = this._getType(operation.type)
+        const type = this._getType(operation.documentType)
 
         if (type.transform) {
             return type.transform(operation, anotherOperation, priority)
@@ -86,7 +86,7 @@ class TypeManagerImpl {
         operation1: Operation,
         operation2: Operation,
     ): [Operation, Operation] {
-        const type = this._getType(operation1.type)
+        const type = this._getType(operation1.documentType)
 
         if (type.transformX) {
             return type.transformX(operation1, operation2)
@@ -111,7 +111,7 @@ class TypeManagerImpl {
         targetSnapshot: Snapshot,
         hint?: any,
     ): Operation | undefined {
-        const type = this._getType(baseSnapshot.type)
+        const type = this._getType(baseSnapshot.documentType)
 
         return typeof type.diff === 'function'
             ? type.diff(baseSnapshot, targetSnapshot, hint)
@@ -125,7 +125,7 @@ class TypeManagerImpl {
         operation: Operation,
         anotherOperation: Operation,
     ): Operation | undefined {
-        const type = this._getType(operation.type)
+        const type = this._getType(operation.documentType)
 
         return typeof type.compose === 'function'
             ? type.compose(
@@ -139,14 +139,14 @@ class TypeManagerImpl {
      * Forwards the call to `Type#invert` and returns `undefined`, if it is not defined.
      */
     public invert(operation: Operation): Operation | undefined {
-        const type = this._getType(operation.type)
+        const type = this._getType(operation.documentType)
 
         return typeof type.invert === 'function'
             ? type.invert(operation)
             : undefined
     }
 
-    private _getType(name: TypeName): Type {
+    private _getType(name: string): Type {
         return this.types.get(name) || typeNotFound(name)
     }
 }

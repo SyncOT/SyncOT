@@ -1,13 +1,9 @@
 import {
     assertOperation,
     assertSnapshot,
-    DocumentId,
-    DocumentVersion,
     Operation,
-    SequenceNumber,
     Snapshot,
     TypeManager,
-    TypeName,
 } from '@syncot/core'
 import {
     createAlreadyInitializedError,
@@ -16,26 +12,26 @@ import {
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
 } from '@syncot/error'
-import { Id, idEqual, Interface } from '@syncot/util'
+import { Id, idEqual, Interface, ScalarMap } from '@syncot/util'
 
 interface Context {
-    lastRemoteVersion: DocumentVersion
-    lastSequence: SequenceNumber
-    lastVersion: DocumentVersion
+    lastRemoteVersion: number
+    lastSequence: number
+    lastVersion: number
     localIndex: number
     operations: Operation[]
     snapshot: Snapshot
 }
-type ContextMap = Map<TypeName, Map<DocumentId, Context>>
+type ContextMap = Map<string, ScalarMap<Id, Context>>
 
 export interface ClientStorageStatus {
-    readonly id: DocumentId
+    readonly documentId: Id
+    readonly documentType: string
     readonly initialized: boolean
-    readonly lastRemoteVersion: DocumentVersion
-    readonly lastSequence: SequenceNumber
-    readonly lastVersion: DocumentVersion
+    readonly lastRemoteVersion: number
+    readonly lastSequence: number
+    readonly lastVersion: number
     readonly sessionId: Id
-    readonly typeName: TypeName
 }
 
 /**
@@ -51,36 +47,36 @@ class MemoryClientStorage {
 
     /**
      * Initialises storage for operations with types and ids matching those in the specified snapshot.
-     * Storage for the specific type and id combination can be re-initialised only after clearing it first.
+     * Storage for the specific `documentType` and `documentId` combination can be re-initialised only after clearing it first.
      * Storage must be initialised before any operations can be stored.
      *
      * It fails with:
      *
      * - `SyncOtError InvalidEntity`, if `snapshot` is invalid.
      * - `AlreadyInitialized`, if the storage has been already initialized for the particular combination
-     *   of type and id.
+     *   of `documentType` and `documentId`.
      *
      * @param snapshot The initial snapshot, which may be at any version.
      */
     public async init(snapshot: Snapshot): Promise<void> {
         assertSnapshot(snapshot)
 
-        const { type, id, version } = snapshot
-        const typeMap = this.contexts
-        let idMap = typeMap.get(type)
+        const { documentType, documentId, version } = snapshot
+        const documentTypeMap = this.contexts
+        let documentIdMap = documentTypeMap.get(documentType)
 
-        if (idMap == null) {
-            idMap = new Map()
-            typeMap.set(type, idMap)
+        if (documentIdMap == null) {
+            documentIdMap = new ScalarMap()
+            documentTypeMap.set(documentType, documentIdMap)
         }
 
-        if (idMap.has(id)) {
+        if (documentIdMap.has(documentId)) {
             throw createAlreadyInitializedError(
                 'Client storage already initialized.',
             )
         }
 
-        idMap.set(id, {
+        documentIdMap.set(documentId, {
             lastRemoteVersion: version,
             lastSequence: 0,
             lastVersion: version,
@@ -91,45 +87,49 @@ class MemoryClientStorage {
     }
 
     /**
-     * Removes all data associated with the specified typeName and id.
+     * Removes all data associated with the specified `documentType` and `documentId`.
      */
-    public async clear(typeName: TypeName, id: DocumentId): Promise<void> {
-        const typeNameMap = this.contexts
-        const idMap = typeNameMap.get(typeName)
+    public async clear(documentType: string, documentId: Id): Promise<void> {
+        const documentTypeMap = this.contexts
+        const documentIdMap = documentTypeMap.get(documentType)
 
-        if (idMap && idMap.delete(id) && idMap.size === 0) {
-            typeNameMap.delete(typeName)
+        if (
+            documentIdMap &&
+            documentIdMap.delete(documentId) &&
+            documentIdMap.size === 0
+        ) {
+            documentTypeMap.delete(documentType)
         }
     }
 
     /**
-     * Returns the storage status for the specified combination of type and id.
+     * Returns the storage status for the specified combination of `documentType` and `documentId`.
      */
     public async getStatus(
-        typeName: TypeName,
-        id: DocumentId,
+        documentType: string,
+        documentId: Id,
     ): Promise<ClientStorageStatus> {
-        const context = this.getContext(typeName, id)
+        const context = this.getContext(documentType, documentId)
 
         if (context) {
             return {
-                id,
+                documentId,
+                documentType,
                 initialized: true,
                 lastRemoteVersion: context.lastRemoteVersion,
                 lastSequence: context.lastSequence,
                 lastVersion: context.lastVersion,
                 sessionId: this.sessionId,
-                typeName,
             }
         } else {
             return {
-                id,
+                documentId,
+                documentType,
                 initialized: false,
                 lastRemoteVersion: 0,
                 lastSequence: 0,
                 lastVersion: 0,
                 sessionId: this.sessionId,
-                typeName,
             }
         }
     }
@@ -141,7 +141,7 @@ class MemoryClientStorage {
      *
      * - `SyncOtError InvalidEntity`, if `operation` is not valid.
      * - `SyncOtError NotInitialized`, if this `ClientStorage` has not been initialized
-     *   for `operation.type` and `operation.id`.
+     *   for `operation.documentType` and `operation.documentId`.
      *
      * If `local` is `false`, then it fails with:
      *
@@ -169,7 +169,10 @@ class MemoryClientStorage {
     ): Promise<void> {
         assertOperation(operation)
 
-        const context = this.getContextRequired(operation.type, operation.id)
+        const context = this.getContextRequired(
+            operation.documentType,
+            operation.documentId,
+        )
 
         if (local) {
             // Store a new local operation.
@@ -240,16 +243,19 @@ class MemoryClientStorage {
     }
 
     /**
-     * Loads operations with the specified type and id.
+     * Loads operations with the specified `documentType` and `documentId`.
      * The results may be optionally restricted to the specified *inclusive* range of versions.
      */
     public async load(
-        typeName: TypeName,
-        id: DocumentId,
-        minVersion: DocumentVersion = 1,
-        maxVersion: DocumentVersion = Number.MAX_SAFE_INTEGER,
+        documentType: string,
+        documentId: Id,
+        minVersion: number = 1,
+        maxVersion: number = Number.MAX_SAFE_INTEGER,
     ): Promise<Operation[]> {
-        return this.getContextRequired(typeName, id).operations.filter(
+        return this.getContextRequired(
+            documentType,
+            documentId,
+        ).operations.filter(
             operation =>
                 operation.version >= minVersion &&
                 operation.version <= maxVersion,
@@ -257,17 +263,17 @@ class MemoryClientStorage {
     }
 
     private getContext(
-        typeName: TypeName,
-        id: DocumentId,
+        documentType: string,
+        documentId: Id,
     ): Context | undefined {
-        const typeNameMap = this.contexts
-        const idMap = typeNameMap.get(typeName)
+        const documentTypeMap = this.contexts
+        const documentIdMap = documentTypeMap.get(documentType)
 
-        if (idMap == null) {
+        if (documentIdMap == null) {
             return undefined
         }
 
-        const context = idMap.get(id)
+        const context = documentIdMap.get(documentId)
 
         if (context == null) {
             return undefined
@@ -276,8 +282,8 @@ class MemoryClientStorage {
         return context
     }
 
-    private getContextRequired(typeName: TypeName, id: DocumentId): Context {
-        const context = this.getContext(typeName, id)
+    private getContextRequired(documentType: string, documentId: Id): Context {
+        const context = this.getContext(documentType, documentId)
 
         if (context == null) {
             throw createNotInitializedError('Client storage not initialized.')

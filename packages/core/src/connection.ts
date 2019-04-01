@@ -6,10 +6,9 @@ import {
 import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex, finished } from 'stream'
-import { JsonArray, JsonValue } from './json'
 import { assertUnreachable, throwError, validate, Validator } from './util'
 
-type SessionId = number
+type RequestId = number
 type ServiceName = string
 type ProxyName = string
 type ActionName = string
@@ -94,15 +93,15 @@ export type Message =
           type: MessageType.EVENT
           service: ServiceName | ProxyName
           name: EventName | ActionName | StreamName
-          id: SessionId
-          data: JsonValue
+          id: RequestId
+          data: any
       }
     | {
           type: MessageType.CALL_REQUEST | MessageType.STREAM_OPEN
           service: ServiceName | ProxyName
           name: EventName | ActionName | StreamName
-          id: SessionId
-          data: JsonArray
+          id: RequestId
+          data: any[]
       }
     | {
           type:
@@ -111,7 +110,7 @@ export type Message =
               | MessageType.STREAM_OUTPUT_ERROR
           service: ServiceName | ProxyName
           name?: null
-          id: SessionId
+          id: RequestId
           data: Error
       }
     | {
@@ -123,8 +122,8 @@ export type Message =
               | MessageType.STREAM_OUTPUT_END
           service: ServiceName | ProxyName
           name?: null
-          id: SessionId
-          data: JsonValue
+          id: RequestId
+          data: any
       }
 
 const validateMessage: Validator<Message> = validate([
@@ -172,15 +171,9 @@ const validateMessage: Validator<Message> = validate([
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
-        switch (typeof message.data) {
-            case 'object':
-            case 'string':
-            case 'number':
-            case 'boolean':
-                return
-            default:
-                return createInvalidEntityError('Message', message, 'data')
-        }
+        return message.hasOwnProperty('data')
+            ? undefined
+            : createInvalidEntityError('Message', message, 'data')
     },
 ])
 
@@ -430,27 +423,25 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     private createProxy(proxyName: ProxyName, actions: Set<ActionName>): Proxy {
         const proxy = {}
-        let nextSessionId = 1
-        const actionSessions: Map<
-            SessionId,
+        let nextRequestId = 1
+        const actionRequests: Map<
+            RequestId,
             {
-                resolve: (value: JsonValue) => void
+                resolve: (value: any) => void
                 reject: (error: Error) => void
             }
         > = new Map()
 
         actions.forEach(action => {
             assert.ok(!(action in proxy), `Proxy.${action} already exists.`)
-            ;(proxy as any)[action] = (
-                ...args: JsonValue[]
-            ): Promise<JsonValue> => {
+            ;(proxy as any)[action] = (...args: any[]): Promise<any> => {
                 if (this.stream) {
-                    return new Promise<JsonValue>((resolve, reject) => {
-                        const sessionId = nextSessionId++
-                        actionSessions.set(sessionId, { resolve, reject })
+                    return new Promise((resolve, reject) => {
+                        const requestId = nextRequestId++
+                        actionRequests.set(requestId, { resolve, reject })
                         this.send({
                             data: args,
-                            id: sessionId,
+                            id: requestId,
                             name: action,
                             service: proxyName,
                             type: MessageType.CALL_REQUEST,
@@ -472,19 +463,19 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 switch (message.type) {
                     case MessageType.CALL_REPLY: {
                         const id = message.id
-                        const session = actionSessions.get(id)
-                        if (session) {
-                            actionSessions.delete(id)
-                            session.resolve(message.data)
+                        const request = actionRequests.get(id)
+                        if (request) {
+                            actionRequests.delete(id)
+                            request.resolve(message.data)
                         }
                         break
                     }
                     case MessageType.CALL_ERROR: {
                         const id = message.id
-                        const session = actionSessions.get(id)
-                        if (session) {
-                            actionSessions.delete(id)
-                            session.reject(message.data)
+                        const request = actionRequests.get(id)
+                        if (request) {
+                            actionRequests.delete(id)
+                            request.reject(message.data)
                         }
                         break
                     }
@@ -496,12 +487,12 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             const error = createDisconnectedError(
                 'Disconnected, request failed.',
             )
-            const sessions = Array.from(actionSessions.values())
-            actionSessions.clear()
-
-            for (const { reject } of sessions) {
+            // Promises are resolved and rejected asynchronously, so it's safe to
+            // iterate and clear the map directly without any risk of race conditions.
+            for (const { reject } of actionRequests.values()) {
                 reject(error)
             }
+            actionRequests.clear()
         })
 
         return proxy

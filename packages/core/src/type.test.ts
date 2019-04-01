@@ -7,25 +7,31 @@ import {
     validateSnapshot,
 } from './type'
 
+function omit<T extends object>(value: T, property: keyof T) {
+    const newValue = { ...value }
+    delete newValue[property]
+    return newValue
+}
+
 const operation: Operation = {
     data: null,
-    id: '1',
+    documentId: '1',
+    documentType: 't',
     kind: 'Operation',
     meta: null,
     sequence: 2,
     sessionId: 'c',
-    type: 't',
     version: 1,
 }
 
 const snapshot: Snapshot = {
     data: null,
-    id: '1',
+    documentId: '1',
+    documentType: 't',
     kind: 'Snapshot',
     meta: null,
     sequence: 2,
     sessionId: 'c',
-    type: 't',
     version: 1,
 }
 
@@ -33,17 +39,19 @@ describe('validateOperation', () => {
     test.each<[any, string | null | undefined]>([
         [operation, undefined],
         [{ ...operation, version: 0 }, 'version'],
+        [{ ...operation, documentId: '' }, undefined],
+        [{ ...operation, documentId: new ArrayBuffer(0) }, undefined],
         [{ ...operation, sessionId: '' }, undefined],
         [{ ...operation, sessionId: new ArrayBuffer(0) }, undefined],
         [null, null],
         [() => undefined, null],
-        [{ ...operation, data: undefined }, 'data'],
-        [{ ...operation, id: undefined }, 'id'],
+        [omit(operation, 'data'), 'data'],
+        [{ ...operation, documentId: undefined }, 'documentId'],
+        [{ ...operation, documentType: undefined }, 'documentType'],
         [{ ...operation, kind: undefined }, 'kind'],
-        [{ ...operation, meta: undefined }, 'meta'],
+        [omit(operation, 'meta'), 'meta'],
         [{ ...operation, sequence: undefined }, 'sequence'],
         [{ ...operation, sessionId: undefined }, 'sessionId'],
-        [{ ...operation, type: undefined }, 'type'],
         [{ ...operation, version: undefined }, 'version'],
     ])('Test #%#', (data, invalidProperty) => {
         const result = validateOperation(data)
@@ -70,17 +78,19 @@ describe('validateSnapshot', () => {
     test.each<[any, string | null | undefined]>([
         [snapshot, undefined],
         [{ ...snapshot, version: 0 }, undefined],
+        [{ ...snapshot, documentId: '' }, undefined],
+        [{ ...snapshot, documentId: new ArrayBuffer(0) }, undefined],
         [{ ...snapshot, sessionId: '' }, undefined],
         [{ ...snapshot, sessionId: new ArrayBuffer(0) }, undefined],
         [null, null],
         [() => undefined, null],
-        [{ ...snapshot, data: undefined }, 'data'],
-        [{ ...snapshot, id: undefined }, 'id'],
+        [omit(snapshot, 'data'), 'data'],
+        [{ ...snapshot, documentId: undefined }, 'documentId'],
+        [{ ...snapshot, documentType: undefined }, 'documentType'],
         [{ ...snapshot, kind: undefined }, 'kind'],
-        [{ ...snapshot, meta: undefined }, 'meta'],
+        [omit(snapshot, 'meta'), 'meta'],
         [{ ...snapshot, sequence: undefined }, 'sequence'],
         [{ ...snapshot, sessionId: undefined }, 'sessionId'],
-        [{ ...snapshot, type: undefined }, 'type'],
         [{ ...snapshot, version: undefined }, 'version'],
     ])('Test #%#', (data, invalidProperty) => {
         const result = validateSnapshot(data)
