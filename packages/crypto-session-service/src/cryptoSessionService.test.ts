@@ -1,6 +1,11 @@
 import { Connection, createConnection } from '@syncot/core'
 import { SessionManager } from '@syncot/session'
-import { invertedStreams, toArrayBuffer, toBuffer } from '@syncot/util'
+import {
+    binaryEqual,
+    invertedStreams,
+    toArrayBuffer,
+    toBuffer,
+} from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -103,10 +108,34 @@ test('disconnect', async () => {
     expect(onSessionClose).not.toHaveBeenCalled()
 })
 
-test('getChllenge', async () => {
+test('getChallenge', async () => {
     const challenge = await proxy.getChallenge()
     expect(challenge).toBeInstanceOf(ArrayBuffer)
     expect(challenge.byteLength).toBe(16)
+})
+
+test('get the same challenge twice', async () => {
+    const challenge1 = await proxy.getChallenge()
+    const challenge2 = await proxy.getChallenge()
+    expect(binaryEqual(challenge1, challenge2)).toBe(true)
+})
+
+test('get different challenge after reconnection', async () => {
+    const challenge1 = await proxy.getChallenge()
+    expect(challenge1).toBeInstanceOf(ArrayBuffer)
+    expect(challenge1.byteLength).toBe(16)
+
+    serverConnection.disconnect()
+    clientConnection.disconnect()
+    ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
+    clientConnection.connect(clientStream)
+    serverConnection.connect(serverStream)
+    await Promise.resolve()
+
+    const challenge2 = await proxy.getChallenge()
+    expect(challenge2).toBeInstanceOf(ArrayBuffer)
+    expect(challenge2.byteLength).toBe(16)
+    expect(binaryEqual(challenge1, challenge2)).toBe(false)
 })
 
 test('activateSession', async () => {

@@ -23,7 +23,7 @@ const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private sessionId: Id | undefined = undefined
-    private readonly challenge: Challenge
+    private challenge: Challenge | undefined = undefined
 
     public constructor(private readonly connection: Connection) {
         super()
@@ -34,16 +34,17 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             name: 'session',
         })
         this.connection.on('disconnect', this.onDisconnect)
-
-        this.challenge = new ArrayBuffer(16)
-        const challengeBuffer = toBuffer(this.challenge)
-        challengeBuffer.writeUInt32LE(randomUInt32(), 0)
-        challengeBuffer.writeUInt32LE(randomUInt32(), 4)
-        challengeBuffer.writeUInt32LE(randomUInt32(), 8)
-        challengeBuffer.writeUInt32LE(randomUInt32(), 12)
     }
 
     public getChallenge(): Challenge {
+        if (!this.challenge) {
+            this.challenge = new ArrayBuffer(16)
+            const challengeBuffer = toBuffer(this.challenge)
+            challengeBuffer.writeUInt32LE(randomUInt32(), 0)
+            challengeBuffer.writeUInt32LE(randomUInt32(), 4)
+            challengeBuffer.writeUInt32LE(randomUInt32(), 8)
+            challengeBuffer.writeUInt32LE(randomUInt32(), 12)
+        }
         return this.challenge
     }
 
@@ -69,7 +70,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         })
 
         const verify = createVerify('SHA256')
-        verify.update(toBuffer(this.challenge))
+        verify.update(toBuffer(this.getChallenge()))
         if (!verify.verify(publicKey, toBuffer(challangeReply))) {
             throw createSessionError('Invalid challenge reply.')
         }
@@ -104,11 +105,13 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             return
         }
         this.sessionId = undefined
+        this.challenge = undefined
         this.connection.off('disconnect', this.onDisconnect)
         super.destroy()
     }
 
     private onDisconnect = () => {
+        this.challenge = undefined
         if (!this.destroyed && this.hasSession()) {
             this.sessionId = undefined
             this.emitAsync('sessionInactive')
