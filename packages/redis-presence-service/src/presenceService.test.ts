@@ -311,7 +311,7 @@ describe('submitPresence', () => {
         await expect(redis.exists(presenceKey)).resolves.toBe(1)
         // The retry is scheduled with a random delay between 1 and 10 seconds.
         expect(Date.now()).toBeGreaterThanOrEqual(now + 1000)
-        expect(Date.now()).toBeLessThan(now + 11000)
+        expect(Date.now()).toBeLessThan(now + 10000)
 
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
         expect(onInSync).toHaveBeenCalledTimes(1)
