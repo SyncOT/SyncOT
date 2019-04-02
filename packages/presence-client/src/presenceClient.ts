@@ -67,6 +67,8 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
 
     private readonly presenceService: PresenceService
 
+    private syncPending: boolean = false
+
     public constructor(
         private connection: Connection,
         private sessionClient: SessionManager,
@@ -141,11 +143,11 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
                 userId: this.userId,
             }
             this.emitAsync('localPresence')
-            this.syncPresence()
+            this.scheduleSyncPresence()
         } else if (this._localPresence !== undefined) {
             this._localPresence = undefined
             this.emitAsync('localPresence')
-            this.syncPresence()
+            this.scheduleSyncPresence()
         }
     }
 
@@ -157,11 +159,20 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         if (this._online !== online) {
             this._online = online
             this.emitAsync(online ? 'online' : 'offline')
-            this.syncPresence()
+            this.scheduleSyncPresence()
         }
     }
 
-    private syncPresence(): void {
+    private scheduleSyncPresence(): void {
+        if (!this.syncPending) {
+            this.syncPending = true
+            Promise.resolve().then(this.syncPresence)
+        }
+    }
+
+    private syncPresence = (): void => {
+        this.syncPending = false
+
         if (this.destroyed || !this.online) {
             return
         }
