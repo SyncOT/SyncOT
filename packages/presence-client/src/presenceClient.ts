@@ -115,9 +115,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         super.destroy()
     }
 
-    public getPresenceBySessionId(
-        sessionId: Id,
-    ): Promise<Presence | undefined> {
+    public getPresenceBySessionId(sessionId: Id): Promise<Presence | null> {
         return this.presenceService.getPresenceBySessionId(sessionId)
     }
 

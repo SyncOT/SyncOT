@@ -69,7 +69,7 @@ export interface PresenceClient
     readonly localPresence: Presence | undefined
     readonly online: boolean
 
-    getPresenceBySessionId(sessionId: Id): Promise<Presence | undefined>
+    getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
     getPresenceByUserId(userId: Id): Promise<Presence[]>
     getPresenceByLocationId(locationId: Id): Promise<Presence[]>
 }
@@ -95,7 +95,7 @@ export interface PresenceService
      */
     removePresence(): Promise<void>
 
-    getPresenceBySessionId(sessionId: Id): Promise<Presence | undefined>
+    getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
     getPresenceByUserId(userId: Id): Promise<Presence[]>
     getPresenceByLocationId(locationId: Id): Promise<Presence[]>
 }

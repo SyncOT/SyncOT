@@ -8,7 +8,7 @@ import {
     validatePresence,
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
-import { encode } from '@syncot/tson'
+import { decode, encode } from '@syncot/tson'
 import { Id, idEqual, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
@@ -158,10 +158,11 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     public async getPresenceBySessionId(
-        _sessionId: Id,
-    ): Promise<Presence | undefined> {
+        sessionId: Id,
+    ): Promise<Presence | null> {
         this.assertOk()
-        return
+        const buffer = await this.redis.getBuffer(getPresenceKey(sessionId))
+        return buffer == null ? null : createPresence(sessionId, buffer)
     }
 
     public async getPresenceByUserId(_userId: Id): Promise<Presence[]> {
@@ -319,4 +320,20 @@ function getPresenceValue(presence: Presence): Buffer {
             Date.now(),
         ]),
     )
+}
+
+function createPresence(sessionId: Id, presenceValue: Buffer): Presence {
+    const [userId, locationId, data, lastModified] = decode(presenceValue) as [
+        Id,
+        Id,
+        any,
+        number
+    ]
+    return {
+        data,
+        lastModified,
+        locationId,
+        sessionId,
+        userId,
+    }
 }

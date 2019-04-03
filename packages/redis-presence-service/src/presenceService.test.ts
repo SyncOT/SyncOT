@@ -701,3 +701,69 @@ describe('removePresence', () => {
     // thus the `removePresence` method does not perform any authentication,
     // which makes testing that case redundant.
 })
+
+describe('getPresenceBySessionId', () => {
+    test('get existing presence', async () => {
+        await redis.setBuffer(
+            presenceKey,
+            Buffer.from(encode([userId, locationId, data, lastModified])),
+        )
+        const loadedPresence = await presenceProxy.getPresenceBySessionId(
+            sessionId,
+        )
+        expect(loadedPresence).toEqual(presence)
+    })
+    test('get existing presence with different sessionId', async () => {
+        sessionService.getSessionId('different-session-id')
+        await redis.setBuffer(
+            presenceKey,
+            Buffer.from(encode([userId, locationId, data, lastModified])),
+        )
+        const loadedPresence = await presenceProxy.getPresenceBySessionId(
+            sessionId,
+        )
+        expect(loadedPresence).toEqual(presence)
+    })
+    test('get non-existant presence', async () => {
+        const loadedPresence = await presenceProxy.getPresenceBySessionId(
+            sessionId,
+        )
+        expect(loadedPresence).toBeNull()
+    })
+    test('no active session', async () => {
+        sessionService.hasActiveSession.mockReturnValue(false)
+        await expect(
+            presenceProxy.getPresenceBySessionId(sessionId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No active session.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+    })
+
+    test('no authenticated user', async () => {
+        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        await expect(
+            presenceProxy.getPresenceBySessionId(sessionId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No authenticated user.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+    })
+
+    test('not connected', async () => {
+        redis.disconnect()
+        await expect(
+            presenceProxy.getPresenceBySessionId(sessionId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'Connection is closed.',
+                name: 'Error',
+            }),
+        )
+        await redis.connect()
+    })
+})
