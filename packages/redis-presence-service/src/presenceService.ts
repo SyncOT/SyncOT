@@ -140,7 +140,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         if (!idEqual(this.sessionId, presence.sessionId)) {
             this.sessionId = presence.sessionId
-            this.presenceKey = getPresenceKey(presence)
+            this.presenceKey = getPresenceKey(presence.sessionId)
         }
         this.presenceValue = getPresenceValue(presence)
         this.modified = true
@@ -297,22 +297,15 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 }
 
-const presencePrefixString = 'presence:sessionId='
-const presencePrefixByteLength = Buffer.byteLength(presencePrefixString)
-const presencePrefixBuffer = Buffer.allocUnsafeSlow(presencePrefixByteLength)
-presencePrefixBuffer.write(presencePrefixString)
+const presencePrefixBuffer = Buffer.from('presence:sessionId=')
 
-function getPresenceKey(presence: Presence): Buffer {
-    const sessionIdBuffer = Buffer.from(encode(presence.sessionId))
-    // We're going to keep this buffer for an indeterminate amount of time and we're
-    // likely to have lots of these buffers, so it's preferable to allocate separate memory
-    // in this case and keep the internal nodejs buffer available for other uses.
-    // See https://nodejs.org/api/buffer.html#buffer_class_method_buffer_allocunsafeslow_size
-    const buffer = Buffer.allocUnsafeSlow(
-        presencePrefixByteLength + sessionIdBuffer.length,
+function getPresenceKey(sessionId: Id): Buffer {
+    const sessionIdBuffer = Buffer.from(encode(sessionId))
+    const buffer = Buffer.allocUnsafe(
+        presencePrefixBuffer.length + sessionIdBuffer.length,
     )
     presencePrefixBuffer.copy(buffer)
-    sessionIdBuffer.copy(buffer, presencePrefixByteLength)
+    sessionIdBuffer.copy(buffer, presencePrefixBuffer.length)
     return buffer
 }
 

@@ -71,7 +71,7 @@ describe('toBuffer', () => {
 describe('toArrayBuffer', () => {
     test('Buffer', () => {
         const number = 0x01020304
-        const buffer = Buffer.allocUnsafeSlow(4)
+        const buffer = Buffer.allocUnsafe(4)
         buffer.writeUInt32LE(number, 0)
         const arrayBuffer = toArrayBuffer(buffer)
         expect(arrayBuffer).not.toBe(buffer.buffer)
