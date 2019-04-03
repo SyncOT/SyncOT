@@ -18,7 +18,6 @@ export interface PresenceServiceConfig {
     sessionService: SessionManager
     authService: AuthManager
     redis: Redis.Redis
-    redisPublisher: Redis.Redis
     redisSubscriber: Redis.Redis
 }
 
@@ -40,12 +39,14 @@ export interface PresenceServiceOptions {
  * Creates a new presence service based on Redis and communicating with a presence client
  * through the specified `connection`.
  * The `sessionService` and `authService` are used for authentication and authorization.
- * `redis` is used for storing data in and retrieving it from Redis.
- * `redisPublisher` is used for publishing events to Redis.
- * It can be the same instance as `redis`.
- * `redisSubscriber` is used for subscribing to Redis events.
- * It must be a different instance from `redis` and `redisPublisher`.
- * It must be connected to the same Redis instance as `redisPublisher`.
+ * `redis` is used for storage and publishing events.
+ * `redisSubscriber` is used for subscribing to events.
+ *
+ *  It must be a different instance from
+ * `redis` but connected to the same Redis server.
+ *
+ * `redis` and `redisSubscriber` must be different Redis client instances connected to the
+ * same single Redis server.
  */
 export function createPresenceService(
     {
@@ -53,7 +54,6 @@ export function createPresenceService(
         sessionService,
         authService,
         redis,
-        redisPublisher,
         redisSubscriber,
     }: PresenceServiceConfig,
     options: PresenceServiceOptions = {},
@@ -63,7 +63,6 @@ export function createPresenceService(
         sessionService,
         authService,
         redis,
-        redisPublisher,
         redisSubscriber,
         options,
     )
@@ -85,8 +84,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly sessionService: SessionManager,
         private readonly authService: AuthManager,
         private readonly redis: Redis.Redis,
-        // @ts-ignore Unused parameter.
-        private readonly redisPublisher: Redis.Redis,
         // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
         options: PresenceServiceOptions,

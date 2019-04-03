@@ -46,7 +46,6 @@ const presence: Presence = Object.freeze({
 let port: number
 let redisServer: RedisServer
 let redis: Redis.Redis
-let redisPublisher: Redis.Redis
 let redisSubscriber: Redis.Redis
 
 let authService: MockAuthService
@@ -104,10 +103,8 @@ beforeEach(async () => {
         showFriendlyErrorStack: true,
     }
     redis = new Redis(options)
-    redisPublisher = new Redis(options)
     redisSubscriber = new Redis(options)
     await redis.connect()
-    await redisPublisher.connect()
     await redisSubscriber.connect()
 
     authService = new MockAuthService()
@@ -123,7 +120,6 @@ beforeEach(async () => {
         authService,
         connection: connection1,
         redis,
-        redisPublisher,
         redisSubscriber,
         sessionService,
     })
@@ -147,7 +143,6 @@ afterEach(() => {
     presenceService.destroy()
     redis.flushall()
     redis.disconnect()
-    redisPublisher.disconnect()
     redisSubscriber.disconnect()
 })
 
@@ -161,7 +156,6 @@ test('invalid ttl', () => {
                 authService,
                 connection: connection1,
                 redis,
-                redisPublisher,
                 redisSubscriber,
                 sessionService,
             },
@@ -184,7 +178,6 @@ test('create twice on the same connection', () => {
             authService,
             connection: connection1,
             redis,
-            redisPublisher,
             redisSubscriber,
             sessionService,
         }),
@@ -496,7 +489,6 @@ describe('submitPresence', () => {
                         authService,
                         connection: connection1,
                         redis,
-                        redisPublisher,
                         redisSubscriber,
                         sessionService,
                     },
