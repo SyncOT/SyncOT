@@ -445,7 +445,7 @@ describe('submitPresence', () => {
     })
 
     describe.each<[undefined | number, number]>([
-        [undefined, 600],
+        [undefined, 60],
         [1, 10],
         [3600, 3600],
     ])('ttl option = %d', (ttlOption, effectiveTtl) => {

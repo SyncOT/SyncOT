@@ -23,14 +23,17 @@ export interface PresenceServiceConfig {
 
 export interface PresenceServiceOptions {
     /**
-     * The time in seconds after which presence data will expire, unless refrehed.
-     * PresenceService automatically refreshes the presence data it stored after
-     * 90% of ttl has elapsed. The ttl ensures the data is eventually removed in
-     * case the PresenceService cannot remove it when the PresenceClient disconnects.
+     * The time in seconds after which presence data will expire, unless refreshed.
+     * PresenceService automatically refreshes the presence data one second before it expires.
+     * The ttl ensures the data is eventually removed in case the PresenceService
+     * cannot remove it for any reason when necessary.
      *
-     * Defaults to 600 (10 minutes). Min value is 10 (10 seconds). The smaller the ttl,
+     * Defaults to 60 seconds. Min value is 10 seconds. The smaller the ttl,
      * the more frequently the presence data needs to be refreshed, which may negatively
      * impact the performance.
+     *
+     * The ttl should be set to the same value for all PresenceService instances connecting
+     * to the same Redis server to ensure predictable behavior.
      */
     ttl?: number
 }
@@ -76,7 +79,7 @@ export function createPresenceService(
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
-    private ttl: number = 600
+    private ttl: number = 60
     private encodedPresence:
         | [Buffer, Buffer, Buffer, Buffer, Buffer]
         | undefined = undefined
@@ -293,7 +296,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.emitInSync()
                 if (this.encodedPresence) {
                     // Refresh after 90% of ttl has elapsed.
-                    this.scheduleUpdateRedis(this.ttl * 0.9)
+                    this.scheduleUpdateRedis(this.ttl - 1)
                 }
             }
         } catch (error) {
