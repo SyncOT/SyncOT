@@ -42,11 +42,16 @@ export interface PresenceServiceOptions {
  * `redis` is used for storage and publishing events.
  * `redisSubscriber` is used for subscribing to events.
  *
- *  It must be a different instance from
- * `redis` but connected to the same Redis server.
+ * `redis` and `redisSubscriber` must:
  *
- * `redis` and `redisSubscriber` must be different Redis client instances connected to the
- * same single Redis server.
+ * - be different Redis client instances
+ * - connected to the same single Redis server
+ * - configured with the following options:
+ *   - dropBufferSupport: false (the same as default)
+ *   - autoResubscribe: true (the same as default)
+ *
+ * The service [defines some commands](https://github.com/luin/ioredis/#lua-scripting)
+ * on `redis` with names starting with `presence`.
  */
 export function createPresenceService(
     {
@@ -70,10 +75,12 @@ export function createPresenceService(
 
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
+    private readonly redis: Redis.Redis & PresenceCommands
     private ttl: number = 600
-    private sessionId: Id | undefined = undefined
-    private presenceKey: Buffer | undefined = undefined
-    private presenceValue: Buffer | undefined = undefined
+    private encodedPresence:
+        | [Buffer, Buffer, Buffer, Buffer, Buffer]
+        | undefined = undefined
+    private shouldStorePresence: boolean = false
     private updatingRedis: boolean = false
     private updateHandle: NodeJS.Timeout | undefined
     private modified: boolean = false
@@ -83,12 +90,14 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly connection: Connection,
         private readonly sessionService: SessionManager,
         private readonly authService: AuthManager,
-        private readonly redis: Redis.Redis,
+        redis: Redis.Redis,
         // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
         options: PresenceServiceOptions,
     ) {
         super()
+
+        this.redis = defineRedisCommands(redis)
 
         if (typeof options.ttl !== 'undefined') {
             assert.ok(
@@ -128,21 +137,24 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
         throwError(validatePresence(presence))
 
-        const sessionId = this.sessionService.getSessionId()!
+        const sessionId = this.sessionService.getSessionId()
         if (!idEqual(presence.sessionId, sessionId)) {
             throw createPresenceError('Session ID mismatch.')
         }
 
-        const userId = this.authService.getUserId()!
+        const userId = this.authService.getUserId()
         if (!idEqual(presence.userId, userId)) {
             throw createPresenceError('User ID mismatch.')
         }
 
-        if (!idEqual(this.sessionId, presence.sessionId)) {
-            this.sessionId = presence.sessionId
-            this.presenceKey = getPresenceKey(presence.sessionId)
-        }
-        this.presenceValue = getPresenceValue(presence)
+        this.encodedPresence = [
+            Buffer.from(encode(presence.sessionId)),
+            Buffer.from(encode(presence.userId)),
+            Buffer.from(encode(presence.locationId)),
+            Buffer.from(encode(presence.data)),
+            Buffer.from(encode(Date.now())),
+        ]
+        this.shouldStorePresence = true
         this.modified = true
         this.scheduleUpdateRedis()
 
@@ -161,8 +173,50 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         sessionId: Id,
     ): Promise<Presence | null> {
         this.assertOk()
-        const buffer = await this.redis.getBuffer(getPresenceKey(sessionId))
-        return buffer == null ? null : createPresence(sessionId, buffer)
+
+        let userId: Buffer
+        let locationId: Buffer
+        let data: Buffer
+        let lastModified: Buffer
+        let presence: Presence
+
+        try {
+            ;[
+                userId,
+                locationId,
+                data,
+                lastModified,
+            ] = await this.redis.presenceGetBySessionIdBuffer(
+                Buffer.from(encode(sessionId)),
+            )
+        } catch (error) {
+            throw createPresenceError('Failed to load presence.', error)
+        }
+
+        if (
+            !Buffer.isBuffer(userId) ||
+            !Buffer.isBuffer(locationId) ||
+            !Buffer.isBuffer(data) ||
+            !Buffer.isBuffer(lastModified)
+        ) {
+            return null
+        }
+
+        try {
+            presence = {
+                data: decode(data),
+                lastModified: decode(lastModified) as number,
+                locationId: decode(locationId) as Id,
+                sessionId,
+                userId: decode(userId) as Id,
+            }
+
+            throwError(validatePresence(presence))
+        } catch (error) {
+            throw createPresenceError('Invalid presence.', error)
+        }
+
+        return presence
     }
 
     public async getPresenceByUserId(_userId: Id): Promise<Presence[]> {
@@ -209,7 +263,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private async updateRedis(): Promise<void> {
-        if (this.updatingRedis || !this.presenceKey) {
+        if (this.updatingRedis || !this.encodedPresence) {
             return
         }
 
@@ -223,28 +277,21 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.modified = false
             }
 
-            if (this.presenceValue) {
-                if (
-                    wasModified ||
-                    !(await this.redis.expire(this.presenceKey, this.ttl))
-                ) {
-                    await this.redis.setex(
-                        this.presenceKey,
-                        this.ttl,
-                        this.presenceValue,
-                    )
-                    this.emitAsync('publish')
-                }
-            } else {
-                await this.redis.del(this.presenceKey)
-                this.emitAsync('publish')
-            }
+            await this.redis.presenceUpdate(
+                this.encodedPresence[0],
+                this.encodedPresence[1],
+                this.encodedPresence[2],
+                this.encodedPresence[3],
+                this.encodedPresence[4],
+                this.shouldStorePresence ? this.ttl : 0,
+                wasModified ? 1 : 0,
+            )
 
             if (this.modified) {
                 this.scheduleUpdateRedis()
             } else {
                 this.emitInSync()
-                if (this.presenceValue) {
+                if (this.encodedPresence) {
                     // Refresh after 90% of ttl has elapsed.
                     this.scheduleUpdateRedis(this.ttl * 0.9)
                 }
@@ -282,8 +329,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private ensureNoPresence(): void {
-        if (this.presenceValue) {
-            this.presenceValue = undefined
+        if (this.shouldStorePresence) {
+            this.shouldStorePresence = false
             this.modified = true
         }
         this.scheduleUpdateRedis()
@@ -298,42 +345,75 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 }
 
-const presencePrefixBuffer = Buffer.from('presence:sessionId=')
-
-function getPresenceKey(sessionId: Id): Buffer {
-    const sessionIdBuffer = Buffer.from(encode(sessionId))
-    const buffer = Buffer.allocUnsafe(
-        presencePrefixBuffer.length + sessionIdBuffer.length,
-    )
-    presencePrefixBuffer.copy(buffer)
-    sessionIdBuffer.copy(buffer, presencePrefixBuffer.length)
-    return buffer
+interface PresenceCommands {
+    presenceUpdate(
+        sessionId: Buffer,
+        userId: Buffer,
+        locationId: Buffer,
+        data: Buffer,
+        lastModified: Buffer,
+        ttl: number,
+        modified: 0 | 1,
+    ): Promise<void>
+    presenceGetBySessionIdBuffer(
+        sessionId: Buffer,
+    ): Promise<[Buffer, Buffer, Buffer, Buffer]>
 }
 
-function getPresenceValue(presence: Presence): Buffer {
-    return Buffer.from(
-        encode([
-            // sessionId is already encoded in the presence key.
-            presence.userId,
-            presence.locationId,
-            presence.data,
-            Date.now(),
-        ]),
-    )
-}
+const presenceUpdate = `
+local sessionId = ARGV[1]
+local userId = ARGV[2]
+local locationId = ARGV[3]
+local data = ARGV[4]
+local lastModified = ARGV[5]
+local ttl = tonumber(ARGV[6])
+local modified = ARGV[7] == '1'
+local presenceKey = 'presence:sessionId='..sessionId
 
-function createPresence(sessionId: Id, presenceValue: Buffer): Presence {
-    const [userId, locationId, data, lastModified] = decode(presenceValue) as [
-        Id,
-        Id,
-        any,
-        number
-    ]
-    return {
-        data,
-        lastModified,
-        locationId,
-        sessionId,
-        userId,
+if (ttl <= 0)
+then
+    redis.call('del', presenceKey)
+    return redis.status_reply('OK')
+end
+
+if (not modified and redis.call('expire', presenceKey, ttl) == 1)
+then
+    return redis.status_reply('OK')
+end
+
+redis.call('hmset', presenceKey,
+    'userId', ARGV[2],
+    'locationId', ARGV[3],
+    'data', ARGV[4],
+    'lastModified', ARGV[5]
+)
+
+redis.call('expire', presenceKey, ttl)
+
+return redis.status_reply('OK')
+`
+
+const presenceGetBySessionId = `
+local presenceKey = 'presence:sessionId='..ARGV[1]
+return redis.call('hmget', presenceKey, 'userId', 'locationId', 'data', 'lastModified')
+`
+
+function defineRedisCommands(
+    redis: Redis.Redis,
+): Redis.Redis & PresenceCommands {
+    if (!(redis as any).presenceUpdate) {
+        redis.defineCommand('presenceUpdate', {
+            lua: presenceUpdate,
+            numberOfKeys: 0,
+        })
     }
+
+    if (!(redis as any).presenceGetBySessionId) {
+        redis.defineCommand('presenceGetBySessionId', {
+            lua: presenceGetBySessionId,
+            numberOfKeys: 0,
+        })
+    }
+
+    return redis as any
 }
