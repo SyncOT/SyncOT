@@ -76,13 +76,19 @@ export function createPresenceService(
     )
 }
 
+interface EncodedPresence {
+    sessionId: Buffer
+    userId: Buffer
+    locationId: Buffer
+    data: Buffer
+    lastModified: Buffer
+}
+
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
     private ttl: number = 60
-    private encodedPresence:
-        | [Buffer, Buffer, Buffer, Buffer, Buffer]
-        | undefined = undefined
+    private encodedPresence: EncodedPresence | undefined = undefined
     private shouldStorePresence: boolean = false
     private updatingRedis: boolean = false
     private updateHandle: NodeJS.Timeout | undefined
@@ -150,13 +156,13 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        this.encodedPresence = [
-            Buffer.from(encode(presence.sessionId)),
-            Buffer.from(encode(presence.userId)),
-            Buffer.from(encode(presence.locationId)),
-            Buffer.from(encode(presence.data)),
-            Buffer.from(encode(Date.now())),
-        ]
+        this.encodedPresence = {
+            data: Buffer.from(encode(presence.data)),
+            lastModified: Buffer.from(encode(Date.now())),
+            locationId: Buffer.from(encode(presence.locationId)),
+            sessionId: Buffer.from(encode(presence.sessionId)),
+            userId: Buffer.from(encode(presence.userId)),
+        }
         this.shouldStorePresence = true
         this.modified = true
         this.scheduleUpdateRedis()
@@ -280,15 +286,19 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.modified = false
             }
 
-            await this.redis.presenceUpdate(
-                this.encodedPresence[0],
-                this.encodedPresence[1],
-                this.encodedPresence[2],
-                this.encodedPresence[3],
-                this.encodedPresence[4],
-                this.shouldStorePresence ? this.ttl : 0,
-                wasModified ? 1 : 0,
-            )
+            if (this.shouldStorePresence) {
+                await this.redis.presenceUpdate(
+                    this.encodedPresence.sessionId,
+                    this.encodedPresence.userId,
+                    this.encodedPresence.locationId,
+                    this.encodedPresence.data,
+                    this.encodedPresence.lastModified,
+                    this.ttl,
+                    wasModified ? 1 : 0,
+                )
+            } else if (wasModified) {
+                await this.redis.presenceDelete(this.encodedPresence.sessionId)
+            }
 
             if (this.modified) {
                 this.scheduleUpdateRedis()
@@ -358,6 +368,7 @@ interface PresenceCommands {
         ttl: number,
         modified: 0 | 1,
     ): Promise<void>
+    presenceDelete(sessionId: Buffer): Promise<void>
     presenceGetBySessionIdBuffer(
         sessionId: Buffer,
     ): Promise<[Buffer, Buffer, Buffer, Buffer]>
@@ -371,27 +382,85 @@ local data = ARGV[4]
 local lastModified = ARGV[5]
 local ttl = tonumber(ARGV[6])
 local modified = ARGV[7] == '1'
-local presenceKey = 'presence:sessionId='..sessionId
 
-if (ttl <= 0)
-then
-    redis.call('del', presenceKey)
-    return redis.status_reply('OK')
-end
+local presencePrefix = 'presence:sessionId='
+local userPrefix = 'sessionIds:userId='
+local locationPrefix = 'sessionIds:locationId='
 
-if (not modified and redis.call('expire', presenceKey, ttl) == 1)
-then
-    return redis.status_reply('OK')
-end
+local presenceKey = presencePrefix..sessionId
+local userKey = userPrefix..userId
+local locationKey = locationPrefix..locationId
 
-redis.call('hmset', presenceKey,
-    'userId', ARGV[2],
-    'locationId', ARGV[3],
-    'data', ARGV[4],
-    'lastModified', ARGV[5]
+-- Try to refresh the existing data only.
+if (
+    not modified and
+    redis.call('expire', presenceKey, ttl) == 1 and
+    redis.call('expire', userKey, ttl) == 1 and
+    redis.call('expire', locationKey, ttl) == 1
 )
+then
+    return redis.status_reply('OK')
+end
 
+-- Remove old indexes.
+local oldPresence = redis.call('hmget', presenceKey, 'userId', 'locationId')
+local oldUserId = oldPresence[1]
+local oldLocationId = oldPresence[2]
+
+redis.log(redis.LOG_WARNING, 'Hello '..cjson.encode(oldPresence))
+
+if (oldUserId)
+then
+    redis.call('srem', userPrefix..oldUserId, sessionId)
+end
+
+if (oldLocationId)
+then
+    redis.call('srem', locationPrefix..oldLocationId, sessionId)
+end
+
+-- Store the modified data.
+redis.call('hmset', presenceKey,
+    'userId', userId,
+    'locationId', locationId,
+    'data', data,
+    'lastModified', lastModified
+)
 redis.call('expire', presenceKey, ttl)
+
+redis.call('sadd', userKey, sessionId)
+redis.call('expire', userKey, ttl)
+
+redis.call('sadd', locationKey, sessionId)
+redis.call('expire', locationKey, ttl)
+
+return redis.status_reply('OK')
+`
+
+const presenceDelete = `
+local sessionId = ARGV[1]
+
+local presencePrefix = 'presence:sessionId='
+local userPrefix = 'sessionIds:userId='
+local locationPrefix = 'sessionIds:locationId='
+
+local presenceKey = presencePrefix..sessionId
+
+local presence = redis.call('hmget', presenceKey, 'userId', 'locationId')
+local userId = presence[1]
+local locationId = presence[2]
+
+if (userId)
+then
+    redis.call('srem', userPrefix..userId, sessionId)
+end
+
+if (locationId)
+then
+    redis.call('srem', locationPrefix..locationId, sessionId)
+end
+
+redis.call('del', presenceKey)
 
 return redis.status_reply('OK')
 `
@@ -407,6 +476,13 @@ function defineRedisCommands(
     if (!(redis as any).presenceUpdate) {
         redis.defineCommand('presenceUpdate', {
             lua: presenceUpdate,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceDelete) {
+        redis.defineCommand('presenceDelete', {
+            lua: presenceDelete,
             numberOfKeys: 0,
         })
     }
