@@ -76,13 +76,10 @@ export function createPresenceService(
     )
 }
 
-interface EncodedPresence {
-    sessionId: Buffer
-    userId: Buffer
-    locationId: Buffer
-    data: Buffer
-    lastModified: Buffer
-}
+/**
+ * The fields in order are: sessionId, userId, locationId, data, lastModified.
+ */
+type EncodedPresence = [Buffer, Buffer, Buffer, Buffer, Buffer]
 
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
@@ -156,13 +153,13 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        this.encodedPresence = {
-            data: Buffer.from(encode(presence.data)),
-            lastModified: Buffer.from(encode(Date.now())),
-            locationId: Buffer.from(encode(presence.locationId)),
-            sessionId: Buffer.from(encode(presence.sessionId)),
-            userId: Buffer.from(encode(presence.userId)),
-        }
+        this.encodedPresence = [
+            Buffer.from(encode(presence.sessionId)),
+            Buffer.from(encode(presence.userId)),
+            Buffer.from(encode(presence.locationId)),
+            Buffer.from(encode(presence.data)),
+            Buffer.from(encode(Date.now())),
+        ]
         this.shouldStorePresence = true
         this.modified = true
         this.scheduleUpdateRedis()
@@ -183,54 +180,35 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     ): Promise<Presence | null> {
         this.assertOk()
 
-        let userId: Buffer
-        let locationId: Buffer
-        let data: Buffer
-        let lastModified: Buffer
-        let presence: Presence
-
         try {
-            ;[
-                userId,
-                locationId,
-                data,
-                lastModified,
-            ] = await this.redis.presenceGetBySessionIdBuffer(
+            const encodedPresence = await this.redis.presenceGetBySessionIdBuffer(
                 Buffer.from(encode(sessionId)),
             )
+            return decodePresence(encodedPresence)
         } catch (error) {
-            throw createPresenceError('Failed to load presence.', error)
+            throw createPresenceError(
+                'Failed to load presence by sessionId.',
+                error,
+            )
         }
-
-        if (
-            !Buffer.isBuffer(userId) ||
-            !Buffer.isBuffer(locationId) ||
-            !Buffer.isBuffer(data) ||
-            !Buffer.isBuffer(lastModified)
-        ) {
-            return null
-        }
-
-        try {
-            presence = {
-                data: decode(data),
-                lastModified: decode(lastModified) as number,
-                locationId: decode(locationId) as Id,
-                sessionId,
-                userId: decode(userId) as Id,
-            }
-
-            throwError(validatePresence(presence))
-        } catch (error) {
-            throw createPresenceError('Invalid presence.', error)
-        }
-
-        return presence
     }
 
-    public async getPresenceByUserId(_userId: Id): Promise<Presence[]> {
+    public async getPresenceByUserId(userId: Id): Promise<Presence[]> {
         this.assertOk()
-        return []
+
+        try {
+            const encodedPresenceArray = await this.redis.presenceGetByUserIdBuffer(
+                Buffer.from(encode(userId)),
+            )
+            return encodedPresenceArray
+                .map(decodePresence)
+                .filter(presence => !!presence) as Presence[]
+        } catch (error) {
+            throw createPresenceError(
+                'Failed to load presence by userId.',
+                error,
+            )
+        }
     }
 
     public async getPresenceByLocationId(_locationId: Id): Promise<Presence[]> {
@@ -288,16 +266,16 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
             if (this.shouldStorePresence) {
                 await this.redis.presenceUpdate(
-                    this.encodedPresence.sessionId,
-                    this.encodedPresence.userId,
-                    this.encodedPresence.locationId,
-                    this.encodedPresence.data,
-                    this.encodedPresence.lastModified,
+                    this.encodedPresence[0],
+                    this.encodedPresence[1],
+                    this.encodedPresence[2],
+                    this.encodedPresence[3],
+                    this.encodedPresence[4],
                     this.ttl,
                     wasModified ? 1 : 0,
                 )
             } else if (wasModified) {
-                await this.redis.presenceDelete(this.encodedPresence.sessionId)
+                await this.redis.presenceDelete(this.encodedPresence[0])
             }
 
             if (this.modified) {
@@ -369,9 +347,8 @@ interface PresenceCommands {
         modified: 0 | 1,
     ): Promise<void>
     presenceDelete(sessionId: Buffer): Promise<void>
-    presenceGetBySessionIdBuffer(
-        sessionId: Buffer,
-    ): Promise<[Buffer, Buffer, Buffer, Buffer]>
+    presenceGetBySessionIdBuffer(sessionId: Buffer): Promise<EncodedPresence>
+    presenceGetByUserIdBuffer(userId: Buffer): Promise<EncodedPresence[]>
 }
 
 const presenceUpdate = `
@@ -466,8 +443,29 @@ return redis.status_reply('OK')
 `
 
 const presenceGetBySessionId = `
-local presenceKey = 'presence:sessionId='..ARGV[1]
-return redis.call('hmget', presenceKey, 'userId', 'locationId', 'data', 'lastModified')
+local sessionId = ARGV[1]
+local presence = redis.call('hmget', 'presence:sessionId='..sessionId,
+    'sessionId', 'userId', 'locationId', 'data', 'lastModified'
+)
+presence[1] = sessionId
+return presence
+`
+
+const presenceGetByUserId = `
+local userId = ARGV[1]
+local list = redis.call('smembers', 'sessionIds:userId='..userId)
+
+for i = 1, #list
+do
+    local sessionId = list[i]
+    local presence = redis.call('hmget', 'presence:sessionId='..sessionId,
+        'sessionId', 'userId', 'locationId', 'data', 'lastModified'
+    )
+    presence[1] = sessionId
+    list[i] = presence
+end
+
+return list
 `
 
 function defineRedisCommands(
@@ -494,5 +492,40 @@ function defineRedisCommands(
         })
     }
 
+    if (!(redis as any).presenceGetByUserId) {
+        redis.defineCommand('presenceGetByUserId', {
+            lua: presenceGetByUserId,
+            numberOfKeys: 0,
+        })
+    }
+
     return redis as any
+}
+
+function decodePresence(encodedPresence: EncodedPresence): Presence | null {
+    if (
+        encodedPresence[0] === null ||
+        encodedPresence[1] === null ||
+        encodedPresence[2] === null ||
+        encodedPresence[3] === null ||
+        encodedPresence[4] === null
+    ) {
+        return null
+    }
+
+    try {
+        const presence: Presence = {
+            data: decode(encodedPresence[3]),
+            lastModified: decode(encodedPresence[4]) as number,
+            locationId: decode(encodedPresence[2]) as Id,
+            sessionId: decode(encodedPresence[0]) as Id,
+            userId: decode(encodedPresence[1]) as Id,
+        }
+
+        throwError(validatePresence(presence))
+
+        return presence
+    } catch (error) {
+        throw createPresenceError('Invalid presence.', error)
+    }
 }
