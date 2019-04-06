@@ -1116,3 +1116,224 @@ describe('getPresenceByUserId', () => {
         await redis.connect()
     })
 })
+
+describe('getPresenceByLocationId', () => {
+    test('get no presence objects', async () => {
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([])
+    })
+
+    test('get one presence object', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get two presence objects', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+
+        // Sort the result because Redis Set does not.
+        const presenceObjects = await presenceProxy.getPresenceByLocationId(
+            locationId,
+        )
+        if (presenceObjects[0].sessionId === sessionId2) {
+            const presenceObject = presenceObjects[0]
+            presenceObjects[0] = presenceObjects[1]
+            presenceObjects[1] = presenceObject
+        }
+
+        expect(presenceObjects).toEqual([
+            presence,
+            { ...presence2, locationId },
+        ])
+    })
+
+    test('get presence with missing userId', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            // userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get presence with missing locationId', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            // locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get presence with missing data', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            // data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get presence with missing lastModified', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            // lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get presence which is missing', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+    })
+
+    test('get not encoded presence', async () => {
+        await redis.hmset(presenceKey, {
+            data,
+            lastModified,
+            locationId,
+            userId,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message:
+                    'Failed to load presence by locationId. => ' +
+                    'SyncOtError Presence: Invalid presence. => ' +
+                    'SyncOtError TSON: Unknown type.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+    })
+
+    test('get invalid presence', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: Buffer.from(encode(true)),
+        })
+        await redis.sadd(locationKey, sessionIdBuffer)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message:
+                    'Failed to load presence by locationId. => ' +
+                    'SyncOtError Presence: Invalid presence. => ' +
+                    'SyncOtError InvalidEntity: Invalid "Presence.userId".',
+                name: 'SyncOtError Presence',
+            }),
+        )
+    })
+
+    test('no active session', async () => {
+        sessionService.hasActiveSession.mockReturnValue(false)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No active session.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+    })
+
+    test('no authenticated user', async () => {
+        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No authenticated user.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+    })
+
+    test('not connected', async () => {
+        redis.disconnect()
+        await expect(
+            presenceProxy.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message:
+                    'Failed to load presence by locationId. => Error: Connection is closed.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+        await redis.connect()
+    })
+})

@@ -211,9 +211,22 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async getPresenceByLocationId(_locationId: Id): Promise<Presence[]> {
+    public async getPresenceByLocationId(locationId: Id): Promise<Presence[]> {
         this.assertOk()
-        return []
+
+        try {
+            const encodedPresenceArray = await this.redis.presenceGetByLocationIdBuffer(
+                Buffer.from(encode(locationId)),
+            )
+            return encodedPresenceArray
+                .map(decodePresence)
+                .filter(presence => !!presence) as Presence[]
+        } catch (error) {
+            throw createPresenceError(
+                'Failed to load presence by locationId.',
+                error,
+            )
+        }
     }
 
     private assertOk(): void {
@@ -349,6 +362,9 @@ interface PresenceCommands {
     presenceDelete(sessionId: Buffer): Promise<void>
     presenceGetBySessionIdBuffer(sessionId: Buffer): Promise<EncodedPresence>
     presenceGetByUserIdBuffer(userId: Buffer): Promise<EncodedPresence[]>
+    presenceGetByLocationIdBuffer(
+        locationId: Buffer,
+    ): Promise<EncodedPresence[]>
 }
 
 const presenceUpdate = `
@@ -468,6 +484,23 @@ end
 return list
 `
 
+const presenceGetByLocationId = `
+local locationId = ARGV[1]
+local list = redis.call('smembers', 'sessionIds:locationId='..locationId)
+
+for i = 1, #list
+do
+    local sessionId = list[i]
+    local presence = redis.call('hmget', 'presence:sessionId='..sessionId,
+        'sessionId', 'userId', 'locationId', 'data', 'lastModified'
+    )
+    presence[1] = sessionId
+    list[i] = presence
+end
+
+return list
+`
+
 function defineRedisCommands(
     redis: Redis.Redis,
 ): Redis.Redis & PresenceCommands {
@@ -495,6 +528,13 @@ function defineRedisCommands(
     if (!(redis as any).presenceGetByUserId) {
         redis.defineCommand('presenceGetByUserId', {
             lua: presenceGetByUserId,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceGetByLocationId) {
+        redis.defineCommand('presenceGetByLocationId', {
+            lua: presenceGetByLocationId,
             numberOfKeys: 0,
         })
     }
