@@ -46,13 +46,13 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this._locationId
     }
 
-    private _presenceData: any = null
-    public set presenceData(presenceData: any) {
-        this._presenceData = presenceData
+    private _data: any = null
+    public set data(presenceData: any) {
+        this._data = presenceData
         this.updateLocalPresence()
     }
-    public get presenceData(): any {
-        return this._presenceData
+    public get data(): any {
+        return this._data
     }
 
     private _localPresence: Presence | undefined = undefined
@@ -134,7 +134,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             isId(this.locationId)
         ) {
             this._localPresence = {
-                data: this.presenceData,
+                data: this.data,
                 lastModified: Date.now(),
                 locationId: this.locationId,
                 sessionId: this.sessionId,

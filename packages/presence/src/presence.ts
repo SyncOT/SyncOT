@@ -65,6 +65,7 @@ export interface PresenceClient
     readonly sessionId: Id | undefined
     readonly userId: Id | undefined
     locationId: Id | undefined
+    data: any
     readonly localPresence: Presence | undefined
     readonly online: boolean
 
