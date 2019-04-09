@@ -204,7 +204,7 @@ afterEach(() => {
     ;(monitor as any).disconnect()
 })
 
-test('invalid ttl', () => {
+test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
     connection1.disconnect()
     connection2.disconnect()
     connection1 = createConnection()
@@ -218,17 +218,46 @@ test('invalid ttl', () => {
                 sessionService,
             },
             {
-                ttl: '123' as any,
+                ttl,
             },
         ),
     ).toThrow(
         expect.objectContaining({
             message:
-                'Argument "options.ttl" must be undefined or a safe integer.',
+                'Argument "options.ttl" must be undefined or a safe integer >= 10.',
             name: 'AssertionError [ERR_ASSERTION]',
         }),
     )
 })
+
+test.each(['123', 8] as any[])(
+    'invalid presenceSizeLimit: %p',
+    presenceSizeLimit => {
+        connection1.disconnect()
+        connection2.disconnect()
+        connection1 = createConnection()
+        expect(() =>
+            createPresenceService(
+                {
+                    authService,
+                    connection: connection1,
+                    redis,
+                    redisSubscriber,
+                    sessionService,
+                },
+                {
+                    presenceSizeLimit,
+                },
+            ),
+        ).toThrow(
+            expect.objectContaining({
+                message:
+                    'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 9.',
+                name: 'AssertionError [ERR_ASSERTION]',
+            }),
+        )
+    },
+)
 
 test('create twice on the same connection', () => {
     expect(() =>
@@ -457,6 +486,59 @@ describe('submitPresence', () => {
         )
     })
 
+    test.each([undefined, 9, 20])(
+        'presence size limit exceeded (%p)',
+        async presenceSizeLimit => {
+            connection1 = createConnection()
+            connection2 = createConnection()
+            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            connection1.connect(stream1)
+            connection2.connect(stream2)
+
+            presenceService = createPresenceService(
+                {
+                    authService,
+                    connection: connection1,
+                    redis,
+                    redisSubscriber,
+                    sessionService,
+                },
+                {
+                    presenceSizeLimit,
+                },
+            )
+            connection2.registerProxy({
+                actions: new Set([
+                    'submitPresence',
+                    'removePresence',
+                    'getPresenceBySessionId',
+                    'getPresenceByUserId',
+                    'getPresenceByLocationId',
+                ]),
+                name: 'presence',
+            })
+            presenceProxy = connection2.getProxy('presence') as PresenceService
+
+            const effectiveLimit = presenceSizeLimit || 1024
+            authService.getUserId.mockReturnValue(123)
+            sessionService.getSessionId.mockReturnValue(34)
+            await expect(
+                presenceProxy.submitPresence({
+                    data: new ArrayBuffer(effectiveLimit - 9), // (type + int8 or int16 length + binary data)
+                    lastModified: Date.now(), // 3 bytes (type + int16)
+                    locationId: 99, // 2 bytes (type + int8)
+                    sessionId: 34, // 2 bytes (type + int8)
+                    userId: 123, // 2 bytes (type + int8)
+                }),
+            ).rejects.toEqual(
+                expect.objectContaining({
+                    message: 'Presence size limit exceeded.',
+                    name: 'SyncOtError Presence',
+                }),
+            )
+        },
+    )
+
     test('storage error', async () => {
         const onError = jest.fn()
         const onOutOfSync = jest.fn()
@@ -554,7 +636,6 @@ describe('submitPresence', () => {
 
     describe.each<[undefined | number, number]>([
         [undefined, 60],
-        [1, 10],
         [3600, 3600],
     ])('ttl option = %d', (ttlOption, effectiveTtl) => {
         if (ttlOption !== undefined) {

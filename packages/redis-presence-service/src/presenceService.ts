@@ -36,6 +36,12 @@ export interface PresenceServiceOptions {
      * to the same Redis server to ensure predictable behavior.
      */
     ttl?: number
+
+    /**
+     * The maximum size of the `tson` encoded presence data in bytes.
+     * Defaults to 1024. Min value is 9 - the size of the smallest valid presence object.
+     */
+    presenceSizeLimit?: number
 }
 
 /**
@@ -85,6 +91,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
     private ttl: number = 60
+    private presenceSizeLimit: number = 1024
     private encodedPresence: EncodedPresence | undefined = undefined
     private shouldStorePresence: boolean = false
     private updatingRedis: boolean = false
@@ -107,10 +114,19 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         if (typeof options.ttl !== 'undefined') {
             assert.ok(
-                Number.isSafeInteger(options.ttl),
-                'Argument "options.ttl" must be undefined or a safe integer.',
+                Number.isSafeInteger(options.ttl) && options.ttl >= 10,
+                'Argument "options.ttl" must be undefined or a safe integer >= 10.',
             )
-            this.ttl = Math.max(options.ttl, 10)
+            this.ttl = options.ttl
+        }
+
+        if (typeof options.presenceSizeLimit !== 'undefined') {
+            assert.ok(
+                Number.isSafeInteger(options.presenceSizeLimit) &&
+                    options.presenceSizeLimit >= 9,
+                'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 9.',
+            )
+            this.presenceSizeLimit = options.presenceSizeLimit
         }
 
         this.connection.registerService({
@@ -153,13 +169,25 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        this.encodedPresence = [
+        const encodedPresence: EncodedPresence = [
             Buffer.from(encode(presence.sessionId)),
             Buffer.from(encode(presence.userId)),
             Buffer.from(encode(presence.locationId)),
             Buffer.from(encode(presence.data)),
             Buffer.from(encode(Date.now())),
         ]
+
+        const presenceSize =
+            encodedPresence[0].length +
+            encodedPresence[1].length +
+            encodedPresence[2].length +
+            encodedPresence[3].length +
+            encodedPresence[4].length
+        if (presenceSize > this.presenceSizeLimit) {
+            throw createPresenceError('Presence size limit exceeded.')
+        }
+
+        this.encodedPresence = encodedPresence
         this.shouldStorePresence = true
         this.modified = true
         this.scheduleUpdateRedis()
