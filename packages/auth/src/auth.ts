@@ -1,3 +1,4 @@
+import { Presence } from '@syncot/presence'
 import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
 
 /**
@@ -49,4 +50,16 @@ export interface AuthManager
      * otherwise resolves to false.
      */
     mayWriteDocument(typeName: string, id: Id): Promise<boolean>
+
+    /**
+     * Resolves to true, if the user may read/load the specified presence object,
+     * otherwise resolves to false.
+     */
+    mayReadPresence(presence: Presence): Promise<boolean>
+
+    /**
+     * Resolves to true, if the user may write/store the specified presence object,
+     * otherwise resolves to false.
+     */
+    mayWritePresence(presence: Presence): Promise<boolean>
 }

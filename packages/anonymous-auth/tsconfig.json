@@ -7,6 +7,7 @@
   "references": [
     { "path": "../auth" },
     { "path": "../core" },
+    { "path": "../presence" },
     { "path": "../util" }
   ]
 }

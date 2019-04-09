@@ -1,5 +1,6 @@
 import { AuthManager } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/core'
+import { Presence } from '@syncot/presence'
 import { idEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthManager } from '.'
@@ -17,6 +18,14 @@ const userId = 0
 let stream: Duplex
 let connection: Connection
 let authManager: AuthManager
+
+const presence: Presence = {
+    data: null,
+    lastModified: 0,
+    locationId: 'here',
+    sessionId: '123',
+    userId: 'me',
+}
 
 beforeEach(() => {
     stream = createDuplex()
@@ -37,6 +46,16 @@ describe('right after create', () => {
     test('mayWriteDocument', async () => {
         authManager = createAuthManager(connection)
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeFalse()
+    })
+    test('mayReadPresence', async () => {
+        authManager = createAuthManager(connection)
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeFalse()
+    })
+    test('mayWritePresence', async () => {
+        authManager = createAuthManager(connection)
+        await expect(
+            authManager.mayWritePresence(presence),
+        ).resolves.toBeFalse()
     })
     test('events when not connected', async () => {
         const onUser = jest.fn()
@@ -78,6 +97,10 @@ describe('right after create', () => {
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
         await expect(authManager.mayReadDocument('', '')).resolves.toBeFalse()
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeFalse()
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeFalse()
+        await expect(
+            authManager.mayWritePresence(presence),
+        ).resolves.toBeFalse()
     })
     test('destroy twice', async () => {
         const onDestroy = jest.fn()
@@ -120,6 +143,12 @@ describe('initially disconnected', () => {
     test('mayWriteDocument', async () => {
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeTrue()
     })
+    test('mayReadPresence', async () => {
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeTrue()
+    })
+    test('mayWritePresence', async () => {
+        await expect(authManager.mayWritePresence(presence)).resolves.toBeTrue()
+    })
     test('connect', async () => {
         const onAuth = jest.fn()
         authManager.on('auth', onAuth)
@@ -139,6 +168,10 @@ describe('initially disconnected', () => {
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
         await expect(authManager.mayReadDocument('', '')).resolves.toBeFalse()
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeFalse()
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeFalse()
+        await expect(
+            authManager.mayWritePresence(presence),
+        ).resolves.toBeFalse()
     })
 })
 
@@ -159,6 +192,12 @@ describe('initially connected', () => {
     test('mayWriteDocument', async () => {
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeTrue()
     })
+    test('mayReadPresence', async () => {
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeTrue()
+    })
+    test('mayWritePresence', async () => {
+        await expect(authManager.mayWritePresence(presence)).resolves.toBeTrue()
+    })
     test('disconnect', async () => {
         const onAuthEnd = jest.fn()
         authManager.on('authEnd', onAuthEnd)
@@ -178,5 +217,9 @@ describe('initially connected', () => {
         expect(authManager.hasAuthenticatedUserId()).toBeFalse()
         await expect(authManager.mayReadDocument('', '')).resolves.toBeFalse()
         await expect(authManager.mayWriteDocument('', '')).resolves.toBeFalse()
+        await expect(authManager.mayReadPresence(presence)).resolves.toBeFalse()
+        await expect(
+            authManager.mayWritePresence(presence),
+        ).resolves.toBeFalse()
     })
 })

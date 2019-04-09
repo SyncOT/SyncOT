@@ -25,6 +25,7 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/core": "file:../core",
+    "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }

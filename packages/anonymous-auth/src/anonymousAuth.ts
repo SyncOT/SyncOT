@@ -44,6 +44,14 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
         return this.hasUserId()
     }
 
+    public async mayReadPresence(): Promise<boolean> {
+        return this.hasUserId()
+    }
+
+    public async mayWritePresence(): Promise<boolean> {
+        return this.hasUserId()
+    }
+
     public destroy(): void {
         if (this.destroyed) {
             return
