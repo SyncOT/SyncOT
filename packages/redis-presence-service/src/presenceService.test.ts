@@ -107,8 +107,8 @@ class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthManager {
     public getUserId = jest.fn().mockReturnValue(userId)
     public hasUserId = jest.fn().mockReturnValue(true)
     public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
-    public mayRead = jest.fn().mockResolvedValue(true)
-    public mayWrite = jest.fn().mockResolvedValue(true)
+    public mayReadDocument = jest.fn().mockResolvedValue(true)
+    public mayWriteDocument = jest.fn().mockResolvedValue(true)
 }
 
 class MockSessionService extends SyncOtEmitter<SessionEvents>

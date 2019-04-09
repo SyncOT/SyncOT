@@ -42,11 +42,11 @@ export interface AuthManager
      * Resolves to true, if the user may read from the specified document,
      * otherwise resolves to false.
      */
-    mayRead(typeName: string, id: Id): Promise<boolean>
+    mayReadDocument(typeName: string, id: Id): Promise<boolean>
 
     /**
      * Resolves to true, if the user may write to the specified document,
      * otherwise resolves to false.
      */
-    mayWrite(typeName: string, id: Id): Promise<boolean>
+    mayWriteDocument(typeName: string, id: Id): Promise<boolean>
 }

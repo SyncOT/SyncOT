@@ -36,11 +36,11 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
         return this.authenticated
     }
 
-    public async mayRead(): Promise<boolean> {
+    public async mayReadDocument(): Promise<boolean> {
         return this.hasUserId()
     }
 
-    public async mayWrite(): Promise<boolean> {
+    public async mayWriteDocument(): Promise<boolean> {
         return this.hasUserId()
     }
 
