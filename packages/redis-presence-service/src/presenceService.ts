@@ -176,7 +176,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             Buffer.from(encode(presence.data)),
             Buffer.from(encode(Date.now())),
         ]
-
         const presenceSize =
             encodedPresence[0].length +
             encodedPresence[1].length +
@@ -185,6 +184,12 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             encodedPresence[4].length
         if (presenceSize > this.presenceSizeLimit) {
             throw createPresenceError('Presence size limit exceeded.')
+        }
+
+        if (!this.authService.mayWritePresence(presence)) {
+            throw createAuthError(
+                'Not authorized to submit this presence object.',
+            )
         }
 
         this.encodedPresence = encodedPresence
@@ -212,7 +217,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             const encodedPresence = await this.redis.presenceGetBySessionIdBuffer(
                 Buffer.from(encode(sessionId)),
             )
-            return decodePresence(encodedPresence)
+            return await this.decodePresence(encodedPresence)
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by sessionId.',
@@ -228,9 +233,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             const encodedPresenceArray = await this.redis.presenceGetByUserIdBuffer(
                 Buffer.from(encode(userId)),
             )
-            return encodedPresenceArray
-                .map(decodePresence)
-                .filter(presence => !!presence) as Presence[]
+            return (await Promise.all(
+                encodedPresenceArray.map(this.decodePresence),
+            )).filter(notNull) as Presence[]
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by userId.',
@@ -246,9 +251,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             const encodedPresenceArray = await this.redis.presenceGetByLocationIdBuffer(
                 Buffer.from(encode(locationId)),
             )
-            return encodedPresenceArray
-                .map(decodePresence)
-                .filter(presence => !!presence) as Presence[]
+            return (await Promise.all(
+                encodedPresenceArray.map(this.decodePresence),
+            )).filter(notNull) as Presence[]
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by locationId.',
@@ -374,6 +379,42 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
     private onSessionInactive = (): void => {
         this.ensureNoPresence()
+    }
+
+    private decodePresence = async (
+        encodedPresence: EncodedPresence,
+    ): Promise<Presence | null> => {
+        if (
+            encodedPresence[0] === null ||
+            encodedPresence[1] === null ||
+            encodedPresence[2] === null ||
+            encodedPresence[3] === null ||
+            encodedPresence[4] === null
+        ) {
+            return null
+        }
+
+        let presence: Presence
+
+        try {
+            presence = {
+                data: decode(encodedPresence[3]),
+                lastModified: decode(encodedPresence[4]) as number,
+                locationId: decode(encodedPresence[2]) as Id,
+                sessionId: decode(encodedPresence[0]) as Id,
+                userId: decode(encodedPresence[1]) as Id,
+            }
+
+            throwError(validatePresence(presence))
+        } catch (error) {
+            throw createPresenceError('Invalid presence.', error)
+        }
+
+        if (!(await this.authService.mayReadPresence(presence))) {
+            return null
+        }
+
+        return presence
     }
 }
 
@@ -570,30 +611,6 @@ function defineRedisCommands(
     return redis as any
 }
 
-function decodePresence(encodedPresence: EncodedPresence): Presence | null {
-    if (
-        encodedPresence[0] === null ||
-        encodedPresence[1] === null ||
-        encodedPresence[2] === null ||
-        encodedPresence[3] === null ||
-        encodedPresence[4] === null
-    ) {
-        return null
-    }
-
-    try {
-        const presence: Presence = {
-            data: decode(encodedPresence[3]),
-            lastModified: decode(encodedPresence[4]) as number,
-            locationId: decode(encodedPresence[2]) as Id,
-            sessionId: decode(encodedPresence[0]) as Id,
-            userId: decode(encodedPresence[1]) as Id,
-        }
-
-        throwError(validatePresence(presence))
-
-        return presence
-    } catch (error) {
-        throw createPresenceError('Invalid presence.', error)
-    }
+function notNull(value: any): boolean {
+    return value !== null
 }

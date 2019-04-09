@@ -488,6 +488,18 @@ describe('submitPresence', () => {
         )
     })
 
+    test('not authorized', async () => {
+        authService.mayWritePresence.mockReturnValue(false)
+        await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
+            expect.objectContaining({
+                message: 'Not authorized to submit this presence object.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+        expect(authService.mayWritePresence).toHaveBeenCalledTimes(1)
+        expect(authService.mayWritePresence).toHaveBeenCalledWith(presence)
+    })
+
     test.each([undefined, 9, 20])(
         'presence size limit exceeded (%p)',
         async presenceSizeLimit => {
@@ -853,6 +865,21 @@ describe('getPresenceBySessionId', () => {
         ).resolves.toEqual(presence)
     })
 
+    test('not authorized', async () => {
+        authService.mayReadPresence.mockResolvedValue(false)
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await expect(
+            presenceProxy.getPresenceBySessionId(sessionId),
+        ).resolves.toBeNull()
+        expect(authService.mayReadPresence).toHaveBeenCalledTimes(1)
+        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
+    })
+
     test('get non-existant presence', async () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
@@ -1038,6 +1065,35 @@ describe('getPresenceByUserId', () => {
         }
 
         expect(presenceObjects).toEqual([presence, { ...presence2, userId }])
+    })
+
+    test('not authorized to get one of 2 presence objects', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer,
+        })
+        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+
+        authService.mayReadPresence.mockImplementation(
+            async loadedPresence => loadedPresence.sessionId === sessionId,
+        )
+        expect(await presenceProxy.getPresenceByUserId(userId)).toEqual([
+            presence,
+        ])
+        expect(authService.mayReadPresence).toHaveBeenCalledTimes(2)
+        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
+        expect(authService.mayReadPresence).toHaveBeenCalledWith({
+            ...presence2,
+            userId,
+        })
     })
 
     test('get presence with missing userId', async () => {
@@ -1249,6 +1305,35 @@ describe('getPresenceByLocationId', () => {
             presence,
             { ...presence2, locationId },
         ])
+    })
+
+    test('get two presence objects', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+
+        authService.mayReadPresence.mockImplementation(
+            async loadedPresence => loadedPresence.sessionId === sessionId,
+        )
+        expect(await presenceProxy.getPresenceByLocationId(locationId)).toEqual(
+            [presence],
+        )
+        expect(authService.mayReadPresence).toHaveBeenCalledTimes(2)
+        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
+        expect(authService.mayReadPresence).toHaveBeenCalledWith({
+            ...presence,
+            locationId,
+        })
     })
 
     test('get presence with missing userId', async () => {
