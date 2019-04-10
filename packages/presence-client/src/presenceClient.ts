@@ -98,6 +98,8 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         this.authClient.on('auth', this.updateOnline)
         this.authClient.on('authEnd', this.updateOnline)
         this.authClient.on('userEnd', this.updateLocalPresence)
+
+        this.updateOnline()
     }
 
     public destroy(): void {
@@ -154,37 +156,49 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             this.sessionClient.hasActiveSession() &&
             this.authClient.hasAuthenticatedUserId()
 
-        if (this._online !== online) {
-            this._online = online
-            this.emitAsync(online ? 'online' : 'offline')
-            this.scheduleSyncPresence()
+        if (this._online === online) {
+            return
+        }
+
+        this._online = online
+
+        if (online) {
+            this.emitAsync('online')
+            if (this.localPresence) {
+                this.scheduleSyncPresence()
+            }
+        } else {
+            this.emitAsync('offline')
         }
     }
 
     private scheduleSyncPresence(): void {
         if (!this.syncPending) {
             this.syncPending = true
-            Promise.resolve().then(this.syncPresence)
+            Promise.resolve()
+                .then(this.syncPresence)
+                .catch(this.onSyncError)
         }
     }
 
-    private syncPresence = (): void => {
+    private syncPresence = async (): Promise<void> => {
         this.syncPending = false
 
         if (this.destroyed || !this.online) {
             return
         }
 
-        const result =
-            this.localPresence === undefined
-                ? this.presenceService.removePresence()
-                : this.presenceService.submitPresence(this.localPresence)
+        if (this.localPresence) {
+            await this.presenceService.submitPresence(this.localPresence)
+        } else {
+            await this.presenceService.removePresence()
+        }
+    }
 
-        result.catch(error => {
-            this.emitAsync(
-                'error',
-                createPresenceError('Failed to sync presence.', error),
-            )
-        })
+    private onSyncError = (error: Error): void => {
+        this.emitAsync(
+            'error',
+            createPresenceError('Failed to sync presence.', error),
+        )
     }
 }
