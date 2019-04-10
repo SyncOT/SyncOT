@@ -1,4 +1,4 @@
-import { AuthManager } from '@syncot/auth'
+import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/core'
 import { createPresenceError } from '@syncot/error'
 import {
@@ -22,7 +22,7 @@ export function createPresenceClient({
 }: {
     connection: Connection
     sessionClient: SessionManager
-    authClient: AuthManager
+    authClient: AuthClient
 }): PresenceClient {
     return new GenericPresenceClient(connection, sessionClient, authClient)
 }
@@ -72,7 +72,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     public constructor(
         private connection: Connection,
         private sessionClient: SessionManager,
-        private authClient: AuthManager,
+        private authClient: AuthClient,
     ) {
         super()
 

@@ -1,4 +1,4 @@
-import { AuthEvents, AuthManager } from '@syncot/auth'
+import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/core'
 import { Presence, PresenceService } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
@@ -103,7 +103,7 @@ let connection2: Connection
 let presenceService: PresenceService
 let presenceProxy: PresenceService
 
-class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthManager {
+class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
     public getUserId = jest.fn().mockReturnValue(userId)
     public hasUserId = jest.fn().mockReturnValue(true)
     public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)

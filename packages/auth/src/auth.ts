@@ -2,7 +2,7 @@ import { Presence } from '@syncot/presence'
 import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
 
 /**
- * Events emitted by `AuthManager`.
+ * Events emitted by `AuthService` and `AuthClient`.
  */
 export interface AuthEvents {
     user: void
@@ -13,7 +13,7 @@ export interface AuthEvents {
 }
 
 /**
- * Manages authentication and authorization on the client or server side.
+ * Manages authentication and authorization on the client side.
  *
  * @event user A user ID has been set.
  * @event auth The user ID has been authenticated.
@@ -22,7 +22,7 @@ export interface AuthEvents {
  * @event error An auth-related error has occurred. The system will attempt to recover automatically.
  * @event destroy The AuthManager has been destroyed.
  */
-export interface AuthManager
+export interface AuthClient
     extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
     /**
      * Gets the user ID, if present, otherwise returns undefined.
@@ -38,7 +38,19 @@ export interface AuthManager
      * Returns true, if the user ID has been authenticated, otherwise returns false.
      */
     hasAuthenticatedUserId(): boolean
+}
 
+/**
+ * Manages authentication and authorization on the server side.
+ *
+ * @event user A user ID has been set.
+ * @event auth The user ID has been authenticated.
+ * @event authEnd The user ID is no longer authenticated.
+ * @event userEnd The user ID has been unset.
+ * @event error An auth-related error has occurred. The system will attempt to recover automatically.
+ * @event destroy The AuthManager has been destroyed.
+ */
+export interface AuthService extends AuthClient {
     /**
      * Resolves to true, if the user may read from the specified document,
      * otherwise resolves to false.

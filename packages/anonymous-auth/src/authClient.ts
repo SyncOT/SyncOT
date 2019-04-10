@@ -1,21 +1,19 @@
-import { AuthEvents, AuthManager } from '@syncot/auth'
+import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/core'
 import { Id, isId, SyncOtEmitter } from '@syncot/util'
 
 /**
- * Creates a new AuthManager which allows anonymous read-write access to all documents.
- * It's suitable for use on both the client and server sides.
+ * Creates a new AuthClient which allows full anonymous access.
  */
-export function createAuthManager(connection: Connection): AuthManager {
-    return new AnonymousAuthManager(connection)
+export function createAuthClient(connection: Connection): AuthClient {
+    return new AnonymousAuthClient(connection)
 }
 
 /**
- * An auth module providing anonymous read-write access to all documents.
- * It's suitable for use on both the client and server sides.
+ * An auth client providing anonymous read-write access to all documents.
  */
-class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
-    implements AuthManager {
+export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
+    implements AuthClient {
     private userId: Id | undefined = undefined
     private authenticated: boolean = false
 
@@ -34,22 +32,6 @@ class AnonymousAuthManager extends SyncOtEmitter<AuthEvents>
 
     public hasAuthenticatedUserId(): boolean {
         return this.authenticated
-    }
-
-    public async mayReadDocument(): Promise<boolean> {
-        return this.hasUserId()
-    }
-
-    public async mayWriteDocument(): Promise<boolean> {
-        return this.hasUserId()
-    }
-
-    public async mayReadPresence(): Promise<boolean> {
-        return this.hasUserId()
-    }
-
-    public async mayWritePresence(): Promise<boolean> {
-        return this.hasUserId()
     }
 
     public destroy(): void {

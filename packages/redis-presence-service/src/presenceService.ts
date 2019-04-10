@@ -1,4 +1,4 @@
-import { AuthManager } from '@syncot/auth'
+import { AuthService } from '@syncot/auth'
 import { Connection, throwError } from '@syncot/core'
 import { createAuthError, createPresenceError } from '@syncot/error'
 import {
@@ -16,7 +16,7 @@ import Redis from 'ioredis'
 export interface PresenceServiceConfig {
     connection: Connection
     sessionService: SessionManager
-    authService: AuthManager
+    authService: AuthService
     redis: Redis.Redis
     redisSubscriber: Redis.Redis
 }
@@ -102,7 +102,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public constructor(
         private readonly connection: Connection,
         private readonly sessionService: SessionManager,
-        private readonly authService: AuthManager,
+        private readonly authService: AuthService,
         redis: Redis.Redis,
         // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
