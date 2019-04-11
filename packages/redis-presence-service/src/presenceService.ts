@@ -130,15 +130,15 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
 
         this.connection.registerService({
-            actions: new Set([
+            instance: this,
+            name: 'presence',
+            requestNames: new Set([
                 'submitPresence',
                 'removePresence',
                 'getPresenceBySessionId',
                 'getPresenceByUserId',
                 'getPresenceByLocationId',
             ]),
-            instance: this,
-            name: 'presence',
         })
 
         this.authService.on('authEnd', this.onAuthEnd)

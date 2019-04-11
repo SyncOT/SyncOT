@@ -183,14 +183,14 @@ beforeEach(async () => {
         sessionService,
     })
     connection2.registerProxy({
-        actions: new Set([
+        name: 'presence',
+        requestNames: new Set([
             'submitPresence',
             'removePresence',
             'getPresenceBySessionId',
             'getPresenceByUserId',
             'getPresenceByLocationId',
         ]),
-        name: 'presence',
     })
     presenceProxy = connection2.getProxy('presence') as PresenceService
 })
@@ -522,14 +522,14 @@ describe('submitPresence', () => {
                 },
             )
             connection2.registerProxy({
-                actions: new Set([
+                name: 'presence',
+                requestNames: new Set([
                     'submitPresence',
                     'removePresence',
                     'getPresenceBySessionId',
                     'getPresenceByUserId',
                     'getPresenceByLocationId',
                 ]),
-                name: 'presence',
             })
             presenceProxy = connection2.getProxy('presence') as PresenceService
 

@@ -17,14 +17,14 @@ import { Duplex, finished } from 'stream'
 type RequestId = number
 type ServiceName = string
 type ProxyName = string
-type ActionName = string
+type RequestName = string
 type EventName = string
 
 export type Service = object
 export interface ServiceDescriptor {
     name: ServiceName
-    actions?: Set<ActionName>
-    events?: Set<EventName>
+    eventNames?: Set<EventName>
+    requestNames?: Set<RequestName>
     instance: Service
 }
 export interface RegisteredServiceDescriptor
@@ -32,8 +32,8 @@ export interface RegisteredServiceDescriptor
 export type Proxy = object
 export interface ProxyDescriptor {
     name: ProxyName
-    actions?: Set<ActionName>
-    events?: Set<EventName>
+    eventNames?: Set<EventName>
+    requestNames?: Set<RequestName>
 }
 export interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
     instance: Proxy
@@ -89,14 +89,14 @@ export type Message =
     | {
           type: MessageType.EVENT
           service: ServiceName | ProxyName
-          name: EventName | ActionName
+          name: EventName | RequestName
           id: RequestId
           data: any
       }
     | {
           type: MessageType.REQUEST
           service: ServiceName | ProxyName
-          name: EventName | ActionName
+          name: EventName | RequestName
           id: RequestId
           data: any[]
       }
@@ -244,8 +244,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     public registerService({
         name,
-        actions = new Set(),
-        events = new Set(),
+        eventNames = new Set(),
+        requestNames = new Set(),
         instance,
     }: ServiceDescriptor): void {
         this.assertNotDestroyed()
@@ -257,16 +257,16 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             !this.services.has(name),
             `Service "${name}" has been already registered.`,
         )
-        assert.equal(events.size, 0, 'Connection events not implemented')
-        actions.forEach(action => {
+        assert.equal(eventNames.size, 0, 'Connection events not implemented')
+        requestNames.forEach(requestName => {
             assert.equal(
-                typeof (instance as any)[action],
+                typeof (instance as any)[requestName],
                 'function',
-                `Service.${action} must be a function.`,
+                `Service.${requestName} must be a function.`,
             )
         })
-        this.initService(instance, name, actions)
-        this.services.set(name, { actions, events, instance, name })
+        this.initService(instance, name, requestNames)
+        this.services.set(name, { eventNames, instance, name, requestNames })
     }
 
     public getServiceNames(): ServiceName[] {
@@ -286,17 +286,17 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     public registerProxy({
         name,
-        actions = new Set(),
-        events = new Set(),
+        requestNames = new Set(),
+        eventNames = new Set(),
     }: ProxyDescriptor): void {
         this.assertNotDestroyed()
         assert.ok(
             !this.proxies.has(name),
             `Proxy "${name}" has been already registered.`,
         )
-        assert.equal(events.size, 0, 'Connection events not implemented')
-        const instance = this.createProxy(name, actions)
-        this.proxies.set(name, { actions, events, instance, name })
+        assert.equal(eventNames.size, 0, 'Connection events not implemented')
+        const instance = this.createProxy(name, requestNames)
+        this.proxies.set(name, { eventNames, instance, name, requestNames })
     }
 
     public getProxyNames(): ProxyName[] {
@@ -325,7 +325,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     private initService(
         service: Service,
         serviceName: ServiceName,
-        actions: Set<ActionName>,
+        requestNames: Set<RequestName>,
     ): void {
         this.on(
             `message.${Source.PROXY}.${serviceName}` as any,
@@ -333,12 +333,14 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 switch (message.type) {
                     case MessageType.REQUEST: {
                         const stream = this.stream
-                        const action = message.name
+                        const requestName = message.name
 
-                        if (actions.has(action)) {
+                        if (requestNames.has(requestName)) {
                             Promise.resolve()
                                 .then(() =>
-                                    (service as any)[action](...message.data),
+                                    (service as any)[requestName](
+                                        ...message.data,
+                                    ),
                                 )
                                 .then(
                                     data => {
@@ -390,10 +392,13 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         )
     }
 
-    private createProxy(proxyName: ProxyName, actions: Set<ActionName>): Proxy {
+    private createProxy(
+        proxyName: ProxyName,
+        requestNames: Set<RequestName>,
+    ): Proxy {
         const proxy = {}
         let nextRequestId = 1
-        const actionRequests: Map<
+        const requests: Map<
             RequestId,
             {
                 resolve: (value: any) => void
@@ -401,17 +406,20 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             }
         > = new Map()
 
-        actions.forEach(action => {
-            assert.ok(!(action in proxy), `Proxy.${action} already exists.`)
-            ;(proxy as any)[action] = (...args: any[]): Promise<any> => {
+        requestNames.forEach(requestName => {
+            assert.ok(
+                !(requestName in proxy),
+                `Proxy.${requestName} already exists.`,
+            )
+            ;(proxy as any)[requestName] = (...args: any[]): Promise<any> => {
                 if (this.stream) {
                     return new Promise((resolve, reject) => {
                         const requestId = nextRequestId++
-                        actionRequests.set(requestId, { resolve, reject })
+                        requests.set(requestId, { resolve, reject })
                         this.send({
                             data: args,
                             id: requestId,
-                            name: action,
+                            name: requestName,
                             service: proxyName,
                             type: MessageType.REQUEST,
                         })
@@ -432,18 +440,18 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 switch (message.type) {
                     case MessageType.REPLY_VALUE: {
                         const id = message.id
-                        const request = actionRequests.get(id)
+                        const request = requests.get(id)
                         if (request) {
-                            actionRequests.delete(id)
+                            requests.delete(id)
                             request.resolve(message.data)
                         }
                         break
                     }
                     case MessageType.REPLY_ERROR: {
                         const id = message.id
-                        const request = actionRequests.get(id)
+                        const request = requests.get(id)
                         if (request) {
-                            actionRequests.delete(id)
+                            requests.delete(id)
                             request.reject(message.data)
                         }
                         break
@@ -458,10 +466,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             )
             // Promises are resolved and rejected asynchronously, so it's safe to
             // iterate and clear the map directly without any risk of race conditions.
-            for (const { reject } of actionRequests.values()) {
+            for (const { reject } of requests.values()) {
                 reject(error)
             }
-            actionRequests.clear()
+            requests.clear()
         })
 
         return proxy

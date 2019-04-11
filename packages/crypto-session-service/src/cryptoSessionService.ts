@@ -29,9 +29,9 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         super()
 
         this.connection.registerService({
-            actions: new Set(['getChallenge', 'activateSession']),
             instance: this,
             name: 'session',
+            requestNames: new Set(['getChallenge', 'activateSession']),
         })
         this.connection.on('disconnect', this.onDisconnect)
     }

@@ -6,6 +6,8 @@ import {
     Message,
     MessageType,
     Proxy,
+    RegisteredProxyDescriptor,
+    RegisteredServiceDescriptor,
     Service,
 } from '.'
 
@@ -29,8 +31,8 @@ let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
 let instance: {
-    testAction?: (..._args: any) => any
-    anotherAction?: (..._args: any) => any
+    testMethod?: (..._args: any) => any
+    anotherMethod?: (..._args: any) => any
 }
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
@@ -259,7 +261,7 @@ describe('service registration', () => {
     test('register with events - currently unimplemented', () => {
         expect(() =>
             connection.registerService({
-                events: new Set(['eventName']),
+                eventNames: new Set(['eventName']),
                 instance,
                 name,
             }),
@@ -270,28 +272,28 @@ describe('service registration', () => {
             ),
         )
     })
-    test('register with a missing action', () => {
-        instance.testAction = () => null
+    test('register with a missing method', () => {
+        instance.testMethod = () => null
         expect(() =>
             connection.registerService({
-                actions: new Set(['testAction', 'anotherAction']),
                 instance,
                 name,
+                requestNames: new Set(['testMethod', 'anotherMethod']),
             }),
         ).toThrow(
             errorMatcher(
                 'AssertionError [ERR_ASSERTION]',
-                'Service.anotherAction must be a function.',
+                'Service.anotherMethod must be a function.',
             ),
         )
     })
     test('register', () => {
-        instance.anotherAction = () => null
-        instance.testAction = () => null
+        instance.anotherMethod = () => null
+        instance.testMethod = () => null
         connection.registerService({
-            actions: new Set(['testAction', 'anotherAction']),
             instance,
             name,
+            requestNames: new Set(['testMethod', 'anotherMethod']),
         })
     })
     test('register twice', () => {
@@ -312,15 +314,15 @@ describe('service registration', () => {
         )
     })
     test('get registered services', () => {
-        const actions = new Set(['testAction', 'anotherAction'])
+        const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
         const anotherInstance = { test: () => undefined }
-        instance.anotherAction = () => null
-        instance.testAction = () => null
+        instance.anotherMethod = () => null
+        instance.testMethod = () => null
         connection.registerService({
-            actions,
             instance,
             name,
+            requestNames,
         })
         connection.registerService({
             instance: anotherInstance,
@@ -328,18 +330,18 @@ describe('service registration', () => {
         })
         expect(connection.getServiceNames()).toEqual([name, anotherName])
         expect(connection.getServiceDescriptor(name)).toEqual({
-            actions,
-            events: new Set(),
+            eventNames: new Set(),
             instance,
             name,
-        })
+            requestNames,
+        } as RegisteredServiceDescriptor)
         expect(connection.getService(name)).toBe(instance)
         expect(connection.getServiceDescriptor(anotherName)).toEqual({
-            actions: new Set(),
-            events: new Set(),
+            eventNames: new Set(),
             instance: anotherInstance,
             name: anotherName,
-        })
+            requestNames: new Set(),
+        } as RegisteredServiceDescriptor)
         expect(connection.getService(anotherName)).toBe(anotherInstance)
         expect(connection.getServiceDescriptor('missing')).toBe(undefined)
         expect(connection.getService('missing')).toBe(undefined)
@@ -358,7 +360,10 @@ describe('service registration', () => {
 describe('proxy registration', () => {
     test('register with events - currently unimplemented', () => {
         expect(() =>
-            connection.registerProxy({ events: new Set(['eventName']), name }),
+            connection.registerProxy({
+                eventNames: new Set(['eventName']),
+                name,
+            }),
         ).toThrow(
             errorMatcher(
                 'AssertionError [ERR_ASSERTION]',
@@ -366,11 +371,11 @@ describe('proxy registration', () => {
             ),
         )
     })
-    test('register with an action conflict', () => {
+    test('register with a method conflict', () => {
         expect(() =>
             connection.registerProxy({
-                actions: new Set(['testAction', 'toString']),
                 name,
+                requestNames: new Set(['testMethod', 'toString']),
             }),
         ).toThrow(
             errorMatcher(
@@ -381,8 +386,8 @@ describe('proxy registration', () => {
     })
     test('register', () => {
         connection.registerProxy({
-            actions: new Set(['testAction', 'anotherAction']),
             name,
+            requestNames: new Set(['testMethod', 'anotherMethod']),
         })
     })
     test('register twice', () => {
@@ -395,27 +400,27 @@ describe('proxy registration', () => {
         )
     })
     test('get registered proxies', () => {
-        instance.testAction = expect.any(Function)
-        instance.anotherAction = expect.any(Function)
-        const actions = new Set(['testAction', 'anotherAction'])
+        instance.testMethod = expect.any(Function)
+        instance.anotherMethod = expect.any(Function)
+        const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
         const anotherInstance = {}
-        connection.registerProxy({ actions, name })
+        connection.registerProxy({ requestNames, name })
         connection.registerProxy({ name: anotherName })
         expect(connection.getProxyNames()).toEqual([name, anotherName])
         expect(connection.getProxyDescriptor(name)).toEqual({
-            actions,
-            events: new Set(),
+            eventNames: new Set(),
             instance,
             name,
-        })
+            requestNames,
+        } as RegisteredProxyDescriptor)
         expect(connection.getProxy(name)).toEqual(instance)
         expect(connection.getProxyDescriptor(anotherName)).toEqual({
-            actions: new Set(),
-            events: new Set(),
+            eventNames: new Set(),
             instance: anotherInstance,
             name: anotherName,
-        })
+            requestNames: new Set(),
+        } as RegisteredProxyDescriptor)
         expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
         expect(connection.getProxyDescriptor('missing')).toBe(undefined)
         expect(connection.getProxy('missing')).toBe(undefined)
@@ -633,13 +638,13 @@ describe('no service', () => {
     })
     test.each([
         [
-            'action for an unregistered service',
+            'request for an unregistered service',
             'unregistered-service',
             MessageType.REQUEST,
             MessageType.REPLY_ERROR,
         ],
         [
-            'action for a registered service',
+            'request for a registered service',
             'a-service',
             MessageType.REQUEST,
             MessageType.REPLY_ERROR,
@@ -659,9 +664,9 @@ describe('no service', () => {
                 ...message,
                 data: errorMatcher(
                     'SyncOtError NoService',
-                    `No service to handle the ${
-                        inputCode === MessageType.REQUEST ? 'request' : 'stream'
-                    } for "${serviceName}.${message.name}".`,
+                    `No service to handle the request for "${serviceName}.${
+                        message.name
+                    }".`,
                 ),
                 name: null,
                 service: serviceName,
@@ -691,7 +696,7 @@ describe('service and proxy', () => {
     let proxy: TestProxy
     let service: TestService
     const serviceName = 'a-service'
-    const actions = new Set([
+    const requestNames = new Set([
         'returnMethod',
         'resolveMethod',
         'throwErrorMethod',
@@ -724,18 +729,18 @@ describe('service and proxy', () => {
         }
         connection.connect(stream1)
         connection.registerService({
-            actions,
             instance: service,
             name: serviceName,
+            requestNames,
         })
         connection.registerProxy({
-            actions,
             name: serviceName,
+            requestNames,
         })
         proxy = connection.getProxy(serviceName) as TestProxy
     })
 
-    describe('service actions', () => {
+    describe('service requests', () => {
         const message: Message = {
             data: [],
             id: 0,
@@ -997,15 +1002,15 @@ describe('service and proxy', () => {
         })
     })
 
-    describe('proxy actions', () => {
+    describe('proxy requests', () => {
         test.each([null, undefined])(
-            'request, reply (reply action name: %s)',
-            async actionName => {
+            'request, reply (reply name: %s)',
+            async replyName => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
                         data: replyData,
-                        name: actionName,
+                        name: replyName,
                         type: MessageType.REPLY_VALUE,
                     })
                 })
@@ -1022,13 +1027,13 @@ describe('service and proxy', () => {
             },
         )
         test.each([null, undefined])(
-            'request, error (error action name: %s)',
-            async actionName => {
+            'request, error (error name: %s)',
+            async replyName => {
                 const onData = jest.fn(message => {
                     stream2.write({
                         ...message,
                         data: error,
-                        name: actionName,
+                        name: replyName,
                         type: MessageType.REPLY_ERROR,
                     })
                 })
@@ -1044,7 +1049,7 @@ describe('service and proxy', () => {
                 ).rejects.toEqual(testErrorMatcher)
             },
         )
-        test(`request, reply (reply action name: returnMethod)`, async () => {
+        test(`request, reply (reply name: returnMethod)`, async () => {
             const onError = jest.fn()
             const onDisconnect = jest.fn()
             const onData = jest.fn(message => {
@@ -1188,7 +1193,7 @@ describe('service and proxy', () => {
             )
         })
         test('concurrent requests - 2 proxies', async () => {
-            connection.registerProxy({ actions, name: 'proxy-2' })
+            connection.registerProxy({ name: 'proxy-2', requestNames })
             const proxy2 = connection.getProxy('proxy-2') as TestProxy
             const onData = jest.fn(message => {
                 stream2.write({
@@ -1210,7 +1215,7 @@ describe('service and proxy', () => {
             await expect(promise1).resolves.toBe(5)
             await expect(promise2).resolves.toBe(0)
         })
-        test('concurrent requests - 1 proxy, 2 actions', async () => {
+        test('concurrent requests - 1 proxy, 2 different request names', async () => {
             const onData = jest.fn(message => {
                 stream2.write({
                     ...message,
@@ -1231,7 +1236,7 @@ describe('service and proxy', () => {
             await expect(promise1).resolves.toBe(5)
             await expect(promise2).resolves.toBe(0)
         })
-        test('concurrent requests - 1 proxy, 1 action', async () => {
+        test('concurrent requests - 1 proxy, 1 request name', async () => {
             const onData = jest.fn(message => {
                 stream2.write({
                     ...message,
@@ -1281,7 +1286,10 @@ describe('service and proxy', () => {
         beforeEach(() => {
             connection2 = createConnection()
             connection2.connect(stream2)
-            connection2.registerProxy({ actions, name: serviceName })
+            connection2.registerProxy({
+                name: serviceName,
+                requestNames,
+            })
             proxy2 = connection2.getProxy(serviceName) as TestProxy
         })
 

@@ -107,15 +107,15 @@ beforeEach(() => {
         sessionClient,
     })
     connection2.registerService({
-        actions: new Set([
+        instance: presenceService,
+        name: 'presence',
+        requestNames: new Set([
             'submitPresence',
             'removePresence',
             'getPresenceBySessionId',
             'getPresenceByLocationId',
             'getPresenceByUserId',
         ]),
-        instance: presenceService,
-        name: 'presence',
     })
 })
 

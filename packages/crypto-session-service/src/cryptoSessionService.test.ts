@@ -62,8 +62,8 @@ beforeEach(() => {
     serverConnection.connect(serverStream)
     sessionManager = createSessionManager(serverConnection)
     clientConnection.registerProxy({
-        actions: new Set(['getChallenge', 'activateSession']),
         name: 'session',
+        requestNames: new Set(['getChallenge', 'activateSession']),
     })
     proxy = clientConnection.getProxy('session') as SessionManagerProxy
 })

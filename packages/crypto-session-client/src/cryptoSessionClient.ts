@@ -41,8 +41,8 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         super()
 
         this.connection.registerProxy({
-            actions: new Set(['getChallenge', 'activateSession']),
             name: 'session',
+            requestNames: new Set(['getChallenge', 'activateSession']),
         })
         this.sessionService = this.connection.getProxy(
             'session',

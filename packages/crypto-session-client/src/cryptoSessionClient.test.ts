@@ -93,9 +93,9 @@ beforeEach(() => {
     clientConnection.connect(clientStream)
 
     serverConnection.registerService({
-        actions: new Set(['getChallenge', 'activateSession']),
         instance: sessionService,
         name: 'session',
+        requestNames: new Set(['getChallenge', 'activateSession']),
     })
     sessionManager = createSessionManager(clientConnection)
 })
