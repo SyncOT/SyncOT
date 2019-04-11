@@ -1,5 +1,5 @@
 import { AuthService } from '@syncot/auth'
-import { Connection } from '@syncot/core'
+import { Connection } from '@syncot/connection'
 import { createAuthError, createPresenceError } from '@syncot/error'
 import {
     Presence,

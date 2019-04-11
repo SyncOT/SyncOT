@@ -1,5 +1,5 @@
 import { AuthService } from '@syncot/auth'
-import { Connection } from '@syncot/core'
+import { Connection } from '@syncot/connection'
 import { AnonymousAuthClient } from './authClient'
 
 /**

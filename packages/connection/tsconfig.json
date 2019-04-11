@@ -4,9 +4,5 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [
-    { "path": "../connection" },
-    { "path": "../session" },
-    { "path": "../util" }
-  ]
+  "references": [{ "path": "../error" }, { "path": "../util" }]
 }

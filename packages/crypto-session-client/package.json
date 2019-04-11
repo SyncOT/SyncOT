@@ -24,7 +24,7 @@
     "node": ">=11.6.0 <=11.10.1"
   },
   "dependencies": {
-    "@syncot/core": "file:../core",
+    "@syncot/connection": "file:../connection",
     "@syncot/error": "file:../error",
     "@syncot/session": "file:../session",
     "@syncot/util": "file:../util",

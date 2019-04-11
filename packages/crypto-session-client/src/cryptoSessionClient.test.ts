@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { Connection, createConnection } from '@syncot/core'
+import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
 import {
     Id,

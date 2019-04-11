@@ -6,7 +6,7 @@
     "lib": ["es2018", "dom"]
   },
   "references": [
-    { "path": "../core" },
+    { "path": "../connection" },
     { "path": "../crypto-session-service" },
     { "path": "../error" },
     { "path": "../session" },

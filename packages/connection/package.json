@@ -1,10 +1,10 @@
 {
-  "name": "@syncot/anonymous-auth",
+  "name": "@syncot/connection",
   "version": "0.0.0",
-  "description": "A client and server auth module providing anonymous read-write access to all documents.",
+  "description": "An RPC library for communication over Duplex object streams.",
   "keywords": [
-    "anonymous",
-    "auth"
+    "RPC",
+    "stream"
   ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
@@ -17,16 +17,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SyncOT/SyncOT.git"
+    "url": "https://github.com/SyncOT/SyncOT.git"
   },
   "engines": {
     "node": ">=11.6.0 <=11.10.1"
   },
   "dependencies": {
-    "@syncot/auth": "file:../auth",
-    "@syncot/connection": "file:../connection",
-    "@syncot/presence": "file:../presence",
+    "@syncot/error": "file:../error",
     "@syncot/util": "file:../util",
+    "@types/node": "^10.12.21",
     "tslib": "^1.9.3"
   }
 }

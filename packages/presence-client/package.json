@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@syncot/auth": "file:../auth",
-    "@syncot/core": "file:../core",
+    "@syncot/connection": "file:../connection",
     "@syncot/error": "file:../error",
     "@syncot/presence": "file:../presence",
     "@syncot/session": "file:../session",

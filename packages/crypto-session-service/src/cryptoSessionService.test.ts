@@ -1,4 +1,4 @@
-import { Connection, createConnection } from '@syncot/core'
+import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
 import {
     binaryEqual,

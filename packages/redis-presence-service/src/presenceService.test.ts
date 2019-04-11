@@ -1,5 +1,5 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
-import { Connection, createConnection } from '@syncot/core'
+import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceService } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'

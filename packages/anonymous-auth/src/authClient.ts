@@ -1,5 +1,5 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
-import { Connection } from '@syncot/core'
+import { Connection } from '@syncot/connection'
 import { Id, isId, SyncOtEmitter } from '@syncot/util'
 
 /**

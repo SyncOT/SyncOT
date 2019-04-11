@@ -1,4 +1,4 @@
-import { Connection } from '@syncot/core'
+import { Connection } from '@syncot/connection'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
 import {

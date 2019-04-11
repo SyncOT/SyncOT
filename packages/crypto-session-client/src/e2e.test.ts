@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { Connection, createConnection } from '@syncot/core'
+import { Connection, createConnection } from '@syncot/connection'
 import { createSessionManager as createSessionServer } from '@syncot/crypto-session-service'
 import { SessionManager } from '@syncot/session'
 import { idEqual, invertedStreams } from '@syncot/util'

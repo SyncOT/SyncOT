@@ -1,5 +1,5 @@
 import { AuthClient } from '@syncot/auth'
-import { Connection, createConnection } from '@syncot/core'
+import { Connection, createConnection } from '@syncot/connection'
 import { idEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthClient } from '.'
