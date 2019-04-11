@@ -472,7 +472,7 @@ describe('message validation', () => {
     beforeEach(() => {
         connection.connect(stream1)
     })
-    test.each([
+    test.each<[string, any, string | null]>([
         ['invalid message', true, null],
         ['invalid data (missing)', omit(message, 'data'), 'data'],
         [
@@ -942,7 +942,7 @@ describe('service and proxy', () => {
             expect(service.returnMethod.mock.calls[0]).toEqual(params)
             expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
-        test.each([
+        test.each<[any]>([
             [5],
             ['abc'],
             [true],

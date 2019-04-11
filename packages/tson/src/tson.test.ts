@@ -1088,7 +1088,7 @@ describe('decode', () => {
     const toCharCodeArray = (text: string): number[] =>
         text.split('').map(c => c.charCodeAt(0))
 
-    test.each([
+    test.each<[string, any]>([
         ['NULL', null],
         ['BOOLEAN true', true],
         ['BOOLEAN false', false],

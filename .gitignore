@@ -2,3 +2,4 @@
 **/lib/
 /.vscode/
 /coverage/
+**/*.tsbuildinfo

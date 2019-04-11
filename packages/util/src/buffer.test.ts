@@ -51,7 +51,7 @@ describe('toBuffer', () => {
         expect(toBuffer(view)).toBe(buffer)
     })
 
-    test.each([
+    test.each<[any]>([
         [undefined],
         [null],
         [() => undefined],
@@ -112,7 +112,7 @@ describe('toArrayBuffer', () => {
         expect(Buffer.from(arrayBuffer).compare(buffer)).toBe(0)
     })
 
-    test.each([
+    test.each<[any]>([
         [undefined],
         [null],
         [() => undefined],
