@@ -207,9 +207,12 @@ afterEach(async () => {
 })
 
 test('submit 2 presence objects which share nothing', async () => {
-    // Add 2 presence objects.
+    // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
+    await whenRedisCommandExecuted('EXPIRE')
+
+    // Add presence 1.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
     await whenRedisCommandExecuted('EXPIRE')
@@ -246,9 +249,12 @@ test('submit 2 presence objects which share nothing', async () => {
 })
 
 test('submit 2 presence objects which share the same location', async () => {
-    // Add 2 presence objects.
+    // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
+    await whenRedisCommandExecuted('EXPIRE')
+
+    // Add presence 2.
     session2.presenceClient.locationId = session1.locationId
     session2.presenceClient.data = session2.data
     await whenRedisCommandExecuted('EXPIRE')
@@ -293,14 +299,17 @@ test('submit 2 presence objects which share the same location', async () => {
 })
 
 test('remove one presence object', async () => {
-    // Add 2 presence objects.
+    // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
+    await whenRedisCommandExecuted('EXPIRE')
+
+    // Add presence 2.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
     await whenRedisCommandExecuted('EXPIRE')
 
-    // Remove 1 presence object.
+    // Remove presence 2.
     session2.presenceClient.locationId = undefined
     await whenRedisCommandExecuted('DEL')
 

@@ -270,20 +270,6 @@ describe('service registration', () => {
             ),
         )
     })
-    test('register with streams - currently unimplemented', () => {
-        expect(() =>
-            connection.registerService({
-                instance,
-                name,
-                streams: new Set(['streamName']),
-            }),
-        ).toThrow(
-            errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
-                'Connection streams not implemented',
-            ),
-        )
-    })
     test('register with a missing action', () => {
         instance.testAction = () => null
         expect(() =>
@@ -346,7 +332,6 @@ describe('service registration', () => {
             events: new Set(),
             instance,
             name,
-            streams: new Set(),
         })
         expect(connection.getService(name)).toBe(instance)
         expect(connection.getServiceDescriptor(anotherName)).toEqual({
@@ -354,7 +339,6 @@ describe('service registration', () => {
             events: new Set(),
             instance: anotherInstance,
             name: anotherName,
-            streams: new Set(),
         })
         expect(connection.getService(anotherName)).toBe(anotherInstance)
         expect(connection.getServiceDescriptor('missing')).toBe(undefined)
@@ -379,19 +363,6 @@ describe('proxy registration', () => {
             errorMatcher(
                 'AssertionError [ERR_ASSERTION]',
                 'Connection events not implemented',
-            ),
-        )
-    })
-    test('register with streams - currently unimplemented', () => {
-        expect(() =>
-            connection.registerProxy({
-                name,
-                streams: new Set(['streamName']),
-            }),
-        ).toThrow(
-            errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
-                'Connection streams not implemented',
             ),
         )
     })
@@ -423,7 +394,7 @@ describe('proxy registration', () => {
             ),
         )
     })
-    test('get registered services', () => {
+    test('get registered proxies', () => {
         instance.testAction = expect.any(Function)
         instance.anotherAction = expect.any(Function)
         const actions = new Set(['testAction', 'anotherAction'])
@@ -437,7 +408,6 @@ describe('proxy registration', () => {
             events: new Set(),
             instance,
             name,
-            streams: new Set(),
         })
         expect(connection.getProxy(name)).toEqual(instance)
         expect(connection.getProxyDescriptor(anotherName)).toEqual({
@@ -445,7 +415,6 @@ describe('proxy registration', () => {
             events: new Set(),
             instance: anotherInstance,
             name: anotherName,
-            streams: new Set(),
         })
         expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
         expect(connection.getProxyDescriptor('missing')).toBe(undefined)
@@ -481,33 +450,8 @@ describe('message validation', () => {
             'data',
         ],
         [
-            'invalid data ({}; message type: STREAM_OPEN)',
-            { ...message, data: {}, type: MessageType.STREAM_OPEN },
-            'data',
-        ],
-        [
             'invalid data ({}; message type: REPLY_ERROR)',
             { ...message, data: {}, name: null, type: MessageType.REPLY_ERROR },
-            'data',
-        ],
-        [
-            'invalid data ({}; message type: STREAM_INPUT_ERROR)',
-            {
-                ...message,
-                data: {},
-                name: null,
-                type: MessageType.STREAM_INPUT_ERROR,
-            },
-            'data',
-        ],
-        [
-            'invalid data ({}; message type: STREAM_OUTPUT_ERROR)',
-            {
-                ...message,
-                data: {},
-                name: null,
-                type: MessageType.STREAM_OUTPUT_ERROR,
-            },
             'data',
         ],
         ['invalid id', { ...message, id: 0.5 }, 'id'],
@@ -519,11 +463,6 @@ describe('message validation', () => {
         [
             'invalid name (type=REQUEST)',
             { ...message, type: MessageType.REQUEST, name: undefined },
-            'name',
-        ],
-        [
-            'invalid name (type=STREAM_OPEN)',
-            { ...message, type: MessageType.STREAM_OPEN, name: undefined },
             'name',
         ],
         [
@@ -547,11 +486,6 @@ describe('message validation', () => {
             'name',
         ],
         [
-            'invalid name (type=STREAM_INPUT_ERROR)',
-            { ...message, type: MessageType.STREAM_INPUT_ERROR },
-            'name',
-        ],
-        [
             'invalid name (type=STREAM_OUTPUT_DATA)',
             { ...message, type: MessageType.STREAM_OUTPUT_DATA },
             'name',
@@ -561,14 +495,17 @@ describe('message validation', () => {
             { ...message, type: MessageType.STREAM_OUTPUT_END },
             'name',
         ],
-        [
-            'invalid name (type=STREAM_OUTPUT_ERROR)',
-            { ...message, type: MessageType.STREAM_OUTPUT_ERROR },
-            'name',
-        ],
         ['invalid service', { ...message, service: undefined }, 'service'],
-        ['invalid type (too small)', { ...message, type: -1 }, 'type'],
-        ['invalid type (too big)', { ...message, type: 11 }, 'type'],
+        [
+            'invalid type (too small)',
+            { ...message, type: MessageType.EVENT - 1 },
+            'type',
+        ],
+        [
+            'invalid type (too big)',
+            { ...message, type: MessageType.STREAM_OUTPUT_END + 1 },
+            'type',
+        ],
     ])('%s', async (_, invalidMessage, property) => {
         const onDisconnect = jest.fn()
         const onError = jest.fn()
@@ -611,10 +548,6 @@ describe('message validation', () => {
             },
         ],
         [
-            'valid type (STREAM_OPEN)',
-            { ...message, type: MessageType.STREAM_OPEN },
-        ],
-        [
             'valid type (STREAM_INPUT_DATA)',
             {
                 ...message,
@@ -628,15 +561,6 @@ describe('message validation', () => {
                 ...message,
                 name: undefined,
                 type: MessageType.STREAM_INPUT_END,
-            },
-        ],
-        [
-            'valid type (STREAM_INPUT_ERROR)',
-            {
-                ...message,
-                data: error,
-                name: undefined,
-                type: MessageType.STREAM_INPUT_ERROR,
             },
         ],
         [
@@ -655,25 +579,12 @@ describe('message validation', () => {
                 type: MessageType.STREAM_OUTPUT_END,
             },
         ],
-        [
-            'valid type (STREAM_OUTPUT_ERROR)',
-            {
-                ...message,
-                data: error,
-                name: undefined,
-                type: MessageType.STREAM_OUTPUT_ERROR,
-            },
-        ],
         ['valid data (null)', { ...message, data: null }],
         ['valid data (object)', { ...message, data: {} }],
         ['valid data (Array)', { ...message, data: [] }],
         [
             'valid data (Array; type: REQUEST)',
             { ...message, data: [], type: MessageType.REQUEST },
-        ],
-        [
-            'valid data (Array; type: STREAM_OPEN)',
-            { ...message, data: [], type: MessageType.STREAM_OPEN },
         ],
         ['valid data (string)', { ...message, data: '' }],
         ['valid data (number)', { ...message, data: 0 }],
@@ -696,13 +607,10 @@ describe('MessageType', () => {
         ['REQUEST', MessageType.REQUEST, 1],
         ['REPLY_VALUE', MessageType.REPLY_VALUE, 2],
         ['REPLY_ERROR', MessageType.REPLY_ERROR, 3],
-        ['STREAM_OPEN', MessageType.STREAM_OPEN, 4],
-        ['STREAM_INPUT_DATA', MessageType.STREAM_INPUT_DATA, 5],
-        ['STREAM_INPUT_END', MessageType.STREAM_INPUT_END, 6],
-        ['STREAM_INPUT_ERROR', MessageType.STREAM_INPUT_ERROR, 7],
-        ['STREAM_OUTPUT_DATA', MessageType.STREAM_OUTPUT_DATA, 8],
-        ['STREAM_OUTPUT_END', MessageType.STREAM_OUTPUT_END, 9],
-        ['STREAM_OUTPUT_ERROR', MessageType.STREAM_OUTPUT_ERROR, 10],
+        ['STREAM_INPUT_DATA', MessageType.STREAM_INPUT_DATA, 4],
+        ['STREAM_INPUT_END', MessageType.STREAM_INPUT_END, 5],
+        ['STREAM_OUTPUT_DATA', MessageType.STREAM_OUTPUT_DATA, 6],
+        ['STREAM_OUTPUT_END', MessageType.STREAM_OUTPUT_END, 7],
     ])('%s', (_, actual, expected) => {
         expect(actual).toBe(expected)
     })
@@ -731,22 +639,10 @@ describe('no service', () => {
             MessageType.REPLY_ERROR,
         ],
         [
-            'stream for an unregistered service',
-            'unregistered-service',
-            MessageType.STREAM_OPEN,
-            MessageType.STREAM_OUTPUT_ERROR,
-        ],
-        [
             'action for a registered service',
             'a-service',
             MessageType.REQUEST,
             MessageType.REPLY_ERROR,
-        ],
-        [
-            'stream for a registered service',
-            'a-service',
-            MessageType.STREAM_OPEN,
-            MessageType.STREAM_OUTPUT_ERROR,
         ],
     ])('%s', async (_, serviceName, inputCode, outputCode) => {
         const onData = jest.fn()

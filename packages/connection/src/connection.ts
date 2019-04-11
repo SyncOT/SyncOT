@@ -19,14 +19,12 @@ type ServiceName = string
 type ProxyName = string
 type ActionName = string
 type EventName = string
-type StreamName = string
 
 export type Service = object
 export interface ServiceDescriptor {
     name: ServiceName
     actions?: Set<ActionName>
     events?: Set<EventName>
-    streams?: Set<StreamName>
     instance: Service
 }
 export interface RegisteredServiceDescriptor
@@ -36,7 +34,6 @@ export interface ProxyDescriptor {
     name: ProxyName
     actions?: Set<ActionName>
     events?: Set<EventName>
-    streams?: Set<StreamName>
 }
 export interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
     instance: Proxy
@@ -56,13 +53,10 @@ export const enum MessageType {
     REQUEST,
     REPLY_VALUE,
     REPLY_ERROR,
-    STREAM_OPEN,
     STREAM_INPUT_DATA,
     STREAM_INPUT_END,
-    STREAM_INPUT_ERROR,
     STREAM_OUTPUT_DATA,
     STREAM_OUTPUT_END,
-    STREAM_OUTPUT_ERROR,
 }
 
 enum Source {
@@ -77,13 +71,10 @@ function getSource(message: Message): Source {
         case MessageType.REPLY_ERROR:
         case MessageType.STREAM_OUTPUT_DATA:
         case MessageType.STREAM_OUTPUT_END:
-        case MessageType.STREAM_OUTPUT_ERROR:
             return Source.SERVICE
         case MessageType.REQUEST:
-        case MessageType.STREAM_OPEN:
         case MessageType.STREAM_INPUT_DATA:
         case MessageType.STREAM_INPUT_END:
-        case MessageType.STREAM_INPUT_ERROR:
             return Source.PROXY
         /* istanbul ignore next */
         default:
@@ -98,22 +89,19 @@ export type Message =
     | {
           type: MessageType.EVENT
           service: ServiceName | ProxyName
-          name: EventName | ActionName | StreamName
+          name: EventName | ActionName
           id: RequestId
           data: any
       }
     | {
-          type: MessageType.REQUEST | MessageType.STREAM_OPEN
+          type: MessageType.REQUEST
           service: ServiceName | ProxyName
-          name: EventName | ActionName | StreamName
+          name: EventName | ActionName
           id: RequestId
           data: any[]
       }
     | {
-          type:
-              | MessageType.REPLY_ERROR
-              | MessageType.STREAM_INPUT_ERROR
-              | MessageType.STREAM_OUTPUT_ERROR
+          type: MessageType.REPLY_ERROR
           service: ServiceName | ProxyName
           name?: null
           id: RequestId
@@ -140,7 +128,7 @@ const validateMessage: Validator<Message> = validate([
     message =>
         Number.isSafeInteger(message.type) &&
         message.type >= MessageType.EVENT &&
-        message.type <= MessageType.STREAM_OUTPUT_ERROR
+        message.type <= MessageType.STREAM_OUTPUT_END
             ? undefined
             : createInvalidEntityError('Message', message, 'type'),
     message =>
@@ -149,8 +137,7 @@ const validateMessage: Validator<Message> = validate([
             : createInvalidEntityError('Message', message, 'service'),
     message =>
         (message.type === MessageType.EVENT ||
-        message.type === MessageType.REQUEST ||
-        message.type === MessageType.STREAM_OPEN
+        message.type === MessageType.REQUEST
           ? typeof message.name === 'string'
           : message.name == null)
             ? undefined
@@ -160,19 +147,12 @@ const validateMessage: Validator<Message> = validate([
             ? undefined
             : createInvalidEntityError('Message', message, 'id'),
     message => {
-        if (
-            message.type === MessageType.REQUEST ||
-            message.type === MessageType.STREAM_OPEN
-        ) {
+        if (message.type === MessageType.REQUEST) {
             return Array.isArray(message.data)
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
-        if (
-            message.type === MessageType.REPLY_ERROR ||
-            message.type === MessageType.STREAM_INPUT_ERROR ||
-            message.type === MessageType.STREAM_OUTPUT_ERROR
-        ) {
+        if (message.type === MessageType.REPLY_ERROR) {
             return message.data instanceof Error
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
@@ -266,7 +246,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         name,
         actions = new Set(),
         events = new Set(),
-        streams = new Set(),
         instance,
     }: ServiceDescriptor): void {
         this.assertNotDestroyed()
@@ -279,7 +258,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             `Service "${name}" has been already registered.`,
         )
         assert.equal(events.size, 0, 'Connection events not implemented')
-        assert.equal(streams.size, 0, 'Connection streams not implemented')
         actions.forEach(action => {
             assert.equal(
                 typeof (instance as any)[action],
@@ -288,7 +266,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             )
         })
         this.initService(instance, name, actions)
-        this.services.set(name, { actions, events, instance, name, streams })
+        this.services.set(name, { actions, events, instance, name })
     }
 
     public getServiceNames(): ServiceName[] {
@@ -310,7 +288,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         name,
         actions = new Set(),
         events = new Set(),
-        streams = new Set(),
     }: ProxyDescriptor): void {
         this.assertNotDestroyed()
         assert.ok(
@@ -318,9 +295,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             `Proxy "${name}" has been already registered.`,
         )
         assert.equal(events.size, 0, 'Connection events not implemented')
-        assert.equal(streams.size, 0, 'Connection streams not implemented')
         const instance = this.createProxy(name, actions)
-        this.proxies.set(name, { actions, events, instance, name, streams })
+        this.proxies.set(name, { actions, events, instance, name })
     }
 
     public getProxyNames(): ProxyName[] {
@@ -407,19 +383,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                 type: MessageType.REPLY_ERROR,
                             })
                         }
-                        break
-                    }
-                    case MessageType.STREAM_OPEN: {
-                        this.send({
-                            ...message,
-                            data: createNoServiceError(
-                                `No service to handle the stream for "${
-                                    message.service
-                                }.${message.name}".`,
-                            ),
-                            name: null,
-                            type: MessageType.STREAM_OUTPUT_ERROR,
-                        })
                         break
                     }
                 }
@@ -549,17 +512,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         ),
                         name: null,
                         type: MessageType.REPLY_ERROR,
-                    })
-                case MessageType.STREAM_OPEN:
-                    return this.send({
-                        ...message,
-                        data: createNoServiceError(
-                            `No service to handle the stream for "${
-                                message.service
-                            }.${message.name}".`,
-                        ),
-                        name: null,
-                        type: MessageType.STREAM_OUTPUT_ERROR,
                     })
             }
         }
