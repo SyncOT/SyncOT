@@ -195,12 +195,12 @@ beforeEach(async () => {
     presenceProxy = connection2.getProxy('presence') as PresenceService
 })
 
-afterEach(() => {
+afterEach(async () => {
     clock.uninstall()
     connection1.disconnect()
     connection2.disconnect()
     presenceService.destroy()
-    redis.flushall()
+    await redis.flushall()
     redis.disconnect()
     redisSubscriber.disconnect()
     ;(monitor as any).disconnect()
@@ -1056,15 +1056,10 @@ describe('getPresenceByUserId', () => {
         })
         await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
 
-        // Sort the result because Redis Set does not.
         const presenceObjects = await presenceProxy.getPresenceByUserId(userId)
-        if (presenceObjects[0].sessionId === sessionId2) {
-            const presenceObject = presenceObjects[0]
-            presenceObjects[0] = presenceObjects[1]
-            presenceObjects[1] = presenceObject
-        }
-
-        expect(presenceObjects).toEqual([presence, { ...presence2, userId }])
+        expect(presenceObjects.length).toBe(2)
+        expect(presenceObjects).toContainEqual(presence)
+        expect(presenceObjects).toContainEqual({ ...presence2, userId })
     })
 
     test('not authorized to get one of 2 presence objects', async () => {
@@ -1291,20 +1286,12 @@ describe('getPresenceByLocationId', () => {
         })
         await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
 
-        // Sort the result because Redis Set does not.
         const presenceObjects = await presenceProxy.getPresenceByLocationId(
             locationId,
         )
-        if (presenceObjects[0].sessionId === sessionId2) {
-            const presenceObject = presenceObjects[0]
-            presenceObjects[0] = presenceObjects[1]
-            presenceObjects[1] = presenceObject
-        }
-
-        expect(presenceObjects).toEqual([
-            presence,
-            { ...presence2, locationId },
-        ])
+        expect(presenceObjects.length).toBe(2)
+        expect(presenceObjects).toContainEqual(presence)
+        expect(presenceObjects).toContainEqual({ ...presence2, locationId })
     })
 
     test('get two presence objects', async () => {
