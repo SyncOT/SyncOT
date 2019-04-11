@@ -53,6 +53,7 @@ export const enum MessageType {
     REQUEST,
     REPLY_VALUE,
     REPLY_ERROR,
+    REPLY_STREAM,
     STREAM_INPUT_DATA,
     STREAM_INPUT_END,
     STREAM_OUTPUT_DATA,
@@ -69,6 +70,7 @@ function getSource(message: Message): Source {
         case MessageType.EVENT:
         case MessageType.REPLY_VALUE:
         case MessageType.REPLY_ERROR:
+        case MessageType.REPLY_STREAM:
         case MessageType.STREAM_OUTPUT_DATA:
         case MessageType.STREAM_OUTPUT_END:
             return Source.SERVICE
@@ -106,6 +108,13 @@ export type Message =
           name?: null
           id: RequestId
           data: Error
+      }
+    | {
+          type: MessageType.REPLY_STREAM
+          service: ServiceName | ProxyName
+          name?: null
+          id: RequestId
+          data?: null
       }
     | {
           type:
@@ -154,6 +163,11 @@ const validateMessage: Validator<Message> = validate([
         }
         if (message.type === MessageType.REPLY_ERROR) {
             return message.data instanceof Error
+                ? undefined
+                : createInvalidEntityError('Message', message, 'data')
+        }
+        if (message.type === MessageType.REPLY_STREAM) {
+            return message.data == null
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }

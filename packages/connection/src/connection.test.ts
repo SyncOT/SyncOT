@@ -459,6 +459,16 @@ describe('message validation', () => {
             { ...message, data: {}, name: null, type: MessageType.REPLY_ERROR },
             'data',
         ],
+        [
+            'invalid data ({}; message type: REPLY_STREAM)',
+            {
+                ...message,
+                data: {},
+                name: null,
+                type: MessageType.REPLY_STREAM,
+            },
+            'data',
+        ],
         ['invalid id', { ...message, id: 0.5 }, 'id'],
         [
             'invalid name (type=EVENT)',
@@ -478,6 +488,11 @@ describe('message validation', () => {
         [
             'invalid name (type=REPLY_ERROR)',
             { ...message, type: MessageType.REPLY_ERROR },
+            'name',
+        ],
+        [
+            'invalid name (type=REPLY_STREAM)',
+            { ...message, data: undefined, type: MessageType.REPLY_STREAM },
             'name',
         ],
         [
@@ -553,6 +568,15 @@ describe('message validation', () => {
             },
         ],
         [
+            'valid type (REPLY_STREAM)',
+            {
+                ...message,
+                data: undefined,
+                name: undefined,
+                type: MessageType.REPLY_STREAM,
+            },
+        ],
+        [
             'valid type (STREAM_INPUT_DATA)',
             {
                 ...message,
@@ -585,6 +609,15 @@ describe('message validation', () => {
             },
         ],
         ['valid data (null)', { ...message, data: null }],
+        [
+            'valid data (null; type: REPLY_STREAM)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.REPLY_STREAM,
+            },
+        ],
         ['valid data (object)', { ...message, data: {} }],
         ['valid data (Array)', { ...message, data: [] }],
         [
@@ -612,10 +645,11 @@ describe('MessageType', () => {
         ['REQUEST', MessageType.REQUEST, 1],
         ['REPLY_VALUE', MessageType.REPLY_VALUE, 2],
         ['REPLY_ERROR', MessageType.REPLY_ERROR, 3],
-        ['STREAM_INPUT_DATA', MessageType.STREAM_INPUT_DATA, 4],
-        ['STREAM_INPUT_END', MessageType.STREAM_INPUT_END, 5],
-        ['STREAM_OUTPUT_DATA', MessageType.STREAM_OUTPUT_DATA, 6],
-        ['STREAM_OUTPUT_END', MessageType.STREAM_OUTPUT_END, 7],
+        ['REPLY_STREAM', MessageType.REPLY_STREAM, 4],
+        ['STREAM_INPUT_DATA', MessageType.STREAM_INPUT_DATA, 5],
+        ['STREAM_INPUT_END', MessageType.STREAM_INPUT_END, 6],
+        ['STREAM_OUTPUT_DATA', MessageType.STREAM_OUTPUT_DATA, 7],
+        ['STREAM_OUTPUT_END', MessageType.STREAM_OUTPUT_END, 8],
     ])('%s', (_, actual, expected) => {
         expect(actual).toBe(expected)
     })
