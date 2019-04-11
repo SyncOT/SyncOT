@@ -17,6 +17,10 @@ const originalSetTimeout = setTimeout
 const delay = () => new Promise(resolve => originalSetTimeout(resolve, 0))
 
 const testError = new Error('test-error')
+const testErrorMatcher = expect.objectContaining({
+    message: 'test-error',
+    name: 'Error',
+})
 const syncErrorMatcher = expect.objectContaining({
     message: 'Failed to sync presence. => Error: test-error',
     name: 'SyncOtError Presence',
@@ -479,5 +483,70 @@ describe('removePresence', () => {
         await delay()
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(syncErrorMatcher)
+    })
+})
+
+describe('getPresenceBySessionId', () => {
+    test('success', async () => {
+        presenceService.getPresenceBySessionId.mockResolvedValue(presence)
+        await expect(
+            presenceClient.getPresenceBySessionId(sessionId),
+        ).resolves.toEqual(presence)
+        expect(presenceService.getPresenceBySessionId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceBySessionId).toHaveBeenCalledWith(
+            sessionId,
+        )
+    })
+    test('error', async () => {
+        presenceService.getPresenceBySessionId.mockRejectedValue(testError)
+        await expect(
+            presenceClient.getPresenceBySessionId(sessionId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(presenceService.getPresenceBySessionId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceBySessionId).toHaveBeenCalledWith(
+            sessionId,
+        )
+    })
+})
+
+describe('getPresenceByUserId', () => {
+    test('success', async () => {
+        presenceService.getPresenceByUserId.mockResolvedValue([presence])
+        await expect(
+            presenceClient.getPresenceByUserId(userId),
+        ).resolves.toEqual([presence])
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(userId)
+    })
+    test('error', async () => {
+        presenceService.getPresenceByUserId.mockRejectedValue(testError)
+        await expect(
+            presenceClient.getPresenceByUserId(userId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(userId)
+    })
+})
+
+describe('getPresenceByLocationId', () => {
+    test('success', async () => {
+        presenceService.getPresenceByLocationId.mockResolvedValue([presence])
+        await expect(
+            presenceClient.getPresenceByLocationId(locationId),
+        ).resolves.toEqual([presence])
+        expect(presenceService.getPresenceByLocationId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceByLocationId).toHaveBeenCalledWith(
+            locationId,
+        )
+    })
+    test('error', async () => {
+        presenceService.getPresenceByLocationId.mockRejectedValue(testError)
+        await expect(
+            presenceClient.getPresenceByLocationId(locationId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(presenceService.getPresenceByLocationId).toHaveBeenCalledTimes(1)
+        expect(presenceService.getPresenceByLocationId).toHaveBeenCalledWith(
+            locationId,
+        )
     })
 })
