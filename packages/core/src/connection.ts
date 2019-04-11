@@ -3,10 +3,16 @@ import {
     createInvalidEntityError,
     createNoServiceError,
 } from '@syncot/error'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
+import {
+    assertUnreachable,
+    EmitterInterface,
+    SyncOtEmitter,
+    throwError,
+    validate,
+    Validator,
+} from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex, finished } from 'stream'
-import { assertUnreachable, throwError, validate, Validator } from './util'
 
 type RequestId = number
 type ServiceName = string

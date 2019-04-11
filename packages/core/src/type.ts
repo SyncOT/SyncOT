@@ -1,6 +1,5 @@
 import { createInvalidEntityError } from '@syncot/error'
-import { Id, isId } from '@syncot/util'
-import { throwError, validate, Validator } from './util'
+import { Id, isId, throwError, validate, Validator } from '@syncot/util'
 
 /**
  * Represents the actions which turn one snapshot into another.

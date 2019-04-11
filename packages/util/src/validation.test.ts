@@ -1,6 +1,5 @@
 import { createInvalidEntityError } from '@syncot/error'
-import { throwError, validate, Validator } from '.'
-import { assertUnreachable } from './util'
+import { assertUnreachable, throwError, validate, Validator } from '.'
 
 const error = createInvalidEntityError('test error', null)
 const numberError = createInvalidEntityError('number error', null)

@@ -1,5 +1,5 @@
 import { AuthService } from '@syncot/auth'
-import { Connection, throwError } from '@syncot/core'
+import { Connection } from '@syncot/core'
 import { createAuthError, createPresenceError } from '@syncot/error'
 import {
     Presence,
@@ -9,7 +9,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { decode, encode } from '@syncot/tson'
-import { Id, idEqual, SyncOtEmitter } from '@syncot/util'
+import { Id, idEqual, SyncOtEmitter, throwError } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 

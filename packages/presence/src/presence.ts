@@ -1,6 +1,12 @@
-import { validate, Validator } from '@syncot/core'
 import { createInvalidEntityError } from '@syncot/error'
-import { EmitterInterface, Id, isId, SyncOtEmitter } from '@syncot/util'
+import {
+    EmitterInterface,
+    Id,
+    isId,
+    SyncOtEmitter,
+    validate,
+    Validator,
+} from '@syncot/util'
 
 export interface Presence {
     readonly sessionId: Id

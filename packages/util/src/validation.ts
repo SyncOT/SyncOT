@@ -1,4 +1,3 @@
-import { InvalidEntityError } from '@syncot/error'
 import { strict as assert } from 'assert'
 
 /**
@@ -13,7 +12,7 @@ export function assertUnreachable(_never?: never): never {
 /**
  * The type of validation result.
  */
-export type ValidationResult = InvalidEntityError | undefined
+export type ValidationResult = Error | undefined
 
 /**
  * The type of a validator.
