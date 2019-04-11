@@ -53,9 +53,9 @@ interface Events {
  */
 export const enum MessageType {
     EVENT,
-    CALL_REQUEST,
-    CALL_REPLY,
-    CALL_ERROR,
+    REQUEST,
+    REPLY_VALUE,
+    REPLY_ERROR,
     STREAM_OPEN,
     STREAM_INPUT_DATA,
     STREAM_INPUT_END,
@@ -73,13 +73,13 @@ enum Source {
 function getSource(message: Message): Source {
     switch (message.type) {
         case MessageType.EVENT:
-        case MessageType.CALL_REPLY:
-        case MessageType.CALL_ERROR:
+        case MessageType.REPLY_VALUE:
+        case MessageType.REPLY_ERROR:
         case MessageType.STREAM_OUTPUT_DATA:
         case MessageType.STREAM_OUTPUT_END:
         case MessageType.STREAM_OUTPUT_ERROR:
             return Source.SERVICE
-        case MessageType.CALL_REQUEST:
+        case MessageType.REQUEST:
         case MessageType.STREAM_OPEN:
         case MessageType.STREAM_INPUT_DATA:
         case MessageType.STREAM_INPUT_END:
@@ -103,7 +103,7 @@ export type Message =
           data: any
       }
     | {
-          type: MessageType.CALL_REQUEST | MessageType.STREAM_OPEN
+          type: MessageType.REQUEST | MessageType.STREAM_OPEN
           service: ServiceName | ProxyName
           name: EventName | ActionName | StreamName
           id: RequestId
@@ -111,7 +111,7 @@ export type Message =
       }
     | {
           type:
-              | MessageType.CALL_ERROR
+              | MessageType.REPLY_ERROR
               | MessageType.STREAM_INPUT_ERROR
               | MessageType.STREAM_OUTPUT_ERROR
           service: ServiceName | ProxyName
@@ -121,7 +121,7 @@ export type Message =
       }
     | {
           type:
-              | MessageType.CALL_REPLY
+              | MessageType.REPLY_VALUE
               | MessageType.STREAM_INPUT_DATA
               | MessageType.STREAM_INPUT_END
               | MessageType.STREAM_OUTPUT_DATA
@@ -149,7 +149,7 @@ const validateMessage: Validator<Message> = validate([
             : createInvalidEntityError('Message', message, 'service'),
     message =>
         (message.type === MessageType.EVENT ||
-        message.type === MessageType.CALL_REQUEST ||
+        message.type === MessageType.REQUEST ||
         message.type === MessageType.STREAM_OPEN
           ? typeof message.name === 'string'
           : message.name == null)
@@ -161,7 +161,7 @@ const validateMessage: Validator<Message> = validate([
             : createInvalidEntityError('Message', message, 'id'),
     message => {
         if (
-            message.type === MessageType.CALL_REQUEST ||
+            message.type === MessageType.REQUEST ||
             message.type === MessageType.STREAM_OPEN
         ) {
             return Array.isArray(message.data)
@@ -169,7 +169,7 @@ const validateMessage: Validator<Message> = validate([
                 : createInvalidEntityError('Message', message, 'data')
         }
         if (
-            message.type === MessageType.CALL_ERROR ||
+            message.type === MessageType.REPLY_ERROR ||
             message.type === MessageType.STREAM_INPUT_ERROR ||
             message.type === MessageType.STREAM_OUTPUT_ERROR
         ) {
@@ -355,7 +355,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             `message.${Source.PROXY}.${serviceName}` as any,
             (message: Message) => {
                 switch (message.type) {
-                    case MessageType.CALL_REQUEST: {
+                    case MessageType.REQUEST: {
                         const stream = this.stream
                         const action = message.name
 
@@ -380,7 +380,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                                     ? data
                                                     : null,
                                             name: null,
-                                            type: MessageType.CALL_REPLY,
+                                            type: MessageType.REPLY_VALUE,
                                         })
                                     },
                                     error => {
@@ -391,7 +391,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                             ...message,
                                             data: error,
                                             name: null,
-                                            type: MessageType.CALL_ERROR,
+                                            type: MessageType.REPLY_ERROR,
                                         })
                                     },
                                 )
@@ -404,7 +404,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                     }.${message.name}".`,
                                 ),
                                 name: null,
-                                type: MessageType.CALL_ERROR,
+                                type: MessageType.REPLY_ERROR,
                             })
                         }
                         break
@@ -450,7 +450,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                             id: requestId,
                             name: action,
                             service: proxyName,
-                            type: MessageType.CALL_REQUEST,
+                            type: MessageType.REQUEST,
                         })
                     })
                 } else {
@@ -467,7 +467,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             `message.${Source.SERVICE}.${proxyName}` as any,
             (message: Message) => {
                 switch (message.type) {
-                    case MessageType.CALL_REPLY: {
+                    case MessageType.REPLY_VALUE: {
                         const id = message.id
                         const request = actionRequests.get(id)
                         if (request) {
@@ -476,7 +476,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         }
                         break
                     }
-                    case MessageType.CALL_ERROR: {
+                    case MessageType.REPLY_ERROR: {
                         const id = message.id
                         const request = actionRequests.get(id)
                         if (request) {
@@ -539,7 +539,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
         if (!handled) {
             switch (message.type) {
-                case MessageType.CALL_REQUEST:
+                case MessageType.REQUEST:
                     return this.send({
                         ...message,
                         data: createNoServiceError(
@@ -548,7 +548,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                             }.${message.name}".`,
                         ),
                         name: null,
-                        type: MessageType.CALL_ERROR,
+                        type: MessageType.REPLY_ERROR,
                     })
                 case MessageType.STREAM_OPEN:
                     return this.send({

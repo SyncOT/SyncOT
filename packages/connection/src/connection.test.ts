@@ -476,8 +476,8 @@ describe('message validation', () => {
         ['invalid message', true, null],
         ['invalid data (missing)', omit(message, 'data'), 'data'],
         [
-            'invalid data ({}; message type: CALL_REQUEST)',
-            { ...message, data: {}, type: MessageType.CALL_REQUEST },
+            'invalid data ({}; message type: REQUEST)',
+            { ...message, data: {}, type: MessageType.REQUEST },
             'data',
         ],
         [
@@ -486,8 +486,8 @@ describe('message validation', () => {
             'data',
         ],
         [
-            'invalid data ({}; message type: CALL_ERROR)',
-            { ...message, data: {}, name: null, type: MessageType.CALL_ERROR },
+            'invalid data ({}; message type: REPLY_ERROR)',
+            { ...message, data: {}, name: null, type: MessageType.REPLY_ERROR },
             'data',
         ],
         [
@@ -517,8 +517,8 @@ describe('message validation', () => {
             'name',
         ],
         [
-            'invalid name (type=CALL_REQUEST)',
-            { ...message, type: MessageType.CALL_REQUEST, name: undefined },
+            'invalid name (type=REQUEST)',
+            { ...message, type: MessageType.REQUEST, name: undefined },
             'name',
         ],
         [
@@ -527,13 +527,13 @@ describe('message validation', () => {
             'name',
         ],
         [
-            'invalid name (type=CALL_REPLY)',
-            { ...message, type: MessageType.CALL_REPLY },
+            'invalid name (type=REPLY_VALUE)',
+            { ...message, type: MessageType.REPLY_VALUE },
             'name',
         ],
         [
-            'invalid name (type=CALL_ERROR)',
-            { ...message, type: MessageType.CALL_ERROR },
+            'invalid name (type=REPLY_ERROR)',
+            { ...message, type: MessageType.REPLY_ERROR },
             'name',
         ],
         [
@@ -596,21 +596,18 @@ describe('message validation', () => {
     test.each<[string, { [P in keyof Message]: any }]>([
         ['valid message', { ...message }],
         ['valid message (type=EVENT)', { ...message, type: MessageType.EVENT }],
+        ['valid type (REQUEST)', { ...message, type: MessageType.REQUEST }],
         [
-            'valid type (CALL_REQUEST)',
-            { ...message, type: MessageType.CALL_REQUEST },
+            'valid type (REPLY_VALUE)',
+            { ...message, name: undefined, type: MessageType.REPLY_VALUE },
         ],
         [
-            'valid type (CALL_REPLY)',
-            { ...message, name: undefined, type: MessageType.CALL_REPLY },
-        ],
-        [
-            'valid type (CALL_ERROR)',
+            'valid type (REPLY_ERROR)',
             {
                 ...message,
                 data: error,
                 name: undefined,
-                type: MessageType.CALL_ERROR,
+                type: MessageType.REPLY_ERROR,
             },
         ],
         [
@@ -671,8 +668,8 @@ describe('message validation', () => {
         ['valid data (object)', { ...message, data: {} }],
         ['valid data (Array)', { ...message, data: [] }],
         [
-            'valid data (Array; type: CALL_REQUEST)',
-            { ...message, data: [], type: MessageType.CALL_REQUEST },
+            'valid data (Array; type: REQUEST)',
+            { ...message, data: [], type: MessageType.REQUEST },
         ],
         [
             'valid data (Array; type: STREAM_OPEN)',
@@ -696,9 +693,9 @@ describe('message validation', () => {
 describe('MessageType', () => {
     test.each([
         ['EVENT', MessageType.EVENT, 0],
-        ['CALL_REQUEST', MessageType.CALL_REQUEST, 1],
-        ['CALL_REPLY', MessageType.CALL_REPLY, 2],
-        ['CALL_ERROR', MessageType.CALL_ERROR, 3],
+        ['REQUEST', MessageType.REQUEST, 1],
+        ['REPLY_VALUE', MessageType.REPLY_VALUE, 2],
+        ['REPLY_ERROR', MessageType.REPLY_ERROR, 3],
         ['STREAM_OPEN', MessageType.STREAM_OPEN, 4],
         ['STREAM_INPUT_DATA', MessageType.STREAM_INPUT_DATA, 5],
         ['STREAM_INPUT_END', MessageType.STREAM_INPUT_END, 6],
@@ -730,8 +727,8 @@ describe('no service', () => {
         [
             'action for an unregistered service',
             'unregistered-service',
-            MessageType.CALL_REQUEST,
-            MessageType.CALL_ERROR,
+            MessageType.REQUEST,
+            MessageType.REPLY_ERROR,
         ],
         [
             'stream for an unregistered service',
@@ -742,8 +739,8 @@ describe('no service', () => {
         [
             'action for a registered service',
             'a-service',
-            MessageType.CALL_REQUEST,
-            MessageType.CALL_ERROR,
+            MessageType.REQUEST,
+            MessageType.REPLY_ERROR,
         ],
         [
             'stream for a registered service',
@@ -767,9 +764,7 @@ describe('no service', () => {
                 data: errorMatcher(
                     'SyncOtError NoService',
                     `No service to handle the ${
-                        inputCode === MessageType.CALL_REQUEST
-                            ? 'request'
-                            : 'stream'
+                        inputCode === MessageType.REQUEST ? 'request' : 'stream'
                     } for "${serviceName}.${message.name}".`,
                 ),
                 name: null,
@@ -850,7 +845,7 @@ describe('service and proxy', () => {
             id: 0,
             name: 'returnMethod',
             service: serviceName,
-            type: MessageType.CALL_REQUEST,
+            type: MessageType.REQUEST,
         }
         test.each([
             [
@@ -859,7 +854,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: 5,
                     name: null,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 },
             ],
             [
@@ -868,7 +863,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: 5,
                     name: null,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 },
             ],
             [
@@ -877,7 +872,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: testErrorMatcher,
                     name: null,
-                    type: MessageType.CALL_ERROR,
+                    type: MessageType.REPLY_ERROR,
                 },
             ],
             [
@@ -886,7 +881,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: testErrorMatcher,
                     name: null,
-                    type: MessageType.CALL_ERROR,
+                    type: MessageType.REPLY_ERROR,
                 },
             ],
         ])('%s', async (method, response) => {
@@ -936,7 +931,7 @@ describe('service and proxy', () => {
                 ...message,
                 data: 5,
                 name: null,
-                type: MessageType.CALL_REPLY,
+                type: MessageType.REPLY_VALUE,
             })
             expect(service.returnMethod.mock.calls.length).toBe(1)
             expect(service.returnMethod.mock.calls[0]).toEqual(params)
@@ -967,7 +962,7 @@ describe('service and proxy', () => {
                     ? value
                     : null,
                 name: null,
-                type: MessageType.CALL_REPLY,
+                type: MessageType.REPLY_VALUE,
             })
         })
         test('disconnect before resolving', async () => {
@@ -1115,7 +1110,7 @@ describe('service and proxy', () => {
                         ...message,
                         data: replyData,
                         name: actionName,
-                        type: MessageType.CALL_REPLY,
+                        type: MessageType.REPLY_VALUE,
                     })
                 })
                 stream2.on('data', onData)
@@ -1138,7 +1133,7 @@ describe('service and proxy', () => {
                         ...message,
                         data: error,
                         name: actionName,
-                        type: MessageType.CALL_ERROR,
+                        type: MessageType.REPLY_ERROR,
                     })
                 })
                 stream2.on('data', onData)
@@ -1161,7 +1156,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: replyData,
                     name: 'returnMethod',
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             connection.on('error', onError)
@@ -1199,13 +1194,13 @@ describe('service and proxy', () => {
                     ...message,
                     data: replyData,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
                 stream2.write({
                     ...message,
                     data: replyData,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             stream2.on('data', onData)
@@ -1227,13 +1222,13 @@ describe('service and proxy', () => {
                     ...message,
                     data: error,
                     name: undefined,
-                    type: MessageType.CALL_ERROR,
+                    type: MessageType.REPLY_ERROR,
                 })
                 stream2.write({
                     ...message,
                     data: error,
                     name: undefined,
-                    type: MessageType.CALL_ERROR,
+                    type: MessageType.REPLY_ERROR,
                 })
             })
             stream2.on('data', onData)
@@ -1304,7 +1299,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: message.data.length,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             stream2.on('data', onData)
@@ -1325,7 +1320,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: message.data.length,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             stream2.on('data', onData)
@@ -1346,7 +1341,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: message.data.length,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             stream2.on('data', onData)
@@ -1372,7 +1367,7 @@ describe('service and proxy', () => {
                     ...message,
                     data: message.data,
                     name: undefined,
-                    type: MessageType.CALL_REPLY,
+                    type: MessageType.REPLY_VALUE,
                 })
             })
             stream2.on('data', onData)
