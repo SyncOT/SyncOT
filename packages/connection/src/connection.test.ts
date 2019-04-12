@@ -469,6 +469,106 @@ describe('message validation', () => {
             },
             'data',
         ],
+        [
+            'invalid data ({ destroy: false, error }; message type: STREAM_INPUT_END)',
+            {
+                ...message,
+                data: { destroy: false, error },
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data (null; message type: STREAM_INPUT_END)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data (true; message type: STREAM_INPUT_END)',
+            {
+                ...message,
+                data: true,
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({ destroy: false }; message type: STREAM_INPUT_END)',
+            {
+                ...message,
+                data: { destroy: false },
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({ error: null }; message type: STREAM_INPUT_END)',
+            {
+                ...message,
+                data: { error: null },
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({ destroy: false, error }; message type: STREAM_OUTPUT_END)',
+            {
+                ...message,
+                data: { destroy: false, error },
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data (null; message type: STREAM_OUTPUT_END)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data (true; message type: STREAM_OUTPUT_END)',
+            {
+                ...message,
+                data: true,
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({ destroy: false }; message type: STREAM_OUTPUT_END)',
+            {
+                ...message,
+                data: { destroy: false },
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+            'data',
+        ],
+        [
+            'invalid data ({ error: null }; message type: STREAM_OUTPUT_END)',
+            {
+                ...message,
+                data: { error: null },
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+            'data',
+        ],
         ['invalid id', { ...message, id: 0.5 }, 'id'],
         [
             'invalid name (type=EVENT)',
@@ -502,7 +602,11 @@ describe('message validation', () => {
         ],
         [
             'invalid name (type=STREAM_INPUT_END)',
-            { ...message, type: MessageType.STREAM_INPUT_END },
+            {
+                ...message,
+                data: { destroy: false, error: null },
+                type: MessageType.STREAM_INPUT_END,
+            },
             'name',
         ],
         [
@@ -512,7 +616,11 @@ describe('message validation', () => {
         ],
         [
             'invalid name (type=STREAM_OUTPUT_END)',
-            { ...message, type: MessageType.STREAM_OUTPUT_END },
+            {
+                ...message,
+                data: { destroy: false, error: null },
+                type: MessageType.STREAM_OUTPUT_END,
+            },
             'name',
         ],
         ['invalid service', { ...message, service: undefined }, 'service'],
@@ -585,9 +693,37 @@ describe('message validation', () => {
             },
         ],
         [
-            'valid type (STREAM_INPUT_END)',
+            'valid type (STREAM_INPUT_END; destroy=false, error=null)',
             {
                 ...message,
+                data: {
+                    destroy: false,
+                    error: null,
+                },
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+        ],
+        [
+            'valid type (STREAM_INPUT_END; destroy=true, error=null)',
+            {
+                ...message,
+                data: {
+                    destroy: true,
+                    error: null,
+                },
+                name: null,
+                type: MessageType.STREAM_INPUT_END,
+            },
+        ],
+        [
+            'valid type (STREAM_INPUT_END; destroy=true, error=new Error())',
+            {
+                ...message,
+                data: {
+                    destroy: true,
+                    error,
+                },
                 name: null,
                 type: MessageType.STREAM_INPUT_END,
             },
@@ -601,9 +737,37 @@ describe('message validation', () => {
             },
         ],
         [
-            'valid type (STREAM_OUTPUT_END)',
+            'valid type (STREAM_OUTPUT_END; destroy=false, error=null)',
             {
                 ...message,
+                data: {
+                    destroy: false,
+                    error: null,
+                },
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+        ],
+        [
+            'valid type (STREAM_OUTPUT_END; destroy=true, error=null)',
+            {
+                ...message,
+                data: {
+                    destroy: true,
+                    error: null,
+                },
+                name: null,
+                type: MessageType.STREAM_OUTPUT_END,
+            },
+        ],
+        [
+            'valid type (STREAM_OUTPUT_END; destroy=true, error=new Error())',
+            {
+                ...message,
+                data: {
+                    destroy: true,
+                    error,
+                },
                 name: null,
                 type: MessageType.STREAM_OUTPUT_END,
             },

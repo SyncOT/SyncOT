@@ -117,12 +117,25 @@ export type Message =
           data: null
       }
     | {
+          type: MessageType.STREAM_INPUT_END | MessageType.STREAM_OUTPUT_END
+          service: ServiceName | ProxyName
+          name: null
+          id: RequestId
+          data:
+              | {
+                    destroy: boolean
+                    error: null
+                }
+              | {
+                    destroy: true
+                    error: Error
+                }
+      }
+    | {
           type:
               | MessageType.REPLY_VALUE
               | MessageType.STREAM_INPUT_DATA
-              | MessageType.STREAM_INPUT_END
               | MessageType.STREAM_OUTPUT_DATA
-              | MessageType.STREAM_OUTPUT_END
           service: ServiceName | ProxyName
           name: null
           id: RequestId
@@ -131,7 +144,7 @@ export type Message =
 
 const validateMessage: Validator<Message> = validate([
     message =>
-        typeof message === 'object' && message != null
+        typeof message === 'object' && message !== null
             ? undefined
             : createInvalidEntityError('Message', message, null),
     message =>
@@ -168,6 +181,19 @@ const validateMessage: Validator<Message> = validate([
         }
         if (message.type === MessageType.REPLY_STREAM) {
             return message.data === null
+                ? undefined
+                : createInvalidEntityError('Message', message, 'data')
+        }
+        if (
+            message.type === MessageType.STREAM_INPUT_END ||
+            message.type === MessageType.STREAM_OUTPUT_END
+        ) {
+            const data = message.data
+            return typeof data === 'object' &&
+                data !== null &&
+                (data.error === null
+                    ? data.destroy === true || data.destroy === false
+                    : data.destroy === true && data.error instanceof Error)
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
