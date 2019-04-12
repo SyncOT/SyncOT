@@ -198,7 +198,7 @@ test('disconnect', async () => {
 
 describe('sessionOpen', () => {
     beforeEach(done => {
-        sessionManager.on('sessionOpen', done)
+        sessionManager.once('sessionOpen', done)
     })
 
     test('state', () => {

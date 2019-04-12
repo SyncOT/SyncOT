@@ -11,7 +11,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { AssertionError, strict as assert } from 'assert'
 import { Duplex, finished } from 'stream'
 
 type RequestId = number
@@ -203,10 +203,29 @@ const validateMessage: Validator<Message> = validate([
     },
 ])
 
+interface ProxyRequest {
+    resolve: (value: any) => void
+    reject: (error: Error) => void
+}
+type ProxyRequestMap = Map<RequestId, ProxyRequest>
+type ServiceStreamMap = Map<RequestId, Duplex>
+
 class ConnectionImpl extends SyncOtEmitter<Events> {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
+    private proxyRequests: ProxyRequestMap[] = []
+    private serviceStreams: ServiceStreamMap[] = []
+    private _connectionId: number = 0
+
+    /**
+     * When disconnected, it is 0.
+     * When connected, it is a positive integer which is incremented every time a connection
+     * to a new stream is established.
+     */
+    public get connectionId(): number {
+        return this.stream ? this._connectionId : 0
+    }
 
     /**
      * Connects to the specified stream and emits the `'connect'` event.
@@ -232,6 +251,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             'Connection is already associated with a stream.',
         )
         this.stream = stream
+        this._connectionId++
 
         stream.on('data', data => {
             if (this.stream === stream) {
@@ -269,9 +289,11 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const stream = this.stream
 
         if (stream) {
+            this.emitAsync('disconnect')
+            this.cleanUpProxyRequests()
+            this.cleanUpServiceStreams()
             this.stream = null
             stream.destroy()
-            this.emitAsync('disconnect')
         }
     }
 
@@ -367,6 +389,9 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         serviceName: ServiceName,
         requestNames: Set<RequestName>,
     ): void {
+        const streams: Map<RequestId, Duplex> = new Map()
+        this.serviceStreams.push(streams)
+
         this.on(
             `message.${Source.PROXY}.${serviceName}` as any,
             (message: Message) => {
@@ -387,19 +412,40 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                         if (this.stream !== stream) {
                                             return
                                         }
-                                        const typeOfData = typeof data
-                                        this.send({
-                                            ...message,
-                                            data:
-                                                typeOfData === 'object' ||
-                                                typeOfData === 'number' ||
-                                                typeOfData === 'string' ||
-                                                typeOfData === 'boolean'
-                                                    ? data
-                                                    : null,
-                                            name: null,
-                                            type: MessageType.REPLY_VALUE,
-                                        })
+
+                                        if (data instanceof Duplex) {
+                                            if (streams.has(message.id)) {
+                                                stream!.destroy(
+                                                    new AssertionError({
+                                                        message:
+                                                            'Duplicate request ID.',
+                                                    }),
+                                                )
+                                                return
+                                            }
+
+                                            streams.set(message.id, data)
+                                            this.send({
+                                                ...message,
+                                                data: null,
+                                                name: null,
+                                                type: MessageType.REPLY_STREAM,
+                                            })
+                                        } else {
+                                            const typeOfData = typeof data
+                                            this.send({
+                                                ...message,
+                                                data:
+                                                    typeOfData === 'object' ||
+                                                    typeOfData === 'number' ||
+                                                    typeOfData === 'string' ||
+                                                    typeOfData === 'boolean'
+                                                        ? data
+                                                        : null,
+                                                name: null,
+                                                type: MessageType.REPLY_VALUE,
+                                            })
+                                        }
                                     },
                                     error => {
                                         if (this.stream !== stream) {
@@ -432,19 +478,26 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         )
     }
 
+    private cleanUpServiceStreams(): void {
+        const error = createDisconnectedError(
+            'Disconnected, service stream destroyed.',
+        )
+        for (const streams of this.serviceStreams) {
+            for (const stream of streams.values()) {
+                stream.destroy(error)
+            }
+            streams.clear()
+        }
+    }
+
     private createProxy(
         proxyName: ProxyName,
         requestNames: Set<RequestName>,
     ): Proxy {
         const proxy = {}
         let nextRequestId = 1
-        const requests: Map<
-            RequestId,
-            {
-                resolve: (value: any) => void
-                reject: (error: Error) => void
-            }
-        > = new Map()
+        const requests: ProxyRequestMap = new Map()
+        this.proxyRequests.push(requests)
 
         requestNames.forEach(requestName => {
             assert.ok(
@@ -500,19 +553,19 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             },
         )
 
-        this.on('disconnect', () => {
-            const error = createDisconnectedError(
-                'Disconnected, request failed.',
-            )
+        return proxy
+    }
+
+    private cleanUpProxyRequests(): void {
+        const error = createDisconnectedError('Disconnected, request failed.')
+        for (const requests of this.proxyRequests) {
             // Promises are resolved and rejected asynchronously, so it's safe to
             // iterate and clear the map directly without any risk of race conditions.
             for (const { reject } of requests.values()) {
                 reject(error)
             }
             requests.clear()
-        })
-
-        return proxy
+        }
     }
 
     private send(message: Message): void {

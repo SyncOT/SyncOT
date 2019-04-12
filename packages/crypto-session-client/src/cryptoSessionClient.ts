@@ -30,7 +30,6 @@ interface SessionService {
  */
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
-    private connectionNumber: number = 0
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKey: ArrayBuffer | undefined = undefined
     private sessionId: Id | undefined = undefined
@@ -84,7 +83,6 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
     private onDisconnect = () => {
         if (!this.destroyed) {
-            this.connectionNumber++
             if (this.active) {
                 this.active = false
                 this.emitAsync('sessionInactive')
@@ -134,16 +132,18 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
             this.connection.on('connect', this.onConnect)
             this.connection.on('disconnect', this.onDisconnect)
-            if (this.connection.isConnected()) {
-                this.activateSession()
-            }
+            this.activateSession()
         } catch (error) {
             this.destroy(createSessionError('Failed to open a session.', error))
         }
     }
 
     private async activateSession(): Promise<void> {
-        const connectionNumber = this.connectionNumber
+        if (!this.connection.isConnected()) {
+            return
+        }
+
+        const connectionId = this.connection.connectionId
 
         try {
             const challenge = await this.sessionService.getChallenge()
@@ -160,14 +160,17 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
             if (
                 !this.destroyed &&
-                this.connectionNumber === connectionNumber &&
+                this.connection.connectionId === connectionId &&
                 !this.active
             ) {
                 this.active = true
                 this.emitAsync('sessionActive')
             }
         } catch (error) {
-            if (!this.destroyed && this.connectionNumber === connectionNumber) {
+            if (
+                !this.destroyed &&
+                this.connection.connectionId === connectionId
+            ) {
                 this.emitAsync(
                     'error',
                     createSessionError('Failed to activate session.', error),
