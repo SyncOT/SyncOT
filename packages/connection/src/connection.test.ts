@@ -556,14 +556,14 @@ describe('message validation', () => {
         ['valid type (REQUEST)', { ...message, type: MessageType.REQUEST }],
         [
             'valid type (REPLY_VALUE)',
-            { ...message, name: undefined, type: MessageType.REPLY_VALUE },
+            { ...message, name: null, type: MessageType.REPLY_VALUE },
         ],
         [
             'valid type (REPLY_ERROR)',
             {
                 ...message,
                 data: error,
-                name: undefined,
+                name: null,
                 type: MessageType.REPLY_ERROR,
             },
         ],
@@ -571,8 +571,8 @@ describe('message validation', () => {
             'valid type (REPLY_STREAM)',
             {
                 ...message,
-                data: undefined,
-                name: undefined,
+                data: null,
+                name: null,
                 type: MessageType.REPLY_STREAM,
             },
         ],
@@ -580,7 +580,7 @@ describe('message validation', () => {
             'valid type (STREAM_INPUT_DATA)',
             {
                 ...message,
-                name: undefined,
+                name: null,
                 type: MessageType.STREAM_INPUT_DATA,
             },
         ],
@@ -588,7 +588,7 @@ describe('message validation', () => {
             'valid type (STREAM_INPUT_END)',
             {
                 ...message,
-                name: undefined,
+                name: null,
                 type: MessageType.STREAM_INPUT_END,
             },
         ],
@@ -596,7 +596,7 @@ describe('message validation', () => {
             'valid type (STREAM_OUTPUT_DATA)',
             {
                 ...message,
-                name: undefined,
+                name: null,
                 type: MessageType.STREAM_OUTPUT_DATA,
             },
         ],
@@ -604,20 +604,11 @@ describe('message validation', () => {
             'valid type (STREAM_OUTPUT_END)',
             {
                 ...message,
-                name: undefined,
+                name: null,
                 type: MessageType.STREAM_OUTPUT_END,
             },
         ],
         ['valid data (null)', { ...message, data: null }],
-        [
-            'valid data (null; type: REPLY_STREAM)',
-            {
-                ...message,
-                data: null,
-                name: null,
-                type: MessageType.REPLY_STREAM,
-            },
-        ],
         ['valid data (object)', { ...message, data: {} }],
         ['valid data (Array)', { ...message, data: [] }],
         [
@@ -1037,53 +1028,47 @@ describe('service and proxy', () => {
     })
 
     describe('proxy requests', () => {
-        test.each([null, undefined])(
-            'request, reply (reply name: %s)',
-            async replyName => {
-                const onData = jest.fn(message => {
-                    stream2.write({
-                        ...message,
-                        data: replyData,
-                        name: replyName,
-                        type: MessageType.REPLY_VALUE,
-                    })
+        test('request, reply', async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: replyData,
+                    name: null,
+                    type: MessageType.REPLY_VALUE,
                 })
-                stream2.on('data', onData)
-                await expect(
-                    proxy.returnMethod(
-                        1,
-                        'abc',
-                        [1, 2, 3],
-                        { key: 'value' },
-                        false,
-                    ),
-                ).resolves.toBe(replyData)
-            },
-        )
-        test.each([null, undefined])(
-            'request, error (error name: %s)',
-            async replyName => {
-                const onData = jest.fn(message => {
-                    stream2.write({
-                        ...message,
-                        data: error,
-                        name: replyName,
-                        type: MessageType.REPLY_ERROR,
-                    })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy.returnMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).resolves.toBe(replyData)
+        })
+        test('request, error', async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: error,
+                    name: null,
+                    type: MessageType.REPLY_ERROR,
                 })
-                stream2.on('data', onData)
-                await expect(
-                    proxy.returnMethod(
-                        1,
-                        'abc',
-                        [1, 2, 3],
-                        { key: 'value' },
-                        false,
-                    ),
-                ).rejects.toEqual(testErrorMatcher)
-            },
-        )
-        test(`request, reply (reply name: returnMethod)`, async () => {
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy.returnMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).rejects.toEqual(testErrorMatcher)
+        })
+        test(`request, invalid reply`, async () => {
             const onError = jest.fn()
             const onDisconnect = jest.fn()
             const onData = jest.fn(message => {
@@ -1128,13 +1113,13 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: replyData,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
                 stream2.write({
                     ...message,
                     data: replyData,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
             })
@@ -1156,13 +1141,13 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: error,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_ERROR,
                 })
                 stream2.write({
                     ...message,
                     data: error,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_ERROR,
                 })
             })
@@ -1233,7 +1218,7 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
             })
@@ -1254,7 +1239,7 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
             })
@@ -1275,7 +1260,7 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
             })
@@ -1301,7 +1286,7 @@ describe('service and proxy', () => {
                 stream2.write({
                     ...message,
                     data: message.data,
-                    name: undefined,
+                    name: null,
                     type: MessageType.REPLY_VALUE,
                 })
             })

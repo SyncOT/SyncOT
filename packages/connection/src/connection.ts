@@ -105,16 +105,16 @@ export type Message =
     | {
           type: MessageType.REPLY_ERROR
           service: ServiceName | ProxyName
-          name?: null
+          name: null
           id: RequestId
           data: Error
       }
     | {
           type: MessageType.REPLY_STREAM
           service: ServiceName | ProxyName
-          name?: null
+          name: null
           id: RequestId
-          data?: null
+          data: null
       }
     | {
           type:
@@ -124,7 +124,7 @@ export type Message =
               | MessageType.STREAM_OUTPUT_DATA
               | MessageType.STREAM_OUTPUT_END
           service: ServiceName | ProxyName
-          name?: null
+          name: null
           id: RequestId
           data: any
       }
@@ -148,7 +148,7 @@ const validateMessage: Validator<Message> = validate([
         (message.type === MessageType.EVENT ||
         message.type === MessageType.REQUEST
           ? typeof message.name === 'string'
-          : message.name == null)
+          : message.name === null)
             ? undefined
             : createInvalidEntityError('Message', message, 'name'),
     message =>
@@ -167,7 +167,7 @@ const validateMessage: Validator<Message> = validate([
                 : createInvalidEntityError('Message', message, 'data')
         }
         if (message.type === MessageType.REPLY_STREAM) {
-            return message.data == null
+            return message.data === null
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
