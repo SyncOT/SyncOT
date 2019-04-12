@@ -578,6 +578,46 @@ describe('message validation', () => {
             },
             'data',
         ],
+        [
+            'invalid data (null; message type: STREAM_OUTPUT_DATA)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.STREAM_OUTPUT_DATA,
+            },
+            'data',
+        ],
+        [
+            'invalid data (undefined; message type: STREAM_OUTPUT_DATA)',
+            {
+                ...message,
+                data: undefined,
+                name: null,
+                type: MessageType.STREAM_OUTPUT_DATA,
+            },
+            'data',
+        ],
+        [
+            'invalid data (null; message type: STREAM_INPUT_DATA)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.STREAM_INPUT_DATA,
+            },
+            'data',
+        ],
+        [
+            'invalid data (undefined; message type: STREAM_INPUT_DATA)',
+            {
+                ...message,
+                data: undefined,
+                name: null,
+                type: MessageType.STREAM_INPUT_DATA,
+            },
+            'data',
+        ],
         ['invalid id', { ...message, id: 0.5 }, 'id'],
         [
             'invalid name (type=EVENT)',

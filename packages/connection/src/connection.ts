@@ -197,6 +197,14 @@ const validateMessage: Validator<Message> = validate([
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
+        if (
+            message.type === MessageType.STREAM_INPUT_DATA ||
+            message.type === MessageType.STREAM_OUTPUT_DATA
+        ) {
+            return message.data != null
+                ? undefined
+                : createInvalidEntityError('Message', message, 'data')
+        }
         return message.hasOwnProperty('data')
             ? undefined
             : createInvalidEntityError('Message', message, 'data')
