@@ -56,8 +56,10 @@ export const enum MessageType {
     REPLY_STREAM,
     STREAM_INPUT_DATA,
     STREAM_INPUT_END,
+    STREAM_INPUT_DESTROY,
     STREAM_OUTPUT_DATA,
     STREAM_OUTPUT_END,
+    STREAM_OUTPUT_DESTROY,
 }
 
 enum Source {
@@ -73,10 +75,12 @@ function getSource(message: Message): Source {
         case MessageType.REPLY_STREAM:
         case MessageType.STREAM_OUTPUT_DATA:
         case MessageType.STREAM_OUTPUT_END:
+        case MessageType.STREAM_OUTPUT_DESTROY:
             return Source.SERVICE
         case MessageType.REQUEST:
         case MessageType.STREAM_INPUT_DATA:
         case MessageType.STREAM_INPUT_END:
+        case MessageType.STREAM_INPUT_DESTROY:
             return Source.PROXY
         /* istanbul ignore next */
         default:
@@ -121,15 +125,16 @@ export type Message =
           service: ServiceName | ProxyName
           name: null
           id: RequestId
-          data:
-              | {
-                    destroy: boolean
-                    error: null
-                }
-              | {
-                    destroy: true
-                    error: Error
-                }
+          data: null
+      }
+    | {
+          type:
+              | MessageType.STREAM_INPUT_DESTROY
+              | MessageType.STREAM_OUTPUT_DESTROY
+          service: ServiceName | ProxyName
+          name: null
+          id: RequestId
+          data: null | Error
       }
     | {
           type:
@@ -150,7 +155,7 @@ const validateMessage: Validator<Message> = validate([
     message =>
         Number.isSafeInteger(message.type) &&
         message.type >= MessageType.EVENT &&
-        message.type <= MessageType.STREAM_OUTPUT_END
+        message.type <= MessageType.STREAM_OUTPUT_DESTROY
             ? undefined
             : createInvalidEntityError('Message', message, 'type'),
     message =>
@@ -188,12 +193,7 @@ const validateMessage: Validator<Message> = validate([
             message.type === MessageType.STREAM_INPUT_END ||
             message.type === MessageType.STREAM_OUTPUT_END
         ) {
-            const data = message.data
-            return typeof data === 'object' &&
-                data !== null &&
-                (data.error === null
-                    ? data.destroy === true || data.destroy === false
-                    : data.destroy === true && data.error instanceof Error)
+            return message.data === null
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
@@ -202,6 +202,14 @@ const validateMessage: Validator<Message> = validate([
             message.type === MessageType.STREAM_OUTPUT_DATA
         ) {
             return message.data != null
+                ? undefined
+                : createInvalidEntityError('Message', message, 'data')
+        }
+        if (
+            message.type === MessageType.STREAM_INPUT_DESTROY ||
+            message.type === MessageType.STREAM_OUTPUT_DESTROY
+        ) {
+            return message.data === null || message.data instanceof Error
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
@@ -314,6 +322,23 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         return !!this.stream
     }
 
+    /**
+     * Registers a service which can be called through this connection.
+     *
+     * If any of the service's methods returns, or resolves to, a Duplex stream,
+     * it will be automatically connected to a Duplex stream returned by a proxy which initiated
+     * the method call. When using this feature, keep in mind the following limitations which apply
+     * on both the service and proxy side, unless specified otherwise:
+     *
+     * - The stream is assumed to operate in object mode, so stream data may be of any type
+     *   and encoding is not used.
+     * - When the stream emits an `error`, it gets destroyed automatically.
+     * - The stream is managed by the Connection until the Connection gets disconnected or
+     *   the stream emits `close` or `error`, so make sure `close` is emitted in normal operation
+     *   or you'll have a memory leak.
+     * - Stream data equal to `undefined` is ignored.
+     * - The stream returned by the proxy is configured with `allowHalfOpen=true`.
+     */
     public registerService({
         name,
         eventNames = new Set(),
@@ -483,6 +508,27 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         }
                         break
                     }
+                    case MessageType.STREAM_INPUT_DATA: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.write(message.data)
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_INPUT_END: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.end()
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_INPUT_DESTROY: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.destroy(message.data as any)
+                        }
+                        break
+                    }
                 }
             },
         )
@@ -550,40 +596,85 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         break
                     }
                     case MessageType.REPLY_STREAM: {
-                        const id = message.id
+                        const { id, service } = message
                         const request = requests.get(id)
                         if (request) {
                             requests.delete(id)
                             const stream = new Duplex({
-                                destroy: (
-                                    error: null | Error,
-                                    callback: (
-                                        error: null | Error,
-                                    ) => undefined,
-                                ) => {
-                                    callback(error)
-                                },
                                 final: (
                                     callback: (
                                         error: null | Error,
                                     ) => undefined,
                                 ) => {
+                                    if (this.stream) {
+                                        this.send({
+                                            data: null,
+                                            id,
+                                            name: null,
+                                            service,
+                                            type: MessageType.STREAM_INPUT_END,
+                                        })
+                                    }
                                     callback(null)
                                 },
                                 objectMode: true,
                                 read: () => undefined,
                                 write: (
-                                    _data: any,
+                                    data: any,
                                     _encoding: string,
                                     callback: (
                                         error: null | Error,
                                     ) => undefined,
                                 ) => {
+                                    if (this.stream && data != null) {
+                                        this.send({
+                                            data,
+                                            id,
+                                            name: null,
+                                            service,
+                                            type: MessageType.STREAM_INPUT_DATA,
+                                        })
+                                    }
                                     callback(null)
                                 },
                             })
                             streams.set(id, stream)
+
+                            const onClose = () => {
+                                streams.delete(id)
+                                if (this.stream) {
+                                    // this.send({})
+                                }
+                            }
+                            const onError = (_error: Error) => {
+                                streams.delete(id)
+                            }
+
+                            stream.on('close', onClose)
+                            stream.on('error', onError)
+
                             request.resolve(stream)
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_OUTPUT_DATA: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.push(message.data)
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_OUTPUT_END: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.push(null)
+                        }
+                        break
+                    }
+                    case MessageType.STREAM_OUTPUT_DESTROY: {
+                        const stream = streams.get(message.id)
+                        if (stream) {
+                            stream.destroy(message.data as any)
                         }
                         break
                     }
