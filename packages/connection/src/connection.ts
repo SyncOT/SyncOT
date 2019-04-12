@@ -207,15 +207,16 @@ interface ProxyRequest {
     resolve: (value: any) => void
     reject: (error: Error) => void
 }
-type ProxyRequestMap = Map<RequestId, ProxyRequest>
-type ServiceStreamMap = Map<RequestId, Duplex>
+type RequestMap = Map<RequestId, ProxyRequest>
+type StreamMap = Map<RequestId, Duplex>
 
 class ConnectionImpl extends SyncOtEmitter<Events> {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
-    private proxyRequests: ProxyRequestMap[] = []
-    private serviceStreams: ServiceStreamMap[] = []
+    private proxyRequests: RequestMap[] = []
+    private serviceStreams: StreamMap[] = []
+    private proxyStreams: StreamMap[] = []
     private _connectionId: number = 0
 
     /**
@@ -289,10 +290,11 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const stream = this.stream
 
         if (stream) {
-            this.emitAsync('disconnect')
-            this.cleanUpProxyRequests()
-            this.cleanUpServiceStreams()
             this.stream = null
+            this.emitAsync('disconnect')
+            this.cleanUpServiceStreams()
+            this.cleanUpProxyStreams()
+            this.cleanUpProxyRequests()
             stream.destroy()
         }
     }
@@ -478,26 +480,16 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         )
     }
 
-    private cleanUpServiceStreams(): void {
-        const error = createDisconnectedError(
-            'Disconnected, service stream destroyed.',
-        )
-        for (const streams of this.serviceStreams) {
-            for (const stream of streams.values()) {
-                stream.destroy(error)
-            }
-            streams.clear()
-        }
-    }
-
     private createProxy(
         proxyName: ProxyName,
         requestNames: Set<RequestName>,
     ): Proxy {
         const proxy = {}
         let nextRequestId = 1
-        const requests: ProxyRequestMap = new Map()
+        const requests: RequestMap = new Map()
+        const streams: StreamMap = new Map()
         this.proxyRequests.push(requests)
+        this.proxyStreams.push(streams)
 
         requestNames.forEach(requestName => {
             assert.ok(
@@ -549,11 +541,73 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         }
                         break
                     }
+                    case MessageType.REPLY_STREAM: {
+                        const id = message.id
+                        const request = requests.get(id)
+                        if (request) {
+                            requests.delete(id)
+                            const stream = new Duplex({
+                                destroy: (
+                                    error: null | Error,
+                                    callback: (
+                                        error: null | Error,
+                                    ) => undefined,
+                                ) => {
+                                    callback(error)
+                                },
+                                final: (
+                                    callback: (
+                                        error: null | Error,
+                                    ) => undefined,
+                                ) => {
+                                    callback(null)
+                                },
+                                objectMode: true,
+                                read: () => undefined,
+                                write: (
+                                    _data: any,
+                                    _encoding: string,
+                                    callback: (
+                                        error: null | Error,
+                                    ) => undefined,
+                                ) => {
+                                    callback(null)
+                                },
+                            })
+                            streams.set(id, stream)
+                            request.resolve(stream)
+                        }
+                        break
+                    }
                 }
             },
         )
 
         return proxy
+    }
+
+    private cleanUpServiceStreams(): void {
+        const error = createDisconnectedError(
+            'Disconnected, service stream destroyed.',
+        )
+        for (const streams of this.serviceStreams) {
+            for (const stream of streams.values()) {
+                stream.destroy(error)
+            }
+            streams.clear()
+        }
+    }
+
+    private cleanUpProxyStreams(): void {
+        const error = createDisconnectedError(
+            'Disconnected, proxy stream destroyed.',
+        )
+        for (const streams of this.proxyStreams) {
+            for (const stream of streams.values()) {
+                stream.destroy(error)
+            }
+            streams.clear()
+        }
     }
 
     private cleanUpProxyRequests(): void {

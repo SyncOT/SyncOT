@@ -1330,6 +1330,26 @@ describe('service and proxy', () => {
                 ),
             ).resolves.toBe(replyData)
         })
+        test('request, stream', async () => {
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: null,
+                    name: null,
+                    type: MessageType.REPLY_STREAM,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy.returnStreamMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).resolves.toBeInstanceOf(Duplex)
+        })
         test('request, error', async () => {
             const onData = jest.fn(message => {
                 stream2.write({
@@ -1417,6 +1437,34 @@ describe('service and proxy', () => {
             ).resolves.toBe(replyData)
             expect(onDisconnect).not.toHaveBeenCalled()
         })
+        test('request, stream, stream', async () => {
+            const onDisconnect = jest.fn()
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: null,
+                    name: null,
+                    type: MessageType.REPLY_STREAM,
+                })
+                stream2.write({
+                    ...message,
+                    data: null,
+                    name: null,
+                    type: MessageType.REPLY_STREAM,
+                })
+            })
+            stream2.on('data', onData)
+            await expect(
+                proxy.returnStreamMethod(
+                    1,
+                    'abc',
+                    [1, 2, 3],
+                    { key: 'value' },
+                    false,
+                ),
+            ).resolves.toBeInstanceOf(Duplex)
+            expect(onDisconnect).not.toHaveBeenCalled()
+        })
         test('request, error, error', async () => {
             const onDisconnect = jest.fn()
             const onData = jest.fn(message => {
@@ -1460,6 +1508,38 @@ describe('service and proxy', () => {
                     'Disconnected, request failed.',
                 ),
             )
+        })
+        test('request, stream, disconnect', async () => {
+            const onError = jest.fn()
+            const onClose = jest.fn()
+            const onData = jest.fn(message => {
+                stream2.write({
+                    ...message,
+                    data: null,
+                    name: null,
+                    type: MessageType.REPLY_STREAM,
+                })
+            })
+            stream2.on('data', onData)
+            const stream = await proxy.returnStreamMethod(
+                1,
+                'abc',
+                [1, 2, 3],
+                { key: 'value' },
+                false,
+            )
+            stream.on('error', onError)
+            stream.on('close', onClose)
+            connection.disconnect()
+            await delay()
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Disconnected, proxy stream destroyed.',
+                    name: 'SyncOtError Disconnected',
+                }),
+            )
+            expect(onClose).toHaveBeenCalledTimes(1)
         })
         test('request, destroy stream', async () => {
             const promise = proxy.returnMethod(
