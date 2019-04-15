@@ -27,15 +27,15 @@ export interface ServiceDescriptor {
     requestNames?: Set<RequestName>
     instance: Service
 }
-export interface RegisteredServiceDescriptor
-    extends Required<ServiceDescriptor> {}
+interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {}
+
 export type Proxy = object
 export interface ProxyDescriptor {
     name: ProxyName
     eventNames?: Set<EventName>
     requestNames?: Set<RequestName>
 }
-export interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
+interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
     instance: Proxy
 }
 
@@ -370,12 +370,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         return Array.from(this.services.keys())
     }
 
-    public getServiceDescriptor(
-        name: ServiceName,
-    ): RegisteredServiceDescriptor | undefined {
-        return this.services.get(name)
-    }
-
     public getService(name: ServiceName): Service | undefined {
         const descriptor = this.services.get(name)
         return descriptor && descriptor.instance
@@ -398,12 +392,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     public getProxyNames(): ProxyName[] {
         return Array.from(this.proxies.keys())
-    }
-
-    public getProxyDescriptor(
-        name: ProxyName,
-    ): RegisteredProxyDescriptor | undefined {
-        return this.proxies.get(name)
     }
 
     public getProxy(name: ProxyName): Proxy | undefined {

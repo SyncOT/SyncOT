@@ -6,8 +6,6 @@ import {
     Message,
     MessageType,
     Proxy,
-    RegisteredProxyDescriptor,
-    RegisteredServiceDescriptor,
     Service,
 } from '.'
 
@@ -359,21 +357,8 @@ describe('service registration', () => {
             name: anotherName,
         })
         expect(connection.getServiceNames()).toEqual([name, anotherName])
-        expect(connection.getServiceDescriptor(name)).toEqual({
-            eventNames: new Set(),
-            instance,
-            name,
-            requestNames,
-        } as RegisteredServiceDescriptor)
         expect(connection.getService(name)).toBe(instance)
-        expect(connection.getServiceDescriptor(anotherName)).toEqual({
-            eventNames: new Set(),
-            instance: anotherInstance,
-            name: anotherName,
-            requestNames: new Set(),
-        } as RegisteredServiceDescriptor)
         expect(connection.getService(anotherName)).toBe(anotherInstance)
-        expect(connection.getServiceDescriptor('missing')).toBe(undefined)
         expect(connection.getService('missing')).toBe(undefined)
     })
     test('after destroy', () => {
@@ -438,21 +423,8 @@ describe('proxy registration', () => {
         connection.registerProxy({ requestNames, name })
         connection.registerProxy({ name: anotherName })
         expect(connection.getProxyNames()).toEqual([name, anotherName])
-        expect(connection.getProxyDescriptor(name)).toEqual({
-            eventNames: new Set(),
-            instance,
-            name,
-            requestNames,
-        } as RegisteredProxyDescriptor)
         expect(connection.getProxy(name)).toEqual(instance)
-        expect(connection.getProxyDescriptor(anotherName)).toEqual({
-            eventNames: new Set(),
-            instance: anotherInstance,
-            name: anotherName,
-            requestNames: new Set(),
-        } as RegisteredProxyDescriptor)
         expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
-        expect(connection.getProxyDescriptor('missing')).toBe(undefined)
         expect(connection.getProxy('missing')).toBe(undefined)
     })
     test('after destroy', () => {
