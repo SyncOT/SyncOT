@@ -36,6 +36,24 @@ let instance: {
 }
 const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
+const whenClose = (stream: Duplex) =>
+    new Promise(resolve => stream.once('close', resolve))
+
+const whenEnd = (stream: Duplex) =>
+    new Promise(resolve => stream.once('end', resolve))
+
+const whenData = (stream: Duplex, expectedData: any) =>
+    new Promise((resolve, reject) =>
+        stream.once('data', data => {
+            try {
+                expect(data).toEqual(expectedData)
+                resolve()
+            } catch (e) {
+                reject(e)
+            }
+        }),
+    )
+
 const errorMatcher = (errorName: string, errorMessage: string) =>
     expect.objectContaining({ message: errorMessage, name: errorName })
 
@@ -893,10 +911,6 @@ describe('service and proxy', () => {
             objectMode: true,
         })
 
-        // TODO remove
-        returnedControllerStream = returnedControllerStream
-        resolvedControllerStream = resolvedControllerStream
-
         service = {
             rejectErrorMethod: jest.fn((..._args: any[]) =>
                 Promise.reject(error),
@@ -1652,22 +1666,162 @@ describe('service and proxy', () => {
             await expect(proxy2.returnMethod(...params)).resolves.toEqual(
                 replyData,
             )
-            const returnMethod = service.returnMethod as any
-            expect(returnMethod.mock.calls.length).toBe(1)
-            expect(returnMethod.mock.calls[0]).toEqual(params)
-            expect(returnMethod.mock.instances[0]).toBe(service)
+            expect(service.returnMethod.mock.calls.length).toBe(1)
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
+            expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
         test('request, error', async () => {
-            ;(service.returnMethod as any).mockImplementation(() =>
-                Promise.reject(error),
-            )
+            service.returnMethod.mockImplementation(() => Promise.reject(error))
             await expect(proxy2.returnMethod(...params)).rejects.toEqual(
                 testErrorMatcher,
             )
-            const returnMethod = service.returnMethod as any
-            expect(returnMethod.mock.calls.length).toBe(1)
-            expect(returnMethod.mock.calls[0]).toEqual(params)
-            expect(returnMethod.mock.instances[0]).toBe(service)
+            expect(service.returnMethod.mock.calls.length).toBe(1)
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
+            expect(service.returnMethod.mock.instances[0]).toBe(service)
+        })
+
+        describe('streams', () => {
+            test('return stream, input destroy', async () => {
+                const onError = jest.fn()
+                const onClose = jest.fn()
+
+                const proxyStream = await proxy2.returnStreamMethod(...params)
+                expect(service.returnStreamMethod.mock.calls.length).toBe(1)
+                expect(service.returnStreamMethod.mock.calls[0]).toEqual(params)
+                expect(service.returnStreamMethod.mock.instances[0]).toBe(
+                    service,
+                )
+                expect(proxyStream).toBeInstanceOf(Duplex)
+
+                returnedServiceStream.on('error', onError)
+                returnedServiceStream.on('close', onClose)
+
+                process.nextTick(() => proxyStream.destroy())
+                await whenClose(returnedServiceStream)
+
+                expect(onError).toHaveBeenCalledTimes(0)
+                expect(onClose).toHaveBeenCalledTimes(1)
+            })
+
+            test('resolve stream, output destroy', async () => {
+                const onError = jest.fn()
+                const onClose = jest.fn()
+
+                const proxyStream = await proxy2.resolveStreamMethod(...params)
+                expect(service.resolveStreamMethod.mock.calls.length).toBe(1)
+                expect(service.resolveStreamMethod.mock.calls[0]).toEqual(
+                    params,
+                )
+                expect(service.resolveStreamMethod.mock.instances[0]).toBe(
+                    service,
+                )
+                expect(proxyStream).toBeInstanceOf(Duplex)
+
+                proxyStream.on('error', onError)
+                proxyStream.on('close', onClose)
+
+                process.nextTick(() => resolvedServiceStream.destroy())
+                await whenClose(proxyStream)
+
+                expect(onError).toHaveBeenCalledTimes(0)
+                expect(onClose).toHaveBeenCalledTimes(1)
+            })
+
+            test('resolve stream, input destroy with error', async () => {
+                const onError = jest.fn()
+                const onClose = jest.fn()
+                const proxyStream = await proxy2.resolveStreamMethod(...params)
+
+                resolvedServiceStream.on('error', onError)
+                resolvedServiceStream.on('close', onClose)
+
+                process.nextTick(() => proxyStream.destroy(error))
+                await whenClose(resolvedServiceStream)
+
+                expect(onError).toHaveBeenCalledTimes(1)
+                expect(onError).toHaveBeenCalledWith(testErrorMatcher)
+                expect(onClose).toHaveBeenCalledTimes(1)
+            })
+
+            test('return stream, output destroy with error', async () => {
+                const onError = jest.fn()
+                const onClose = jest.fn()
+                const proxyStream = await proxy2.returnStreamMethod(...params)
+
+                proxyStream.on('error', onError)
+                proxyStream.on('close', onClose)
+
+                process.nextTick(() => returnedServiceStream.destroy(error))
+                await whenClose(proxyStream)
+
+                expect(onError).toHaveBeenCalledTimes(1)
+                expect(onError).toHaveBeenCalledWith(testErrorMatcher)
+                expect(onClose).toHaveBeenCalledTimes(1)
+            })
+
+            test('input data, output data, input end, output data, output end', async () => {
+                const onInputClose = jest.fn()
+                const onOutputClose = jest.fn()
+                const proxyStream = await proxy2.returnStreamMethod(...params)
+                proxyStream.on('close', onInputClose)
+                returnedControllerStream.on('close', onOutputClose)
+
+                process.nextTick(() => proxyStream.write(101))
+                await whenData(returnedControllerStream, 101)
+
+                process.nextTick(() => returnedControllerStream.write(201))
+                await whenData(proxyStream, 201)
+
+                process.nextTick(() => proxyStream.end())
+                await whenEnd(returnedControllerStream)
+
+                process.nextTick(() => returnedControllerStream.write(202))
+                await whenData(proxyStream, 202)
+
+                process.nextTick(() => returnedControllerStream.end())
+                await whenEnd(proxyStream)
+
+                expect(onInputClose).toHaveBeenCalledTimes(0)
+                expect(onOutputClose).toHaveBeenCalledTimes(0)
+
+                proxyStream.destroy()
+                await delay()
+
+                expect(onInputClose).toHaveBeenCalledTimes(1)
+                expect(onOutputClose).toHaveBeenCalledTimes(1)
+            })
+
+            test('output data, input data, output end, input data, input end', async () => {
+                const onInputClose = jest.fn()
+                const onOutputClose = jest.fn()
+                const proxyStream = await proxy2.resolveStreamMethod(...params)
+                proxyStream.on('close', onInputClose)
+                resolvedControllerStream.on('close', onOutputClose)
+
+                process.nextTick(() => resolvedControllerStream.write(101))
+                await whenData(proxyStream, 101)
+
+                process.nextTick(() => proxyStream.write(201))
+                await whenData(resolvedControllerStream, 201)
+
+                process.nextTick(() => resolvedControllerStream.end())
+                await whenEnd(proxyStream)
+
+                process.nextTick(() => proxyStream.write(202))
+                await whenData(resolvedControllerStream, 202)
+
+                process.nextTick(() => proxyStream.end())
+                await whenEnd(resolvedControllerStream)
+
+                expect(onInputClose).toHaveBeenCalledTimes(0)
+                expect(onOutputClose).toHaveBeenCalledTimes(0)
+
+                resolvedControllerStream.destroy()
+                await delay()
+
+                expect(onInputClose).toHaveBeenCalledTimes(1)
+                expect(onOutputClose).toHaveBeenCalledTimes(1)
+            })
         })
     })
 })
