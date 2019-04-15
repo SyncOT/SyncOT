@@ -4,7 +4,6 @@ import {
     createNoServiceError,
 } from '@syncot/error'
 import {
-    assertUnreachable,
     EmitterInterface,
     SyncOtEmitter,
     throwError,
@@ -72,32 +71,6 @@ export const enum MessageType {
     STREAM_OUTPUT_DATA,
     STREAM_OUTPUT_END,
     STREAM_OUTPUT_DESTROY,
-}
-
-enum Source {
-    PROXY = 'proxy',
-    SERVICE = 'service',
-}
-
-function getSource(message: Message): Source {
-    switch (message.type) {
-        case MessageType.EVENT:
-        case MessageType.REPLY_VALUE:
-        case MessageType.REPLY_ERROR:
-        case MessageType.REPLY_STREAM:
-        case MessageType.STREAM_OUTPUT_DATA:
-        case MessageType.STREAM_OUTPUT_END:
-        case MessageType.STREAM_OUTPUT_DESTROY:
-            return Source.SERVICE
-        case MessageType.REQUEST:
-        case MessageType.STREAM_INPUT_DATA:
-        case MessageType.STREAM_INPUT_END:
-        case MessageType.STREAM_INPUT_DESTROY:
-            return Source.PROXY
-        /* istanbul ignore next */
-        default:
-            return assertUnreachable(message)
-    }
 }
 
 /**
@@ -278,6 +251,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             }
         })
 
+        // TODO listen for `close` and `end` events only. Destroy on `end`.
         finished(stream, error => {
             if (this.stream === stream) {
                 if (
@@ -494,29 +468,31 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     private send(message: Message): void {
-        /* istanbul ignore if */
-        if (!this.stream) {
-            return assertUnreachable()
-        }
-
         try {
             throwError(validateMessage(message))
-            this.stream.write(message)
+            this.stream!.write(message)
         } catch (error) {
-            this.stream.destroy(error)
+            this.stream!.destroy(error)
         }
     }
 
     private onData(message: Message): void {
         try {
             throwError(validateMessage(message))
+            this.onMessage(message)
         } catch (error) {
             this.stream!.destroy(error)
-            return
         }
+    }
 
+    private onMessage(message: Message): void {
         const { id, name, service, type } = message
-        if (getSource(message) === Source.PROXY) {
+        if (
+            type === MessageType.REQUEST ||
+            type === MessageType.STREAM_INPUT_DATA ||
+            type === MessageType.STREAM_INPUT_END ||
+            type === MessageType.STREAM_INPUT_DESTROY
+        ) {
             const serviceDescriptor = this.services.get(service)
 
             if (
@@ -537,7 +513,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 this.onServiceMessage(serviceDescriptor, message)
             }
         } else {
-            const proxyDescriptor = this.proxies.get(message.service)
+            const proxyDescriptor = this.proxies.get(service)
 
             if (proxyDescriptor) {
                 this.onProxyMessage(proxyDescriptor, message)
