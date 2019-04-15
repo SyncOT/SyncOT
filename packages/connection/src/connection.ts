@@ -27,7 +27,9 @@ export interface ServiceDescriptor {
     requestNames?: Set<RequestName>
     instance: Service
 }
-interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {}
+interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {
+    streams: Map<RequestId, Duplex>
+}
 
 export type Proxy = object
 export interface ProxyDescriptor {
@@ -232,7 +234,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
     private proxyRequests: RequestMap[] = []
-    private serviceStreams: StreamMap[] = []
     private proxyStreams: StreamMap[] = []
     private _connectionId: number = 0
 
@@ -340,7 +341,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
      * - The stream returned by the proxy is configured with `allowHalfOpen=true` and `autoDestroy=false`.
      */
     public registerService({
-        name,
+        name: serviceName,
         eventNames = new Set(),
         requestNames = new Set(),
         instance,
@@ -351,8 +352,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             'Argument "instance" must be an object.',
         )
         assert.ok(
-            !this.services.has(name),
-            `Service "${name}" has been already registered.`,
+            !this.services.has(serviceName),
+            `Service "${serviceName}" has been already registered.`,
         )
         assert.equal(eventNames.size, 0, 'Connection events not implemented')
         requestNames.forEach(requestName => {
@@ -362,58 +363,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 `Service.${requestName} must be a function.`,
             )
         })
-        this.initService(instance, name, requestNames)
-        this.services.set(name, { eventNames, instance, name, requestNames })
-    }
 
-    public getServiceNames(): ServiceName[] {
-        return Array.from(this.services.keys())
-    }
-
-    public getService(name: ServiceName): Service | undefined {
-        const descriptor = this.services.get(name)
-        return descriptor && descriptor.instance
-    }
-
-    public registerProxy({
-        name,
-        requestNames = new Set(),
-        eventNames = new Set(),
-    }: ProxyDescriptor): void {
-        this.assertNotDestroyed()
-        assert.ok(
-            !this.proxies.has(name),
-            `Proxy "${name}" has been already registered.`,
-        )
-        assert.equal(eventNames.size, 0, 'Connection events not implemented')
-        const instance = this.createProxy(name, requestNames)
-        this.proxies.set(name, { eventNames, instance, name, requestNames })
-    }
-
-    public getProxyNames(): ProxyName[] {
-        return Array.from(this.proxies.keys())
-    }
-
-    public getProxy(name: ProxyName): Proxy | undefined {
-        const descriptor = this.proxies.get(name)
-        return descriptor && descriptor.instance
-    }
-
-    public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
-        this.disconnect()
-        super.destroy()
-    }
-
-    private initService(
-        serviceInstance: Service,
-        serviceName: ServiceName,
-        requestNames: Set<RequestName>,
-    ): void {
         const serviceStreams: Map<RequestId, Duplex> = new Map()
-        this.serviceStreams.push(serviceStreams)
 
         this.on(
             `message.${Source.PROXY}.${serviceName}` as any,
@@ -426,9 +377,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         if (requestNames.has(name)) {
                             Promise.resolve()
                                 .then(() =>
-                                    (serviceInstance as any)[name](
-                                        ...message.data,
-                                    ),
+                                    (instance as any)[name](...message.data),
                                 )
                                 .then(
                                     reply => {
@@ -592,6 +541,55 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 }
             },
         )
+
+        this.services.set(serviceName, {
+            eventNames,
+            instance,
+            name: serviceName,
+            requestNames,
+            streams: serviceStreams,
+        })
+    }
+
+    public getServiceNames(): ServiceName[] {
+        return Array.from(this.services.keys())
+    }
+
+    public getService(name: ServiceName): Service | undefined {
+        const descriptor = this.services.get(name)
+        return descriptor && descriptor.instance
+    }
+
+    public registerProxy({
+        name,
+        requestNames = new Set(),
+        eventNames = new Set(),
+    }: ProxyDescriptor): void {
+        this.assertNotDestroyed()
+        assert.ok(
+            !this.proxies.has(name),
+            `Proxy "${name}" has been already registered.`,
+        )
+        assert.equal(eventNames.size, 0, 'Connection events not implemented')
+        const instance = this.createProxy(name, requestNames)
+        this.proxies.set(name, { eventNames, instance, name, requestNames })
+    }
+
+    public getProxyNames(): ProxyName[] {
+        return Array.from(this.proxies.keys())
+    }
+
+    public getProxy(name: ProxyName): Proxy | undefined {
+        const descriptor = this.proxies.get(name)
+        return descriptor && descriptor.instance
+    }
+
+    public destroy(): void {
+        if (this.destroyed) {
+            return
+        }
+        this.disconnect()
+        super.destroy()
     }
 
     private createProxy(
@@ -756,7 +754,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const error = createDisconnectedError(
             'Disconnected, service stream destroyed.',
         )
-        for (const streams of this.serviceStreams) {
+        for (const { streams } of this.services.values()) {
             for (const stream of streams.values()) {
                 stream.destroy(error)
             }
