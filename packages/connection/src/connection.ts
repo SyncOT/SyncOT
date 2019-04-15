@@ -333,12 +333,11 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
      *
      * - The stream is assumed to operate in object mode, so stream data may be of any type
      *   and encoding is not used.
-     * - When the stream emits an `error`, it gets destroyed automatically.
      * - The stream is managed by the Connection until the Connection gets disconnected or
-     *   the stream emits `close` or `error`, so make sure `close` is emitted in normal operation
+     *   the stream emits `close`, so make sure `close` is emitted in normal operation
      *   or you'll have a memory leak.
      * - Stream data equal to `undefined` is ignored.
-     * - The stream returned by the proxy is configured with `allowHalfOpen=true`.
+     * - The stream returned by the proxy is configured with `allowHalfOpen=true` and `autoDestroy=false`.
      */
     public registerService({
         name,
