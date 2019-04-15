@@ -134,7 +134,7 @@ export type Message =
           service: ServiceName | ProxyName
           name: null
           id: RequestId
-          data: null | Error
+          data: null
       }
     | {
           type:
@@ -209,7 +209,7 @@ const validateMessage: Validator<Message> = validate([
             message.type === MessageType.STREAM_INPUT_DESTROY ||
             message.type === MessageType.STREAM_OUTPUT_DESTROY
         ) {
-            return message.data === null || message.data instanceof Error
+            return message.data === null
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
@@ -507,26 +507,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                                 }
                                             }
 
-                                            const onError = (error: Error) => {
-                                                removeListeners()
-                                                serviceStreams.delete(id)
-
-                                                if (this.stream === stream) {
-                                                    this.send({
-                                                        data: error,
-                                                        id,
-                                                        name: null,
-                                                        service,
-                                                        type:
-                                                            MessageType.STREAM_OUTPUT_DESTROY,
-                                                    })
-                                                }
-
-                                                serviceStream.destroy()
-                                            }
-
                                             serviceStream.on('close', onClose)
-                                            serviceStream.on('error', onError)
                                             serviceStream.on('data', onData)
                                             serviceStream.on('end', onEnd)
 
@@ -534,10 +515,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                                 serviceStream.off(
                                                     'close',
                                                     onClose,
-                                                )
-                                                serviceStream.off(
-                                                    'error',
-                                                    onError,
                                                 )
                                                 serviceStream.off(
                                                     'data',
@@ -621,7 +598,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     case MessageType.STREAM_INPUT_DESTROY: {
                         const serviceStream = serviceStreams.get(message.id)
                         if (serviceStream) {
-                            serviceStream.destroy(message.data as any)
+                            serviceStream.destroy()
                         }
                         break
                     }
@@ -739,8 +716,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
                             proxyStreams.set(id, proxyStream)
 
-                            const onClose = () => {
-                                removeListeners()
+                            proxyStream.once('close', () => {
                                 proxyStreams.delete(id)
 
                                 if (this.stream === stream) {
@@ -752,32 +728,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                         type: MessageType.STREAM_INPUT_DESTROY,
                                     })
                                 }
-                            }
-
-                            const onError = (error: Error) => {
-                                removeListeners()
-                                proxyStreams.delete(id)
-
-                                if (this.stream === stream) {
-                                    this.send({
-                                        data: error,
-                                        id,
-                                        name: null,
-                                        service,
-                                        type: MessageType.STREAM_INPUT_DESTROY,
-                                    })
-                                }
-
-                                proxyStream.destroy()
-                            }
-
-                            proxyStream.on('close', onClose)
-                            proxyStream.on('error', onError)
-
-                            const removeListeners = () => {
-                                proxyStream.off('close', onClose)
-                                proxyStream.off('error', onError)
-                            }
+                            })
 
                             proxyRequest.resolve(proxyStream)
                         }
@@ -803,7 +754,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     case MessageType.STREAM_OUTPUT_DESTROY: {
                         const serviceStream = proxyStreams.get(message.id)
                         if (serviceStream) {
-                            serviceStream.destroy(message.data as any)
+                            serviceStream.destroy()
                         }
                         break
                     }

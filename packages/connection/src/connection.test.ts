@@ -712,19 +712,10 @@ describe('message validation', () => {
             },
         ],
         [
-            'valid type (STREAM_INPUT_DESTROY; null)',
+            'valid type (STREAM_INPUT_DESTROY)',
             {
                 ...message,
                 data: null,
-                name: null,
-                type: MessageType.STREAM_INPUT_DESTROY,
-            },
-        ],
-        [
-            'valid type (STREAM_INPUT_DESTROY; Error)',
-            {
-                ...message,
-                data: error,
                 name: null,
                 type: MessageType.STREAM_INPUT_DESTROY,
             },
@@ -747,19 +738,10 @@ describe('message validation', () => {
             },
         ],
         [
-            'valid type (STREAM_OUTPUT_DESTROY; null)',
+            'valid type (STREAM_OUTPUT_DESTROY)',
             {
                 ...message,
                 data: null,
-                name: null,
-                type: MessageType.STREAM_OUTPUT_DESTROY,
-            },
-        ],
-        [
-            'valid type (STREAM_OUTPUT_DESTROY; Error)',
-            {
-                ...message,
-                data: error,
                 name: null,
                 type: MessageType.STREAM_OUTPUT_DESTROY,
             },
@@ -1728,35 +1710,39 @@ describe('service and proxy', () => {
             })
 
             test('resolve stream, input destroy with error', async () => {
-                const onError = jest.fn()
-                const onClose = jest.fn()
+                const onProxyError = jest.fn()
+                const onServiceError = jest.fn()
+                const onServiceClose = jest.fn()
                 const proxyStream = await proxy2.resolveStreamMethod(...params)
 
-                resolvedServiceStream.on('error', onError)
-                resolvedServiceStream.on('close', onClose)
+                proxyStream.on('error', onProxyError)
+                resolvedServiceStream.on('error', onServiceError)
+                resolvedServiceStream.on('close', onServiceClose)
 
                 process.nextTick(() => proxyStream.destroy(error))
                 await whenClose(resolvedServiceStream)
 
-                expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledWith(testErrorMatcher)
-                expect(onClose).toHaveBeenCalledTimes(1)
+                expect(onProxyError).toHaveBeenCalledTimes(1)
+                expect(onServiceError).toHaveBeenCalledTimes(0)
+                expect(onServiceClose).toHaveBeenCalledTimes(1)
             })
 
             test('return stream, output destroy with error', async () => {
-                const onError = jest.fn()
-                const onClose = jest.fn()
+                const onServiceError = jest.fn()
+                const onProxyError = jest.fn()
+                const onProxyClose = jest.fn()
                 const proxyStream = await proxy2.returnStreamMethod(...params)
 
-                proxyStream.on('error', onError)
-                proxyStream.on('close', onClose)
+                returnedServiceStream.on('error', onServiceError)
+                proxyStream.on('error', onProxyError)
+                proxyStream.on('close', onProxyClose)
 
                 process.nextTick(() => returnedServiceStream.destroy(error))
                 await whenClose(proxyStream)
 
-                expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledWith(testErrorMatcher)
-                expect(onClose).toHaveBeenCalledTimes(1)
+                expect(onServiceError).toHaveBeenCalledTimes(1)
+                expect(onProxyError).toHaveBeenCalledTimes(0)
+                expect(onProxyClose).toHaveBeenCalledTimes(1)
             })
 
             test('input data, output data, input end, output data, output end', async () => {
