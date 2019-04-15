@@ -225,6 +225,7 @@ interface ProxyRequest {
 }
 type RequestMap = Map<RequestId, ProxyRequest>
 type StreamMap = Map<RequestId, Duplex>
+type Callback = (error: null | Error) => undefined
 
 class ConnectionImpl extends SyncOtEmitter<Events> {
     private stream: Duplex | null = null
@@ -420,12 +421,12 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     private initService(
-        service: Service,
+        serviceInstance: Service,
         serviceName: ServiceName,
         requestNames: Set<RequestName>,
     ): void {
-        const streams: Map<RequestId, Duplex> = new Map()
-        this.serviceStreams.push(streams)
+        const serviceStreams: Map<RequestId, Duplex> = new Map()
+        this.serviceStreams.push(serviceStreams)
 
         this.on(
             `message.${Source.PROXY}.${serviceName}` as any,
@@ -433,23 +434,23 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 switch (message.type) {
                     case MessageType.REQUEST: {
                         const stream = this.stream
-                        const requestName = message.name
+                        const { id, name, service } = message
 
-                        if (requestNames.has(requestName)) {
+                        if (requestNames.has(name)) {
                             Promise.resolve()
                                 .then(() =>
-                                    (service as any)[requestName](
+                                    (serviceInstance as any)[name](
                                         ...message.data,
                                     ),
                                 )
                                 .then(
-                                    data => {
+                                    reply => {
                                         if (this.stream !== stream) {
                                             return
                                         }
 
-                                        if (data instanceof Duplex) {
-                                            if (streams.has(message.id)) {
+                                        if (reply instanceof Duplex) {
+                                            if (serviceStreams.has(id)) {
                                                 stream!.destroy(
                                                     new AssertionError({
                                                         message:
@@ -459,73 +460,168 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                                 return
                                             }
 
-                                            streams.set(message.id, data)
+                                            const serviceStream = reply
+
+                                            const onData = (data: any) => {
+                                                if (
+                                                    this.stream === stream &&
+                                                    data != null
+                                                ) {
+                                                    this.send({
+                                                        data,
+                                                        id,
+                                                        name: null,
+                                                        service,
+                                                        type:
+                                                            MessageType.STREAM_OUTPUT_DATA,
+                                                    })
+                                                }
+                                            }
+
+                                            const onEnd = () => {
+                                                if (this.stream === stream) {
+                                                    this.send({
+                                                        data: null,
+                                                        id,
+                                                        name: null,
+                                                        service,
+                                                        type:
+                                                            MessageType.STREAM_OUTPUT_END,
+                                                    })
+                                                }
+                                            }
+
+                                            const onClose = () => {
+                                                removeListeners()
+                                                serviceStreams.delete(id)
+
+                                                if (this.stream === stream) {
+                                                    this.send({
+                                                        data: null,
+                                                        id,
+                                                        name: null,
+                                                        service,
+                                                        type:
+                                                            MessageType.STREAM_OUTPUT_DESTROY,
+                                                    })
+                                                }
+                                            }
+
+                                            const onError = (error: Error) => {
+                                                removeListeners()
+                                                serviceStreams.delete(id)
+
+                                                if (this.stream === stream) {
+                                                    this.send({
+                                                        data: error,
+                                                        id,
+                                                        name: null,
+                                                        service,
+                                                        type:
+                                                            MessageType.STREAM_OUTPUT_DESTROY,
+                                                    })
+                                                }
+
+                                                serviceStream.destroy()
+                                            }
+
+                                            serviceStream.on('close', onClose)
+                                            serviceStream.on('error', onError)
+                                            serviceStream.on('data', onData)
+                                            serviceStream.on('end', onEnd)
+
+                                            const removeListeners = () => {
+                                                serviceStream.off(
+                                                    'close',
+                                                    onClose,
+                                                )
+                                                serviceStream.off(
+                                                    'error',
+                                                    onError,
+                                                )
+                                                serviceStream.off(
+                                                    'data',
+                                                    onData,
+                                                )
+                                                serviceStream.off('end', onEnd)
+                                            }
+
+                                            serviceStreams.set(
+                                                message.id,
+                                                serviceStream,
+                                            )
+
                                             this.send({
-                                                ...message,
                                                 data: null,
+                                                id,
                                                 name: null,
+                                                service,
                                                 type: MessageType.REPLY_STREAM,
                                             })
                                         } else {
-                                            const typeOfData = typeof data
+                                            const typeOfReply = typeof reply
+                                            const data =
+                                                typeOfReply === 'object' ||
+                                                typeOfReply === 'number' ||
+                                                typeOfReply === 'string' ||
+                                                typeOfReply === 'boolean'
+                                                    ? reply
+                                                    : null
                                             this.send({
-                                                ...message,
-                                                data:
-                                                    typeOfData === 'object' ||
-                                                    typeOfData === 'number' ||
-                                                    typeOfData === 'string' ||
-                                                    typeOfData === 'boolean'
-                                                        ? data
-                                                        : null,
+                                                data,
+                                                id,
                                                 name: null,
+                                                service,
                                                 type: MessageType.REPLY_VALUE,
                                             })
                                         }
                                     },
                                     error => {
-                                        if (this.stream !== stream) {
-                                            return
+                                        if (this.stream === stream) {
+                                            this.send({
+                                                data: error,
+                                                id,
+                                                name: null,
+                                                service,
+                                                type: MessageType.REPLY_ERROR,
+                                            })
                                         }
-                                        this.send({
-                                            ...message,
-                                            data: error,
-                                            name: null,
-                                            type: MessageType.REPLY_ERROR,
-                                        })
                                     },
                                 )
                         } else {
                             this.send({
-                                ...message,
                                 data: createNoServiceError(
-                                    `No service to handle the request for "${
-                                        message.service
-                                    }.${message.name}".`,
+                                    `No service to handle the request for "${service}.${name}".`,
                                 ),
+                                id,
                                 name: null,
+                                service,
                                 type: MessageType.REPLY_ERROR,
                             })
                         }
                         break
                     }
+
                     case MessageType.STREAM_INPUT_DATA: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.write(message.data)
+                        const serviceStream = serviceStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.write(message.data)
                         }
                         break
                     }
+
                     case MessageType.STREAM_INPUT_END: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.end()
+                        const serviceStream = serviceStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.end()
                         }
                         break
                     }
+
                     case MessageType.STREAM_INPUT_DESTROY: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.destroy(message.data as any)
+                        const serviceStream = serviceStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.destroy(message.data as any)
                         }
                         break
                     }
@@ -540,10 +636,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     ): Proxy {
         const proxy = {}
         let nextRequestId = 1
-        const requests: RequestMap = new Map()
-        const streams: StreamMap = new Map()
-        this.proxyRequests.push(requests)
-        this.proxyStreams.push(streams)
+        const proxyRequests: RequestMap = new Map()
+        const proxyStreams: StreamMap = new Map()
+        this.proxyRequests.push(proxyRequests)
+        this.proxyStreams.push(proxyStreams)
 
         requestNames.forEach(requestName => {
             assert.ok(
@@ -554,7 +650,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 if (this.stream) {
                     return new Promise((resolve, reject) => {
                         const requestId = nextRequestId++
-                        requests.set(requestId, { resolve, reject })
+                        proxyRequests.set(requestId, { resolve, reject })
                         this.send({
                             data: args,
                             id: requestId,
@@ -579,34 +675,35 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 switch (message.type) {
                     case MessageType.REPLY_VALUE: {
                         const id = message.id
-                        const request = requests.get(id)
-                        if (request) {
-                            requests.delete(id)
-                            request.resolve(message.data)
+                        const proxyRequest = proxyRequests.get(id)
+                        if (proxyRequest) {
+                            proxyRequests.delete(id)
+                            proxyRequest.resolve(message.data)
                         }
                         break
                     }
+
                     case MessageType.REPLY_ERROR: {
                         const id = message.id
-                        const request = requests.get(id)
-                        if (request) {
-                            requests.delete(id)
-                            request.reject(message.data)
+                        const proxyRequest = proxyRequests.get(id)
+                        if (proxyRequest) {
+                            proxyRequests.delete(id)
+                            proxyRequest.reject(message.data)
                         }
                         break
                     }
+
                     case MessageType.REPLY_STREAM: {
+                        const stream = this.stream
                         const { id, service } = message
-                        const request = requests.get(id)
-                        if (request) {
-                            requests.delete(id)
-                            const stream = new Duplex({
-                                final: (
-                                    callback: (
-                                        error: null | Error,
-                                    ) => undefined,
-                                ) => {
-                                    if (this.stream) {
+                        const proxyRequest = proxyRequests.get(id)
+
+                        if (proxyRequest) {
+                            proxyRequests.delete(id)
+
+                            const proxyStream = new Duplex({
+                                final: (callback: Callback) => {
+                                    if (this.stream === stream) {
                                         this.send({
                                             data: null,
                                             id,
@@ -622,11 +719,12 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                 write: (
                                     data: any,
                                     _encoding: string,
-                                    callback: (
-                                        error: null | Error,
-                                    ) => undefined,
+                                    callback: Callback,
                                 ) => {
-                                    if (this.stream && data != null) {
+                                    if (
+                                        this.stream === stream &&
+                                        data != null
+                                    ) {
                                         this.send({
                                             data,
                                             id,
@@ -638,43 +736,74 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                     callback(null)
                                 },
                             })
-                            streams.set(id, stream)
+
+                            proxyStreams.set(id, proxyStream)
 
                             const onClose = () => {
-                                streams.delete(id)
-                                if (this.stream) {
-                                    // this.send({})
+                                removeListeners()
+                                proxyStreams.delete(id)
+
+                                if (this.stream === stream) {
+                                    this.send({
+                                        data: null,
+                                        id,
+                                        name: null,
+                                        service,
+                                        type: MessageType.STREAM_INPUT_DESTROY,
+                                    })
                                 }
                             }
-                            const onError = (_error: Error) => {
-                                streams.delete(id)
+
+                            const onError = (error: Error) => {
+                                removeListeners()
+                                proxyStreams.delete(id)
+
+                                if (this.stream === stream) {
+                                    this.send({
+                                        data: error,
+                                        id,
+                                        name: null,
+                                        service,
+                                        type: MessageType.STREAM_INPUT_DESTROY,
+                                    })
+                                }
+
+                                proxyStream.destroy()
                             }
 
-                            stream.on('close', onClose)
-                            stream.on('error', onError)
+                            proxyStream.on('close', onClose)
+                            proxyStream.on('error', onError)
 
-                            request.resolve(stream)
+                            const removeListeners = () => {
+                                proxyStream.off('close', onClose)
+                                proxyStream.off('error', onError)
+                            }
+
+                            proxyRequest.resolve(proxyStream)
                         }
                         break
                     }
+
                     case MessageType.STREAM_OUTPUT_DATA: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.push(message.data)
+                        const serviceStream = proxyStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.push(message.data)
                         }
                         break
                     }
+
                     case MessageType.STREAM_OUTPUT_END: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.push(null)
+                        const serviceStream = proxyStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.push(null)
                         }
                         break
                     }
+
                     case MessageType.STREAM_OUTPUT_DESTROY: {
-                        const stream = streams.get(message.id)
-                        if (stream) {
-                            stream.destroy(message.data as any)
+                        const serviceStream = proxyStreams.get(message.id)
+                        if (serviceStream) {
+                            serviceStream.destroy(message.data as any)
                         }
                         break
                     }
@@ -756,17 +885,20 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
         if (!handled) {
             switch (message.type) {
-                case MessageType.REQUEST:
+                case MessageType.REQUEST: {
+                    const { id, service } = message
                     return this.send({
-                        ...message,
                         data: createNoServiceError(
                             `No service to handle the request for "${
                                 message.service
                             }.${message.name}".`,
                         ),
+                        id,
                         name: null,
+                        service,
                         type: MessageType.REPLY_ERROR,
                     })
+                }
             }
         }
     }
