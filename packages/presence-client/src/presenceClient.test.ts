@@ -95,7 +95,10 @@ beforeEach(() => {
     clock = installClock({ now })
     connection1 = createConnection()
     connection2 = createConnection()
-    ;[stream1, stream2] = invertedStreams({ objectMode: true })
+    ;[stream1, stream2] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     connection1.connect(stream1)
     connection2.connect(stream2)
     authClient = new MockAuthClient()
@@ -283,7 +286,10 @@ describe('online', () => {
         connection2.disconnect()
         connection1 = createConnection()
         connection2 = createConnection()
-        ;[stream1, stream2] = invertedStreams({ objectMode: true })
+        ;[stream1, stream2] = invertedStreams({
+            allowHalfOpen: false,
+            objectMode: true,
+        })
         connection1.connect(stream1)
         connection2.connect(stream2)
 
@@ -303,7 +309,10 @@ describe('online', () => {
         connection2.disconnect()
         connection1 = createConnection()
         connection2 = createConnection()
-        ;[stream1, stream2] = invertedStreams({ objectMode: true })
+        ;[stream1, stream2] = invertedStreams({
+            allowHalfOpen: false,
+            objectMode: true,
+        })
         connection1.connect(stream1)
         connection2.connect(stream2)
 

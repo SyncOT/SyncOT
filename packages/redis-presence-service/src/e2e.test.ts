@@ -124,6 +124,7 @@ class Session {
         this.serviceConnection = createConnection()
         this.clientConnection = createConnection()
         ;[this.serviceStream, this.clientStream] = invertedStreams({
+            allowHalfOpen: false,
             objectMode: true,
         })
         this.serviceConnection.connect(this.serviceStream)

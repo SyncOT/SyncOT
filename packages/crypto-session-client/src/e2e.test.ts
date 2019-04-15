@@ -32,7 +32,10 @@ const whenSessionInactive = (sessionManager: SessionManager) =>
 beforeEach(() => {
     clientConnection = createConnection()
     serverConnection = createConnection()
-    ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
+    ;[clientStream, serverStream] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     clientConnection.connect(clientStream)
     serverConnection.connect(serverStream)
     sessionClient = createSessionClient(clientConnection)
@@ -61,7 +64,10 @@ test('disconnect, reconnect', async () => {
     expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
     expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
     expect(sessionServer.getSessionId()).toBeUndefined()
-    ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
+    ;[clientStream, serverStream] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     clientConnection.connect(clientStream)
     serverConnection.connect(serverStream)
     await whenSessionActive(sessionServer)

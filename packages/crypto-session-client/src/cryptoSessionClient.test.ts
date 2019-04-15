@@ -40,6 +40,7 @@ const disconnect = async () => {
 const connect = async () => {
     process.nextTick(() => {
         ;[serverStream, clientStream] = invertedStreams({
+            allowHalfOpen: false,
             objectMode: true,
         })
         serverConnection.connect(serverStream)
@@ -86,7 +87,10 @@ beforeEach(() => {
         ),
         getChallenge: jest.fn(async () => challenge),
     }
-    ;[serverStream, clientStream] = invertedStreams({ objectMode: true })
+    ;[serverStream, clientStream] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     serverConnection = createConnection()
     serverConnection.connect(serverStream)
     clientConnection = createConnection()

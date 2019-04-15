@@ -55,7 +55,10 @@ const activateSession = async () => {
 }
 
 beforeEach(() => {
-    ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
+    ;[clientStream, serverStream] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     clientConnection = createConnection()
     serverConnection = createConnection()
     clientConnection.connect(clientStream)
@@ -127,7 +130,10 @@ test('get different challenge after reconnection', async () => {
 
     serverConnection.disconnect()
     clientConnection.disconnect()
-    ;[clientStream, serverStream] = invertedStreams({ objectMode: true })
+    ;[clientStream, serverStream] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     clientConnection.connect(clientStream)
     serverConnection.connect(serverStream)
     await Promise.resolve()

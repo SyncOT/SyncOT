@@ -4,9 +4,12 @@ import { Duplex } from 'stream'
  * Creates a pair of Duplex Streams [a, b], such that
  * a.write(x) -> b.emit('data', x) and b.write(y) -> a.emit('data', y).
  */
-export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
+export function invertedStreams({
+    allowHalfOpen = true,
+    objectMode = false,
+} = {}): [Duplex, Duplex] {
     const a = new Duplex({
-        allowHalfOpen: false,
+        allowHalfOpen,
         objectMode,
         read() {
             return
@@ -25,7 +28,7 @@ export function invertedStreams({ objectMode = false } = {}): [Duplex, Duplex] {
         },
     })
     const b = new Duplex({
-        allowHalfOpen: false,
+        allowHalfOpen,
         objectMode,
         read() {
             return

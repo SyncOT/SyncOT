@@ -41,7 +41,10 @@ const errorMatcher = (errorName: string, errorMessage: string) =>
 
 beforeEach(() => {
     connection = createConnection()
-    ;[stream1, stream2] = invertedStreams({ objectMode: true })
+    ;[stream1, stream2] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     instance = {}
 })
 
@@ -1243,7 +1246,10 @@ describe('service and proxy', () => {
             await delay()
             expect(service.resolveMethod).toHaveBeenCalledTimes(1)
             connection.disconnect()
-            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            ;[stream1, stream2] = invertedStreams({
+                allowHalfOpen: false,
+                objectMode: true,
+            })
             stream2.on('data', onData2)
             connection.connect(stream1)
             resolvePromise()
@@ -1263,7 +1269,10 @@ describe('service and proxy', () => {
             await delay()
             expect(service.rejectErrorMethod).toHaveBeenCalledTimes(1)
             connection.disconnect()
-            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            ;[stream1, stream2] = invertedStreams({
+                allowHalfOpen: false,
+                objectMode: true,
+            })
             stream2.on('data', onData2)
             connection.connect(stream1)
             rejectPromise(error)

@@ -171,7 +171,10 @@ beforeEach(async () => {
 
     connection1 = createConnection()
     connection2 = createConnection()
-    ;[stream1, stream2] = invertedStreams({ objectMode: true })
+    ;[stream1, stream2] = invertedStreams({
+        allowHalfOpen: false,
+        objectMode: true,
+    })
     connection1.connect(stream1)
     connection2.connect(stream2)
 
@@ -505,7 +508,10 @@ describe('submitPresence', () => {
         async presenceSizeLimit => {
             connection1 = createConnection()
             connection2 = createConnection()
-            ;[stream1, stream2] = invertedStreams({ objectMode: true })
+            ;[stream1, stream2] = invertedStreams({
+                allowHalfOpen: false,
+                objectMode: true,
+            })
             connection1.connect(stream1)
             connection2.connect(stream2)
 
@@ -657,7 +663,10 @@ describe('submitPresence', () => {
                 connection1.disconnect()
                 connection2.disconnect()
                 connection1 = createConnection()
-                ;[stream1, stream2] = invertedStreams({ objectMode: true })
+                ;[stream1, stream2] = invertedStreams({
+                    allowHalfOpen: false,
+                    objectMode: true,
+                })
                 connection1.connect(stream1)
                 connection2.connect(stream2)
 
