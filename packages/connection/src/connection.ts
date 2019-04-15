@@ -20,6 +20,14 @@ type ProxyName = string
 type RequestName = string
 type EventName = string
 
+interface ProxyRequest {
+    resolve: (value: any) => void
+    reject: (error: Error) => void
+}
+type RequestMap = Map<RequestId, ProxyRequest>
+type StreamMap = Map<RequestId, Duplex>
+type Callback = (error: null | Error) => undefined
+
 export type Service = object
 export interface ServiceDescriptor {
     name: ServiceName
@@ -28,7 +36,7 @@ export interface ServiceDescriptor {
     instance: Service
 }
 interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {
-    streams: Map<RequestId, Duplex>
+    streams: StreamMap
 }
 
 export type Proxy = object
@@ -39,6 +47,8 @@ export interface ProxyDescriptor {
 }
 interface RegisteredProxyDescriptor extends Required<ProxyDescriptor> {
     instance: Proxy
+    requests: RequestMap
+    streams: StreamMap
 }
 
 interface Events {
@@ -221,20 +231,10 @@ const validateMessage: Validator<Message> = validate([
     },
 ])
 
-interface ProxyRequest {
-    resolve: (value: any) => void
-    reject: (error: Error) => void
-}
-type RequestMap = Map<RequestId, ProxyRequest>
-type StreamMap = Map<RequestId, Duplex>
-type Callback = (error: null | Error) => undefined
-
 class ConnectionImpl extends SyncOtEmitter<Events> {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
-    private proxyRequests: RequestMap[] = []
-    private proxyStreams: StreamMap[] = []
     private _connectionId: number = 0
 
     /**
@@ -561,54 +561,30 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     public registerProxy({
-        name,
+        name: proxyName,
         requestNames = new Set(),
         eventNames = new Set(),
     }: ProxyDescriptor): void {
         this.assertNotDestroyed()
         assert.ok(
-            !this.proxies.has(name),
-            `Proxy "${name}" has been already registered.`,
+            !this.proxies.has(proxyName),
+            `Proxy "${proxyName}" has been already registered.`,
         )
         assert.equal(eventNames.size, 0, 'Connection events not implemented')
-        const instance = this.createProxy(name, requestNames)
-        this.proxies.set(name, { eventNames, instance, name, requestNames })
-    }
 
-    public getProxyNames(): ProxyName[] {
-        return Array.from(this.proxies.keys())
-    }
-
-    public getProxy(name: ProxyName): Proxy | undefined {
-        const descriptor = this.proxies.get(name)
-        return descriptor && descriptor.instance
-    }
-
-    public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
-        this.disconnect()
-        super.destroy()
-    }
-
-    private createProxy(
-        proxyName: ProxyName,
-        requestNames: Set<RequestName>,
-    ): Proxy {
-        const proxy = {}
+        const instance = {}
         let nextRequestId = 1
         const proxyRequests: RequestMap = new Map()
         const proxyStreams: StreamMap = new Map()
-        this.proxyRequests.push(proxyRequests)
-        this.proxyStreams.push(proxyStreams)
 
         requestNames.forEach(requestName => {
             assert.ok(
-                !(requestName in proxy),
+                !(requestName in instance),
                 `Proxy.${requestName} already exists.`,
             )
-            ;(proxy as any)[requestName] = (...args: any[]): Promise<any> => {
+            ;(instance as any)[requestName] = (
+                ...args: any[]
+            ): Promise<any> => {
                 if (this.stream) {
                     return new Promise((resolve, reject) => {
                         const requestId = nextRequestId++
@@ -747,7 +723,31 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             },
         )
 
-        return proxy
+        this.proxies.set(proxyName, {
+            eventNames,
+            instance,
+            name: proxyName,
+            requestNames,
+            requests: proxyRequests,
+            streams: proxyStreams,
+        })
+    }
+
+    public getProxyNames(): ProxyName[] {
+        return Array.from(this.proxies.keys())
+    }
+
+    public getProxy(name: ProxyName): Proxy | undefined {
+        const descriptor = this.proxies.get(name)
+        return descriptor && descriptor.instance
+    }
+
+    public destroy(): void {
+        if (this.destroyed) {
+            return
+        }
+        this.disconnect()
+        super.destroy()
     }
 
     private cleanUpServiceStreams(): void {
@@ -766,7 +766,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const error = createDisconnectedError(
             'Disconnected, proxy stream destroyed.',
         )
-        for (const streams of this.proxyStreams) {
+        for (const { streams } of this.proxies.values()) {
             for (const stream of streams.values()) {
                 stream.destroy(error)
             }
@@ -776,7 +776,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     private cleanUpProxyRequests(): void {
         const error = createDisconnectedError('Disconnected, request failed.')
-        for (const requests of this.proxyRequests) {
+        for (const { requests } of this.proxies.values()) {
             // Promises are resolved and rejected asynchronously, so it's safe to
             // iterate and clear the map directly without any risk of race conditions.
             for (const { reject } of requests.values()) {
