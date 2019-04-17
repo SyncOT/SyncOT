@@ -1,4 +1,4 @@
-import { invertedStreams } from '@syncot/util'
+import { invertedStreams, noop } from '@syncot/util'
 import { Duplex } from 'stream'
 import {
     Connection,
@@ -1110,7 +1110,6 @@ describe('service and proxy', () => {
         })
         test('disconnect before resolving', async () => {
             const onData = jest.fn()
-            const noop = () => undefined
             let resolvePromise: () => void = noop
             const promise = new Promise<any>(
                 (resolve, _) => (resolvePromise = resolve),
@@ -1127,7 +1126,6 @@ describe('service and proxy', () => {
         })
         test('disconnect before rejecting', async () => {
             const onData = jest.fn()
-            const noop = () => undefined
             let rejectPromise: (error: Error) => void = noop
             const promise = new Promise<never>(
                 (_, reject) => (rejectPromise = reject),
@@ -1148,7 +1146,6 @@ describe('service and proxy', () => {
             const onDisconnect = jest.fn()
             connection.on('disconnect', onDisconnect)
             connection.on('error', onError)
-            const noop = () => undefined
             let resolvePromise: () => void = noop
             const promise = new Promise<any>(
                 (resolve, _) => (resolvePromise = resolve),
@@ -1178,7 +1175,6 @@ describe('service and proxy', () => {
             const onDisconnect = jest.fn()
             connection.on('disconnect', onDisconnect)
             connection.on('error', onError)
-            const noop = () => undefined
             let rejectPromise: (error: Error) => void = noop
             const promise = new Promise<never>(
                 (_, reject) => (rejectPromise = reject),
