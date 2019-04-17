@@ -9,6 +9,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { Id, isId, SyncOtEmitter } from '@syncot/util'
+import { Duplex } from 'stream'
 
 /**
  * Creates a new presence client communicating with a presence service
@@ -84,6 +85,9 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
                 'getPresenceBySessionId',
                 'getPresenceByUserId',
                 'getPresenceByLocationId',
+                'streamPresenceBySessionId',
+                'streamPresenceByLocationId',
+                'streamPresenceByUserId',
             ]),
         })
         this.presenceService = this.connection.getProxy(
@@ -127,6 +131,18 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
 
     public getPresenceByLocationId(locationId: Id): Promise<Presence[]> {
         return this.presenceService.getPresenceByLocationId(locationId)
+    }
+
+    public streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
+        return this.presenceService.streamPresenceBySessionId(sessionId)
+    }
+
+    public streamPresenceByUserId(userId: Id): Promise<Duplex> {
+        return this.presenceService.streamPresenceByUserId(userId)
+    }
+
+    public streamPresenceByLocationId(locationId: Id): Promise<Duplex> {
+        return this.presenceService.streamPresenceByLocationId(locationId)
     }
 
     private updateLocalPresence = (): void => {

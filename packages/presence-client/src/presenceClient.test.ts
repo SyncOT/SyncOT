@@ -80,6 +80,15 @@ class MockPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public getPresenceByUserId = jest
         .fn<Promise<Presence[]>, [Id]>()
         .mockResolvedValue([])
+    public streamPresenceBySessionId = jest
+        .fn<Promise<Duplex>, [Id]>()
+        .mockRejectedValue(testError)
+    public streamPresenceByLocationId = jest
+        .fn<Promise<Duplex>, [Id]>()
+        .mockRejectedValue(testError)
+    public streamPresenceByUserId = jest
+        .fn<Promise<Duplex>, [Id]>()
+        .mockRejectedValue(testError)
 }
 
 const whenLocalPresence = () =>
@@ -90,6 +99,21 @@ const whenOnline = () =>
 
 const whenOffline = () =>
     new Promise(resolve => presenceClient.once('offline', resolve))
+
+const whenStreamData = (
+    stream: Duplex,
+    expectedData: string | number | boolean,
+) =>
+    new Promise((resolve, reject) =>
+        stream.once('data', streamData => {
+            try {
+                expect(streamData).toBe(expectedData)
+                resolve()
+            } catch (error) {
+                reject(error)
+            }
+        }),
+    )
 
 beforeEach(() => {
     clock = installClock({ now })
@@ -118,6 +142,9 @@ beforeEach(() => {
             'getPresenceBySessionId',
             'getPresenceByLocationId',
             'getPresenceByUserId',
+            'streamPresenceBySessionId',
+            'streamPresenceByLocationId',
+            'streamPresenceByUserId',
         ]),
     })
 })
@@ -555,6 +582,100 @@ describe('getPresenceByLocationId', () => {
         ).rejects.toEqual(testErrorMatcher)
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledTimes(1)
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledWith(
+            locationId,
+        )
+    })
+})
+
+describe('streamPresenceBySessionId', () => {
+    test('success', async () => {
+        const [serviceStream, serviceControllerStream] = invertedStreams({
+            objectMode: true,
+        })
+        presenceService.streamPresenceBySessionId.mockResolvedValue(
+            serviceStream,
+        )
+        const clientStream = await presenceClient.streamPresenceBySessionId(
+            sessionId,
+        )
+        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledTimes(
+            1,
+        )
+        expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledWith(
+            sessionId,
+        )
+        serviceControllerStream.write('test')
+        await whenStreamData(clientStream, 'test')
+    })
+    test('error', async () => {
+        await expect(
+            presenceClient.streamPresenceBySessionId(sessionId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledTimes(
+            1,
+        )
+        expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledWith(
+            sessionId,
+        )
+    })
+})
+
+describe('streamPresenceByUserId', () => {
+    test('success', async () => {
+        const [serviceStream, serviceControllerStream] = invertedStreams({
+            objectMode: true,
+        })
+        presenceService.streamPresenceByUserId.mockResolvedValue(serviceStream)
+        const clientStream = await presenceClient.streamPresenceByUserId(userId)
+        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
+        expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
+            userId,
+        )
+        serviceControllerStream.write('test')
+        await whenStreamData(clientStream, 'test')
+    })
+    test('error', async () => {
+        await expect(
+            presenceClient.streamPresenceByUserId(userId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
+        expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
+            userId,
+        )
+    })
+})
+
+describe('streamPresenceByLocationId', () => {
+    test('success', async () => {
+        const [serviceStream, serviceControllerStream] = invertedStreams({
+            objectMode: true,
+        })
+        presenceService.streamPresenceByLocationId.mockResolvedValue(
+            serviceStream,
+        )
+        const clientStream = await presenceClient.streamPresenceByLocationId(
+            locationId,
+        )
+        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(
+            presenceService.streamPresenceByLocationId,
+        ).toHaveBeenCalledTimes(1)
+        expect(presenceService.streamPresenceByLocationId).toHaveBeenCalledWith(
+            locationId,
+        )
+        serviceControllerStream.write('test')
+        await whenStreamData(clientStream, 'test')
+    })
+    test('error', async () => {
+        await expect(
+            presenceClient.streamPresenceByLocationId(locationId),
+        ).rejects.toEqual(testErrorMatcher)
+        expect(
+            presenceService.streamPresenceByLocationId,
+        ).toHaveBeenCalledTimes(1)
+        expect(presenceService.streamPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
         )
     })

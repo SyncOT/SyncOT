@@ -12,6 +12,7 @@ import { decode, encode } from '@syncot/tson'
 import { Id, idEqual, SyncOtEmitter, throwError } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
+import { Duplex } from 'stream'
 
 export interface PresenceServiceConfig {
     connection: Connection
@@ -138,6 +139,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 'getPresenceBySessionId',
                 'getPresenceByUserId',
                 'getPresenceByLocationId',
+                'streamPresenceBySessionId',
+                'streamPresenceByLocationId',
+                'streamPresenceByUserId',
             ]),
         })
 
@@ -260,6 +264,21 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 error,
             )
         }
+    }
+
+    public async streamPresenceBySessionId(_sessionId: Id): Promise<Duplex> {
+        this.assertOk()
+        throw new Error('Not implemented')
+    }
+
+    public async streamPresenceByUserId(_userId: Id): Promise<Duplex> {
+        this.assertOk()
+        throw new Error('Not implemented')
+    }
+
+    public async streamPresenceByLocationId(_locationId: Id): Promise<Duplex> {
+        this.assertOk()
+        throw new Error('Not implemented')
     }
 
     private assertOk(): void {

@@ -7,6 +7,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
+import { Duplex } from 'stream'
 
 export interface Presence {
     readonly sessionId: Id
@@ -78,6 +79,10 @@ export interface PresenceClient
     getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
     getPresenceByUserId(userId: Id): Promise<Presence[]>
     getPresenceByLocationId(locationId: Id): Promise<Presence[]>
+
+    streamPresenceBySessionId(sessionId: Id): Promise<Duplex>
+    streamPresenceByUserId(userId: Id): Promise<Duplex>
+    streamPresenceByLocationId(locationId: Id): Promise<Duplex>
 }
 
 /**
@@ -103,4 +108,8 @@ export interface PresenceService
     getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
     getPresenceByUserId(userId: Id): Promise<Presence[]>
     getPresenceByLocationId(locationId: Id): Promise<Presence[]>
+
+    streamPresenceBySessionId(sessionId: Id): Promise<Duplex>
+    streamPresenceByUserId(userId: Id): Promise<Duplex>
+    streamPresenceByLocationId(locationId: Id): Promise<Duplex>
 }
