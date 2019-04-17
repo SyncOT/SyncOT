@@ -1,0 +1,33 @@
+{
+  "name": "@syncot/ioredis-subscriber",
+  "version": "0.0.0",
+  "description": "A smarter way to manage multiple ioredis subscriptions efficiently.",
+  "keywords": [
+    "ioredis",
+    "subscription"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "engines": {
+    "node": ">=11.6.0 <=11.10.1"
+  },
+  "dependencies": {
+    "@syncot/util": "file:../util",
+    "@types/node": "^10.12.21",
+    "tslib": "^1.9.3"
+  },
+  "peerDependencies": {
+    "ioredis": "^4.9.0"
+  }
+}
