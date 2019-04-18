@@ -57,6 +57,7 @@
     "@syncot/crypto-session-client": "file:packages/crypto-session-client",
     "@syncot/crypto-session-service": "file:packages/crypto-session-service",
     "@syncot/error": "file:packages/error",
+    "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
     "@syncot/redis-presence-service": "file:packages/redis-presence-service",
