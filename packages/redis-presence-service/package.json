@@ -27,6 +27,7 @@
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
     "@syncot/error": "file:../error",
+    "@syncot/ioredis-subscriber": "file:../ioredis-subscriber",
     "@syncot/presence": "file:../presence",
     "@syncot/session": "file:../session",
     "@syncot/tson": "file:../tson",

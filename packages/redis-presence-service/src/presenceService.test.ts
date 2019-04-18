@@ -193,6 +193,9 @@ beforeEach(async () => {
             'getPresenceBySessionId',
             'getPresenceByUserId',
             'getPresenceByLocationId',
+            'streamPresenceBySessionId',
+            'streamPresenceByUserId',
+            'streamPresenceByLocationId',
         ]),
     })
     presenceProxy = connection2.getProxy('presence') as PresenceService
@@ -298,6 +301,15 @@ test('destroy', async () => {
     )
     await expect(
         presenceProxy.getPresenceByLocationId(locationId),
+    ).rejects.toEqual(alreadyDestroyedMatcher)
+    await expect(
+        presenceProxy.streamPresenceBySessionId(sessionId),
+    ).rejects.toEqual(alreadyDestroyedMatcher)
+    await expect(presenceProxy.streamPresenceByUserId(userId)).rejects.toEqual(
+        alreadyDestroyedMatcher,
+    )
+    await expect(
+        presenceProxy.streamPresenceByLocationId(locationId),
     ).rejects.toEqual(alreadyDestroyedMatcher)
 })
 
@@ -1499,5 +1511,30 @@ describe('getPresenceByLocationId', () => {
             }),
         )
         await redis.connect()
+    })
+})
+
+describe('streamPresenceBySessionId', () => {
+    test('no active session', async () => {
+        sessionService.hasActiveSession.mockReturnValue(false)
+        await expect(
+            presenceProxy.streamPresenceBySessionId(sessionId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No active session.',
+                name: 'SyncOtError Auth',
+            }),
+        )
+    })
+    test('no authenticated user', async () => {
+        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        await expect(
+            presenceProxy.streamPresenceBySessionId(sessionId),
+        ).rejects.toEqual(
+            expect.objectContaining({
+                message: 'No authenticated user.',
+                name: 'SyncOtError Auth',
+            }),
+        )
     })
 })

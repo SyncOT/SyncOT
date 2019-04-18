@@ -8,6 +8,7 @@
     { "path": "../auth" },
     { "path": "../connection" },
     { "path": "../error" },
+    { "path": "../ioredis-subscriber" },
     { "path": "../presence" },
     { "path": "../session" },
     { "path": "../tson" },

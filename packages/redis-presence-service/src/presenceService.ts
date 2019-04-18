@@ -1,8 +1,11 @@
 import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { createAuthError, createPresenceError } from '@syncot/error'
+import { getRedisSubscriber } from '@syncot/ioredis-subscriber'
 import {
     Presence,
+    PresenceMessage,
+    PresenceMessageType,
     PresenceService,
     PresenceServiceEvents,
     validatePresence,
@@ -105,7 +108,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly sessionService: SessionManager,
         private readonly authService: AuthService,
         redis: Redis.Redis,
-        // @ts-ignore Unused parameter.
         private readonly redisSubscriber: Redis.Redis,
         options: PresenceServiceOptions,
     ) {
@@ -266,9 +268,63 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async streamPresenceBySessionId(_sessionId: Id): Promise<Duplex> {
+    public async streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
         this.assertOk()
-        throw new Error('Not implemented')
+
+        let publishedPresence: Presence | null = null
+        const encodedSessionId = Buffer.from(encode(sessionId))
+        const channel = Buffer.concat([
+            sessionIdChannelPrefix,
+            encodedSessionId,
+        ])
+        const stream = new PresenceStream()
+        const subscriber = getRedisSubscriber(this.redisSubscriber)
+        const onMessage = (
+            _receivedChannel: Buffer,
+            _message: PresenceMessage,
+        ) => {
+            // TODO decode the message and push it to the stream
+            // stream.push(message)
+        }
+
+        subscriber.onChannel(channel, onMessage)
+        stream.once('close', () => {
+            subscriber.offChannel(channel, onMessage)
+        })
+
+        this.redis
+            .presenceGetBySessionIdBuffer(encodedSessionId)
+            .then(this.decodePresence)
+            .then(
+                presence => {
+                    if (presence) {
+                        if (
+                            !publishedPresence ||
+                            publishedPresence.lastModified !==
+                                presence.lastModified
+                        ) {
+                            stream.push([PresenceMessageType.ADD, presence])
+                            publishedPresence = presence
+                        }
+                    } else {
+                        if (publishedPresence) {
+                            stream.push([
+                                PresenceMessageType.REMOVE,
+                                publishedPresence.sessionId,
+                            ])
+                            publishedPresence = null
+                        }
+                    }
+                },
+                error => {
+                    this.emitAsync(
+                        'error',
+                        createPresenceError('Failed ', error),
+                    )
+                },
+            )
+
+        return stream
     }
 
     public async streamPresenceByUserId(_userId: Id): Promise<Duplex> {
@@ -633,3 +689,25 @@ function defineRedisCommands(
 function notNull(value: any): boolean {
     return value !== null
 }
+
+const presenceStreamOptions = {
+    allowHalfOpen: false,
+    objectMode: true,
+}
+class PresenceStream extends Duplex {
+    public constructor() {
+        super(presenceStreamOptions)
+        this.once('finish', () => this.destroy())
+    }
+    public _read() {
+        // Nothing to do.
+    }
+    public _write(_data: any, _encoding: any, callback: () => void) {
+        callback()
+    }
+    public _final(callback: () => void) {
+        callback()
+    }
+}
+
+const sessionIdChannelPrefix = Buffer.from('presence:sessionId=')

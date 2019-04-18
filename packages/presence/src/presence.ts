@@ -113,3 +113,29 @@ export interface PresenceService
     streamPresenceByUserId(userId: Id): Promise<Duplex>
     streamPresenceByLocationId(locationId: Id): Promise<Duplex>
 }
+
+/**
+ * The type of PresenceMessage instances.
+ */
+export const enum PresenceMessageType {
+    /**
+     * Remove all current presence objects and add the specified presence objects.
+     */
+    RESET,
+    /**
+     * Add the specified presence objects to the current list of presence objects.
+     */
+    ADD,
+    /**
+     * Remove the presence objects with the specifed session IDs from the current list of presence objects.
+     */
+    REMOVE,
+}
+
+/**
+ * Presence messages emitted by the streams returned by `streamPresenceBy...` functions.
+ */
+export type PresenceMessage =
+    | [PresenceMessageType.RESET, ...Presence[]]
+    | [PresenceMessageType.ADD, ...Presence[]]
+    | [PresenceMessageType.REMOVE, ...Id[]]
