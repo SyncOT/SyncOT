@@ -1,1 +1,2 @@
-export * from './presenceService'
+export { createPresenceService } from './presenceService'
+export { PresenceServiceConfig, PresenceServiceOptions } from './types'
