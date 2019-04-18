@@ -535,6 +535,12 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     .then(
                         reply => {
                             if (this.stream !== stream) {
+                                if (reply instanceof Duplex) {
+                                    const error = createDisconnectedError(
+                                        'Disconnected, service stream destroyed.',
+                                    )
+                                    reply.destroy(error)
+                                }
                                 return
                             }
 

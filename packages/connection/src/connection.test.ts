@@ -1108,6 +1108,36 @@ describe('service and proxy', () => {
             )
             expect(onClose).toHaveBeenCalledTimes(1)
         })
+        test('disconnect before returning a stream', async () => {
+            let resolvePromise: (stream: Duplex) => void = noop
+            const promise = new Promise<Duplex>(
+                resolve => (resolvePromise = resolve),
+            )
+            service.resolveStreamMethod.mockReturnValue(promise)
+            const onData = jest.fn()
+            const onError = jest.fn()
+            const onClose = jest.fn()
+            stream2.on('data', onData)
+            stream2.write({
+                ...message,
+                name: 'resolveStreamMethod',
+            })
+            await delay()
+            resolvedServiceStream.on('error', onError)
+            resolvedServiceStream.on('close', onClose)
+            connection.disconnect()
+            resolvePromise(resolvedServiceStream)
+            await delay()
+            expect(onData).not.toHaveBeenCalled()
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Disconnected, service stream destroyed.',
+                    name: 'SyncOtError Disconnected',
+                }),
+            )
+            expect(onClose).toHaveBeenCalledTimes(1)
+        })
         test('disconnect before resolving', async () => {
             const onData = jest.fn()
             let resolvePromise: () => void = noop
