@@ -124,7 +124,7 @@ export const enum Type {
     ERROR,
 }
 
-const floatPrecisionTestingMemory = Buffer.allocUnsafeSlow(4)
+const floatPrecisionTestingMemory = Buffer.allocUnsafe(4)
 
 /**
  * Returns true, if float32 provides enough precision to save a number.
@@ -139,7 +139,7 @@ function canSaveWithSinglePrecision(item: number): boolean {
 }
 
 // Working memory which should be sufficient for encoding most objects.
-const workingMemory = Buffer.allocUnsafeSlow(8192)
+const workingMemory = Buffer.allocUnsafe(8192)
 
 // Used to prevent uncontrolled recursion when encoding because it could
 // easily corrupt the **shared** `workingMemory`.
