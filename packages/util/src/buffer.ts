@@ -1,21 +1,12 @@
 /**
- * A cache mapping the `toBuffer` params to the corresponding results.
- * It helps to avoid unnecessary `Buffer` object creation,
- * if `toBuffer` is called repeatedly with the same params.
- */
-const buffers = new WeakMap<ArrayBuffer | ArrayBufferView, Buffer>()
-
-/**
  * The binary types supported by `toBuffer`.
  */
 export type Binary = Buffer | ArrayBuffer | ArrayBufferView
 
 /**
  * Returns a `Buffer` sharing memory with the specified binary type.
- * It caches the params and the corresponding `Buffer`s in a `WeakMap` to
- * avoid unnecessary allocations.
  * @param binary A binary type.
- * @returns A `Buffer`.
+ * @returns A `Buffer` , if `binary` is a binary type, otherwise `undefined`.
  */
 export function toBuffer(binary: Binary): Buffer
 export function toBuffer(binary: any): Buffer | undefined
@@ -24,26 +15,15 @@ export function toBuffer(binary: any): Buffer | undefined {
         return binary
     }
 
-    let buffer = buffers.get(binary)
-
-    if (!buffer) {
-        if (
-            binary instanceof ArrayBuffer ||
-            binary instanceof SharedArrayBuffer
-        ) {
-            buffer = Buffer.from(binary)
-            buffers.set(binary, buffer)
-        } else if (ArrayBuffer.isView(binary)) {
-            buffer = Buffer.from(
-                binary.buffer,
-                binary.byteOffset,
-                binary.byteLength,
-            )
-            buffers.set(binary, buffer)
-        }
+    if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
+        return Buffer.from(binary)
     }
 
-    return buffer
+    if (ArrayBuffer.isView(binary)) {
+        return Buffer.from(binary.buffer, binary.byteOffset, binary.byteLength)
+    }
+
+    return undefined
 }
 
 /**
@@ -57,14 +37,16 @@ export function toArrayBuffer(binary: any): ArrayBuffer | undefined
 export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
     if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
         return binary
-    } else if (ArrayBuffer.isView(binary) || Buffer.isBuffer(binary)) {
+    }
+
+    if (ArrayBuffer.isView(binary) || Buffer.isBuffer(binary)) {
         return binary.buffer.slice(
             binary.byteOffset,
             binary.byteOffset + binary.byteLength,
         )
-    } else {
-        return undefined
     }
+
+    return undefined
 }
 
 /**

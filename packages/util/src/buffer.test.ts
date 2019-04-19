@@ -17,7 +17,6 @@ describe('toBuffer', () => {
         expect(buffer.buffer).toBe(arrayBuffer)
         expect(buffer.byteOffset).toBe(0)
         expect(buffer.byteLength).toBe(4)
-        expect(toBuffer(arrayBuffer)).toBe(buffer)
     })
 
     test.each<
@@ -47,7 +46,6 @@ describe('toBuffer', () => {
         expect(buffer.buffer).toBe(arrayBuffer)
         expect(buffer.byteOffset).toBe(view.byteOffset)
         expect(buffer.byteLength).toBe(view.byteLength)
-        expect(toBuffer(view)).toBe(buffer)
     })
 
     test.each<[any]>([
