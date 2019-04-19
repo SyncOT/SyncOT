@@ -35,16 +35,16 @@ const data2 = Object.freeze({ key: 'value-2' })
 const lastModified = 1
 const lastModified2 = 2
 
-const sessionIdBuffer = Buffer.from(encode(sessionId))
-const sessionIdBuffer2 = Buffer.from(encode(sessionId2))
-const userIdBuffer = Buffer.from(encode(userId))
-const userIdBuffer2 = Buffer.from(encode(userId2))
-const locationIdBuffer = Buffer.from(encode(locationId))
-const locationIdBuffer2 = Buffer.from(encode(locationId2))
-const dataBuffer = Buffer.from(encode(data))
-const dataBuffer2 = Buffer.from(encode(data2))
-const lastModifiedBuffer = Buffer.from(encode(lastModified))
-const lastModifiedBuffer2 = Buffer.from(encode(lastModified2))
+const sessionIdBuffer = encode(sessionId)
+const sessionIdBuffer2 = encode(sessionId2)
+const userIdBuffer = encode(userId)
+const userIdBuffer2 = encode(userId2)
+const locationIdBuffer = encode(locationId)
+const locationIdBuffer2 = encode(locationId2)
+const dataBuffer = encode(data)
+const dataBuffer2 = encode(data2)
+const lastModifiedBuffer = encode(lastModified)
+const lastModifiedBuffer2 = encode(lastModified2)
 
 const presenceKey = new SmartBuffer()
     .writeString(presencePrefix)
@@ -461,7 +461,7 @@ describe('submitPresence', () => {
         await expect(
             presenceProxy.submitPresence({
                 ...presence,
-                sessionId: new ArrayBuffer(0),
+                sessionId: Buffer.allocUnsafe(0),
             }),
         ).rejects.toEqual(
             expect.objectContaining({
@@ -556,7 +556,7 @@ describe('submitPresence', () => {
             sessionService.getSessionId.mockReturnValue(34)
             await expect(
                 presenceProxy.submitPresence({
-                    data: new ArrayBuffer(effectiveLimit - 9), // (type + int8 or int16 length + binary data)
+                    data: Buffer.allocUnsafe(effectiveLimit - 9), // (type + int8 or int16 length + binary data)
                     lastModified: Date.now(), // 3 bytes (type + int16)
                     locationId: 99, // 2 bytes (type + int8)
                     sessionId: 34, // 2 bytes (type + int8)
@@ -739,11 +739,7 @@ describe('submitPresence', () => {
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
-            await redis.hset(
-                presenceKey,
-                'lastModified',
-                Buffer.from(encode(7)),
-            )
+            await redis.hset(presenceKey, 'lastModified', encode(7))
             await redis.expire(presenceKey, 1)
             await redis.expire(userKey, 1)
             await redis.expire(locationKey, 1)
@@ -909,9 +905,7 @@ describe('getPresenceBySessionId', () => {
             userId: userIdBuffer,
         })
         await expect(
-            presenceProxy.getPresenceBySessionId(
-                Buffer.from(encode('does not exist')),
-            ),
+            presenceProxy.getPresenceBySessionId(encode('does not exist')),
         ).resolves.toBeNull()
     })
 
@@ -988,7 +982,7 @@ describe('getPresenceBySessionId', () => {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
             locationId: locationIdBuffer,
-            userId: Buffer.from(encode(true)),
+            userId: encode(true),
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1225,7 +1219,7 @@ describe('getPresenceByUserId', () => {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
             locationId: locationIdBuffer,
-            userId: Buffer.from(encode(true)),
+            userId: encode(true),
         })
         await redis.sadd(userKey, sessionIdBuffer)
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
@@ -1459,7 +1453,7 @@ describe('getPresenceByLocationId', () => {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
             locationId: locationIdBuffer,
-            userId: Buffer.from(encode(true)),
+            userId: encode(true),
         })
         await redis.sadd(locationKey, sessionIdBuffer)
         await expect(

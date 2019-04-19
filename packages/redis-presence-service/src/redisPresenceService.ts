@@ -105,11 +105,11 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
 
         const encodedPresence: EncodedPresence = [
-            Buffer.from(encode(presence.sessionId)),
-            Buffer.from(encode(presence.userId)),
-            Buffer.from(encode(presence.locationId)),
-            Buffer.from(encode(presence.data)),
-            Buffer.from(encode(Date.now())),
+            encode(presence.sessionId),
+            encode(presence.userId),
+            encode(presence.locationId),
+            encode(presence.data),
+            encode(Date.now()),
         ]
         const presenceSize =
             encodedPresence[0].length +
@@ -150,7 +150,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         try {
             const encodedPresence = await this.redis.presenceGetBySessionIdBuffer(
-                Buffer.from(encode(sessionId)),
+                encode(sessionId),
             )
             return await this.decodePresence(encodedPresence)
         } catch (error) {
@@ -166,7 +166,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         try {
             const encodedPresenceArray = await this.redis.presenceGetByUserIdBuffer(
-                Buffer.from(encode(userId)),
+                encode(userId),
             )
             return (await Promise.all(
                 encodedPresenceArray.map(this.decodePresence),
@@ -184,7 +184,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         try {
             const encodedPresenceArray = await this.redis.presenceGetByLocationIdBuffer(
-                Buffer.from(encode(locationId)),
+                encode(locationId),
             )
             return (await Promise.all(
                 encodedPresenceArray.map(this.decodePresence),
@@ -201,7 +201,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
 
         let publishedPresence: Presence | null = null
-        const encodedSessionId = Buffer.from(encode(sessionId))
+        const encodedSessionId = encode(sessionId)
         const channel = Buffer.concat([
             sessionIdChannelPrefix,
             encodedSessionId,

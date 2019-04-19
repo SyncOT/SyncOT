@@ -1,5 +1,6 @@
 import { createSocketClosedError } from '@syncot/error'
 import { decode, encode } from '@syncot/tson'
+import { Binary } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex } from 'stream'
 
@@ -17,7 +18,7 @@ export interface TsonSocket {
     binaryType: string
     readyState: number
 
-    send(data: ArrayBuffer): void
+    send(data: Binary): void
     close(): void
 
     addEventListener(name: 'open' | 'close', callback: () => void): void

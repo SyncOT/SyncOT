@@ -4,9 +4,9 @@ describe('validatePresence', () => {
     const presence: Presence = {
         data: null,
         lastModified: 0,
-        locationId: new ArrayBuffer(0),
-        sessionId: new ArrayBuffer(0),
-        userId: new ArrayBuffer(0),
+        locationId: Buffer.allocUnsafe(0),
+        sessionId: Buffer.allocUnsafe(0),
+        userId: Buffer.allocUnsafe(0),
     }
     test.each<[any, string | null | undefined]>([
         [presence, undefined],

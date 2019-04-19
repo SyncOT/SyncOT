@@ -1,5 +1,4 @@
-import { toBuffer } from '.'
-import { binaryEqual, isBinary, toArrayBuffer } from './buffer'
+import { isBinary, toArrayBuffer, toBuffer } from '.'
 
 describe('toBuffer', () => {
     test('Buffer', () => {
@@ -76,7 +75,7 @@ describe('toArrayBuffer', () => {
         const arrayBuffer = toArrayBuffer(buffer)
         expect(arrayBuffer).not.toBe(buffer.buffer)
         expect(arrayBuffer).toBeInstanceOf(ArrayBuffer)
-        expect(Buffer.from(arrayBuffer).compare(buffer)).toBe(0)
+        expect(Buffer.from(arrayBuffer).equals(buffer)).toBeTrue()
     })
 
     test.each<[ArrayBufferConstructor | SharedArrayBufferConstructor]>([
@@ -109,7 +108,7 @@ describe('toArrayBuffer', () => {
         const arrayBuffer = toArrayBuffer(view)
         expect(arrayBuffer).not.toBe(data)
         expect(arrayBuffer).toBeInstanceOf(ArrayBuffer)
-        expect(Buffer.from(arrayBuffer).compare(buffer)).toBe(0)
+        expect(Buffer.from(arrayBuffer).equals(buffer)).toBeTrue()
     })
 
     test.each<[any]>([
@@ -126,43 +125,6 @@ describe('toArrayBuffer', () => {
         [false],
     ])('%p', input => {
         expect(toArrayBuffer(input)).toBeUndefined()
-    })
-})
-
-describe('binaryEqual', () => {
-    test.each<[any, any, boolean]>([
-        [Buffer.from('some data'), Buffer.from('some data'), true],
-        [Buffer.allocUnsafe(0), Buffer.allocUnsafe(0), true],
-        [Buffer.from('some data'), Buffer.from('some data!'), false],
-        [Buffer.from('some data!'), Buffer.from('some data'), false],
-        [
-            toArrayBuffer(Buffer.from('test')),
-            toArrayBuffer(Buffer.from('test')),
-            true,
-        ],
-        [
-            toArrayBuffer(Buffer.from('test')),
-            toArrayBuffer(Buffer.from('test1')),
-            false,
-        ],
-        [toArrayBuffer(Buffer.from('test')), Buffer.from('test'), true],
-        [Buffer.from('test'), toArrayBuffer(Buffer.from('test')), true],
-        [
-            new DataView(toArrayBuffer(Buffer.from('test'))),
-            Buffer.from('test'),
-            true,
-        ],
-        [
-            new Uint16Array(toArrayBuffer(Buffer.from('test'))),
-            Buffer.from('test'),
-            true,
-        ],
-        [0, Buffer.allocUnsafe(0), false],
-        [Buffer.allocUnsafe(0), 0, false],
-        [[], Buffer.allocUnsafe(0), false],
-        [Buffer.allocUnsafe(0), [], false],
-    ])('test #%#', (binary1, binary2, result) => {
-        expect(binaryEqual(binary1, binary2)).toBe(result)
     })
 })
 

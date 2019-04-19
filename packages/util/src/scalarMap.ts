@@ -1,9 +1,10 @@
-import { strict as assert } from 'assert'
-import { BinaryType, isBinary, toBuffer } from './buffer'
+import { AssertionError } from 'assert'
 
-export type Scalar = BinaryType | string | number | boolean | null | undefined
+type Primitive = string | number | boolean | null | undefined
 
-export function isScalar(value: any): value is Scalar {
+export type Scalar = Buffer | Primitive
+
+function isPrimitive(value: any): value is Primitive {
     if (value == null) {
         return true
     }
@@ -14,25 +15,31 @@ export function isScalar(value: any): value is Scalar {
         return true
     }
 
-    if (isBinary(value)) {
-        return true
-    }
-
     return false
 }
+
+export function isScalar(value: any): value is Scalar {
+    return isPrimitive(value) || Buffer.isBuffer(value)
+}
+
+const invalidKeyError = Object.freeze(
+    new AssertionError({
+        message: 'Argument "key" must be a scalar value.',
+    }),
+)
 
 /**
  * A simple map which supports only scalar values as keys.
  * The main difference from the standard JS Map is that the ScalarMap
- * compares binary types by their values rather than identity.
+ * compares Buffers by their values rather than identity.
  */
 export class ScalarMap<K extends Scalar, V> {
-    private _binaryEntries: Map<string, V> | undefined = undefined
-    private get binaryEntries(): Map<string, V> {
-        if (!this._binaryEntries) {
-            this._binaryEntries = new Map()
+    private _bufferEntries: Map<string, V> | undefined = undefined
+    private get bufferEntries(): Map<string, V> {
+        if (!this._bufferEntries) {
+            this._bufferEntries = new Map()
         }
-        return this._binaryEntries
+        return this._bufferEntries
     }
 
     private _otherEntries: Map<K, V> | undefined = undefined
@@ -46,8 +53,8 @@ export class ScalarMap<K extends Scalar, V> {
     public get size(): number {
         let size = 0
 
-        if (this._binaryEntries) {
-            size += this._binaryEntries.size
+        if (this._bufferEntries) {
+            size += this._bufferEntries.size
         }
 
         if (this._otherEntries) {
@@ -58,57 +65,74 @@ export class ScalarMap<K extends Scalar, V> {
     }
 
     public clear(): void {
-        this._binaryEntries = undefined
-        this._otherEntries = undefined
+        if (this._bufferEntries) {
+            this._bufferEntries.clear()
+        }
+        if (this._otherEntries) {
+            this._otherEntries.clear()
+        }
     }
 
     public delete(key: K): boolean {
-        assert.ok(isScalar(key), 'Argument "key" must be a scalar value.')
-
-        const buffer = toBuffer(key)
-
-        if (buffer) {
-            return this.binaryEntries.delete(buffer.toString('binary'))
-        } else {
+        if (Buffer.isBuffer(key)) {
+            return this.bufferEntries.delete(key.toString('binary'))
+        } else if (isScalar(key)) {
             return this.otherEntries.delete(key)
+        } else {
+            throw invalidKeyError
         }
     }
 
     public get(key: K): V | undefined {
-        assert.ok(isScalar(key), 'Argument "key" must be a scalar value.')
-
-        const buffer = toBuffer(key)
-
-        if (buffer) {
-            return this.binaryEntries.get(buffer.toString('binary'))
-        } else {
+        if (Buffer.isBuffer(key)) {
+            return this.bufferEntries.get(key.toString('binary'))
+        } else if (isScalar(key)) {
             return this.otherEntries.get(key)
+        } else {
+            throw invalidKeyError
         }
     }
 
     public has(key: K): boolean {
-        assert.ok(isScalar(key), 'Argument "key" must be a scalar value.')
-
-        const buffer = toBuffer(key)
-
-        if (buffer) {
-            return this.binaryEntries.has(buffer.toString('binary'))
-        } else {
+        if (Buffer.isBuffer(key)) {
+            return this.bufferEntries.has(key.toString('binary'))
+        } else if (isScalar(key)) {
             return this.otherEntries.has(key)
+        } else {
+            throw invalidKeyError
         }
     }
 
     public set(key: K, value: V): this {
-        assert.ok(isScalar(key), 'Argument "key" must be a scalar value.')
-
-        const buffer = toBuffer(key)
-
-        if (buffer) {
-            this.binaryEntries.set(buffer.toString('binary'), value)
-        } else {
+        if (Buffer.isBuffer(key)) {
+            this.bufferEntries.set(key.toString('binary'), value)
+        } else if (isScalar(key)) {
             this.otherEntries.set(key, value)
+        } else {
+            throw invalidKeyError
         }
 
         return this
+    }
+
+    public forEach(
+        callback: (value: V, key: K, map: this) => void,
+        thisArg?: any,
+    ): void {
+        if (this._bufferEntries) {
+            this._bufferEntries.forEach((value, key) =>
+                callback.call(
+                    thisArg,
+                    value,
+                    Buffer.from(key, 'binary') as K,
+                    this,
+                ),
+            )
+        }
+        if (this._otherEntries) {
+            this._otherEntries.forEach((value, key) =>
+                callback.call(thisArg, value, key, this),
+            )
+        }
     }
 }

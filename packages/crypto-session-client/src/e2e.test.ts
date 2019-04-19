@@ -47,8 +47,8 @@ test('establish a session', async () => {
     expect(sessionServer.getSessionId()).toBeUndefined()
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
-    expect(sessionServer.getSessionId()).toBeInstanceOf(ArrayBuffer)
+    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
+    expect(sessionServer.getSessionId()).toBeInstanceOf(Buffer)
     expect(
         idEqual(sessionClient.getSessionId(), sessionServer.getSessionId()),
     ).toBeTrue()
@@ -61,7 +61,7 @@ test('disconnect, reconnect', async () => {
     clientConnection.disconnect()
     await whenSessionInactive(sessionServer)
     await whenSessionInactive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
+    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
     expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
     expect(sessionServer.getSessionId()).toBeUndefined()
     ;[clientStream, serverStream] = invertedStreams({
@@ -72,8 +72,8 @@ test('disconnect, reconnect', async () => {
     serverConnection.connect(serverStream)
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(ArrayBuffer)
+    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
     expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
-    expect(sessionServer.getSessionId()).toBeInstanceOf(ArrayBuffer)
+    expect(sessionServer.getSessionId()).toBeInstanceOf(Buffer)
     expect(idEqual(sessionServer.getSessionId(), sessionId)).toBeTrue()
 })

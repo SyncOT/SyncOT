@@ -1,4 +1,4 @@
-import { isScalar, ScalarMap, toArrayBuffer } from '.'
+import { isScalar, ScalarMap } from '.'
 
 describe('isScalar', () => {
     test.each<[any, boolean]>([
@@ -11,10 +11,10 @@ describe('isScalar', () => {
         [0, true],
         [1, true],
         [NaN, true],
-        [new ArrayBuffer(0), true],
+        [new ArrayBuffer(0), false],
         [Buffer.allocUnsafe(8), true],
-        [new Uint32Array(8), true],
-        [new DataView(new ArrayBuffer(8)), true],
+        [new Uint32Array(8), false],
+        [new DataView(new ArrayBuffer(8)), false],
         [Symbol(), false],
         [() => undefined, false],
         [{}, false],
@@ -31,11 +31,17 @@ describe('ScalarMap', () => {
     })
 
     test('invalid key', () => {
+        const symbol = Symbol() as any
+        const arrayBuffer = new ArrayBuffer(1) as any
         const map = new ScalarMap()
-        expect(() => map.set(Symbol() as any, 1)).toThrow(invalidKeyMatcher)
-        expect(() => map.get(Symbol() as any)).toThrow(invalidKeyMatcher)
-        expect(() => map.has(Symbol() as any)).toThrow(invalidKeyMatcher)
-        expect(() => map.delete(Symbol() as any)).toThrow(invalidKeyMatcher)
+        expect(() => map.set(symbol, 1)).toThrow(invalidKeyMatcher)
+        expect(() => map.get(symbol)).toThrow(invalidKeyMatcher)
+        expect(() => map.has(symbol)).toThrow(invalidKeyMatcher)
+        expect(() => map.delete(symbol)).toThrow(invalidKeyMatcher)
+        expect(() => map.set(arrayBuffer, 1)).toThrow(invalidKeyMatcher)
+        expect(() => map.get(arrayBuffer)).toThrow(invalidKeyMatcher)
+        expect(() => map.has(arrayBuffer)).toThrow(invalidKeyMatcher)
+        expect(() => map.delete(arrayBuffer)).toThrow(invalidKeyMatcher)
         expect(map.size).toBe(0)
     })
 
@@ -70,17 +76,6 @@ describe('ScalarMap', () => {
         expect(map.delete(Buffer.from('a key'))).toBeTrue()
         expect(map.size).toBe(0)
         expect(map.delete(Buffer.from('a key'))).toBeFalse()
-    })
-
-    test('ArrayBuffer key', () => {
-        const map = new ScalarMap<ArrayBuffer, number>()
-        expect(map.set(toArrayBuffer(Buffer.from('a key')), 123)).toBe(map)
-        expect(map.get(toArrayBuffer(Buffer.from('a key')))).toBe(123)
-        expect(map.has(toArrayBuffer(Buffer.from('a key')))).toBeTrue()
-        expect(map.size).toBe(1)
-        expect(map.delete(toArrayBuffer(Buffer.from('a key')))).toBeTrue()
-        expect(map.size).toBe(0)
-        expect(map.delete(toArrayBuffer(Buffer.from('a key')))).toBeFalse()
     })
 
     test('mixed types', () => {
@@ -136,5 +131,70 @@ describe('ScalarMap', () => {
         expect(map.delete(123)).toBeFalse()
         expect(map.delete(Buffer.from('123'))).toBeFalse()
         expect(map.delete(Buffer.from([123]))).toBeFalse()
+    })
+
+    test('forEach', () => {
+        const thisArg = { key: 'value' }
+        const callback = jest.fn()
+        const map = new ScalarMap()
+
+        map.set('123', 'a string')
+        map.set(123, 'a number')
+        map.set(Buffer.from('123'), 'a buffer from string')
+        map.set(Buffer.from([123]), 'a buffer from array')
+
+        map.forEach(callback, thisArg)
+
+        expect(callback).toHaveBeenCalledTimes(4)
+        expect(callback.mock.instances[0]).toBe(thisArg)
+        expect(callback.mock.instances[1]).toBe(thisArg)
+        expect(callback.mock.instances[2]).toBe(thisArg)
+        expect(callback.mock.instances[3]).toBe(thisArg)
+        expect(callback).toHaveBeenCalledWith('a string', '123', map)
+        expect(callback).toHaveBeenCalledWith('a number', 123, map)
+        expect(callback).toHaveBeenCalledWith(
+            'a buffer from string',
+            Buffer.from('123'),
+            map,
+        )
+        expect(callback).toHaveBeenCalledWith(
+            'a buffer from array',
+            Buffer.from([123]),
+            map,
+        )
+    })
+
+    test('multiple buffer keys', () => {
+        const map = new ScalarMap()
+
+        for (let i = 0; i < 0x10000; ++i) {
+            const key = Buffer.allocUnsafe(2)
+            key.writeUInt16BE(i, 0)
+            map.set(key, i)
+        }
+
+        expect(map.size).toBe(0x10000)
+
+        for (let i = 0; i < 0x10000; ++i) {
+            const key = Buffer.allocUnsafe(2)
+            key.writeUInt16BE(i, 0)
+            const has = map.has(key)
+            const get = map.get(key)
+            const del = map.delete(key)
+
+            if (!has) {
+                expect(has).toBeTrue()
+            }
+
+            if (get !== i) {
+                expect(get).toBe(i)
+            }
+
+            if (!del) {
+                expect(del).toBeTrue()
+            }
+        }
+
+        expect(map.size).toBe(0)
     })
 })

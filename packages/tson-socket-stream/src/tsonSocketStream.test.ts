@@ -305,7 +305,7 @@ describe.each<[string, () => void]>([
             const onError = jest.fn()
             clientStream.on('data', onData)
             clientStream.on('error', onError)
-            serverSocket.send(new ArrayBuffer(0))
+            serverSocket.send(Buffer.allocUnsafe(0))
             await allClosed
             expect(onData).not.toHaveBeenCalled()
             expect(onError).toHaveBeenCalledTimes(1)

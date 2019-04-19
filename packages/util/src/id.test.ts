@@ -1,12 +1,12 @@
-import { idEqual, isId, toArrayBuffer } from '.'
+import { idEqual, isId } from '.'
 
 describe('isId', () => {
     test.each<[any, boolean]>([
         ['abc', true],
         [0, true],
-        [new ArrayBuffer(0), true],
+        [new ArrayBuffer(0), false],
         [new SharedArrayBuffer(0), false],
-        [Buffer.allocUnsafe(1), false],
+        [Buffer.allocUnsafe(1), true],
         [new DataView(new ArrayBuffer(0)), false],
         [false, false],
         [true, false],
@@ -21,23 +21,17 @@ describe('idEqual', () => {
     test.each<[any, any, boolean]>([
         [5, '5', false],
         ['5', 5, false],
-        [new ArrayBuffer(1), 0, false],
-        [0, new ArrayBuffer(1), false],
-        [Buffer.allocUnsafe(0), Buffer.allocUnsafe(0), false],
+        [Buffer.from([0]), 0, false],
+        [0, Buffer.from([0]), false],
+        [Buffer.allocUnsafe(0), Buffer.allocUnsafe(0), true],
+        [Buffer.from('qwerty'), Buffer.from('qwerty'), true],
+        [Buffer.from('qwerty'), Buffer.from('qwerty!'), false],
+        [Buffer.from('qwerty?'), Buffer.from('qwerty'), false],
+        [Buffer.from('qwerty?'), Buffer.from('qwerty!'), false],
         ['abc', 'abc', true],
         ['abce', 'abcd', false],
         [5, 5, true],
         [5, 6, false],
-        [
-            toArrayBuffer(Buffer.from([1, 2, 3])),
-            toArrayBuffer(Buffer.from([1, 2, 3])),
-            true,
-        ],
-        [
-            toArrayBuffer(Buffer.from([1, 2, 3, 5])),
-            toArrayBuffer(Buffer.from([1, 2, 3, 4])),
-            false,
-        ],
         [null, null, false],
         [null, undefined, false],
         [undefined, null, false],

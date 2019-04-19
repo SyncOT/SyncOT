@@ -1,7 +1,7 @@
+import { Binary, toArrayBuffer, toBuffer } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import { TsonSocket } from './tsonSocketStream'
-import { arrayBufferToBase64, base64ToArrayBuffer } from './util'
 
 class SockJsClientConnectionTsonSocket extends EventEmitter
     implements TsonSocket {
@@ -28,16 +28,16 @@ class SockJsClientConnectionTsonSocket extends EventEmitter
         this.sockJs.addEventListener('open', () => this.emit('open'))
         this.sockJs.addEventListener('close', () => this.emit('close'))
         this.sockJs.addEventListener('message', ({ data }: { data: string }) =>
-            this.emit('message', { data: base64ToArrayBuffer(data) }),
+            this.emit('message', {
+                data: toArrayBuffer(Buffer.from(data, 'base64')),
+            }),
         )
     }
 
-    public send(data: ArrayBuffer): void {
-        assert.ok(
-            data instanceof ArrayBuffer,
-            'Argument "data" must be an ArrayBuffer.',
-        )
-        this.sockJs.send(arrayBufferToBase64(data))
+    public send(data: Binary): void {
+        const buffer = toBuffer(data)
+        assert.ok(buffer, 'Argument "data" must be a Binary.')
+        this.sockJs.send(buffer.toString('base64'))
     }
 
     public close(): void {
@@ -69,16 +69,16 @@ class SockJsServerConnectionTsonSocket extends EventEmitter
         super()
         this.sockJs.on('close', () => this.emit('close'))
         this.sockJs.on('data', (data: string) =>
-            this.emit('message', { data: base64ToArrayBuffer(data) }),
+            this.emit('message', {
+                data: toArrayBuffer(Buffer.from(data, 'base64')),
+            }),
         )
     }
 
-    public send(data: ArrayBuffer): void {
-        assert.ok(
-            data instanceof ArrayBuffer,
-            'Argument "data" must be an ArrayBuffer.',
-        )
-        this.sockJs.write(arrayBufferToBase64(data))
+    public send(data: Binary): void {
+        const buffer = toBuffer(data)
+        assert.ok(buffer, 'Argument "data" must be a Binary.')
+        this.sockJs.write(buffer.toString('base64'))
     }
 
     public close(): void {

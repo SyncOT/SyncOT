@@ -1,5 +1,5 @@
 import { createTsonError } from '@syncot/error'
-import { BinaryType, toArrayBuffer, toBuffer } from '@syncot/util'
+import { Binary, toBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 
 /**
@@ -146,11 +146,11 @@ const workingMemory = Buffer.allocUnsafe(8192)
 let encoding = false
 
 /**
- * Returns the encoded `data` as an `ArrayBuffer`.
+ * Returns the encoded `data` as a `Buffer`.
  * @param data The data to encode.
  * @returns The encoded `data`.
  */
-export function encode(data: any): ArrayBuffer {
+export function encode(data: any): Buffer {
     /* istanbul ignore if */
     if (encoding) {
         throw createTsonError('`encode` must not be called recursively.')
@@ -169,8 +169,10 @@ export function encode(data: any): ArrayBuffer {
         // Slice out a nodejs buffer from the smart buffer.
         // Both `buffer` and `smartBuffer` reference the same data.
         const buffer = smartBuffer.toBuffer()
-        // Copy the encoded data into a new ArrayBuffer and return it.
-        return toArrayBuffer(buffer)
+        // Copy the encoded data into a new Buffer and return it.
+        // It protects the `workingMemory` from corruption and helps to avoid unnecessary retention of
+        // large amounts of memory in case a small encoded value is not GCed for a long time.
+        return Buffer.from(buffer)
     } finally {
         encoding = false
     }
@@ -241,10 +243,11 @@ function encodeString(buffer: SmartBuffer, item: string): void {
 }
 
 function encodeObject(buffer: SmartBuffer, object: object | null): void {
-    if (object === null) {
+    const objectBuffer = toBuffer(object)
+    if (objectBuffer) {
+        encodeBuffer(buffer, objectBuffer)
+    } else if (object === null) {
         encodeNull(buffer)
-    } else if (toBuffer(object)) {
-        encodeBuffer(buffer, toBuffer(object) as Buffer)
     } else if (Array.isArray(object)) {
         encodeArray(buffer, object)
     } else if (object instanceof Error) {
@@ -359,7 +362,7 @@ function encodePlainObject(
  * @returns The decoded data.
  */
 export function decode(
-    binaryData: BinaryType,
+    binaryData: Binary,
 ): boolean | number | string | object | null {
     const buffer = toBuffer(binaryData)
 
@@ -428,22 +431,19 @@ function decodeAny(
             assertBytes(buffer, 1, 'BINARY8 length')
             const length = buffer.readUInt8()
             assertBytes(buffer, length, 'BINARY8 data')
-            const readBuffer = buffer.readBuffer(length)
-            return toArrayBuffer(readBuffer)
+            return Buffer.from(buffer.readBuffer(length))
         }
         case Type.BINARY16: {
             assertBytes(buffer, 2, 'BINARY16 length')
             const length = buffer.readUInt16LE()
             assertBytes(buffer, length, 'BINARY16 data')
-            const readBuffer = buffer.readBuffer(length)
-            return toArrayBuffer(readBuffer)
+            return Buffer.from(buffer.readBuffer(length))
         }
         case Type.BINARY32: {
             assertBytes(buffer, 4, 'BINARY32 length')
             const length = buffer.readUInt32LE()
             assertBytes(buffer, length, 'BINARY32 data')
-            const readBuffer = buffer.readBuffer(length)
-            return toArrayBuffer(readBuffer)
+            return Buffer.from(buffer.readBuffer(length))
         }
         case Type.ARRAY8: {
             assertBytes(buffer, 1, 'ARRAY8 length')

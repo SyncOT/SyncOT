@@ -10,8 +10,8 @@ export function createSessionManager(connection: Connection): SessionManager {
     return new CryptoSessionManager(connection)
 }
 
-type Challenge = ArrayBuffer
-type ChallengeReply = ArrayBuffer
+type Challenge = Buffer
+type ChallengeReply = Buffer
 
 /**
  * The interface of the server-side session manager used for establishing a session.
@@ -19,7 +19,7 @@ type ChallengeReply = ArrayBuffer
 interface SessionService {
     getChallenge(): Promise<Challenge>
     activateSession(
-        publicKey: ArrayBuffer,
+        publicKey: Buffer,
         sessionId: Id,
         challangeReply: ChallengeReply,
     ): Promise<void>
@@ -31,7 +31,7 @@ interface SessionService {
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private keyPair: CryptoKeyPair | undefined = undefined
-    private publicKey: ArrayBuffer | undefined = undefined
+    private publicKey: Buffer | undefined = undefined
     private sessionId: Id | undefined = undefined
     private active: boolean = false
     private readonly sessionService: SessionService
@@ -102,9 +102,8 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
                 false,
                 ['sign', 'verify'],
             )
-            const spki = await crypto.subtle.exportKey(
-                'spki',
-                keyPair.publicKey,
+            const spki = Buffer.from(
+                await crypto.subtle.exportKey('spki', keyPair.publicKey),
             )
             // Keeping only some of the SHA-256 bits is safe.
             // See https://crypto.stackexchange.com/questions/3153/sha-256-vs-any-256-bits-of-sha-512-which-is-more-secure/3156#3156
@@ -116,10 +115,11 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             // corresponding private keys. So, the session IDs are essentially as secure as
             // the corresponding private keys, which are generated in the browser and are
             // not exportable.
-            const sessionId = (await crypto.subtle.digest(
-                'SHA-256',
-                spki,
-            )).slice(0, 16)
+            const sessionId = Buffer.from(
+                await crypto.subtle.digest('SHA-256', spki),
+                0,
+                16,
+            )
 
             if (this.destroyed) {
                 return
@@ -147,10 +147,12 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
         try {
             const challenge = await this.sessionService.getChallenge()
-            const challengeReply = await crypto.subtle.sign(
-                'RSASSA-PKCS1-v1_5',
-                this.keyPair!.privateKey,
-                challenge,
+            const challengeReply = Buffer.from(
+                await crypto.subtle.sign(
+                    'RSASSA-PKCS1-v1_5',
+                    this.keyPair!.privateKey,
+                    challenge,
+                ),
             )
             await this.sessionService.activateSession(
                 this.publicKey!,

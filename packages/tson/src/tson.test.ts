@@ -1,4 +1,4 @@
-import { binaryEqual, BinaryType, toArrayBuffer } from '@syncot/util'
+import { Binary } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 import { decode, encode } from '.'
 import { Type } from './tson'
@@ -10,11 +10,9 @@ const errorMatcher = (message: string) =>
     })
 
 const encodeToSmartBuffer = (data: any) => {
-    const arrayBuffer = encode(data)
-    const buffer = Buffer.from(arrayBuffer)
-    const smartBuffer = SmartBuffer.fromBuffer(buffer)
-    expect(arrayBuffer).toBeInstanceOf(ArrayBuffer)
-    return smartBuffer
+    const buffer = encode(data)
+    expect(Buffer.isBuffer(buffer)).toBeTrue()
+    return SmartBuffer.fromBuffer(buffer)
 }
 
 const stringFFLong = Array.from(Array(0xff), (_v, k) => k % 10).join('')
@@ -392,10 +390,10 @@ describe('encode', () => {
                 ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
                 ['DataView', testDataView],
                 ['Buffer', testBuffer],
-            ] as Array<[string, BinaryType]>).concat(
+            ] as Array<[string, Binary]>).concat(
                 testTypedArrays.map(
                     array =>
-                        [array.constructor.name, array] as [string, BinaryType],
+                        [array.constructor.name, array] as [string, Binary],
                 ),
             ),
         )('type: %s', (_message, data) => {
@@ -403,7 +401,7 @@ describe('encode', () => {
             expect(buffer.length).toBe(26)
             expect(buffer.readUInt8()).toBe(Type.BINARY8)
             expect(buffer.readUInt8()).toBe(24)
-            expect(buffer.readBuffer(24).compare(testBuffer)).toBe(0)
+            expect(buffer.readBuffer(24).equals(testBuffer)).toBeTrue()
         })
 
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
@@ -427,7 +425,7 @@ describe('encode', () => {
                         ? buffer.readUInt16LE()
                         : buffer.readUInt32LE(),
                 ).toBe(length)
-                expect(buffer.readBuffer(length).compare(data)).toBe(0)
+                expect(buffer.readBuffer(length).equals(data)).toBeTrue()
             },
         )
     })
@@ -916,7 +914,7 @@ describe('encode', () => {
                 value: error.name,
             })
             const buffer = encodeToSmartBuffer(error).toBuffer()
-            expect(buffer.compare(expectedBuffer)).toBe(0)
+            expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable message', () => {
             const error = new Error('test')
@@ -926,7 +924,7 @@ describe('encode', () => {
                 value: error.message,
             })
             const buffer = encodeToSmartBuffer(error).toBuffer()
-            expect(buffer.compare(expectedBuffer)).toBe(0)
+            expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable name and message', () => {
             const error = new Error('test')
@@ -940,7 +938,7 @@ describe('encode', () => {
                 value: error.message,
             })
             const buffer = encodeToSmartBuffer(error).toBuffer()
-            expect(buffer.compare(expectedBuffer)).toBe(0)
+            expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable name, message and details', () => {
             const error = new Error('test')
@@ -956,7 +954,7 @@ describe('encode', () => {
                 value: error.message,
             })
             const buffer = encodeToSmartBuffer(error).toBuffer()
-            expect(buffer.compare(expectedBuffer)).toBe(0)
+            expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
     })
 })
@@ -968,10 +966,9 @@ describe('decode', () => {
             ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
             ['DataView', testDataView],
             ['Buffer', testBuffer],
-        ] as Array<[string, BinaryType]>).concat(
+        ] as Array<[string, Binary]>).concat(
             testTypedArrays.map(
-                array =>
-                    [array.constructor.name, array] as [string, BinaryType],
+                array => [array.constructor.name, array] as [string, Binary],
             ),
         ),
     )('input type: %s', (_message, data) => {
@@ -996,7 +993,7 @@ describe('decode', () => {
                 case 3:
                     return '!' + i
                 case 4:
-                    return new ArrayBuffer(5)
+                    return Buffer.allocUnsafe(5)
                 case 5:
                     return true
                 case 6:
@@ -1032,7 +1029,7 @@ describe('decode', () => {
                     object['' + (1000000000 + i)] = '!' + i
                     break
                 case 4:
-                    object['' + (1000000000 + i)] = new ArrayBuffer(5)
+                    object['' + (1000000000 + i)] = Buffer.allocUnsafe(5)
                     break
                 case 5:
                     object['' + (1000000000 + i)] = true
@@ -1170,9 +1167,7 @@ describe('decode', () => {
         'BINARY %d long',
         length => {
             const data = Buffer.allocUnsafe(length).fill(0x46)
-            const output = decode(encode(data)) as ArrayBuffer
-            expect(output).toBeInstanceOf(ArrayBuffer)
-            expect(binaryEqual(output, data)).toBeTrue()
+            expect(decode(encode(data))).toEqual(data)
         },
     )
 
@@ -1182,9 +1177,7 @@ describe('decode', () => {
         smartBuffer.writeInt32LE(0)
         smartBuffer.writeInt32LE(0)
         const buffer = smartBuffer.toBuffer()
-        const arrayBuffer = toArrayBuffer(buffer)
-        expect(arrayBuffer.byteLength).toBe(9)
-        expect(() => decode(arrayBuffer)).toThrow(
+        expect(() => decode(buffer)).toThrow(
             errorMatcher('Cannot decode a 64-bit integer.'),
         )
     })
@@ -1308,4 +1301,47 @@ describe('decode', () => {
     ])('ERROR failure: %s', (message, data) => {
         expect(() => decode(Buffer.from(data))).toThrow(errorMatcher(message))
     })
+})
+
+test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000])(
+    'input, encoded and decoded buffers are independent (size=%d)',
+    size => {
+        const originalData = Buffer.allocUnsafe(size).fill(0x78)
+        const inputData = Buffer.allocUnsafe(size).fill(0x78)
+        const encodedData = encode(inputData)
+        const decodedData = decode(encodedData) as Buffer
+
+        // Encoding and decoding works fine.
+        expect(decodedData.equals(originalData)).toBeTrue()
+
+        encodedData.fill(0x99)
+
+        // encodedData and decodedData are independent.
+        expect(decodedData.equals(originalData)).toBeTrue()
+
+        // encodedData and inputData are independent.
+        expect(inputData.equals(originalData)).toBeTrue()
+    },
+)
+
+test('two encoded buffer are independent', () => {
+    const expectedEncodedData = Buffer.from([
+        Type.BINARY8,
+        4,
+        0x78,
+        0x78,
+        0x78,
+        0x78,
+    ])
+    const inputData = Buffer.allocUnsafe(4).fill(0x78)
+    const encodedData1 = encode(inputData)
+    const encodedData2 = encode(inputData)
+
+    expect(encodedData1.equals(expectedEncodedData)).toBeTrue()
+    expect(encodedData2.equals(expectedEncodedData)).toBeTrue()
+
+    encodedData1.fill(0x99)
+
+    expect(encodedData1.equals(Buffer.allocUnsafe(6).fill(0x99))).toBeTrue()
+    expect(encodedData2.equals(expectedEncodedData)).toBeTrue()
 })

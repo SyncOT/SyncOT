@@ -1,11 +1,6 @@
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import {
-    binaryEqual,
-    invertedStreams,
-    toArrayBuffer,
-    toBuffer,
-} from '@syncot/util'
+import { invertedStreams, toArrayBuffer } from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -14,11 +9,11 @@ const delay = (time: number = 0) =>
     new Promise(resolve => setTimeout(resolve, time))
 
 interface SessionManagerProxy {
-    getChallenge(): Promise<ArrayBuffer>
+    getChallenge(): Promise<Buffer>
     activateSession(
-        publicKey: ArrayBuffer,
-        sessionId: ArrayBuffer,
-        challengeReply: ArrayBuffer,
+        publicKey: Buffer,
+        sessionId: Buffer,
+        challengeReply: Buffer,
     ): Promise<void>
 }
 
@@ -33,7 +28,7 @@ const publicKeyDer = publicKey.export({
 
 const hash = createHash('SHA256')
 hash.update(publicKeyDer)
-const sessionId = toArrayBuffer(hash.digest().slice(0, 16))
+const sessionId = hash.digest().slice(0, 16)
 
 let clientStream: Duplex
 let serverStream: Duplex
@@ -45,13 +40,9 @@ let proxy: SessionManagerProxy
 const activateSession = async () => {
     const challenge = await proxy.getChallenge()
     const sign = createSign('SHA256')
-    sign.update(toBuffer(challenge))
+    sign.update(challenge)
     const signature = sign.sign(privateKey as any)
-    await proxy.activateSession(
-        toArrayBuffer(publicKeyDer),
-        sessionId,
-        signature,
-    )
+    await proxy.activateSession(publicKeyDer, sessionId, signature)
 }
 
 beforeEach(() => {
@@ -113,20 +104,20 @@ test('disconnect', async () => {
 
 test('getChallenge', async () => {
     const challenge = await proxy.getChallenge()
-    expect(challenge).toBeInstanceOf(ArrayBuffer)
-    expect(challenge.byteLength).toBe(16)
+    expect(challenge).toBeInstanceOf(Buffer)
+    expect(challenge.length).toBe(16)
 })
 
 test('get the same challenge twice', async () => {
     const challenge1 = await proxy.getChallenge()
     const challenge2 = await proxy.getChallenge()
-    expect(binaryEqual(challenge1, challenge2)).toBe(true)
+    expect(challenge1.equals(challenge2)).toBeTrue()
 })
 
 test('get different challenge after reconnection', async () => {
     const challenge1 = await proxy.getChallenge()
-    expect(challenge1).toBeInstanceOf(ArrayBuffer)
-    expect(challenge1.byteLength).toBe(16)
+    expect(challenge1).toBeInstanceOf(Buffer)
+    expect(challenge1.length).toBe(16)
 
     serverConnection.disconnect()
     clientConnection.disconnect()
@@ -139,9 +130,9 @@ test('get different challenge after reconnection', async () => {
     await Promise.resolve()
 
     const challenge2 = await proxy.getChallenge()
-    expect(challenge2).toBeInstanceOf(ArrayBuffer)
-    expect(challenge2.byteLength).toBe(16)
-    expect(binaryEqual(challenge1, challenge2)).toBe(false)
+    expect(challenge2).toBeInstanceOf(Buffer)
+    expect(challenge2.length).toBe(16)
+    expect(challenge1.equals(challenge2)).toBeFalse()
 })
 
 test('activateSession', async () => {
@@ -166,11 +157,7 @@ test('activateSession', async () => {
 
 test('invalid challenge reply', async () => {
     await expect(
-        proxy.activateSession(
-            toArrayBuffer(publicKeyDer),
-            sessionId,
-            new ArrayBuffer(8),
-        ),
+        proxy.activateSession(publicKeyDer, sessionId, Buffer.allocUnsafe(8)),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Invalid challenge reply.',
@@ -183,14 +170,10 @@ test('invalid challenge reply', async () => {
 test('invalid session id', async () => {
     const challenge = await proxy.getChallenge()
     const sign = createSign('SHA256')
-    sign.update(toBuffer(challenge))
+    sign.update(challenge)
     const signature = sign.sign(privateKey as any) // as any - node typings are out of date
     await expect(
-        proxy.activateSession(
-            toArrayBuffer(publicKeyDer),
-            new ArrayBuffer(16),
-            signature,
-        ),
+        proxy.activateSession(publicKeyDer, Buffer.allocUnsafe(16), signature),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Invalid session ID.',
@@ -203,12 +186,12 @@ test('invalid session id', async () => {
 test('invalid session id format', async () => {
     const challenge = await proxy.getChallenge()
     const sign = createSign('SHA256')
-    sign.update(toBuffer(challenge))
+    sign.update(challenge)
     const signature = sign.sign(privateKey as any)
     await expect(
         proxy.activateSession(
-            toArrayBuffer(publicKeyDer),
-            toBuffer(sessionId), // Id may be an ArrayBuffer but not a Buffer.
+            publicKeyDer,
+            toArrayBuffer(sessionId) as any, // Id may be a Buffer but not an ArrayBuffer.
             signature,
         ),
     ).rejects.toEqual(
@@ -283,18 +266,14 @@ describe('active session', () => {
 
         const hash2 = createHash('SHA256')
         hash2.update(publicKeyDer2)
-        const sessionId2 = toArrayBuffer(hash2.digest().slice(0, 16))
+        const sessionId2 = hash2.digest().slice(0, 16)
 
         const challenge = await proxy.getChallenge()
         const sign = createSign('SHA256')
-        sign.update(toBuffer(challenge))
+        sign.update(challenge)
         const signature = sign.sign(privateKey2 as any)
         await expect(
-            proxy.activateSession(
-                toArrayBuffer(publicKeyDer2),
-                sessionId2,
-                signature,
-            ),
+            proxy.activateSession(publicKeyDer2, sessionId2, signature),
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'Session already exists.',
@@ -319,11 +298,11 @@ describe('active session', () => {
 
         const challenge = await proxy.getChallenge()
         const sign = createSign('SHA256')
-        sign.update(toBuffer(challenge))
+        sign.update(challenge)
         const signature = sign.sign(privateKey2 as any)
         await expect(
             proxy.activateSession(
-                toArrayBuffer(publicKeyDer2), // new public key
+                publicKeyDer2, // new public key
                 sessionId, // old sessionId
                 signature, // new signature
             ),
@@ -339,9 +318,9 @@ describe('active session', () => {
     test('activate session again - invalid challenge reply', async () => {
         await expect(
             proxy.activateSession(
-                toArrayBuffer(publicKeyDer),
+                publicKeyDer,
                 sessionId,
-                new ArrayBuffer(8), // invalid signature
+                Buffer.allocUnsafe(8), // invalid signature
             ),
         ).rejects.toEqual(
             expect.objectContaining({

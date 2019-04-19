@@ -8,7 +8,7 @@ const buffers = new WeakMap<ArrayBuffer | ArrayBufferView, Buffer>()
 /**
  * The binary types supported by `toBuffer`.
  */
-export type BinaryType = Buffer | ArrayBuffer | ArrayBufferView
+export type Binary = Buffer | ArrayBuffer | ArrayBufferView
 
 /**
  * Returns a `Buffer` sharing memory with the specified binary type.
@@ -17,7 +17,7 @@ export type BinaryType = Buffer | ArrayBuffer | ArrayBufferView
  * @param binary A binary type.
  * @returns A `Buffer`.
  */
-export function toBuffer(binary: BinaryType): Buffer
+export function toBuffer(binary: Binary): Buffer
 export function toBuffer(binary: any): Buffer | undefined
 export function toBuffer(binary: any): Buffer | undefined {
     if (Buffer.isBuffer(binary)) {
@@ -52,7 +52,7 @@ export function toBuffer(binary: any): Buffer | undefined {
  * returns a new ArrayBuffer with data copied from the `binary` parameter.
  * Otherwise returns undefined.
  */
-export function toArrayBuffer(binary: BinaryType): ArrayBuffer
+export function toArrayBuffer(binary: Binary): ArrayBuffer
 export function toArrayBuffer(binary: any): ArrayBuffer | undefined
 export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
     if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
@@ -68,29 +68,9 @@ export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
 }
 
 /**
- * Returns true, if the two provided values are binary and contain the same data,
- * otherwise returns false.
- */
-export function binaryEqual(binary1: any, binary2: any): boolean {
-    const buffer1 = toBuffer(binary1)
-
-    if (!buffer1) {
-        return false
-    }
-
-    const buffer2 = toBuffer(binary2)
-
-    if (!buffer2) {
-        return false
-    }
-
-    return buffer1.compare(buffer2) === 0
-}
-
-/**
  * Returns true, if value is binary, otherwise returns false.
  */
-export function isBinary(value: any): value is BinaryType {
+export function isBinary(value: any): value is Binary {
     return (
         Buffer.isBuffer(value) ||
         ArrayBuffer.isView(value) ||

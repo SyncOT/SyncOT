@@ -1,19 +1,9 @@
 import { Connection } from '@syncot/connection'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import {
-    binaryEqual,
-    Id,
-    idEqual,
-    isId,
-    SyncOtEmitter,
-    toBuffer,
-} from '@syncot/util'
+import { Id, idEqual, isId, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { createHash, createPublicKey, createVerify } from 'crypto'
-
-type Challenge = ArrayBuffer
-type ChallengeReply = ArrayBuffer
 
 const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
 
@@ -23,7 +13,7 @@ const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private sessionId: Id | undefined = undefined
-    private challenge: Challenge | undefined = undefined
+    private challenge: Buffer | undefined = undefined
 
     public constructor(private readonly connection: Connection) {
         super()
@@ -36,22 +26,21 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         this.connection.on('disconnect', this.onDisconnect)
     }
 
-    public getChallenge(): Challenge {
+    public getChallenge(): Buffer {
         if (!this.challenge) {
-            this.challenge = new ArrayBuffer(16)
-            const challengeBuffer = toBuffer(this.challenge)
-            challengeBuffer.writeUInt32LE(randomUInt32(), 0)
-            challengeBuffer.writeUInt32LE(randomUInt32(), 4)
-            challengeBuffer.writeUInt32LE(randomUInt32(), 8)
-            challengeBuffer.writeUInt32LE(randomUInt32(), 12)
+            this.challenge = Buffer.allocUnsafe(16)
+            this.challenge.writeUInt32LE(randomUInt32(), 0)
+            this.challenge.writeUInt32LE(randomUInt32(), 4)
+            this.challenge.writeUInt32LE(randomUInt32(), 8)
+            this.challenge.writeUInt32LE(randomUInt32(), 12)
         }
         return this.challenge
     }
 
     public activateSession(
-        publicKeyDer: ArrayBuffer,
+        publicKeyDer: Buffer,
         sessionId: Id,
-        challangeReply: ChallengeReply,
+        challangeReply: Buffer,
     ): void {
         this.assertNotDestroyed()
         assert.ok(this.connection.isConnected(), 'Connection must be active.')
@@ -65,19 +54,25 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
         const publicKey = createPublicKey({
             format: 'der',
-            key: toBuffer(publicKeyDer),
+            key: publicKeyDer,
             type: 'spki',
         })
 
         const verify = createVerify('SHA256')
-        verify.update(toBuffer(this.getChallenge()))
-        if (!verify.verify(publicKey, toBuffer(challangeReply))) {
+        verify.update(this.getChallenge())
+        if (!verify.verify(publicKey, challangeReply)) {
             throw createSessionError('Invalid challenge reply.')
         }
 
         const hash = createHash('SHA256')
-        hash.update(toBuffer(publicKeyDer))
-        if (!binaryEqual(hash.digest().slice(0, 16), sessionId)) {
+        hash.update(publicKeyDer)
+        if (
+            !Buffer.isBuffer(sessionId) ||
+            !hash
+                .digest()
+                .slice(0, 16)
+                .equals(sessionId)
+        ) {
             throw createSessionError('Invalid session ID.')
         }
 

@@ -1,4 +1,3 @@
-import { toArrayBuffer } from '@syncot/util'
 import { createMessageBus, MessageBus } from '.'
 
 let messageBus: MessageBus
@@ -358,7 +357,6 @@ test('callback execution order', async () => {
 })
 
 test('various types', async () => {
-    const listenerArrayBuffer = jest.fn()
     const listenerBuffer = jest.fn()
     const listenerString = jest.fn()
     const listenerNumber = jest.fn()
@@ -367,7 +365,6 @@ test('various types', async () => {
     const listenerNull = jest.fn()
 
     messageBus
-        .on([toArrayBuffer(Buffer.from('123'))], listenerArrayBuffer)
         .on([Buffer.from([123])], listenerBuffer)
         .on(['123'], listenerString)
         .on([123], listenerNumber)
@@ -375,7 +372,6 @@ test('various types', async () => {
         .on([undefined], listenerUndefined)
         .on([null], listenerNull)
 
-    messageBus.send([toArrayBuffer(Buffer.from('123'))], 'ArrayBuffer')
     messageBus.send([Buffer.from([123])], 'Buffer')
     messageBus.send(['123'], 'string')
     messageBus.send([123], 'number')
@@ -385,11 +381,6 @@ test('various types', async () => {
 
     await Promise.resolve()
 
-    expect(listenerArrayBuffer).toHaveBeenCalledTimes(1)
-    expect(listenerArrayBuffer).toHaveBeenCalledWith(
-        [toArrayBuffer(Buffer.from('123'))],
-        'ArrayBuffer',
-    )
     expect(listenerBuffer).toHaveBeenCalledTimes(1)
     expect(listenerBuffer).toHaveBeenCalledWith([Buffer.from([123])], 'Buffer')
     expect(listenerString).toHaveBeenCalledTimes(1)

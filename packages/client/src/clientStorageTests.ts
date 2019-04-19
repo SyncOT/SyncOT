@@ -5,7 +5,7 @@ import {
     Type,
     TypeManager,
 } from '@syncot/core'
-import { Id, toArrayBuffer } from '@syncot/util'
+import { Id } from '@syncot/util'
 import { ClientStorage, ClientStorageStatus } from '.'
 
 function omit<T extends object>(value: T, property: keyof T) {
@@ -198,7 +198,7 @@ export const clientStorageTests = (
             })
             await clientStorage.init({
                 ...snapshot,
-                documentId: toArrayBuffer(Buffer.from('binary-id')),
+                documentId: Buffer.from('binary-id'),
                 version: 0,
             })
 
@@ -218,13 +218,10 @@ export const clientStorageTests = (
                 documentId: 5,
             })
             await expect(
-                getStatus(
-                    documentType,
-                    toArrayBuffer(Buffer.from('binary-id')),
-                ),
+                getStatus(documentType, Buffer.from('binary-id')),
             ).resolves.toEqual({
                 ...status0,
-                documentId: toArrayBuffer(Buffer.from('binary-id')),
+                documentId: Buffer.from('binary-id'),
             })
 
             await expect(load(documentType, documentId)).resolves.toEqual([])
@@ -232,17 +229,14 @@ export const clientStorageTests = (
             await expect(load(documentType, 'id-2')).resolves.toEqual([])
             await expect(load(documentType, 5)).resolves.toEqual([])
             await expect(
-                load(documentType, toArrayBuffer(Buffer.from('binary-id'))),
+                load(documentType, Buffer.from('binary-id')),
             ).resolves.toEqual([])
 
             await clientStorage.clear(documentType, documentId)
             await clientStorage.clear('type-2', documentId)
             await clientStorage.clear(documentType, 'id-2')
             await clientStorage.clear(documentType, 5)
-            await clientStorage.clear(
-                documentType,
-                toArrayBuffer(Buffer.from('binary-id')),
-            )
+            await clientStorage.clear(documentType, Buffer.from('binary-id'))
 
             await expect(getStatus(documentType, documentId)).resolves.toEqual(
                 uninitializedStatus0,
@@ -260,13 +254,10 @@ export const clientStorageTests = (
                 documentId: 5,
             })
             await expect(
-                getStatus(
-                    documentType,
-                    toArrayBuffer(Buffer.from('binary-id')),
-                ),
+                getStatus(documentType, Buffer.from('binary-id')),
             ).resolves.toEqual({
                 ...uninitializedStatus0,
-                documentId: toArrayBuffer(Buffer.from('binary-id')),
+                documentId: Buffer.from('binary-id'),
             })
         })
     })
