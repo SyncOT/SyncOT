@@ -115,27 +115,11 @@ export interface PresenceService
 }
 
 /**
- * The type of PresenceMessage instances.
- */
-export const enum PresenceMessageType {
-    /**
-     * Remove all current presence objects and add the specified presence objects.
-     */
-    RESET,
-    /**
-     * Add the specified presence objects to the current list of presence objects.
-     */
-    ADD,
-    /**
-     * Remove the presence objects with the specifed session IDs from the current list of presence objects.
-     */
-    REMOVE,
-}
-
-/**
  * Presence messages emitted by the streams returned by `streamPresenceBy...` functions.
+ *
+ * - `[true, ...Presence[]]` - Add the specified presence objects
+ *   to the current list of presence objects.
+ * - `[false, ...Id[]]` - Remove the presence objects with the specifed session IDs
+ *   from the current list of presence objects.
  */
-export type PresenceMessage =
-    | [PresenceMessageType.RESET, ...Presence[]]
-    | [PresenceMessageType.ADD, ...Presence[]]
-    | [PresenceMessageType.REMOVE, ...Id[]]
+export type PresenceMessage = [true, ...Presence[]] | [false, ...Id[]]

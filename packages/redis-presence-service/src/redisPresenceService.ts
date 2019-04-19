@@ -5,7 +5,6 @@ import { getRedisSubscriber } from '@syncot/ioredis-subscriber'
 import {
     Presence,
     PresenceMessage,
-    PresenceMessageType,
     PresenceService,
     PresenceServiceEvents,
     validatePresence,
@@ -200,58 +199,26 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public async streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
         this.assertOk()
 
-        let publishedPresence: Presence | null = null
         const encodedSessionId = encode(sessionId)
         const channel = Buffer.concat([
             sessionIdChannelPrefix,
             encodedSessionId,
         ])
-        const stream = new PresenceStream()
+        const loadPresence = (): Promise<Presence[]> =>
+            this.redis
+                .presenceGetBySessionIdBuffer(encodedSessionId)
+                .then(this.decodePresence)
+                .then(presence => (presence ? [presence] : []))
+        const stream = new PresenceStream(loadPresence, this.ttl)
         const subscriber = getRedisSubscriber(this.redisSubscriber)
-        const onMessage = (
-            _receivedChannel: Buffer,
-            _message: PresenceMessage,
-        ) => {
-            // TODO decode the message and push it to the stream
-            // stream.push(message)
+        const onMessage = (_: Buffer, _message: PresenceMessage) => {
+            // TODO decode the message and submit it to the stream
         }
 
         subscriber.onChannel(channel, onMessage)
         stream.once('close', () => {
             subscriber.offChannel(channel, onMessage)
         })
-
-        this.redis
-            .presenceGetBySessionIdBuffer(encodedSessionId)
-            .then(this.decodePresence)
-            .then(
-                presence => {
-                    if (presence) {
-                        if (
-                            !publishedPresence ||
-                            publishedPresence.lastModified !==
-                                presence.lastModified
-                        ) {
-                            stream.push([PresenceMessageType.ADD, presence])
-                            publishedPresence = presence
-                        }
-                    } else {
-                        if (publishedPresence) {
-                            stream.push([
-                                PresenceMessageType.REMOVE,
-                                publishedPresence.sessionId,
-                            ])
-                            publishedPresence = null
-                        }
-                    }
-                },
-                error => {
-                    this.emitAsync(
-                        'error',
-                        createPresenceError('Failed ', error),
-                    )
-                },
-            )
 
         return stream
     }
