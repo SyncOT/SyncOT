@@ -209,14 +209,32 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 .presenceGetBySessionIdBuffer(encodedSessionId)
                 .then(this.decodePresence)
                 .then(presence => (presence ? [presence] : []))
-        const stream = new PresenceStream(loadPresence, this.ttl)
+                .catch(error => {
+                    this.emitAsync('error', error)
+                    return []
+                })
+        const stream = new PresenceStream()
         const subscriber = getRedisSubscriber(this.redisSubscriber)
+
         const onMessage = (_: Buffer, _message: PresenceMessage) => {
             // TODO decode the message and submit it to the stream
         }
+        const onError = (error: Error) => {
+            this.emitAsync('error', error)
+        }
+        const onConnectStateChange = async () => {
+            stream.resetPresence(await loadPresence())
+        }
 
+        stream.on('error', onError)
+        this.redisSubscriber.on('connect', onConnectStateChange)
+        this.redisSubscriber.on('close', onConnectStateChange)
         subscriber.onChannel(channel, onMessage)
+
         stream.once('close', () => {
+            stream.off('error', onError)
+            this.redisSubscriber.off('connect', onConnectStateChange)
+            this.redisSubscriber.off('close', onConnectStateChange)
             subscriber.offChannel(channel, onMessage)
         })
 

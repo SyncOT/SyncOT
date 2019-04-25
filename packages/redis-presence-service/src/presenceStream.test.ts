@@ -5,8 +5,6 @@ import { PresenceStream } from './presenceStream'
 const now = 12345
 let clock: InstalledClock
 
-let loadPresence: jest.Mock<Promise<Presence[]>, []>
-const ttl = 10
 let presenceStream: PresenceStream
 
 const testError = new Error('test error')
@@ -36,25 +34,12 @@ const presenceList: Presence[] = [
 
 beforeEach(() => {
     clock = installClock({ now })
-    loadPresence = jest.fn().mockResolvedValue([])
-    presenceStream = new PresenceStream(loadPresence, ttl)
+    presenceStream = new PresenceStream()
 })
 
 afterEach(() => {
     clock.uninstall()
     presenceStream.destroy()
-})
-
-test('ttl validation', () => {
-    const errorMatcher = expect.objectContaining({
-        message: 'Argument "pollingInterval" must be a safe integer >= 10.',
-        name: 'AssertionError [ERR_ASSERTION]',
-    })
-    expect(() => new PresenceStream(loadPresence, 9)).toThrow(errorMatcher)
-    expect(() => new PresenceStream(loadPresence, 10.5)).toThrow(errorMatcher)
-    expect(() => new PresenceStream(loadPresence, Infinity)).toThrow(
-        errorMatcher,
-    )
 })
 
 test('write', async () => {
@@ -76,22 +61,16 @@ test('write', async () => {
 
 test('end', async () => {
     const onClose = jest.fn()
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    expect(clock.countTimers()).toBe(1)
     presenceStream.on('close', onClose)
     presenceStream.end()
     await whenNextTick()
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(clock.countTimers()).toBe(0)
 })
 
 test('destroy', async () => {
     const onClose = jest.fn()
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    expect(clock.countTimers()).toBe(1)
     presenceStream.on('close', onClose)
     presenceStream.destroy()
-    expect(clock.countTimers()).toBe(0)
     await whenNextTick()
     expect(onClose).toHaveBeenCalledTimes(1)
 })
@@ -99,12 +78,9 @@ test('destroy', async () => {
 test('destroy with an error', async () => {
     const onClose = jest.fn()
     const onError = jest.fn()
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    expect(clock.countTimers()).toBe(1)
     presenceStream.on('close', onClose)
     presenceStream.on('error', onError)
     presenceStream.destroy(testError)
-    expect(clock.countTimers()).toBe(0)
     await whenNextTick()
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onError).toHaveBeenCalledWith(testErrorMatcher)
@@ -112,67 +88,28 @@ test('destroy with an error', async () => {
     expect(onClose).toHaveBeenCalledAfter(onError)
 })
 
-test('loadPresence scheduling', () => {
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-
-    clock.tick(ttl * 1000 - 1)
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    clock.tick(1)
-    expect(loadPresence).toHaveBeenCalledTimes(2)
-
-    clock.tick(ttl * 1000 - 1)
-    expect(loadPresence).toHaveBeenCalledTimes(2)
-    clock.tick(1)
-    expect(loadPresence).toHaveBeenCalledTimes(3)
-
-    clock.tick(ttl * 1000)
-    expect(loadPresence).toHaveBeenCalledTimes(4)
-})
-
-test('loadPresence error handling', async () => {
-    const onClose = jest.fn()
-    const onError = jest.fn()
-    presenceStream.on('close', onClose)
-    presenceStream.on('error', onError)
-    loadPresence.mockClear()
-    loadPresence.mockRejectedValueOnce(testError)
-
-    clock.tick(ttl * 1000)
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    await Promise.resolve()
-    expect(onError).toHaveBeenCalledTimes(1)
-
-    clock.tick(ttl * 1000)
-    expect(loadPresence).toHaveBeenCalledTimes(2)
-    await Promise.resolve()
-    expect(onError).toHaveBeenCalledTimes(1)
-
-    expect(onError).toHaveBeenCalledWith(testErrorMatcher)
-    expect(onClose).not.toHaveBeenCalled()
-})
-
-test('add and remove some presence using loadPresence', async () => {
+test('resetPresence', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
     // Add some presence objects.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce(presenceList)
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence(presenceList)
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, ...presenceList])
 
     // Load the same presence objects again.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce(presenceList)
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence(presenceList)
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0)
 
     // Modify and remove some presence objects.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([
+    presenceStream.resetPresence([
         { ...presenceList[0], lastModified: lastModified + 1 },
         { ...presenceList[1], lastModified: lastModified - 1 },
         { ...presenceList[2], lastModified: lastModified + 3 },
@@ -180,7 +117,7 @@ test('add and remove some presence using loadPresence', async () => {
         presenceList[4],
         // presenceList[5],
     ])
-    clock.tick(ttl * 1000)
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(2)
     expect(onData).toHaveBeenNthCalledWith(1, [
@@ -196,8 +133,8 @@ test('add and remove some presence using loadPresence', async () => {
 
     // Remove the remaining presence objects.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence([])
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([
@@ -210,38 +147,38 @@ test('add and remove some presence using loadPresence', async () => {
 
     // Add one presence object.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([presenceList[0]])
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence([presenceList[0]])
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
 
     // Add another presence object.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([presenceList[0], presenceList[1]])
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence([presenceList[0], presenceList[1]])
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[1]])
 
     // Remove one presence object.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([presenceList[1]])
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence([presenceList[1]])
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 
     // Remove another presence object.
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
-    clock.tick(ttl * 1000)
+    presenceStream.resetPresence([])
+    clock.tick(1)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([false, presenceList[1].sessionId])
 })
 
-test('add and remove some presence using the API', async () => {
+test('addPresence and removePresence', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
@@ -318,49 +255,21 @@ test('add and remove some presence using the API', async () => {
     expect(onData).toHaveBeenCalledTimes(0)
 })
 
-test('triggerLoadPresence loads some data', async () => {
-    const onData = jest.fn()
-    presenceStream.on('data', onData)
-    loadPresence.mockClear()
-
-    loadPresence.mockResolvedValueOnce(presenceList)
-    presenceStream.triggerLoadPresence()
-    expect(loadPresence).toHaveBeenCalledTimes(1)
-    await whenNextTick()
-    expect(onData).toHaveBeenCalledTimes(1)
-    expect(onData).toHaveBeenCalledWith([true, ...presenceList])
-})
-
-test('triggerLoadPresence error handling', async () => {
-    const onData = jest.fn()
-    const onError = jest.fn()
-    presenceStream.on('data', onData)
-    presenceStream.on('error', onError)
-
-    loadPresence.mockRejectedValueOnce(testError)
-    presenceStream.triggerLoadPresence()
-    await whenNextTick()
-    expect(onData).toHaveBeenCalledTimes(0)
-    expect(onError).toHaveBeenCalledTimes(1)
-    expect(onError).toHaveBeenCalledWith(testErrorMatcher)
-})
-
-test('loadPresence updates presence added by API (>= 1 second time difference)', async () => {
+test('resetPresence updates presence added by addPresence (>= 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
     onData.mockClear()
-    clock.tick((ttl - 1) * 1000)
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([
+    clock.tick(1000)
+    presenceStream.resetPresence([
         { ...presenceList[0], lastModified: lastModified + 1 },
     ])
-    clock.tick(1000)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([
@@ -369,31 +278,29 @@ test('loadPresence updates presence added by API (>= 1 second time difference)',
     ])
 })
 
-test('loadPresence does not update presence added by API (< 1 second time difference)', async () => {
+test('resetPresence does not update presence added by addPresence (< 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
     onData.mockClear()
-    clock.tick((ttl - 1) * 1000 + 1)
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([
+    clock.tick(999)
+    presenceStream.resetPresence([
         { ...presenceList[0], lastModified: lastModified + 1 },
     ])
-    clock.tick(999)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0)
 })
 
-test('loadPresence updates presence removed by API (>= 1 second time difference)', async () => {
+test('resetPresence updates presence removed by removePresence (>= 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
-    clock.tick((ttl - 1) * 1000)
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
@@ -407,10 +314,10 @@ test('loadPresence updates presence removed by API (>= 1 second time difference)
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([
+    clock.tick(1000)
+    presenceStream.resetPresence([
         { ...presenceList[0], lastModified: lastModified + 1 },
     ])
-    clock.tick(1000)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([
@@ -419,11 +326,9 @@ test('loadPresence updates presence removed by API (>= 1 second time difference)
     ])
 })
 
-test('loadPresence does not update presence removed by API (< 1 second time difference)', async () => {
+test('resetPresence does not update presence removed by removePresence (< 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
-
-    clock.tick((ttl - 1) * 1000 + 1)
 
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
@@ -438,56 +343,53 @@ test('loadPresence does not update presence removed by API (< 1 second time diff
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([
+    clock.tick(999)
+    presenceStream.resetPresence([
         { ...presenceList[0], lastModified: lastModified + 1 },
     ])
-    clock.tick(999)
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0)
 })
 
-test('loadPresence removes presence added by API (>= 1 second time difference)', async () => {
+test('resetPresence removes presence added by addPresence (>= 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
     onData.mockClear()
-    clock.tick((ttl - 1) * 1000)
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
     clock.tick(1000)
+    presenceStream.resetPresence([])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 })
 
-test('loadPresence does not remove presence added by API (< 1 second time difference)', async () => {
+test('resetPresence does not remove presence added by addPresence (< 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
     onData.mockClear()
-    clock.tick((ttl - 1) * 1000 + 1)
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
     expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
     clock.tick(999)
+    presenceStream.resetPresence([])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0)
 })
 
-test('loadPresence removes presence removed by API (>= 1 second time difference)', async () => {
+test('resetPresence removes presence removed by removePresence (>= 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
 
-    clock.tick((ttl - 1) * 1000)
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
@@ -501,17 +403,15 @@ test('loadPresence removes presence removed by API (>= 1 second time difference)
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
     clock.tick(1000)
+    presenceStream.resetPresence([])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0) // nothing to actually remove
 })
 
-test('loadPresence does not remove presence removed by API (< 1 second time difference)', async () => {
+test('resetPresence does not remove presence removed by removePresence (< 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
-
-    clock.tick((ttl - 1) * 1000 + 1)
 
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
@@ -526,8 +426,8 @@ test('loadPresence does not remove presence removed by API (< 1 second time diff
     expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
 
     onData.mockClear()
-    loadPresence.mockResolvedValueOnce([])
     clock.tick(999)
+    presenceStream.resetPresence([])
     await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(0) // nothing to actually remove
 })

@@ -4,7 +4,7 @@ import {
     PresenceRemovedMessage,
 } from '@syncot/presence'
 import { Id, ScalarMap } from '@syncot/util'
-import { AssertionError, strict as assert } from 'assert'
+import { AssertionError } from 'assert'
 import { Duplex } from 'stream'
 
 /**
@@ -26,23 +26,9 @@ import { Duplex } from 'stream'
  */
 export class PresenceStream extends Duplex {
     private publishedDataMap: ScalarMap<Id, PublishedData> = new ScalarMap()
-    private timeoutHandle: NodeJS.Timeout | undefined = undefined
 
-    /**
-     *
-     * @param loadPresence A function which loads a list of presence objects.
-     * @param pollingInterval An interval at which `loadPresence` should be called in seconds.
-     */
-    public constructor(
-        private readonly loadPresence: () => Promise<Presence[]>,
-        private readonly pollingInterval: number,
-    ) {
+    public constructor() {
         super(presenceStreamOptions)
-        assert.ok(
-            Number.isSafeInteger(pollingInterval) && pollingInterval >= 10,
-            'Argument "pollingInterval" must be a safe integer >= 10.',
-        )
-        this.scheduleLoadPresence()
     }
 
     public _read() {
@@ -58,13 +44,6 @@ export class PresenceStream extends Duplex {
     public _final(callback: () => void) {
         callback()
         this.destroy()
-    }
-    public _destroy(
-        error: Error | null,
-        callback: (error: Error | null) => void,
-    ) {
-        clearTimeout(this.timeoutHandle!)
-        callback(error)
     }
 
     /**
@@ -110,19 +89,7 @@ export class PresenceStream extends Duplex {
         }
     }
 
-    public triggerLoadPresence(): void {
-        this.loadPresence().then(this.onLoadPresence, this.onError)
-    }
-
-    private scheduleLoadPresence = (): void => {
-        this.timeoutHandle = setTimeout(
-            this.scheduleLoadPresence,
-            this.pollingInterval * 1000,
-        )
-        this.triggerLoadPresence()
-    }
-
-    private onLoadPresence = (presenceList: Presence[]): void => {
+    public resetPresence = (presenceList: Presence[]): void => {
         const now = Date.now()
         const presenceAddedMessage: PresenceAddedMessage = [true]
         const presenceRemovedMessage: PresenceRemovedMessage = [false]
@@ -172,10 +139,6 @@ export class PresenceStream extends Duplex {
         if (presenceRemovedMessage.length > 1) {
             this.push(presenceRemovedMessage)
         }
-    }
-
-    private onError = (error: Error): void => {
-        this.emit('error', error)
     }
 }
 
