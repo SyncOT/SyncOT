@@ -110,12 +110,16 @@ export class PresenceStream extends Duplex {
         }
     }
 
+    public triggerLoadPresence(): void {
+        this.loadPresence().then(this.onLoadPresence, this.onError)
+    }
+
     private scheduleLoadPresence = (): void => {
         this.timeoutHandle = setTimeout(
             this.scheduleLoadPresence,
             this.pollingInterval * 1000,
         )
-        this.loadPresence().then(this.onLoadPresence, this.onError)
+        this.triggerLoadPresence()
     }
 
     private onLoadPresence = (presenceList: Presence[]): void => {

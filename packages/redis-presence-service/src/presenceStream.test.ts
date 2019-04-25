@@ -318,6 +318,33 @@ test('add and remove some presence using the API', async () => {
     expect(onData).toHaveBeenCalledTimes(0)
 })
 
+test('triggerLoadPresence loads some data', async () => {
+    const onData = jest.fn()
+    presenceStream.on('data', onData)
+    loadPresence.mockClear()
+
+    loadPresence.mockResolvedValueOnce(presenceList)
+    presenceStream.triggerLoadPresence()
+    expect(loadPresence).toHaveBeenCalledTimes(1)
+    await whenNextTick()
+    expect(onData).toHaveBeenCalledTimes(1)
+    expect(onData).toHaveBeenCalledWith([true, ...presenceList])
+})
+
+test('triggerLoadPresence error handling', async () => {
+    const onData = jest.fn()
+    const onError = jest.fn()
+    presenceStream.on('data', onData)
+    presenceStream.on('error', onError)
+
+    loadPresence.mockRejectedValueOnce(testError)
+    presenceStream.triggerLoadPresence()
+    await whenNextTick()
+    expect(onData).toHaveBeenCalledTimes(0)
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(testErrorMatcher)
+})
+
 test('loadPresence updates presence added by API (>= 1 second time difference)', async () => {
     const onData = jest.fn()
     presenceStream.on('data', onData)
