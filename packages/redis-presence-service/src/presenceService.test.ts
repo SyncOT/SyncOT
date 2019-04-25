@@ -21,8 +21,8 @@ const alreadyDestroyedMatcher = expect.objectContaining({
 })
 
 const presencePrefix = 'presence:sessionId='
-const userPrefix = 'sessionIds:userId='
-const locationPrefix = 'sessionIds:locationId='
+const userPrefix = 'presence:userId='
+const locationPrefix = 'presence:locationId='
 
 const sessionId = 'test-session-id'
 const sessionId2 = 'test-session-id-2'

@@ -213,29 +213,32 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                     this.emitAsync('error', error)
                     return []
                 })
+
         const stream = new PresenceStream()
         const subscriber = getRedisSubscriber(this.redisSubscriber)
 
-        const onMessage = (_: Buffer, _message: PresenceMessage) => {
-            // TODO decode the message and submit it to the stream
+        const resetPresence = async () => {
+            stream.resetPresence(await loadPresence())
+        }
+        const onMessage = (_: Buffer, message: PresenceMessage) => {
+            ;(console as any).log(message)
+            // TODO implement it
         }
         const onError = (error: Error) => {
             this.emitAsync('error', error)
         }
-        const onConnectStateChange = async () => {
-            stream.resetPresence(await loadPresence())
-        }
 
-        stream.on('error', onError)
-        this.redisSubscriber.on('connect', onConnectStateChange)
-        this.redisSubscriber.on('close', onConnectStateChange)
+        resetPresence()
+        const handle = setInterval(resetPresence, this.ttl * 1000)
+        this.redisSubscriber.on('connect', resetPresence)
         subscriber.onChannel(channel, onMessage)
+        stream.on('error', onError)
 
         stream.once('close', () => {
-            stream.off('error', onError)
-            this.redisSubscriber.off('connect', onConnectStateChange)
-            this.redisSubscriber.off('close', onConnectStateChange)
+            clearInterval(handle)
+            this.redisSubscriber.off('connect', resetPresence)
             subscriber.offChannel(channel, onMessage)
+            stream.off('error', onError)
         })
 
         return stream

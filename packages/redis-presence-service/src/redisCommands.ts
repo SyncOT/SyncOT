@@ -29,8 +29,8 @@ local ttl = tonumber(ARGV[6])
 local modified = ARGV[7] == '1'
 
 local presencePrefix = 'presence:sessionId='
-local userPrefix = 'sessionIds:userId='
-local locationPrefix = 'sessionIds:locationId='
+local userPrefix = 'presence:userId='
+local locationPrefix = 'presence:locationId='
 
 local presenceKey = presencePrefix..sessionId
 local userKey = userPrefix..userId
@@ -52,14 +52,12 @@ local oldPresence = redis.call('hmget', presenceKey, 'userId', 'locationId')
 local oldUserId = oldPresence[1]
 local oldLocationId = oldPresence[2]
 
-redis.log(redis.LOG_WARNING, 'Hello '..cjson.encode(oldPresence))
-
-if (oldUserId)
+if (oldUserId and oldUserId ~= userId)
 then
     redis.call('srem', userPrefix..oldUserId, sessionId)
 end
 
-if (oldLocationId)
+if (oldLocationId and oldLocationId ~= locationId)
 then
     redis.call('srem', locationPrefix..oldLocationId, sessionId)
 end
@@ -86,8 +84,8 @@ const presenceDelete = `
 local sessionId = ARGV[1]
 
 local presencePrefix = 'presence:sessionId='
-local userPrefix = 'sessionIds:userId='
-local locationPrefix = 'sessionIds:locationId='
+local userPrefix = 'presence:userId='
+local locationPrefix = 'presence:locationId='
 
 local presenceKey = presencePrefix..sessionId
 
@@ -121,7 +119,7 @@ return presence
 
 const presenceGetByUserId = `
 local userId = ARGV[1]
-local list = redis.call('smembers', 'sessionIds:userId='..userId)
+local list = redis.call('smembers', 'presence:userId='..userId)
 
 for i = 1, #list
 do
@@ -138,7 +136,7 @@ return list
 
 const presenceGetByLocationId = `
 local locationId = ARGV[1]
-local list = redis.call('smembers', 'sessionIds:locationId='..locationId)
+local list = redis.call('smembers', 'presence:locationId='..locationId)
 
 for i = 1, #list
 do
