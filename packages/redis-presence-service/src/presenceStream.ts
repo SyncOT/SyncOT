@@ -1,6 +1,10 @@
-import { Presence } from '@syncot/presence'
+import {
+    Presence,
+    PresenceAddedMessage,
+    PresenceRemovedMessage,
+} from '@syncot/presence'
 import { Id, ScalarMap } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { AssertionError, strict as assert } from 'assert'
 import { Duplex } from 'stream'
 
 /**
@@ -44,8 +48,12 @@ export class PresenceStream extends Duplex {
     public _read() {
         // Nothing to do.
     }
-    public _write(_data: any, _encoding: any, callback: () => void) {
-        callback()
+    public _write(
+        _data: any,
+        _encoding: any,
+        callback: (error?: Error | null) => void,
+    ) {
+        callback(nonWritableError)
     }
     public _final(callback: () => void) {
         callback()
@@ -112,6 +120,8 @@ export class PresenceStream extends Duplex {
 
     private onLoadPresence = (presenceList: Presence[]): void => {
         const now = Date.now()
+        const presenceAddedMessage: PresenceAddedMessage = [true]
+        const presenceRemovedMessage: PresenceRemovedMessage = [false]
 
         for (let i = 0, l = presenceList.length; i < l; ++i) {
             const presence = presenceList[i]
@@ -127,7 +137,7 @@ export class PresenceStream extends Duplex {
                             presence.lastModified)
                 ) {
                     publishedData.presence = presence
-                    this.push([true, presence])
+                    presenceAddedMessage.push(presence)
                 }
             } else {
                 this.publishedDataMap.set(sessionId, {
@@ -135,7 +145,7 @@ export class PresenceStream extends Duplex {
                     loadLastUpdated: now,
                     presence,
                 })
-                this.push([true, presence])
+                presenceAddedMessage.push(presence)
             }
         }
 
@@ -146,10 +156,18 @@ export class PresenceStream extends Duplex {
             ) {
                 this.publishedDataMap.delete(sessionId)
                 if (publishedData.presence) {
-                    this.push([false, sessionId])
+                    presenceRemovedMessage.push(sessionId)
                 }
             }
         })
+
+        if (presenceAddedMessage.length > 1) {
+            this.push(presenceAddedMessage)
+        }
+
+        if (presenceRemovedMessage.length > 1) {
+            this.push(presenceRemovedMessage)
+        }
     }
 
     private onError = (error: Error): void => {
@@ -161,6 +179,10 @@ const presenceStreamOptions = {
     allowHalfOpen: false,
     objectMode: true,
 }
+
+const nonWritableError = new AssertionError({
+    message: 'PresenceStream does not support "write".',
+})
 
 interface PublishedData {
     apiLastUpdated: number

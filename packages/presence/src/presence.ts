@@ -115,11 +115,18 @@ export interface PresenceService
 }
 
 /**
- * Presence messages emitted by the streams returned by `streamPresenceBy...` functions.
- *
- * - `[true, ...Presence[]]` - Add the specified presence objects
- *   to the current list of presence objects.
- * - `[false, ...Id[]]` - Remove the presence objects with the specifed session IDs
- *   from the current list of presence objects.
+ * Add the specified presence objects
+ * to the current list of presence objects.
  */
-export type PresenceMessage = [true, ...Presence[]] | [false, ...Id[]]
+export type PresenceAddedMessage = [true, ...Presence[]]
+
+/**
+ * Remove the presence objects with the specifed session IDs
+ * from the current list of presence objects.
+ */
+export type PresenceRemovedMessage = [false, ...Id[]]
+
+/**
+ * Presence messages emitted by the streams returned by `streamPresenceBy...` functions.
+ */
+export type PresenceMessage = PresenceAddedMessage | PresenceRemovedMessage
