@@ -92,6 +92,7 @@ let redisServer: RedisServer
 let redis: Redis.Redis
 let redisSubscriber: Redis.Redis
 let monitor: EventEmitter
+let testSubscriber: Redis.Redis
 
 let authService: MockAuthService
 let sessionService: MockSessionService
@@ -131,6 +132,20 @@ const whenRedisCommandExecuted = (commandName: string) =>
         monitor.on('monitor', listener)
     })
 
+const whenMessage = (expectedTopic: Buffer, expectedMessage: Buffer) =>
+    new Promise(resolve => {
+        const listener = (_pattern: any, topic: Buffer, message: Buffer) => {
+            if (
+                topic.equals(expectedTopic) &&
+                message.equals(expectedMessage)
+            ) {
+                testSubscriber.off('pmessageBuffer', listener)
+                resolve()
+            }
+        }
+        testSubscriber.on('pmessageBuffer', listener)
+    })
+
 beforeAll(async () => {
     let attempt = 1
     while (true) {
@@ -162,9 +177,12 @@ beforeEach(async () => {
     }
     redis = new Redis(options)
     redisSubscriber = new Redis(options)
+    testSubscriber = new Redis(options)
     await redis.connect()
     await redisSubscriber.connect()
+    await testSubscriber.connect()
     monitor = await redis.monitor()
+    await testSubscriber.psubscribe('presence:*')
 
     authService = new MockAuthService()
     sessionService = new MockSessionService()
@@ -210,6 +228,7 @@ afterEach(async () => {
     redis.disconnect()
     redisSubscriber.disconnect()
     ;(monitor as any).disconnect()
+    testSubscriber.disconnect()
 })
 
 test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
@@ -332,7 +351,7 @@ test('remove presence on destroy', async () => {
     presenceService.destroy()
     clock.next() // Delete presence from Redis.
 
-    await whenRedisCommandExecuted('DEL')
+    await whenMessage(presenceKey, sessionIdBuffer)
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
     await expect(
         redis.sismember(userKey, sessionIdBuffer as any),
@@ -611,8 +630,10 @@ describe('submitPresence', () => {
     })
 
     test('submit new presence while saving old to Redis', async () => {
+        const onMessage = jest.fn()
         const onOutOfSync = jest.fn()
         const onInSync = jest.fn()
+        testSubscriber.on('pmessageBuffer', onMessage)
         presenceService.on('outOfSync', onOutOfSync)
         presenceService.on('inSync', onInSync)
 
@@ -628,7 +649,7 @@ describe('submitPresence', () => {
         }) // Submit new.
 
         // Old presence.
-        await whenRedisCommandExecuted('EXPIRE')
+        await whenMessage(presenceKey, sessionIdBuffer)
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toEqual({ ...presence, lastModified: now })
@@ -638,10 +659,27 @@ describe('submitPresence', () => {
         await expect(
             redis.sismember(locationKey, sessionIdBuffer as any),
         ).resolves.toBe(1)
+        expect(onMessage).toHaveBeenCalledTimes(3)
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            presenceKey,
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            userKey,
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            locationKey,
+            sessionIdBuffer,
+        )
+        onMessage.mockClear()
 
         // New presence.
         clock.next() // Start saving the new presence to Redis.
-        await whenRedisCommandExecuted('EXPIRE')
+        await whenMessage(presenceKey, sessionIdBuffer)
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toEqual({
@@ -661,6 +699,32 @@ describe('submitPresence', () => {
         await expect(
             redis.sismember(locationKey2, sessionIdBuffer as any),
         ).resolves.toBe(1)
+        expect(onMessage).toHaveBeenCalledTimes(5)
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            presenceKey, // Presence updated.
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            userKey, // Old index removed.
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            locationKey, // Old index removed.
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            userKey2, // New index added.
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            locationKey2, // New index added.
+            sessionIdBuffer,
+        )
 
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
         expect(onInSync).toHaveBeenCalledTimes(1)
@@ -698,16 +762,19 @@ describe('submitPresence', () => {
         }
 
         test('store', async () => {
+            const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
+            testSubscriber.on('pmessageBuffer', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
             await presenceProxy.submitPresence(presence)
             clock.next()
-            await new Promise(resolve =>
-                presenceService.once('inSync', resolve),
-            )
+            await Promise.all([
+                new Promise(resolve => presenceService.once('inSync', resolve)),
+                whenMessage(presenceKey, sessionIdBuffer),
+            ])
 
             expect(onOutOfSync).toHaveBeenCalledTimes(1)
             expect(onInSync).toHaveBeenCalledTimes(1)
@@ -725,17 +792,36 @@ describe('submitPresence', () => {
                 redis.sismember(locationKey, sessionIdBuffer as any),
             ).resolves.toBe(1)
             await expect(redis.ttl(locationKey)).resolves.toBe(effectiveTtl)
+            expect(onMessage).toHaveBeenCalledTimes(3)
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                presenceKey,
+                sessionIdBuffer,
+            )
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                userKey,
+                sessionIdBuffer,
+            )
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                locationKey,
+                sessionIdBuffer,
+            )
         })
 
         test('refresh before expired', async () => {
             await presenceProxy.submitPresence(presence)
             clock.next()
-            await new Promise(resolve =>
-                presenceService.once('inSync', resolve),
-            )
+            await Promise.all([
+                new Promise(resolve => presenceService.once('inSync', resolve)),
+                whenMessage(presenceKey, sessionIdBuffer),
+            ])
 
+            const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
+            testSubscriber.on('pmessageBuffer', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
@@ -763,6 +849,7 @@ describe('submitPresence', () => {
             ).resolves.toBe(1)
             await expect(redis.ttl(locationKey)).resolves.toBe(effectiveTtl)
 
+            expect(onMessage).not.toHaveBeenCalled()
             expect(onOutOfSync).not.toHaveBeenCalled()
             expect(onInSync).not.toHaveBeenCalled()
         })
@@ -770,12 +857,15 @@ describe('submitPresence', () => {
         test('refresh after expired', async () => {
             await presenceProxy.submitPresence(presence)
             clock.next()
-            await new Promise(resolve =>
-                presenceService.once('inSync', resolve),
-            )
+            await Promise.all([
+                new Promise(resolve => presenceService.once('inSync', resolve)),
+                whenMessage(presenceKey, sessionIdBuffer),
+            ])
 
+            const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
+            testSubscriber.on('pmessageBuffer', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
@@ -784,7 +874,7 @@ describe('submitPresence', () => {
             await redis.srem(locationKey, sessionId)
             clock.tick((effectiveTtl - 1) * 1000) // Trigger a refresh.
 
-            await whenRedisCommandExecuted('EXPIRE')
+            await whenMessage(presenceKey, sessionIdBuffer)
 
             await expect(
                 presenceProxy.getPresenceBySessionId(sessionId),
@@ -801,6 +891,22 @@ describe('submitPresence', () => {
 
             expect(onOutOfSync).not.toHaveBeenCalled()
             expect(onInSync).not.toHaveBeenCalled()
+            expect(onMessage).toHaveBeenCalledTimes(3)
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                presenceKey,
+                sessionIdBuffer,
+            )
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                userKey,
+                sessionIdBuffer,
+            )
+            expect(onMessage).toHaveBeenCalledWith(
+                expect.anything(),
+                locationKey,
+                sessionIdBuffer,
+            )
         })
     })
 })
@@ -825,7 +931,10 @@ describe('removePresence', () => {
     test('has presence', async () => {
         await presenceProxy.submitPresence(presence)
         clock.next()
-        await new Promise(resolve => presenceService.once('inSync', resolve))
+        await Promise.all([
+            new Promise(resolve => presenceService.once('inSync', resolve)),
+            whenMessage(presenceKey, sessionIdBuffer),
+        ])
         await expect(redis.exists(presenceKey)).resolves.toBe(1)
         await expect(
             redis.sismember(userKey, sessionIdBuffer as any),
@@ -834,13 +943,18 @@ describe('removePresence', () => {
             redis.sismember(locationKey, sessionIdBuffer as any),
         ).resolves.toBe(1)
 
+        const onMessage = jest.fn()
+        testSubscriber.on('pmessageBuffer', onMessage)
         await presenceProxy.removePresence()
         const onOutOfSync = jest.fn()
         const onInSync = jest.fn()
         presenceService.on('outOfSync', onOutOfSync)
         presenceService.on('inSync', onInSync)
         clock.next()
-        await new Promise(resolve => presenceService.once('inSync', resolve))
+        await Promise.all([
+            new Promise(resolve => presenceService.once('inSync', resolve)),
+            whenMessage(presenceKey, sessionIdBuffer),
+        ])
         await expect(redis.exists(presenceKey)).resolves.toBe(0)
         await expect(
             redis.sismember(userKey, sessionIdBuffer as any),
@@ -852,6 +966,22 @@ describe('removePresence', () => {
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
         expect(onInSync).toHaveBeenCalledTimes(1)
         expect(onOutOfSync).toHaveBeenCalledBefore(onInSync)
+        expect(onMessage).toHaveBeenCalledTimes(3)
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            presenceKey,
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            userKey,
+            sessionIdBuffer,
+        )
+        expect(onMessage).toHaveBeenCalledWith(
+            expect.anything(),
+            locationKey,
+            sessionIdBuffer,
+        )
     })
 
     test('no authentication', async () => {

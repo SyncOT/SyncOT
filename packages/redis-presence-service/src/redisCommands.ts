@@ -54,12 +54,16 @@ local oldLocationId = oldPresence[2]
 
 if (oldUserId and oldUserId ~= userId)
 then
-    redis.call('srem', userPrefix..oldUserId, sessionId)
+    local oldUserKey = userPrefix..oldUserId
+    redis.call('srem', oldUserKey, sessionId)
+    redis.call('publish', oldUserKey, sessionId)
 end
 
 if (oldLocationId and oldLocationId ~= locationId)
 then
-    redis.call('srem', locationPrefix..oldLocationId, sessionId)
+    local oldLocationKey = locationPrefix..oldLocationId
+    redis.call('srem', oldLocationKey, sessionId)
+    redis.call('publish', oldLocationKey, sessionId)
 end
 
 -- Store the modified data.
@@ -70,12 +74,15 @@ redis.call('hmset', presenceKey,
     'lastModified', lastModified
 )
 redis.call('expire', presenceKey, ttl)
+redis.call('publish', presenceKey, sessionId)
 
 redis.call('sadd', userKey, sessionId)
 redis.call('expire', userKey, ttl)
+redis.call('publish', userKey, sessionId)
 
 redis.call('sadd', locationKey, sessionId)
 redis.call('expire', locationKey, ttl)
+redis.call('publish', locationKey, sessionId)
 
 return redis.status_reply('OK')
 `
@@ -95,15 +102,20 @@ local locationId = presence[2]
 
 if (userId)
 then
-    redis.call('srem', userPrefix..userId, sessionId)
+    local userKey = userPrefix..userId
+    redis.call('srem', userKey, sessionId)
+    redis.call('publish', userKey, sessionId)
 end
 
 if (locationId)
 then
-    redis.call('srem', locationPrefix..locationId, sessionId)
+    local locationKey = locationPrefix..locationId
+    redis.call('srem', locationKey, sessionId)
+    redis.call('publish', locationKey, sessionId)
 end
 
 redis.call('del', presenceKey)
+redis.call('publish', presenceKey, sessionId)
 
 return redis.status_reply('OK')
 `
