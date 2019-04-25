@@ -131,7 +131,7 @@ export class PresenceStream extends Duplex {
             if (publishedData) {
                 publishedData.loadLastUpdated = now
                 if (
-                    publishedData.apiLastUpdated + 1000 < now &&
+                    publishedData.apiLastUpdated + 1000 <= now &&
                     (!publishedData.presence ||
                         publishedData.presence.lastModified <
                             presence.lastModified)
@@ -152,7 +152,7 @@ export class PresenceStream extends Duplex {
         this.publishedDataMap.forEach((publishedData, sessionId) => {
             if (
                 publishedData.loadLastUpdated !== now &&
-                publishedData.apiLastUpdated + 1000 < now
+                publishedData.apiLastUpdated + 1000 <= now
             ) {
                 this.publishedDataMap.delete(sessionId)
                 if (publishedData.presence) {
