@@ -1827,13 +1827,14 @@ describe('streamPresenceBySessionId', () => {
 
         // Trigger presence reload.
         clock.tick(60000)
-        await new Promise(resolve => presenceStream.once('data', resolve))
+        await new Promise(resolve => presenceService.once('error', resolve))
 
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
                 cause: testErrorMatcher,
-                message: 'Failed to load presence. => Error: test error',
+                message:
+                    'Failed to load presence by sessionId. => Error: test error',
                 name: 'SyncOtError Presence',
             }),
         )
@@ -1946,7 +1947,7 @@ describe('streamPresenceBySessionId', () => {
                     name: 'SyncOtError TSON',
                 }),
                 message:
-                    'Cannot decode sessionId from the Redis message. => SyncOtError TSON: Type code expected.',
+                    'Cannot decode sessionId. => SyncOtError TSON: Type code expected.',
                 name: 'SyncOtError Presence',
             }),
         )
@@ -1980,12 +1981,50 @@ describe('streamPresenceBySessionId', () => {
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
-                message: 'Invalid sessionId in the Redis message.',
+                message: 'Invalid sessionId.',
                 name: 'SyncOtError Presence',
             }),
         )
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(0)
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on message - loading failure', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await whenMessage(presenceKey, sessionIdBuffer)
+
+        const onError = jest.fn()
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        onData.mockClear()
+
+        presenceService.on('error', onError)
+        authService.mayReadPresence.mockRejectedValue(testError)
+        await redis.publish(presenceKey as any, sessionIdBuffer as any)
+        await new Promise(resolve => presenceService.once('error', resolve))
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cause: testErrorMatcher,
+                message:
+                    'Failed to load presence by sessionId. => Error: test error',
+                name: 'SyncOtError Presence',
+            }),
+        )
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId])
         presenceStream.destroy()
         await whenNextTick()
     })

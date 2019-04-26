@@ -201,47 +201,36 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public async streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
         this.assertOk()
 
-        const encodedSessionId = encode(sessionId)
-        const channel = Buffer.concat([
-            sessionIdChannelPrefix,
-            encodedSessionId,
-        ])
-
+        const channel = Buffer.concat([sessionIdKeyPrefix, encode(sessionId)])
         const stream = new PresenceStream()
         const subscriber = getRedisSubscriber(this.redisSubscriber)
 
         const resetPresence = async () => {
-            const presence = await this.loadPresence(encodedSessionId)
-            stream.resetPresence(presence ? [presence] : [])
+            try {
+                const presence = await this.getPresenceBySessionId(sessionId)
+                stream.resetPresence(presence ? [presence] : [])
+            } catch (error) {
+                stream.resetPresence([])
+                this.emitAsync('error', error)
+            }
         }
+
         const onMessage = async (_topic: Buffer, encodedId: Buffer) => {
-            const presence = await this.loadPresence(encodedId)
-            if (presence) {
-                stream.addPresence(presence)
-            } else {
-                let id
+            try {
+                const id = this.decodeSessionId(encodedId)
                 try {
-                    id = decode(encodedId)
+                    const presence = await this.getPresenceBySessionId(id)
+                    if (presence) {
+                        stream.addPresence(presence)
+                    } else {
+                        stream.removePresence(id)
+                    }
                 } catch (error) {
-                    this.emitAsync(
-                        'error',
-                        createPresenceError(
-                            'Cannot decode sessionId from the Redis message.',
-                            error,
-                        ),
-                    )
-                    return
+                    stream.removePresence(id)
+                    this.emitAsync('error', error)
                 }
-                if (!isId(id)) {
-                    this.emitAsync(
-                        'error',
-                        createPresenceError(
-                            'Invalid sessionId in the Redis message.',
-                        ),
-                    )
-                    return
-                }
-                stream.removePresence(id)
+            } catch (error) {
+                this.emitAsync('error', error)
             }
         }
         const onError = (error: Error) => {
@@ -274,19 +263,6 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public async streamPresenceByLocationId(_locationId: Id): Promise<Duplex> {
         this.assertOk()
         throw new Error('Not implemented')
-    }
-
-    private loadPresence(encodedSessionId: Buffer): Promise<Presence | null> {
-        return this.redis
-            .presenceGetBySessionIdBuffer(encodedSessionId)
-            .then(this.decodePresence)
-            .catch(error => {
-                this.emitAsync(
-                    'error',
-                    createPresenceError('Failed to load presence.', error),
-                )
-                return null
-            })
     }
 
     private assertOk(): void {
@@ -443,10 +419,23 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         return presence
     }
+
+    private decodeSessionId(encodedSessionId: Buffer): Id {
+        let id
+        try {
+            id = decode(encodedSessionId)
+        } catch (error) {
+            throw createPresenceError('Cannot decode sessionId.', error)
+        }
+        if (!isId(id)) {
+            throw createPresenceError('Invalid sessionId.')
+        }
+        return id
+    }
 }
 
 function notNull(value: any): boolean {
     return value !== null
 }
 
-const sessionIdChannelPrefix = Buffer.from('presence:sessionId=')
+const sessionIdKeyPrefix = Buffer.from('presence:sessionId=')
