@@ -12,9 +12,15 @@ import { SmartBuffer } from 'smart-buffer'
 import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
+const originalSetTimeout = setTimeout
 const now = 12345
 let clock: InstalledClock<Clock>
 
+const testError = new Error('test error')
+const testErrorMatcher = expect.objectContaining({
+    message: 'test error',
+    name: 'Error',
+})
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
     name: 'AssertionError [ERR_ASSERTION]',
@@ -145,6 +151,8 @@ const whenMessage = (expectedTopic: Buffer, expectedMessage: Buffer) =>
         }
         testSubscriber.on('pmessageBuffer', listener)
     })
+
+const whenNextTick = () => new Promise(resolve => process.nextTick(resolve))
 
 beforeAll(async () => {
     let attempt = 1
@@ -1650,6 +1658,7 @@ describe('streamPresenceBySessionId', () => {
             }),
         )
     })
+
     test('no authenticated user', async () => {
         authService.hasAuthenticatedUserId.mockReturnValue(false)
         await expect(
@@ -1660,5 +1669,324 @@ describe('streamPresenceBySessionId', () => {
                 name: 'SyncOtError Auth',
             }),
         )
+    })
+
+    test('destroy presence streams when destroying the presenceService', async () => {
+        const onClose1 = jest.fn()
+        const onClose2 = jest.fn()
+        const presenceStream1 = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        const presenceStream2 = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream1.on('close', onClose1)
+        presenceStream2.on('close', onClose2)
+        presenceService.destroy()
+        await whenNextTick()
+        expect(onClose1).toHaveBeenCalledTimes(1)
+        expect(onClose2).toHaveBeenCalledTimes(1)
+    })
+
+    test('stream error handling', async () => {
+        const onClientStreamError = jest.fn()
+        const onServiceError = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('error', onClientStreamError)
+        presenceService.on('error', onServiceError)
+        stream1.destroy()
+        await whenNextTick()
+        await whenNextTick()
+        expect(onClientStreamError).toBeCalledTimes(1)
+        expect(onClientStreamError).toBeCalledWith(
+            expect.objectContaining({
+                message: 'Disconnected, proxy stream destroyed.',
+                name: 'SyncOtError Disconnected',
+            }),
+        )
+        expect(onServiceError).toBeCalledTimes(1)
+        expect(onServiceError).toBeCalledWith(
+            expect.objectContaining({
+                message: 'Disconnected, service stream destroyed.',
+                name: 'SyncOtError Disconnected',
+            }),
+        )
+    })
+
+    test('start with no presence', async () => {
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(0)
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('start with some presence', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await whenMessage(presenceKey, sessionIdBuffer)
+
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence, lastModified: now },
+        ])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('add presence on interval', async () => {
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        expect(onData).toHaveBeenCalledTimes(0)
+
+        // Trigger presence reload.
+        clock.tick(60000)
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([true, presence])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on interval', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        presenceStream.on('data', onData)
+        await redis.del(presenceKey)
+        expect(onData).toHaveBeenCalledTimes(0)
+
+        // Trigger presence reload.
+        clock.tick(60000)
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on interval with error', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+
+        const onError = jest.fn()
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        presenceService.on('error', onError)
+        presenceStream.on('data', onData)
+        authService.mayReadPresence.mockRejectedValue(testError)
+
+        // Trigger presence reload.
+        clock.tick(60000)
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cause: testErrorMatcher,
+                message: 'Failed to load presence. => Error: test error',
+                name: 'SyncOtError Presence',
+            }),
+        )
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('load presence on reconnection', async () => {
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+        await redis.exists(presenceKey) // Just a delay.
+
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        expect(onData).toBeCalledTimes(0)
+
+        redis.disconnect()
+        // For some reason I need to wait a bit before the redis connection is fully closed.
+        await new Promise(resolve => originalSetTimeout(resolve, 0))
+        await redis.connect()
+        await new Promise(resolve => presenceStream.once('data', resolve))
+        expect(onData).toBeCalledTimes(1)
+        expect(onData).toBeCalledWith([true, presence])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('add presence on message', async () => {
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+        await redis.exists(presenceKey) // Just a delay.
+        expect(onData).toBeCalledTimes(0)
+
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await new Promise(resolve => presenceStream.once('data', resolve))
+        expect(onData).toBeCalledTimes(1)
+        expect(onData).toBeCalledWith([
+            true,
+            { ...presence, lastModified: now },
+        ])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on message', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await whenMessage(presenceKey, sessionIdBuffer)
+
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        onData.mockClear()
+
+        await presenceProxy.removePresence()
+        clock.next()
+        await new Promise(resolve => presenceStream.once('data', resolve))
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on message - sessionId decoding error', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await whenMessage(presenceKey, sessionIdBuffer)
+
+        const onError = jest.fn()
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        onData.mockClear()
+
+        presenceService.on('error', onError)
+        await redis.publish(presenceKey as any, Buffer.allocUnsafe(0) as any)
+        await new Promise(resolve => presenceService.once('error', resolve))
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cause: expect.objectContaining({
+                    message: 'Type code expected.',
+                    name: 'SyncOtError TSON',
+                }),
+                message:
+                    'Cannot decode sessionId from the Redis message. => SyncOtError TSON: Type code expected.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('remove presence on message - invalid sessionId', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next()
+        await whenMessage(presenceKey, sessionIdBuffer)
+
+        const onError = jest.fn()
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        onData.mockClear()
+
+        presenceService.on('error', onError)
+        await redis.publish(presenceKey as any, encode(null) as any)
+        await new Promise(resolve => presenceService.once('error', resolve))
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                message: 'Invalid sessionId in the Redis message.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        presenceStream.destroy()
+        await whenNextTick()
     })
 })

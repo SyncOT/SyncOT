@@ -4,14 +4,13 @@ import { createAuthError, createPresenceError } from '@syncot/error'
 import { getRedisSubscriber } from '@syncot/ioredis-subscriber'
 import {
     Presence,
-    PresenceMessage,
     PresenceService,
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { decode, encode } from '@syncot/tson'
-import { Id, idEqual, SyncOtEmitter, throwError } from '@syncot/util'
+import { Id, idEqual, isId, SyncOtEmitter, throwError } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 import { Duplex } from 'stream'
@@ -30,6 +29,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     private updateHandle: NodeJS.Timeout | undefined
     private modified: boolean = false
     private inSync: boolean = true
+    private presenceStreams: Set<Duplex> = new Set()
 
     public constructor(
         private readonly connection: Connection,
@@ -86,6 +86,8 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.authService.off('authEnd', this.onAuthEnd)
         this.sessionService.off('sessionInactive', this.onSessionInactive)
         this.ensureNoPresence()
+        this.presenceStreams.forEach(stream => stream.destroy())
+        this.presenceStreams.clear()
         super.destroy()
     }
 
@@ -204,25 +206,43 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             sessionIdChannelPrefix,
             encodedSessionId,
         ])
-        const loadPresence = (): Promise<Presence[]> =>
-            this.redis
-                .presenceGetBySessionIdBuffer(encodedSessionId)
-                .then(this.decodePresence)
-                .then(presence => (presence ? [presence] : []))
-                .catch(error => {
-                    this.emitAsync('error', error)
-                    return []
-                })
 
         const stream = new PresenceStream()
         const subscriber = getRedisSubscriber(this.redisSubscriber)
 
         const resetPresence = async () => {
-            stream.resetPresence(await loadPresence())
+            const presence = await this.loadPresence(encodedSessionId)
+            stream.resetPresence(presence ? [presence] : [])
         }
-        const onMessage = (_: Buffer, message: PresenceMessage) => {
-            ;(console as any).log(message)
-            // TODO implement it
+        const onMessage = async (_topic: Buffer, encodedId: Buffer) => {
+            const presence = await this.loadPresence(encodedId)
+            if (presence) {
+                stream.addPresence(presence)
+            } else {
+                let id
+                try {
+                    id = decode(encodedId)
+                } catch (error) {
+                    this.emitAsync(
+                        'error',
+                        createPresenceError(
+                            'Cannot decode sessionId from the Redis message.',
+                            error,
+                        ),
+                    )
+                    return
+                }
+                if (!isId(id)) {
+                    this.emitAsync(
+                        'error',
+                        createPresenceError(
+                            'Invalid sessionId in the Redis message.',
+                        ),
+                    )
+                    return
+                }
+                stream.removePresence(id)
+            }
         }
         const onError = (error: Error) => {
             this.emitAsync('error', error)
@@ -230,15 +250,17 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         resetPresence()
         const handle = setInterval(resetPresence, this.ttl * 1000)
-        this.redisSubscriber.on('connect', resetPresence)
+        this.redis.on('connect', resetPresence)
         subscriber.onChannel(channel, onMessage)
         stream.on('error', onError)
+        this.presenceStreams.add(stream)
 
         stream.once('close', () => {
             clearInterval(handle)
-            this.redisSubscriber.off('connect', resetPresence)
+            this.redis.off('connect', resetPresence)
             subscriber.offChannel(channel, onMessage)
             stream.off('error', onError)
+            this.presenceStreams.delete(stream)
         })
 
         return stream
@@ -252,6 +274,19 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     public async streamPresenceByLocationId(_locationId: Id): Promise<Duplex> {
         this.assertOk()
         throw new Error('Not implemented')
+    }
+
+    private loadPresence(encodedSessionId: Buffer): Promise<Presence | null> {
+        return this.redis
+            .presenceGetBySessionIdBuffer(encodedSessionId)
+            .then(this.decodePresence)
+            .catch(error => {
+                this.emitAsync(
+                    'error',
+                    createPresenceError('Failed to load presence.', error),
+                )
+                return null
+            })
     }
 
     private assertOk(): void {
