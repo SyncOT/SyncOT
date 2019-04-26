@@ -1726,6 +1726,17 @@ describe('streamPresenceBySessionId', () => {
         await presenceProxy.getPresenceBySessionId(sessionId)
 
         expect(onData).toHaveBeenCalledTimes(0)
+
+        // Poll for changes.
+        clock.tick(60000)
+        await whenRedisCommandExecuted('HMGET')
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        // No redundant message.
+        expect(onData).toHaveBeenCalledTimes(0)
+
         presenceStream.destroy()
         await whenNextTick()
     })
@@ -1749,6 +1760,18 @@ describe('streamPresenceBySessionId', () => {
             true,
             { ...presence, lastModified: now },
         ])
+        onData.mockClear()
+
+        // Poll for changes.
+        clock.tick(60000)
+        await whenRedisCommandExecuted('HMGET')
+
+        // Load the presence to delay the test a bit.
+        await presenceProxy.getPresenceBySessionId(sessionId)
+
+        // No redundant message.
+        expect(onData).toHaveBeenCalledTimes(0)
+
         presenceStream.destroy()
         await whenNextTick()
     })
@@ -1802,6 +1825,42 @@ describe('streamPresenceBySessionId', () => {
 
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId])
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('update presence on interval', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        presenceStream.on('data', onData)
+        await redis.hmset(presenceKey, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        expect(onData).toHaveBeenCalledTimes(0)
+
+        // Trigger presence reload.
+        clock.tick(60000)
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence, data: data2, lastModified: lastModified2 },
+        ])
         presenceStream.destroy()
         await whenNextTick()
     })
