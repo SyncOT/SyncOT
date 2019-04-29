@@ -1,7 +1,11 @@
 {
-  "name": "@syncot/client",
+  "name": "@syncot/client-storage",
   "version": "0.0.0",
-  "description": "The client library of SyncOT.",
+  "description": "Interfaces and types related to storing document data in the client.",
+  "keywords": [
+    "client",
+    "storage"
+  ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [
@@ -19,7 +23,6 @@
     "node": ">=11.6.0 <=11.10.1"
   },
   "dependencies": {
-    "@syncot/error": "file:../error",
     "@syncot/type": "file:../type",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"

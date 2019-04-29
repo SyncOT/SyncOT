@@ -4,9 +4,5 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [
-    { "path": "../error" },
-    { "path": "../type" },
-    { "path": "../util" }
-  ]
+  "references": [{ "path": "../type" }, { "path": "../util" }]
 }

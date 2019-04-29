@@ -1,3 +1,4 @@
+import { ClientStorage, ClientStorageStatus } from '@syncot/client-storage'
 import {
     createAlreadyInitializedError,
     createNotInitializedError,
@@ -12,7 +13,7 @@ import {
     Snapshot,
     TypeManager,
 } from '@syncot/type'
-import { Id, idEqual, Interface, ScalarMap } from '@syncot/util'
+import { Id, idEqual, ScalarMap } from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: number
@@ -24,20 +25,10 @@ interface Context {
 }
 type ContextMap = Map<string, ScalarMap<Id, Context>>
 
-export interface ClientStorageStatus {
-    readonly documentId: Id
-    readonly documentType: string
-    readonly initialized: boolean
-    readonly lastRemoteVersion: number
-    readonly lastSequence: number
-    readonly lastVersion: number
-    readonly sessionId: Id
-}
-
 /**
  * A ClientStorage implementation that stores the data in the main memory.
  */
-class MemoryClientStorage {
+class MemoryClientStorage implements ClientStorage {
     private contexts: ContextMap = new Map()
 
     public constructor(
@@ -300,15 +291,6 @@ export interface CreateClientStorageParams {
     sessionId: Id
     typeManager: TypeManager
 }
-
-/**
- * An interface for storing snapshots and operations on the client, eg in memory, IndexedDB, etc.
- * Snapshots and Operations associated with different document types and IDs are managed separately.
- * Remote operations have been already saved on the server.
- * Local operations have not been saved on the server yet but are expected to be saved in the future.
- * Snapshots can be saved only for versions which have been already saved on the server.
- */
-export interface ClientStorage extends Interface<MemoryClientStorage> {}
 
 /**
  * Creates a new `ClientStorage` instance, which stores the data in memory.
