@@ -202,13 +202,48 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
 
         const channel = Buffer.concat([sessionIdKeyPrefix, encode(sessionId)])
+        const getPresence = async (): Promise<Presence[]> => {
+            const presence = await this.getPresenceBySessionId(sessionId)
+            return presence ? [presence] : []
+        }
+        const shouldAdd = (presence: Presence | null): presence is Presence =>
+            !!presence
+        return this.streamPresence(channel, getPresence, shouldAdd)
+    }
+
+    public async streamPresenceByUserId(userId: Id): Promise<Duplex> {
+        this.assertOk()
+        const channel = Buffer.concat([userIdKeyPrefix, encode(userId)])
+        const getPresence = (): Promise<Presence[]> =>
+            this.getPresenceByUserId(userId)
+        const shouldAdd = (presence: Presence | null): presence is Presence =>
+            !!presence && idEqual(presence.userId, userId)
+        return this.streamPresence(channel, getPresence, shouldAdd)
+    }
+
+    public async streamPresenceByLocationId(locationId: Id): Promise<Duplex> {
+        this.assertOk()
+        const channel = Buffer.concat([locationIdKeyPrefix, encode(locationId)])
+        const getPresence = (): Promise<Presence[]> =>
+            this.getPresenceByLocationId(locationId)
+        const shouldAdd = (presence: Presence | null): presence is Presence =>
+            !!presence && idEqual(presence.locationId, locationId)
+        return this.streamPresence(channel, getPresence, shouldAdd)
+    }
+
+    private async streamPresence(
+        channel: Buffer,
+        getPresence: () => Promise<Presence[]>,
+        shouldAdd: (presence: Presence | null) => presence is Presence,
+    ): Promise<Duplex> {
+        this.assertOk()
+
         const stream = new PresenceStream()
         const subscriber = getRedisSubscriber(this.redisSubscriber)
 
         const resetPresence = async () => {
             try {
-                const presence = await this.getPresenceBySessionId(sessionId)
-                stream.resetPresence(presence ? [presence] : [])
+                stream.resetPresence(await getPresence())
             } catch (error) {
                 stream.resetPresence([])
                 this.emitAsync('error', error)
@@ -220,7 +255,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 const id = this.decodeSessionId(encodedId)
                 try {
                     const presence = await this.getPresenceBySessionId(id)
-                    if (presence) {
+                    if (shouldAdd(presence)) {
                         stream.addPresence(presence)
                     } else {
                         stream.removePresence(id)
@@ -253,16 +288,6 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         })
 
         return stream
-    }
-
-    public async streamPresenceByUserId(_userId: Id): Promise<Duplex> {
-        this.assertOk()
-        throw new Error('Not implemented')
-    }
-
-    public async streamPresenceByLocationId(_locationId: Id): Promise<Duplex> {
-        this.assertOk()
-        throw new Error('Not implemented')
     }
 
     private assertOk(): void {
@@ -439,3 +464,5 @@ function notNull(value: any): boolean {
 }
 
 const sessionIdKeyPrefix = Buffer.from('presence:sessionId=')
+const userIdKeyPrefix = Buffer.from('presence:userId=')
+const locationIdKeyPrefix = Buffer.from('presence:locationId=')

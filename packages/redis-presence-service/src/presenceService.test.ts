@@ -2088,3 +2088,244 @@ describe('streamPresenceBySessionId', () => {
         await whenNextTick()
     })
 })
+
+// Most of the streamPresenceByUserId implementation is shared with streamPresenceBySessionId,
+// so the tests cover only the differences between the two functions.
+describe('streamPresenceByUserId', () => {
+    let presenceStream: Duplex
+    const whenData = () =>
+        new Promise(resolve => presenceStream.once('data', resolve))
+
+    beforeEach(async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer,
+        })
+        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        presenceStream = await presenceProxy.streamPresenceByUserId(userId)
+    })
+
+    afterEach(async () => {
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('load 2 presence objects', async () => {
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData.mock.calls[0][0]).toBeArray()
+        expect(onData.mock.calls[0][0].length).toBe(3)
+        expect(onData.mock.calls[0][0][0]).toBe(true)
+        expect(onData.mock.calls[0][0]).toContainEqual(presence)
+        expect(onData.mock.calls[0][0]).toContainEqual({ ...presence2, userId })
+    })
+
+    test('update a presence object', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence2, locationId, userId },
+        ])
+    })
+
+    test('remove and add a presence object', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.del(presenceKey2)
+        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId2])
+
+        onData.mockClear()
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer,
+        })
+        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
+    })
+
+    test('update userId', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer2,
+        })
+        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId2])
+
+        onData.mockClear()
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer,
+        })
+        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
+    })
+})
+
+// Most of the streamPresenceByLocationId implementation is shared with streamPresenceBySessionId,
+// so the tests cover only the differences between the two functions.
+describe('streamPresenceByLocationId', () => {
+    let presenceStream: Duplex
+    const whenData = () =>
+        new Promise(resolve => presenceStream.once('data', resolve))
+
+    beforeEach(async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        presenceStream = await presenceProxy.streamPresenceByLocationId(
+            locationId,
+        )
+    })
+
+    afterEach(async () => {
+        presenceStream.destroy()
+        await whenNextTick()
+    })
+
+    test('load 2 presence objects', async () => {
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData.mock.calls[0][0]).toBeArray()
+        expect(onData.mock.calls[0][0].length).toBe(3)
+        expect(onData.mock.calls[0][0][0]).toBe(true)
+        expect(onData.mock.calls[0][0]).toContainEqual(presence)
+        expect(onData.mock.calls[0][0]).toContainEqual({
+            ...presence2,
+            locationId,
+        })
+    })
+
+    test('update a presence object', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence2, locationId, userId },
+        ])
+    })
+
+    test('remove and add a presence object', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.del(presenceKey2)
+        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId2])
+
+        onData.mockClear()
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence2, locationId },
+        ])
+    })
+
+    test('update locationId', async () => {
+        await whenData()
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer2,
+            userId: userIdBuffer2,
+        })
+        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId2])
+
+        onData.mockClear()
+        await redis.hmset(presenceKey2, {
+            data: dataBuffer2,
+            lastModified: lastModifiedBuffer2,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer2,
+        })
+        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        await whenData()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([
+            true,
+            { ...presence2, locationId },
+        ])
+    })
+})
