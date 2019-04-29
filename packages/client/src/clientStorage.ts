@@ -1,17 +1,17 @@
 import {
-    assertOperation,
-    assertSnapshot,
-    Operation,
-    Snapshot,
-    TypeManager,
-} from '@syncot/core'
-import {
     createAlreadyInitializedError,
     createNotInitializedError,
     createUnexpectedSequenceNumberError,
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
 } from '@syncot/error'
+import {
+    assertOperation,
+    assertSnapshot,
+    Operation,
+    Snapshot,
+    TypeManager,
+} from '@syncot/type'
 import { Id, idEqual, Interface, ScalarMap } from '@syncot/util'
 
 interface Context {

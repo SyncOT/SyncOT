@@ -5,8 +5,8 @@
     "outDir": "./lib"
   },
   "references": [
-    { "path": "../core" },
     { "path": "../error" },
+    { "path": "../type" },
     { "path": "../util" }
   ]
 }

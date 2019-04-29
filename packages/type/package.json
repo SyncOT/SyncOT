@@ -1,7 +1,11 @@
 {
-  "name": "@syncot/core",
+  "name": "@syncot/type",
   "version": "0.0.0",
-  "description": "The core library of SyncOT.",
+  "description": "Interfaces and utilities for working with OT and CRDT types.",
+  "keywords": [
+    "ot",
+    "crdt"
+  ],
   "main": "lib/index.js",
   "types": "lib/index.d.ts",
   "files": [

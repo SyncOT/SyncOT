@@ -4,7 +4,7 @@ import {
     Snapshot,
     Type,
     TypeManager,
-} from '@syncot/core'
+} from '@syncot/type'
 import { Id } from '@syncot/util'
 import { ClientStorage, ClientStorageStatus } from '.'
 
