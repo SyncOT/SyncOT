@@ -308,19 +308,6 @@ export function isUnexpectedSequenceNumberError(
     )
 }
 
-export interface SocketClosedError extends Error {
-    name: 'SyncOtError SocketClosed'
-}
-export function createSocketClosedError(
-    message: string = 'Socket closed.',
-): SocketClosedError {
-    assertString('message', message)
-    return createSyncOtError('SocketClosed', message) as SocketClosedError
-}
-export function isSocketClosedError(error: any): error is SocketClosedError {
-    return error instanceof Error && error.name === 'SyncOtError SocketClosed'
-}
-
 export interface SessionError extends Error {
     cause?: Error
     name: 'SyncOtError Session'

@@ -28,11 +28,6 @@ const tsonErrorMatcher = expect.objectContaining({
     name: 'SyncOtError TSON',
 })
 
-const socketClosedMatcher = expect.objectContaining({
-    message: 'Socket closed.',
-    name: 'SyncOtError SocketClosed',
-})
-
 let httpServer: http.Server
 let sockJsServer: sockJs.Server
 let wsServer: ws.Server
@@ -128,7 +123,7 @@ describe.each<[string, () => void]>([
 
     describe('readyState === CONNECTING', () => {
         // Only the client socket can be CONNECTING.
-        // Once it is OPEN, both the client and server socket should work the way.
+        // Once it is OPEN, both the client and server socket should work in the same way.
 
         test('send invalid data', async () => {
             const onWrite = jest.fn()
@@ -143,8 +138,7 @@ describe.each<[string, () => void]>([
             await allClosed
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(tsonErrorMatcher)
-            expect(onWrite).toHaveBeenCalledTimes(1)
-            expect(onWrite).toHaveBeenCalledWith(tsonErrorMatcher)
+            expect(onWrite).toHaveBeenCalledTimes(0)
             expect(onMessage).not.toHaveBeenCalled()
         })
 
@@ -171,9 +165,10 @@ describe.each<[string, () => void]>([
             clientStream.write('message 3', onWrite)
             clientStream.end()
             await allClosed
-            // The first write failed, so nodejs cancelled the other 2 writes.
             expect(onWrite).toHaveBeenCalledTimes(3)
-            expect(onWrite).toHaveBeenCalledWith()
+            expect(onWrite).toHaveBeenNthCalledWith(1)
+            expect(onWrite).toHaveBeenNthCalledWith(2)
+            expect(onWrite).toHaveBeenNthCalledWith(3)
         })
 
         test('destroy a stream with pending writes', async () => {
@@ -186,11 +181,8 @@ describe.each<[string, () => void]>([
             clientStream.write('message 3', onWrite)
             clientStream.destroy()
             await allClosed
-            // The first write failed, so nodejs cancelled the other 2 writes.
-            expect(onWrite).toHaveBeenCalledTimes(1)
-            expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onWrite).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(0)
         })
 
         test('destroy a stream with an error with pending writes', async () => {
@@ -203,11 +195,8 @@ describe.each<[string, () => void]>([
             clientStream.write('message 3', onWrite)
             clientStream.destroy(error)
             await allClosed
-            // The first write failed, so nodejs cancelled the other 2 writes.
-            expect(onWrite).toHaveBeenCalledTimes(1)
-            expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
-            expect(onError).toHaveBeenCalledTimes(2)
-            expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onWrite).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(error)
         })
 
@@ -221,11 +210,8 @@ describe.each<[string, () => void]>([
             clientStream.write('message 3', onWrite)
             clientSocket.close()
             await allClosed
-            // The first write failed, so nodejs cancelled the other 2 writes.
-            expect(onWrite).toHaveBeenCalledTimes(1)
-            expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+            expect(onWrite).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(0)
         })
     })
 
@@ -345,8 +331,7 @@ describe.each<[string, () => void]>([
             await allClosed
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(tsonErrorMatcher)
-            expect(onWrite).toHaveBeenCalledTimes(1)
-            expect(onWrite).toHaveBeenCalledWith(tsonErrorMatcher)
+            expect(onWrite).toHaveBeenCalledTimes(0)
             expect(onMessage).not.toHaveBeenCalled()
         })
 
@@ -364,10 +349,8 @@ describe.each<[string, () => void]>([
                 expect(clientSocket.readyState).toBe(ReadyState.CLOSING)
                 clientStream.write(invalidData, onWrite)
                 await allClosed
-                expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
-                expect(onWrite).toHaveBeenCalledTimes(1)
-                expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
+                expect(onError).toHaveBeenCalledTimes(0)
+                expect(onWrite).toHaveBeenCalledTimes(0)
                 expect(onMessage).not.toHaveBeenCalled()
             })
         }
@@ -420,11 +403,9 @@ describe.each<[string, () => void]>([
                 expect(clientSocket.readyState).toBe(ReadyState.CLOSING)
                 clientStream.write(data, onWrite)
                 await allClosed
-                expect(onWrite).toHaveBeenCalledTimes(1)
-                expect(onWrite).toHaveBeenCalledWith(socketClosedMatcher)
+                expect(onWrite).toHaveBeenCalledTimes(0)
                 expect(onMessage).not.toBeCalled()
-                expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledWith(socketClosedMatcher)
+                expect(onError).toHaveBeenCalledTimes(0)
             })
         }
 
@@ -520,15 +501,6 @@ describe.each<[string, () => void]>([
             const onError = jest.fn()
             clientStream.on('error', onError)
             clientStream.destroy(error)
-            await allClosed
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(error)
-        })
-
-        test('destroy stream and close socket on stream error', async () => {
-            const onError = jest.fn()
-            clientStream.on('error', onError)
-            clientStream.emit('error', error)
             await allClosed
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(error)

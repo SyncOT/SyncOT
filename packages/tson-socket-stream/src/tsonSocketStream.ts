@@ -1,7 +1,5 @@
-import { createSocketClosedError } from '@syncot/error'
 import { decode, encode } from '@syncot/tson'
 import { Binary } from '@syncot/util'
-import { strict as assert } from 'assert'
 import { Duplex } from 'stream'
 
 export const enum ReadyState {
@@ -39,20 +37,18 @@ export interface TsonSocket {
  *
  * When the stream is finished, the socket is closed automatically.
  * When the socket is closed, the stream is destroyed automatically.
- * In case of any stream errors, the stream is destroyed and the socket closed.
  *
  * Socket errors are completely ignored because the socket is closed on errors anyway and
  * the errors are not consistent between the supported socket implementations
  * (browser WebSocket, jsdom WebSocket, ws module, SockJS).
  *
  * The client code should still handle socket errors to
- * avoid unnecessary crashes on trivial issues (in nodejs) and to report serious problems.
+ * avoid unnecessary crashes on trivial issues (in nodejs) and to report problems.
  *
  * The stream emits the following errors:
  *
  * - `TypeError`: If receiving anything other than an `ArrayBuffer`, or if the decoded received data is `null`.
  * - `SyncOtError TSON`: If serializing or parsing TSON fails.
- * - `SyncOtError SocketClosed`: If trying to send data to a closing or closed socket.
  */
 export class TsonSocketStream extends Duplex {
     /**
@@ -85,11 +81,6 @@ export class TsonSocketStream extends Duplex {
                 this.destroy(error)
             }
         })
-
-        // Make sure the stream is destroyed on errors.
-        this.on('error', () => {
-            this.destroy()
-        })
     }
 
     public _read(): void {
@@ -98,19 +89,29 @@ export class TsonSocketStream extends Duplex {
 
     public _write(
         data: any,
-        _encoding: any,
+        encoding: any,
         callback: (error: Error | null) => void,
     ): void {
-        if (this.socket.readyState === ReadyState.CONNECTING) {
+        // When a stream is closed, nodejs v11.10.1 does not process any pending writes
+        // and does not execute their callbacks, so we do the same and skip callback
+        // execution when we know that a stream has been closed or is about to be closed.
+
+        if (this.socket.readyState === ReadyState.OPEN) {
+            try {
+                this.socket.send(encode(data))
+            } catch (error) {
+                this.destroy(error)
+                return
+            }
+            callback(null)
+        } else if (this.socket.readyState === ReadyState.CONNECTING) {
             const send = () => {
                 this.socket.removeEventListener('open', send)
                 this.socket.removeEventListener('close', send)
-                this._send(data, callback)
+                this._write(data, encoding, callback)
             }
             this.socket.addEventListener('open', send)
             this.socket.addEventListener('close', send)
-        } else {
-            this._send(data, callback)
         }
     }
 
@@ -135,25 +136,5 @@ export class TsonSocketStream extends Duplex {
     ): void {
         this.socket.close()
         callback(error)
-    }
-
-    private _send(data: any, callback: (error: Error | null) => void): void {
-        try {
-            assert.notEqual(
-                this.socket.readyState,
-                ReadyState.CONNECTING,
-                'Socket is still connecting.',
-            )
-
-            if (this.socket.readyState !== ReadyState.OPEN) {
-                throw createSocketClosedError()
-            }
-
-            this.socket.send(encode(data))
-        } catch (error) {
-            callback(error)
-            return
-        }
-        callback(null)
     }
 }

@@ -26,8 +26,8 @@
     "node": ">=11.6.0 <=11.10.1"
   },
   "dependencies": {
-    "@syncot/error": "file:../error",
     "@syncot/tson": "file:../tson",
+    "@syncot/util": "file:../util",
     "@types/node": "^10.12.21",
     "tslib": "^1.9.3"
   }
