@@ -27,7 +27,7 @@ describe('isScalar', () => {
 describe('ScalarMap', () => {
     const invalidKeyMatcher = expect.objectContaining({
         message: 'Argument "key" must be a scalar value.',
-        name: 'AssertionError [ERR_ASSERTION]',
+        name: 'AssertionError',
     })
 
     test('invalid key', () => {

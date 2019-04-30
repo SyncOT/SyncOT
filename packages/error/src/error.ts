@@ -349,3 +349,14 @@ export function createAuthError(message: string, cause?: Error): AuthError {
 export function isAuthError(error: any): error is AuthError {
     return error instanceof Error && error.name === 'SyncOtError Auth'
 }
+
+export interface DuplicateIdError extends Error {
+    name: 'SyncOtError DuplicateId'
+}
+export function createDuplicateIdError(message: string): DuplicateIdError {
+    assertString('message', message)
+    return createSyncOtError('DuplicateId', message) as DuplicateIdError
+}
+export function isDuplicateIdError(error: any): error is DuplicateIdError {
+    return error instanceof Error && error.name === 'SyncOtError DuplicateId'
+}

@@ -173,7 +173,7 @@ test('create twice on the same connection', () => {
     expect(() => createSessionManager(clientConnection)).toThrow(
         expect.objectContaining({
             message: 'Proxy "session" has been already registered.',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
 })

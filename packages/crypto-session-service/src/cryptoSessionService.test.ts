@@ -72,7 +72,7 @@ test('create twice on the same connection', () => {
     expect(() => createSessionManager(serverConnection)).toThrow(
         expect.objectContaining({
             message: 'Service "session" has been already registered.',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
 })
@@ -197,7 +197,7 @@ test('invalid session id format', async () => {
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Argument "sessionId" must be an "Id".',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
     expect(sessionManager.getSessionId()).toBeUndefined()

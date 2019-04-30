@@ -20,7 +20,7 @@ const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
 
 const streamDestroyedMatcher = expect.objectContaining({
     message: 'Cannot call write after a stream was destroyed',
-    name: 'Error [ERR_STREAM_DESTROYED]',
+    name: 'Error',
 })
 
 const tsonErrorMatcher = expect.objectContaining({
@@ -244,7 +244,7 @@ describe.each<[string, () => void]>([
                 ).toThrow(
                     expect.objectContaining({
                         message: 'Argument "binaryType" must be "arraybuffer".',
-                        name: 'AssertionError [ERR_ASSERTION]',
+                        name: 'AssertionError',
                     }),
                 )
                 expect(clientSocket.binaryType).toBe('arraybuffer')

@@ -5,7 +5,7 @@ describe('randomInteger', () => {
         expect(() => randomInteger(1.5, 5)).toThrow(
             expect.objectContaining({
                 message: 'Argument "minInclusive" must be a safe integer.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -13,7 +13,7 @@ describe('randomInteger', () => {
         expect(() => randomInteger(1, 5.5)).toThrow(
             expect.objectContaining({
                 message: 'Argument "maxExclusive" must be a safe integer.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -22,7 +22,7 @@ describe('randomInteger', () => {
             expect.objectContaining({
                 message:
                     'Argument "minInclusive" must be less or equal to argument "maxExclusive".',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })

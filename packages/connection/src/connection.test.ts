@@ -23,7 +23,7 @@ const testErrorMatcher = expect.objectContaining({
 })
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
-    name: 'AssertionError [ERR_ASSERTION]',
+    name: 'AssertionError',
 })
 let connection: Connection
 let stream1: Duplex
@@ -113,7 +113,7 @@ describe('connection', () => {
         connection.connect(stream1)
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Connection is already associated with a stream.',
             ),
         )
@@ -124,7 +124,7 @@ describe('connection', () => {
     test('connect with an invalid stream', () => {
         expect(() => connection.connect({} as any)).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Argument "stream" must be a Duplex.',
             ),
         )
@@ -224,20 +224,6 @@ describe('connection', () => {
         expect(connection.isConnected()).toBe(false)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
     })
-    test('stream error', async () => {
-        const disconnectCallback = jest.fn()
-        const errorCallback = jest.fn()
-        connection.connect(stream1)
-        connection.on('disconnect', disconnectCallback)
-        connection.on('error', errorCallback)
-        stream1.emit('error', error)
-        await delay()
-        expect(connection.isConnected()).toBe(false)
-        expect(disconnectCallback).toHaveBeenCalledTimes(1)
-        expect(errorCallback).toHaveBeenCalledTimes(1)
-        expect(errorCallback).toHaveBeenCalledBefore(disconnectCallback)
-        expect(errorCallback).toHaveBeenCalledWith(testErrorMatcher)
-    })
     test('close stream and disconnect', async () => {
         const disconnectCallback = jest.fn()
         const errorCallback = jest.fn()
@@ -273,7 +259,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: 5 as any }),
         ).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -281,7 +267,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: null as any }),
         ).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -294,10 +280,7 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
-                'Connection events not implemented',
-            ),
+            errorMatcher('AssertionError', 'Connection events not implemented'),
         )
     })
     test('register with a missing method', () => {
@@ -310,7 +293,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Service.anotherMethod must be a function.',
             ),
         )
@@ -336,7 +319,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Service "service-or-proxy-name" has been already registered.',
             ),
         )
@@ -380,10 +363,7 @@ describe('proxy registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
-                'Connection events not implemented',
-            ),
+            errorMatcher('AssertionError', 'Connection events not implemented'),
         )
     })
     test('register with a method conflict', () => {
@@ -393,10 +373,7 @@ describe('proxy registration', () => {
                 requestNames: new Set(['testMethod', 'toString']),
             }),
         ).toThrow(
-            errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
-                'Proxy.toString already exists.',
-            ),
+            errorMatcher('AssertionError', 'Proxy.toString already exists.'),
         )
     })
     test('register', () => {
@@ -409,7 +386,7 @@ describe('proxy registration', () => {
         connection.registerProxy({ name })
         expect(() => connection.registerProxy({ name })).toThrow(
             errorMatcher(
-                'AssertionError [ERR_ASSERTION]',
+                'AssertionError',
                 'Proxy "service-or-proxy-name" has been already registered.',
             ),
         )
@@ -623,10 +600,9 @@ describe('message validation', () => {
         connection.on('error', onError)
         stream2.write(invalidMessage)
         await delay()
-        expect(connection.isConnected()).toBe(false)
-        expect(onDisconnect).toHaveBeenCalledTimes(1)
+        expect(connection.isConnected()).toBe(true)
+        expect(onDisconnect).toHaveBeenCalledTimes(0)
         expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledBefore(onDisconnect)
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
                 entity: invalidMessage,
@@ -986,9 +962,8 @@ describe('service and proxy', () => {
                     name: method,
                 })
                 await delay()
-                expect(onDisconnect).toHaveBeenCalledTimes(1)
+                expect(onDisconnect).toHaveBeenCalledTimes(0)
                 expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledBefore(onDisconnect)
                 expect(onError).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: 'Invalid "Message.data".',
@@ -1046,13 +1021,11 @@ describe('service and proxy', () => {
         })
         test('duplicate stream ID', async () => {
             const onData = jest.fn()
-            const onConnectionError = jest.fn()
-            const onError = jest.fn()
-            const onClose = jest.fn()
+            const onReturnedClose = jest.fn()
+            const onResolvedClose = jest.fn()
             stream2.on('data', onData)
-            connection.on('error', onConnectionError)
-            returnedServiceStream.on('error', onError)
-            returnedServiceStream.on('close', onClose)
+            returnedServiceStream.on('close', onReturnedClose)
+            resolvedServiceStream.on('close', onResolvedClose)
             stream2.write({
                 ...message,
                 name: 'returnStreamMethod',
@@ -1062,28 +1035,24 @@ describe('service and proxy', () => {
                 name: 'resolveStreamMethod',
             })
             await delay()
-            expect(onData).toHaveBeenCalledTimes(1)
-            expect(onData).toHaveBeenCalledWith({
+            expect(onData).toHaveBeenCalledTimes(2)
+            expect(onData).toHaveBeenNthCalledWith(1, {
                 ...message,
                 data: null,
                 name: null,
                 type: MessageType.REPLY_STREAM,
             })
-            expect(onConnectionError).toHaveBeenCalledTimes(1)
-            expect(onConnectionError).toHaveBeenCalledWith(
-                expect.objectContaining({
+            expect(onData).toHaveBeenNthCalledWith(2, {
+                ...message,
+                data: expect.objectContaining({
                     message: 'Duplicate request ID.',
-                    name: 'AssertionError [ERR_ASSERTION]',
+                    name: 'SyncOtError DuplicateId',
                 }),
-            )
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Disconnected, service stream destroyed.',
-                    name: 'SyncOtError Disconnected',
-                }),
-            )
-            expect(onClose).toHaveBeenCalledTimes(1)
+                name: null,
+                type: MessageType.REPLY_ERROR,
+            })
+            expect(onReturnedClose).toHaveBeenCalledTimes(0)
+            expect(onResolvedClose).toHaveBeenCalledTimes(1)
         })
         test('disconnect with an active stream', async () => {
             const onData = jest.fn()
@@ -1172,10 +1141,8 @@ describe('service and proxy', () => {
         })
         test('destroy stream before resolving', async () => {
             const onData = jest.fn()
-            const onError = jest.fn()
             const onDisconnect = jest.fn()
             connection.on('disconnect', onDisconnect)
-            connection.on('error', onError)
             let resolvePromise: () => void = noop
             const promise = new Promise<any>(
                 (resolve, _) => (resolvePromise = resolve),
@@ -1190,21 +1157,11 @@ describe('service and proxy', () => {
             await delay()
             expect(onData).not.toHaveBeenCalled()
             expect(onDisconnect).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledBefore(onDisconnect)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Cannot call write after a stream was destroyed',
-                    name: 'Error [ERR_STREAM_DESTROYED]',
-                }),
-            )
         })
         test('destroy stream before rejecting', async () => {
             const onData = jest.fn()
-            const onError = jest.fn()
             const onDisconnect = jest.fn()
             connection.on('disconnect', onDisconnect)
-            connection.on('error', onError)
             let rejectPromise: (error: Error) => void = noop
             const promise = new Promise<never>(
                 (_, reject) => (rejectPromise = reject),
@@ -1219,14 +1176,6 @@ describe('service and proxy', () => {
             await delay()
             expect(onData).not.toHaveBeenCalled()
             expect(onDisconnect).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledBefore(onDisconnect)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Cannot call write after a stream was destroyed',
-                    name: 'Error [ERR_STREAM_DESTROYED]',
-                }),
-            )
         })
         test('request, disconnect, connect, reply ok', async () => {
             const onData1 = jest.fn()
@@ -1351,24 +1300,12 @@ describe('service and proxy', () => {
             connection.on('error', onError)
             connection.on('disconnect', onDisconnect)
             stream2.on('data', onData)
-            await expect(
-                proxy.returnMethod(
-                    1,
-                    'abc',
-                    [1, 2, 3],
-                    { key: 'value' },
-                    false,
-                ),
-            ).rejects.toEqual(
-                errorMatcher(
-                    'SyncOtError Disconnected',
-                    'Disconnected, request failed.',
-                ),
-            )
-            expect(connection.isConnected()).toBe(false)
-            expect(onDisconnect).toHaveBeenCalledTimes(1)
+            // TODO ideally it should time out
+            proxy.returnMethod(1, 'abc', [1, 2, 3], { key: 'value' }, false)
+            await delay()
+            expect(connection.isConnected()).toBe(true)
+            expect(onDisconnect).toHaveBeenCalledTimes(0)
             expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledBefore(onDisconnect)
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: 'Invalid "Message.name".',

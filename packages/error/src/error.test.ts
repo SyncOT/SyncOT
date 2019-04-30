@@ -2,6 +2,7 @@ import {
     createAlreadyInitializedError,
     createAuthError,
     createDisconnectedError,
+    createDuplicateIdError,
     createInvalidEntityError,
     createNoServiceError,
     createNotInitializedError,
@@ -16,6 +17,7 @@ import {
     isAlreadyInitializedError,
     isAuthError,
     isDisconnectedError,
+    isDuplicateIdError,
     isInvalidEntityError,
     isNoServiceError,
     isNotInitializedError,
@@ -77,7 +79,7 @@ describe('createSyncOtError', () => {
         expect(() => createSyncOtError(name, message, {} as any)).toThrow(
             expect.objectContaining({
                 message: 'Invalid arguments.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -108,7 +110,7 @@ describe('createSyncOtError', () => {
         expect(() => createSyncOtError(message, {} as any)).toThrow(
             expect.objectContaining({
                 message: 'Invalid arguments.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -157,7 +159,7 @@ describe('createSyncOtError', () => {
         expect(() => createSyncOtError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Invalid arguments.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -166,7 +168,7 @@ describe('createSyncOtError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.name" must be a string, null or undefined.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -175,7 +177,7 @@ describe('createSyncOtError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.message" must be a string, null or undefined.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -184,7 +186,7 @@ describe('createSyncOtError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.cause" must be an Error, null or undefined.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -192,7 +194,7 @@ describe('createSyncOtError', () => {
         expect(() => createSyncOtError({ stack: '' })).toThrow(
             expect.objectContaining({
                 message: 'Argument "details.stack" must not be present.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -210,7 +212,7 @@ describe('createTsonError', () => {
         expect(() => createTsonError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -233,7 +235,7 @@ describe('createInvalidEntityError', () => {
         expect(() => createInvalidEntityError(5 as any, {})).toThrow(
             expect.objectContaining({
                 message: 'Argument "name" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -241,7 +243,7 @@ describe('createInvalidEntityError', () => {
         expect(() => createInvalidEntityError('', {}, 5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "key" must be a string or null.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -283,7 +285,7 @@ describe('createTypeNotFoundError', () => {
         expect(() => createTypeNotFoundError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "typeName" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -307,7 +309,7 @@ describe('createNoServiceError', () => {
         expect(() => createNoServiceError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -330,7 +332,7 @@ describe('createDisconnectedError', () => {
         expect(() => createDisconnectedError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -353,7 +355,7 @@ describe('createNotInitializedError', () => {
         expect(() => createNotInitializedError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -376,7 +378,7 @@ describe('createAlreadyInitializedError', () => {
         expect(() => createAlreadyInitializedError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -399,7 +401,7 @@ describe('createUnexpectedSessionIdError', () => {
         expect(() => createUnexpectedSessionIdError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -430,7 +432,7 @@ describe('createUnexpectedSequenceNumberError', () => {
         expect(() => createUnexpectedSequenceNumberError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -461,7 +463,7 @@ describe('createUnexpectedVersionNumberError', () => {
         expect(() => createUnexpectedVersionNumberError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -492,7 +494,7 @@ describe('createSessionError', () => {
         expect(() => createSessionError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -527,7 +529,7 @@ describe('createPresenceError', () => {
         expect(() => createPresenceError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -562,7 +564,7 @@ describe('createAuthError', () => {
         expect(() => createAuthError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "message" must be a string.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -589,5 +591,28 @@ describe('createAuthError', () => {
             'SyncOtError Auth: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
+    })
+})
+
+describe('createDuplicateIdError', () => {
+    test('invalid message', () => {
+        expect(() => createDuplicateIdError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "message" must be a string.',
+                name: 'AssertionError',
+            }),
+        )
+    })
+    test('valid message', () => {
+        const error = createDuplicateIdError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError DuplicateId')
+        expect(error.message).toBe('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isDuplicateIdError(error)).toBeTrue()
+    })
+    test('not a DuplicateIdError', () => {
+        expect(isDuplicateIdError(new Error())).toBeFalse()
+        expect(isDuplicateIdError({})).toBeFalse()
     })
 })

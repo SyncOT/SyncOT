@@ -92,7 +92,7 @@ export class TsonSocketStream extends Duplex {
         encoding: any,
         callback: (error: Error | null) => void,
     ): void {
-        // When a stream is closed, nodejs v11.10.1 does not process any pending writes
+        // When a stream is closed, nodejs (v12.1.0) does not process any pending writes
         // and does not execute their callbacks, so we do the same and skip callback
         // execution when we know that a stream has been closed or is about to be closed.
 

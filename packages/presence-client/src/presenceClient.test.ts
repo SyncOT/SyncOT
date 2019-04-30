@@ -164,7 +164,7 @@ test('register twice on the same connection', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Proxy "presence" has been already registered.',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
 })

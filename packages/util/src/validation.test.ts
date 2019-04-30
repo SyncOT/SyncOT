@@ -42,7 +42,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable({} as never)).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })
@@ -50,7 +50,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable()).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     })

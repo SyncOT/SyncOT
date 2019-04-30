@@ -23,7 +23,7 @@ const testErrorMatcher = expect.objectContaining({
 })
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
-    name: 'AssertionError [ERR_ASSERTION]',
+    name: 'AssertionError',
 })
 
 const presencePrefix = 'presence:sessionId='
@@ -260,7 +260,7 @@ test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
         expect.objectContaining({
             message:
                 'Argument "options.ttl" must be undefined or a safe integer >= 10.',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
 })
@@ -288,7 +288,7 @@ test.each(['123', 8] as any[])(
             expect.objectContaining({
                 message:
                     'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 9.',
-                name: 'AssertionError [ERR_ASSERTION]',
+                name: 'AssertionError',
             }),
         )
     },
@@ -306,7 +306,7 @@ test('create twice on the same connection', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Service "presence" has been already registered.',
-            name: 'AssertionError [ERR_ASSERTION]',
+            name: 'AssertionError',
         }),
     )
 })

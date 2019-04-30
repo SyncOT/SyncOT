@@ -1,17 +1,17 @@
 import {
     createDisconnectedError,
+    createDuplicateIdError,
     createInvalidEntityError,
     createNoServiceError,
 } from '@syncot/error'
 import {
     EmitterInterface,
     SyncOtEmitter,
-    throwError,
     validate,
     Validator,
 } from '@syncot/util'
-import { AssertionError, strict as assert } from 'assert'
-import { Duplex, finished } from 'stream'
+import { strict as assert } from 'assert'
+import { Duplex } from 'stream'
 
 type RequestId = number
 type ServiceName = string
@@ -222,10 +222,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     /**
      * Connects to the specified stream and emits the `'connect'` event.
      *
-     * When the `stream` is finished, the `Connection` emits the `'disconnect'` event.
-     *
-     * If the `stream` emits an `error` event, it is automatically destroyed and
-     * the `Connection` emits the `error` event followed by the `'disconnect'` event.
+     * When the `stream` emits `close`, `end` or `finish`, `Connection#disconnect` is called automatically.
      *
      * Throws an error, if this connection is already associated with a different stream or
      * the specified `stream` is not a `Duplex` stream.
@@ -245,32 +242,22 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         this.stream = stream
         this._connectionId++
 
-        stream.on('data', data => {
+        const onData = (data: Message) => {
             if (this.stream === stream) {
                 this.onData(data)
             }
-        })
+        }
 
-        // TODO listen for `close` and `end` events only. Destroy on `end`.
-        finished(stream, error => {
+        const onDone = () => {
             if (this.stream === stream) {
-                if (
-                    error &&
-                    error.name !== 'Error [ERR_STREAM_PREMATURE_CLOSE]'
-                ) {
-                    // The `finished` function reports the original stream error as
-                    // well as its own internal errors.
-                    // The premature close error happens when calling destroy on the
-                    // stream. It isn't really a problem, so we don't emit it.
-                    this.emitAsync('error', error)
-                }
                 this.disconnect()
             }
-        })
+        }
 
-        // TODO remove it
-        // Just in case, destroy the stream on error becasue some streams remain open.
-        stream.on('error', () => stream.destroy())
+        stream.on('data', onData)
+        stream.on('finish', onDone)
+        stream.on('end', onDone)
+        stream.on('close', onDone)
 
         this.emitAsync('connect')
     }
@@ -278,6 +265,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     /**
      * Destroys the stream associated with this connection and emits the `'disconnect'` event.
      * It is safe to call it at any time.
+     * In order to reuse this `Connection`, call `connect` with a new stream.
      */
     public disconnect(): void {
         const stream = this.stream
@@ -468,20 +456,22 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     private send(message: Message): void {
-        try {
-            throwError(validateMessage(message))
+        const error = validateMessage(message)
+        if (error) {
+            this.emitAsync('error', error)
+        } else if (this.stream!.writable && !(this.stream as any).destroyed) {
+            // Unfortunately, checking both `writable` and the private `destroyed`
+            // property is necessary to ensure that writing is safe.
             this.stream!.write(message)
-        } catch (error) {
-            this.stream!.destroy(error)
         }
     }
 
     private onData(message: Message): void {
-        try {
-            throwError(validateMessage(message))
+        const error = validateMessage(message)
+        if (error) {
+            this.emitAsync('error', error)
+        } else {
             this.onMessage(message)
-        } catch (error) {
-            this.stream!.destroy(error)
         }
     }
 
@@ -545,16 +535,21 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                             }
 
                             if (reply instanceof Duplex) {
+                                const serviceStream = reply
+
                                 if (serviceStreams.has(id)) {
-                                    stream!.destroy(
-                                        new AssertionError({
-                                            message: 'Duplicate request ID.',
-                                        }),
-                                    )
+                                    this.send({
+                                        data: createDuplicateIdError(
+                                            'Duplicate request ID.',
+                                        ),
+                                        id,
+                                        name: null,
+                                        service,
+                                        type: MessageType.REPLY_ERROR,
+                                    })
+                                    serviceStream.destroy()
                                     return
                                 }
-
-                                const serviceStream = reply
 
                                 const onData = (data: any) => {
                                     if (
@@ -801,12 +796,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
  *
  * @event connect Emitted when this `Connection` gets associated with a stream.
  * @event disconnect Emitted when the associated stream finishes.
- * @event error Emitted when an error occurs. The associated stream is automatically disconnected
- *   after any error. The Connection automatically recovers from errors. Possible errors are:
+ * @event error Emitted when an error occurs. Possible errors are:
  *
  *   - `SyncOtError InvalidEntity` - emitted when sending or receiving an invalid message.
  *     It indicates presence of a bug in SyncOT or the client code.
- *   - Errors from the associated stream are emitted as `Connection` errors.
  * @event destroy Emitted when the Connection is destroyed.
  */
 export interface Connection extends EmitterInterface<ConnectionImpl> {}
