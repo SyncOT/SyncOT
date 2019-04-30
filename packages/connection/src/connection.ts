@@ -235,6 +235,13 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             stream instanceof Duplex,
             'Argument "stream" must be a Duplex.',
         )
+        assert.equal(stream.readable, true, '"stream" must be readable.')
+        assert.equal(stream.writable, true, '"stream" must be writable.')
+        assert.equal(
+            (stream as any).destroyed,
+            false,
+            '"stream" must not be destroyed.',
+        )
         assert.ok(
             !this.stream,
             'Connection is already associated with a stream.',

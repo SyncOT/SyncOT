@@ -129,6 +129,26 @@ describe('connection', () => {
             ),
         )
     })
+    test('connect with a destroyed stream', () => {
+        stream1.destroy()
+        expect(() => connection.connect(stream1)).toThrow(
+            errorMatcher('AssertionError', '"stream" must not be destroyed.'),
+        )
+    })
+    test('connect with a non-writable stream', () => {
+        stream1.end()
+        expect(() => connection.connect(stream1)).toThrow(
+            errorMatcher('AssertionError', '"stream" must be writable.'),
+        )
+    })
+    test('connect with a non-readable stream', async () => {
+        stream1.resume()
+        stream2.end()
+        await delay()
+        expect(() => connection.connect(stream1)).toThrow(
+            errorMatcher('AssertionError', '"stream" must be readable.'),
+        )
+    })
     test('disconnect', async () => {
         const connectCallback = jest.fn()
         const disconnectCallback = jest.fn()
@@ -172,18 +192,24 @@ describe('connection', () => {
         connection.on('disconnect', disconnectCallback)
         connection.on('error', errorCallback)
         expect(connection.connectionId).toBe(0)
+
         connection.connect(stream1)
         expect(connection.connectionId).toBe(1)
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
         expect(connection.connectionId).toBe(0)
         expect(connection.isConnected()).toBe(false)
+        ;[stream1, stream2] = invertedStreams({
+            allowHalfOpen: false,
+            objectMode: true,
+        })
         connection.connect(stream2)
         expect(connection.connectionId).toBe(2)
         expect(connection.isConnected()).toBe(true)
         connection.disconnect()
         expect(connection.connectionId).toBe(0)
         expect(connection.isConnected()).toBe(false)
+
         await Promise.resolve()
         expect(connectCallback).toHaveBeenCalledTimes(2)
         expect(disconnectCallback).toHaveBeenCalledTimes(2)
