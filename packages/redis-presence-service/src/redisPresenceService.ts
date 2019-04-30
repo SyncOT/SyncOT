@@ -268,22 +268,17 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.emitAsync('error', error)
             }
         }
-        const onError = (error: Error) => {
-            this.emitAsync('error', error)
-        }
 
         resetPresence()
         const handle = setInterval(resetPresence, this.ttl * 1000)
         this.redis.on('connect', resetPresence)
         subscriber.onChannel(channel, onMessage)
-        stream.on('error', onError)
         this.presenceStreams.add(stream)
 
         stream.once('close', () => {
             clearInterval(handle)
             this.redis.off('connect', resetPresence)
             subscriber.offChannel(channel, onMessage)
-            stream.off('error', onError)
             this.presenceStreams.delete(stream)
         })
 

@@ -1689,27 +1689,18 @@ describe('streamPresenceBySessionId', () => {
     })
 
     test('stream error handling', async () => {
-        const onClientStreamError = jest.fn()
-        const onServiceError = jest.fn()
+        const onError = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
             sessionId,
         )
-        presenceStream.on('error', onClientStreamError)
-        presenceService.on('error', onServiceError)
+        presenceStream.on('error', onError)
         stream1.destroy()
         await whenNextTick()
         await whenNextTick()
-        expect(onClientStreamError).toBeCalledTimes(1)
-        expect(onClientStreamError).toBeCalledWith(
+        expect(onError).toBeCalledTimes(1)
+        expect(onError).toBeCalledWith(
             expect.objectContaining({
-                message: 'Disconnected, proxy stream destroyed.',
-                name: 'SyncOtError Disconnected',
-            }),
-        )
-        expect(onServiceError).toBeCalledTimes(1)
-        expect(onServiceError).toBeCalledWith(
-            expect.objectContaining({
-                message: 'Disconnected, service stream destroyed.',
+                message: 'Disconnected, stream destroyed.',
                 name: 'SyncOtError Disconnected',
             }),
         )

@@ -1068,13 +1068,7 @@ describe('service and proxy', () => {
             returnedServiceStream.on('close', onClose)
             connection.disconnect()
             await delay()
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Disconnected, service stream destroyed.',
-                    name: 'SyncOtError Disconnected',
-                }),
-            )
+            expect(onError).toHaveBeenCalledTimes(0)
             expect(onClose).toHaveBeenCalledTimes(1)
         })
         test('disconnect before returning a stream', async () => {
@@ -1098,13 +1092,7 @@ describe('service and proxy', () => {
             resolvePromise(resolvedServiceStream)
             await delay()
             expect(onData).not.toHaveBeenCalled()
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Disconnected, service stream destroyed.',
-                    name: 'SyncOtError Disconnected',
-                }),
-            )
+            expect(onError).toHaveBeenCalledTimes(0)
             expect(onClose).toHaveBeenCalledTimes(1)
         })
         test('disconnect before resolving', async () => {
@@ -1439,7 +1427,7 @@ describe('service and proxy', () => {
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Disconnected, proxy stream destroyed.',
+                    message: 'Disconnected, stream destroyed.',
                     name: 'SyncOtError Disconnected',
                 }),
             )

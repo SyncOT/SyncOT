@@ -420,21 +420,16 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     private cleanUpServiceStreams(): void {
-        const error = createDisconnectedError(
-            'Disconnected, service stream destroyed.',
-        )
         for (const { streams } of this.services.values()) {
             for (const stream of streams.values()) {
-                stream.destroy(error)
+                stream.destroy()
             }
             streams.clear()
         }
     }
 
     private cleanUpProxyStreams(): void {
-        const error = createDisconnectedError(
-            'Disconnected, proxy stream destroyed.',
-        )
+        const error = createDisconnectedError('Disconnected, stream destroyed.')
         for (const { streams } of this.proxies.values()) {
             for (const stream of streams.values()) {
                 stream.destroy(error)
@@ -526,10 +521,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                         reply => {
                             if (this.stream !== stream) {
                                 if (reply instanceof Duplex) {
-                                    const error = createDisconnectedError(
-                                        'Disconnected, service stream destroyed.',
-                                    )
-                                    reply.destroy(error)
+                                    reply.destroy()
                                 }
                                 return
                             }
