@@ -1,6 +1,6 @@
 {
   "name": "@syncot/crypto-session-service",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A cryptographic session service.",
   "keywords": [
     "crypto",
