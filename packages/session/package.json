@@ -22,6 +22,9 @@
   "engines": {
     "node": ">=12.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"

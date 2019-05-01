@@ -23,6 +23,9 @@
   "engines": {
     "node": ">=12.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@syncot/client-storage": "file:../client-storage",
     "@syncot/error": "file:../error",
