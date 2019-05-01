@@ -41,7 +41,8 @@
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
     "test": "jest",
-    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc && npm test"
+    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc && npm test",
+    "publish": "npm run build && lerna publish"
   },
   "husky": {
     "hooks": {
