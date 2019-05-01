@@ -1987,7 +1987,7 @@ describe('streamPresenceBySessionId', () => {
         onData.mockClear()
 
         presenceService.on('error', onError)
-        await redis.publish(presenceKey as any, Buffer.allocUnsafe(0) as any)
+        redis.publish(presenceKey as any, Buffer.allocUnsafe(0) as any)
         await new Promise(resolve => presenceService.once('error', resolve))
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -2026,7 +2026,7 @@ describe('streamPresenceBySessionId', () => {
         onData.mockClear()
 
         presenceService.on('error', onError)
-        await redis.publish(presenceKey as any, encode(null) as any)
+        redis.publish(presenceKey as any, encode(null) as any)
         await new Promise(resolve => presenceService.once('error', resolve))
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -2061,7 +2061,7 @@ describe('streamPresenceBySessionId', () => {
 
         presenceService.on('error', onError)
         authService.mayReadPresence.mockRejectedValue(testError)
-        await redis.publish(presenceKey as any, sessionIdBuffer as any)
+        redis.publish(presenceKey as any, sessionIdBuffer as any)
         await new Promise(resolve => presenceService.once('error', resolve))
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -2132,7 +2132,7 @@ describe('streamPresenceByUserId', () => {
             locationId: locationIdBuffer,
             userId: userIdBuffer,
         })
-        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2147,7 +2147,7 @@ describe('streamPresenceByUserId', () => {
         presenceStream.on('data', onData)
 
         await redis.del(presenceKey2)
-        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2159,7 +2159,7 @@ describe('streamPresenceByUserId', () => {
             locationId: locationIdBuffer2,
             userId: userIdBuffer,
         })
-        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
@@ -2176,7 +2176,7 @@ describe('streamPresenceByUserId', () => {
             locationId: locationIdBuffer2,
             userId: userIdBuffer2,
         })
-        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2188,7 +2188,7 @@ describe('streamPresenceByUserId', () => {
             locationId: locationIdBuffer2,
             userId: userIdBuffer,
         })
-        await redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
@@ -2252,7 +2252,7 @@ describe('streamPresenceByLocationId', () => {
             locationId: locationIdBuffer,
             userId: userIdBuffer,
         })
-        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2267,7 +2267,7 @@ describe('streamPresenceByLocationId', () => {
         presenceStream.on('data', onData)
 
         await redis.del(presenceKey2)
-        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2279,7 +2279,7 @@ describe('streamPresenceByLocationId', () => {
             locationId: locationIdBuffer,
             userId: userIdBuffer2,
         })
-        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2299,7 +2299,7 @@ describe('streamPresenceByLocationId', () => {
             locationId: locationIdBuffer2,
             userId: userIdBuffer2,
         })
-        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2311,7 +2311,7 @@ describe('streamPresenceByLocationId', () => {
             locationId: locationIdBuffer,
             userId: userIdBuffer2,
         })
-        await redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionIdBuffer2 as any)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
