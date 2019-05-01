@@ -12,7 +12,6 @@ import { SmartBuffer } from 'smart-buffer'
 import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
-const originalSetTimeout = setTimeout
 const now = 12345
 let clock: InstalledClock<Clock>
 
@@ -1911,10 +1910,12 @@ describe('streamPresenceBySessionId', () => {
         expect(onData).toBeCalledTimes(0)
 
         redis.disconnect()
-        // For some reason I need to wait a bit before the redis connection is fully closed.
-        await new Promise(resolve => originalSetTimeout(resolve, 0))
-        await redis.connect()
-        await new Promise(resolve => presenceStream.once('data', resolve))
+        // Delay until the Redis connection is fully closed.
+        await expect(redis.exists(presenceKey)).rejects.toBeInstanceOf(Error)
+        await Promise.all([
+            redis.connect(),
+            new Promise(resolve => presenceStream.once('data', resolve)),
+        ])
         expect(onData).toBeCalledTimes(1)
         expect(onData).toBeCalledWith([true, presence])
         presenceStream.destroy()
