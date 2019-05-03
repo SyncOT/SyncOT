@@ -360,3 +360,14 @@ export function createDuplicateIdError(message: string): DuplicateIdError {
 export function isDuplicateIdError(error: any): error is DuplicateIdError {
     return error instanceof Error && error.name === 'SyncOtError DuplicateId'
 }
+
+export interface CanceledError extends Error {
+    name: 'SyncOtError Canceled'
+}
+export function createCanceledError(message: string): CanceledError {
+    assertString('message', message)
+    return createSyncOtError('Canceled', message) as CanceledError
+}
+export function isCanceledError(error: any): error is CanceledError {
+    return error instanceof Error && error.name === 'SyncOtError Canceled'
+}
