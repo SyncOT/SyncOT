@@ -1,12 +1,5 @@
 import { strict as assert } from 'assert'
 
-const assertString = (argumentName: string, argument: string): void =>
-    assert.equal(
-        typeof argument,
-        'string',
-        `Argument "${argumentName}" must be a string.`,
-    )
-
 export interface ErrorDetails {
     name?: string
     message?: string
@@ -14,111 +7,73 @@ export interface ErrorDetails {
     [key: string]: any
 }
 
-export interface SyncOtError extends Error {
+export interface CustomError extends Error {
     cause?: Error
     [key: string]: any
 }
-export function createSyncOtError(
-    name: string,
-    message: string,
-    cause?: Error,
-): SyncOtError
-export function createSyncOtError(message: string, cause?: Error): SyncOtError
-export function createSyncOtError(details?: ErrorDetails): SyncOtError
-export function createSyncOtError(
-    one?: string | ErrorDetails,
-    two?: string | Error,
-    three?: Error,
-): SyncOtError {
-    let name: string = ''
-    let message: string = ''
-    let cause: Error | null | undefined = null
-    let info: { [key: string]: any } | null = null
 
-    if (
-        typeof one === 'string' &&
-        typeof two === 'string' &&
-        (three instanceof Error || three == null)
-    ) {
-        name = one
-        message = two
-        cause = three
-    } else if (
-        typeof one === 'string' &&
-        (two instanceof Error || two == null)
-    ) {
-        message = one
-        cause = two
-    } else if (one == null) {
-        // Using all default values.
-    } else if (typeof one === 'object') {
-        if (typeof one.name === 'string') {
-            name = one.name
-        } else {
-            assert.ok(
-                one.name == null,
-                'Argument "details.name" must be a string, null or undefined.',
-            )
-        }
+/**
+ * Creates a new Error instance with the specified properties.
+ * Additionally, `cause.message` is automatically appended to the new error's `message`.
+ */
+export function createError(details: ErrorDetails = {}): CustomError {
+    assert.ok(
+        details != null && typeof details === 'object',
+        'Argument "details" must be an object.',
+    )
+    assert.ok(
+        typeof details.name === 'string' || details.name === undefined,
+        'Argument "details.name" must be a string or undefined.',
+    )
+    assert.ok(
+        typeof details.message === 'string' || details.message === undefined,
+        'Argument "details.message" must be a string or undefined.',
+    )
+    assert.ok(
+        details.cause instanceof Error || details.cause === undefined,
+        'Argument "details.cause" must be an Error or undefined.',
+    )
+    assert.ok(
+        !('stack' in details),
+        'Argument "details.stack" must not be present.',
+    )
 
-        if (typeof one.message === 'string') {
-            message = one.message
-        } else {
-            assert.ok(
-                one.message == null,
-                'Argument "details.message" must be a string, null or undefined.',
-            )
-        }
+    const name = details.name
+    const cause = details.cause
+    const message = details.message
+        ? cause
+            ? `${details.message} => ${cause}`
+            : details.message
+        : cause
+        ? `=> ${cause}`
+        : ''
+    const error = new Error(message) as CustomError
 
-        if (one.cause instanceof Error) {
-            cause = one.cause
-        } else {
-            assert.ok(
-                one.cause == null,
-                'Argument "details.cause" must be an Error, null or undefined.',
-            )
-        }
-
-        assert.ok(
-            !('stack' in one),
-            'Argument "details.stack" must not be present.',
-        )
-
-        info = one
-    } else {
-        assert.fail('Invalid arguments.')
+    if (name !== undefined) {
+        Object.defineProperty(error, 'name', {
+            configurable: true,
+            value: name,
+            writable: true,
+        })
     }
 
-    if (cause) {
-        message += ` => ${cause}`
-    }
-
-    const error = new Error(message) as SyncOtError
-    Object.defineProperty(error, 'name', {
-        configurable: true,
-        value: name ? `SyncOtError ${name}` : 'SyncOtError',
-        writable: true,
-    })
-
-    if (cause) {
-        error.cause = cause
-    }
-
-    if (info) {
-        for (const key in info) {
-            if (
-                info.hasOwnProperty(key) &&
-                key !== 'name' &&
-                key !== 'message' &&
-                key !== 'cause'
-            ) {
-                error[key] = info[key]
-            }
+    for (const key in details) {
+        if (
+            details.hasOwnProperty(key) &&
+            key !== 'name' &&
+            key !== 'message'
+        ) {
+            error[key] = details[key]
         }
     }
 
     return error
 }
+
+/**
+ * A SyncOtError is a CustomError with the `name` matching the regex /^SyncOtError($| )/.
+ */
+export type SyncOtError = CustomError
 export function isSyncOtError(error: any): error is SyncOtError {
     return error instanceof Error && /^SyncOtError($| )/.test(error.name)
 }
@@ -126,9 +81,11 @@ export function isSyncOtError(error: any): error is SyncOtError {
 export interface TsonError extends Error {
     name: 'SyncOtError TSON'
 }
-export function createTsonError(message: string): TsonError {
-    assertString('message', message)
-    return createSyncOtError('TSON', message) as TsonError
+export function createTsonError(message?: string): TsonError {
+    return createError({
+        message,
+        name: 'SyncOtError TSON',
+    }) as TsonError
 }
 export function isTsonError(error: any): error is TsonError {
     return error instanceof Error && error.name === 'SyncOtError TSON'
@@ -151,12 +108,15 @@ export function createInvalidEntityError(
     entity: any,
     key: string | null = null,
 ): InvalidEntityError {
-    assertString('name', entityName)
+    assert.ok(
+        typeof entityName === 'string',
+        'Argument "entityName" must be a string.',
+    )
     assert.ok(
         typeof key === 'string' || key === null,
         'Argument "key" must be a string or null.',
     )
-    return createSyncOtError({
+    return createError({
         entity,
         entityName,
         key,
@@ -164,7 +124,7 @@ export function createInvalidEntityError(
             key === null
                 ? `Invalid "${entityName}".`
                 : `Invalid "${entityName}.${key}".`,
-        name: 'InvalidEntity',
+        name: 'SyncOtError InvalidEntity',
     }) as InvalidEntityError
 }
 export function isInvalidEntityError(error: any): error is InvalidEntityError {
@@ -176,10 +136,13 @@ export interface TypeNotFoundError extends Error {
     typeName: string
 }
 export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
-    assertString('typeName', typeName)
-    return createSyncOtError({
+    assert.ok(
+        typeof typeName === 'string',
+        'Argument "typeName" must be a string.',
+    )
+    return createError({
         message: `Type "${typeName}" not found.`,
-        name: 'TypeNotFound',
+        name: 'SyncOtError TypeNotFound',
         typeName,
     }) as TypeNotFoundError
 }
@@ -190,9 +153,11 @@ export function isTypeNotFoundError(error: any): error is TypeNotFoundError {
 export interface NoServiceError extends Error {
     name: 'SyncOtError NoService'
 }
-export function createNoServiceError(message: string): NoServiceError {
-    assertString('message', message)
-    return createSyncOtError('NoService', message) as NoServiceError
+export function createNoServiceError(message?: string): NoServiceError {
+    return createError({
+        message,
+        name: 'SyncOtError NoService',
+    }) as NoServiceError
 }
 export function isNoServiceError(error: any): error is NoServiceError {
     return error instanceof Error && error.name === 'SyncOtError NoService'
@@ -201,9 +166,11 @@ export function isNoServiceError(error: any): error is NoServiceError {
 export interface DisconnectedError extends Error {
     name: 'SyncOtError Disconnected'
 }
-export function createDisconnectedError(message: string): DisconnectedError {
-    assertString('message', message)
-    return createSyncOtError('Disconnected', message) as DisconnectedError
+export function createDisconnectedError(message?: string): DisconnectedError {
+    return createError({
+        message,
+        name: 'SyncOtError Disconnected',
+    }) as DisconnectedError
 }
 export function isDisconnectedError(error: any): error is DisconnectedError {
     return error instanceof Error && error.name === 'SyncOtError Disconnected'
@@ -213,10 +180,12 @@ export interface NotInitializedError extends Error {
     name: 'SyncOtError NotInitialized'
 }
 export function createNotInitializedError(
-    message: string,
+    message?: string,
 ): NotInitializedError {
-    assertString('message', message)
-    return createSyncOtError('NotInitialized', message) as NotInitializedError
+    return createError({
+        message,
+        name: 'SyncOtError NotInitialized',
+    }) as NotInitializedError
 }
 export function isNotInitializedError(
     error: any,
@@ -228,13 +197,12 @@ export interface AlreadyInitializedError extends Error {
     name: 'SyncOtError AlreadyInitialized'
 }
 export function createAlreadyInitializedError(
-    message: string,
+    message?: string,
 ): AlreadyInitializedError {
-    assertString('message', message)
-    return createSyncOtError(
-        'AlreadyInitialized',
+    return createError({
         message,
-    ) as AlreadyInitializedError
+        name: 'SyncOtError AlreadyInitialized',
+    }) as AlreadyInitializedError
 }
 export function isAlreadyInitializedError(
     error: any,
@@ -249,13 +217,12 @@ export interface UnexpectedSessionIdError extends Error {
     name: 'SyncOtError UnexpectedSessionId'
 }
 export function createUnexpectedSessionIdError(
-    message: string = 'Unexpected session id.',
+    message?: string,
 ): UnexpectedSessionIdError {
-    assertString('message', message)
-    return createSyncOtError(
-        'UnexpectedSessionId',
+    return createError({
         message,
-    ) as UnexpectedSessionIdError
+        name: 'SyncOtError UnexpectedSessionId',
+    }) as UnexpectedSessionIdError
 }
 export function isUnexpectedSessionIdError(
     error: any,
@@ -270,13 +237,12 @@ export interface UnexpectedVersionNumberError extends Error {
     name: 'SyncOtError UnexpectedVersionNumber'
 }
 export function createUnexpectedVersionNumberError(
-    message: string = 'Unexpected version number.',
+    message?: string,
 ): UnexpectedVersionNumberError {
-    assertString('message', message)
-    return createSyncOtError(
-        'UnexpectedVersionNumber',
+    return createError({
         message,
-    ) as UnexpectedVersionNumberError
+        name: 'SyncOtError UnexpectedVersionNumber',
+    }) as UnexpectedVersionNumberError
 }
 export function isUnexpectedVersionNumberError(
     error: any,
@@ -291,13 +257,12 @@ export interface UnexpectedSequenceNumberError extends Error {
     name: 'SyncOtError UnexpectedSequenceNumber'
 }
 export function createUnexpectedSequenceNumberError(
-    message: string = 'Unexpected sequence number.',
+    message?: string,
 ): UnexpectedSequenceNumberError {
-    assertString('message', message)
-    return createSyncOtError(
-        'UnexpectedSequenceNumber',
+    return createError({
         message,
-    ) as UnexpectedSequenceNumberError
+        name: 'SyncOtError UnexpectedSequenceNumber',
+    }) as UnexpectedSequenceNumberError
 }
 export function isUnexpectedSequenceNumberError(
     error: any,
@@ -313,11 +278,14 @@ export interface SessionError extends Error {
     name: 'SyncOtError Session'
 }
 export function createSessionError(
-    message: string,
+    message?: string,
     cause?: Error,
 ): SessionError {
-    assertString('message', message)
-    return createSyncOtError('Session', message, cause) as SessionError
+    return createError({
+        cause,
+        message,
+        name: 'SyncOtError Session',
+    }) as SessionError
 }
 export function isSessionError(error: any): error is SessionError {
     return error instanceof Error && error.name === 'SyncOtError Session'
@@ -328,11 +296,14 @@ export interface PresenceError extends Error {
     name: 'SyncOtError Presence'
 }
 export function createPresenceError(
-    message: string,
+    message?: string,
     cause?: Error,
 ): PresenceError {
-    assertString('message', message)
-    return createSyncOtError('Presence', message, cause) as PresenceError
+    return createError({
+        cause,
+        message,
+        name: 'SyncOtError Presence',
+    }) as PresenceError
 }
 export function isPresenceError(error: any): error is PresenceError {
     return error instanceof Error && error.name === 'SyncOtError Presence'
@@ -342,9 +313,12 @@ export interface AuthError extends Error {
     cause?: Error
     name: 'SyncOtError Auth'
 }
-export function createAuthError(message: string, cause?: Error): AuthError {
-    assertString('message', message)
-    return createSyncOtError('Auth', message, cause) as AuthError
+export function createAuthError(message?: string, cause?: Error): AuthError {
+    return createError({
+        cause,
+        message,
+        name: 'SyncOtError Auth',
+    }) as AuthError
 }
 export function isAuthError(error: any): error is AuthError {
     return error instanceof Error && error.name === 'SyncOtError Auth'
@@ -353,9 +327,11 @@ export function isAuthError(error: any): error is AuthError {
 export interface DuplicateIdError extends Error {
     name: 'SyncOtError DuplicateId'
 }
-export function createDuplicateIdError(message: string): DuplicateIdError {
-    assertString('message', message)
-    return createSyncOtError('DuplicateId', message) as DuplicateIdError
+export function createDuplicateIdError(message?: string): DuplicateIdError {
+    return createError({
+        message,
+        name: 'SyncOtError DuplicateId',
+    }) as DuplicateIdError
 }
 export function isDuplicateIdError(error: any): error is DuplicateIdError {
     return error instanceof Error && error.name === 'SyncOtError DuplicateId'

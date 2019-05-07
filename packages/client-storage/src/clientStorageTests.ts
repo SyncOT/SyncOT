@@ -331,7 +331,6 @@ export const clientStorageTests = (
                     clientStorage.store(remoteOperation, true),
                 ).rejects.toEqual(
                     expect.objectContaining({
-                        message: 'Unexpected session id.',
                         name: 'SyncOtError UnexpectedSessionId',
                     }),
                 )
@@ -346,7 +345,6 @@ export const clientStorageTests = (
                     clientStorage.store(operation, local),
                 ).rejects.toEqual(
                     expect.objectContaining({
-                        message: 'Unexpected session id.',
                         name: 'SyncOtError UnexpectedSessionId',
                     }),
                 )
@@ -388,7 +386,6 @@ export const clientStorageTests = (
                         ),
                     ).rejects.toEqual(
                         expect.objectContaining({
-                            message: 'Unexpected version number.',
                             name: 'SyncOtError UnexpectedVersionNumber',
                         }),
                     )
@@ -403,7 +400,6 @@ export const clientStorageTests = (
                         ),
                     ).rejects.toEqual(
                         expect.objectContaining({
-                            message: 'Unexpected version number.',
                             name: 'SyncOtError UnexpectedVersionNumber',
                         }),
                     )
@@ -421,7 +417,6 @@ export const clientStorageTests = (
                         ),
                     ).rejects.toEqual(
                         expect.objectContaining({
-                            message: 'Unexpected sequence number.',
                             name: 'SyncOtError UnexpectedSequenceNumber',
                         }),
                     )
@@ -436,7 +431,6 @@ export const clientStorageTests = (
                         ),
                     ).rejects.toEqual(
                         expect.objectContaining({
-                            message: 'Unexpected sequence number.',
                             name: 'SyncOtError UnexpectedSequenceNumber',
                         }),
                     )
