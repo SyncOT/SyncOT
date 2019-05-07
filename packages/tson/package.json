@@ -1,6 +1,6 @@
 {
   "name": "@syncot/tson",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A typed, flexible and efficient binary (de)serializer.",
   "keywords": [
     "serialization",
