@@ -1,7 +1,6 @@
 import {
     createAlreadyInitializedError,
     createAuthError,
-    createCanceledError,
     createDisconnectedError,
     createDuplicateIdError,
     createInvalidEntityError,
@@ -17,7 +16,6 @@ import {
     createUnexpectedVersionNumberError,
     isAlreadyInitializedError,
     isAuthError,
-    isCanceledError,
     isDisconnectedError,
     isDuplicateIdError,
     isInvalidEntityError,
@@ -616,28 +614,5 @@ describe('createDuplicateIdError', () => {
     test('not a DuplicateIdError', () => {
         expect(isDuplicateIdError(new Error())).toBeFalse()
         expect(isDuplicateIdError({})).toBeFalse()
-    })
-})
-
-describe('createCanceledError', () => {
-    test('invalid message', () => {
-        expect(() => createCanceledError(5 as any)).toThrow(
-            expect.objectContaining({
-                message: 'Argument "message" must be a string.',
-                name: 'AssertionError',
-            }),
-        )
-    })
-    test('valid message', () => {
-        const error = createCanceledError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Canceled')
-        expect(error.message).toBe('test')
-        expect(isSyncOtError(error)).toBeTrue()
-        expect(isCanceledError(error)).toBeTrue()
-    })
-    test('not a CanceledError', () => {
-        expect(isCanceledError(new Error())).toBeFalse()
-        expect(isCanceledError({})).toBeFalse()
     })
 })
