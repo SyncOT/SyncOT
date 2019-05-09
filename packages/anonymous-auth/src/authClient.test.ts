@@ -1,6 +1,5 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { idEqual } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createAuthClient } from '.'
 
@@ -13,7 +12,7 @@ const createDuplex = () =>
         write: () => undefined,
     })
 
-const userId = 0
+const userId = ''
 let stream: Duplex
 let connection: Connection
 let authClient: AuthClient
@@ -101,7 +100,7 @@ describe('AuthClient', () => {
         })
 
         test('initial state', async () => {
-            expect(idEqual(authClient.getUserId(), userId)).toBeTrue()
+            expect(authClient.getUserId()).toBe(userId)
             expect(authClient.hasUserId()).toBeTrue()
             expect(authClient.hasAuthenticatedUserId()).toBeFalse()
         })
@@ -132,7 +131,7 @@ describe('AuthClient', () => {
         })
 
         test('initial state', async () => {
-            expect(idEqual(authClient.getUserId(), userId)).toBeTrue()
+            expect(authClient.getUserId()).toBe(userId)
             expect(authClient.hasUserId()).toBeTrue()
             expect(authClient.hasAuthenticatedUserId()).toBeTrue()
         })

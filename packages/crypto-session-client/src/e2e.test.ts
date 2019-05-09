@@ -4,7 +4,7 @@
 import { Connection, createConnection } from '@syncot/connection'
 import { createSessionManager as createSessionServer } from '@syncot/crypto-session-service'
 import { SessionManager } from '@syncot/session'
-import { idEqual, invertedStreams } from '@syncot/util'
+import { invertedStreams } from '@syncot/util'
 import { Duplex } from 'stream'
 import { createSessionManager as createSessionClient } from '.'
 
@@ -47,11 +47,9 @@ test('establish a session', async () => {
     expect(sessionServer.getSessionId()).toBeUndefined()
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
-    expect(sessionServer.getSessionId()).toBeInstanceOf(Buffer)
-    expect(
-        idEqual(sessionClient.getSessionId(), sessionServer.getSessionId()),
-    ).toBeTrue()
+    expect(sessionClient.getSessionId()).toBeString()
+    expect(sessionServer.getSessionId()).toBeString()
+    expect(sessionClient.getSessionId()).toBe(sessionServer.getSessionId())
 })
 
 test('disconnect, reconnect', async () => {
@@ -61,8 +59,7 @@ test('disconnect, reconnect', async () => {
     clientConnection.disconnect()
     await whenSessionInactive(sessionServer)
     await whenSessionInactive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
-    expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
+    expect(sessionClient.getSessionId()).toBe(sessionId)
     expect(sessionServer.getSessionId()).toBeUndefined()
     ;[clientStream, serverStream] = invertedStreams({
         allowHalfOpen: false,
@@ -72,8 +69,6 @@ test('disconnect, reconnect', async () => {
     serverConnection.connect(serverStream)
     await whenSessionActive(sessionServer)
     await whenSessionActive(sessionClient)
-    expect(sessionClient.getSessionId()).toBeInstanceOf(Buffer)
-    expect(idEqual(sessionClient.getSessionId(), sessionId)).toBeTrue()
-    expect(sessionServer.getSessionId()).toBeInstanceOf(Buffer)
-    expect(idEqual(sessionServer.getSessionId(), sessionId)).toBeTrue()
+    expect(sessionClient.getSessionId()).toBe(sessionId)
+    expect(sessionServer.getSessionId()).toBe(sessionId)
 })

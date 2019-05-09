@@ -1,6 +1,6 @@
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import { invertedStreams, toArrayBuffer } from '@syncot/util'
+import { invertedStreams } from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -12,7 +12,7 @@ interface SessionManagerProxy {
     getChallenge(): Promise<Buffer>
     activateSession(
         publicKey: Buffer,
-        sessionId: Buffer,
+        sessionId: string,
         challengeReply: Buffer,
     ): Promise<void>
 }
@@ -28,7 +28,10 @@ const publicKeyDer = publicKey.export({
 
 const hash = createHash('SHA256')
 hash.update(publicKeyDer)
-const sessionId = hash.digest().slice(0, 16)
+const sessionId = hash
+    .digest()
+    .slice(0, 16)
+    .toString('base64')
 
 let clientStream: Duplex
 let serverStream: Duplex
@@ -173,7 +176,11 @@ test('invalid session id', async () => {
     sign.update(challenge)
     const signature = sign.sign(privateKey as any) // as any - node typings are out of date
     await expect(
-        proxy.activateSession(publicKeyDer, Buffer.allocUnsafe(16), signature),
+        proxy.activateSession(
+            publicKeyDer,
+            Buffer.allocUnsafe(16).toString('base64'),
+            signature,
+        ),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Invalid session ID.',
@@ -191,12 +198,12 @@ test('invalid session id format', async () => {
     await expect(
         proxy.activateSession(
             publicKeyDer,
-            toArrayBuffer(sessionId) as any, // Id may be a Buffer but not an ArrayBuffer.
+            Buffer.from(sessionId, 'base64') as any,
             signature,
         ),
     ).rejects.toEqual(
         expect.objectContaining({
-            message: 'Argument "sessionId" must be an "Id".',
+            message: 'Argument "sessionId" must be a string.',
             name: 'AssertionError',
         }),
     )
@@ -266,7 +273,10 @@ describe('active session', () => {
 
         const hash2 = createHash('SHA256')
         hash2.update(publicKeyDer2)
-        const sessionId2 = hash2.digest().slice(0, 16)
+        const sessionId2 = hash2
+            .digest()
+            .slice(0, 16)
+            .toString('base64')
 
         const challenge = await proxy.getChallenge()
         const sign = createSign('SHA256')

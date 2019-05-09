@@ -8,7 +8,7 @@ import {
     PresenceService,
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
-import { Id, isId, SyncOtEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 import { Duplex } from 'stream'
 
 /**
@@ -30,20 +30,20 @@ export function createPresenceClient({
 
 class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     implements PresenceClient {
-    public get sessionId(): Id | undefined {
+    public get sessionId(): string | undefined {
         return this.sessionClient.getSessionId()
     }
 
-    public get userId(): Id | undefined {
+    public get userId(): string | undefined {
         return this.authClient.getUserId()
     }
 
-    private _locationId: Id | undefined = undefined
-    public set locationId(locationId: Id | undefined) {
+    private _locationId: string | undefined = undefined
+    public set locationId(locationId: string | undefined) {
         this._locationId = locationId
         this.updateLocalPresence()
     }
-    public get locationId(): Id | undefined {
+    public get locationId(): string | undefined {
         return this._locationId
     }
 
@@ -121,35 +121,35 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         super.destroy()
     }
 
-    public getPresenceBySessionId(sessionId: Id): Promise<Presence | null> {
+    public getPresenceBySessionId(sessionId: string): Promise<Presence | null> {
         return this.presenceService.getPresenceBySessionId(sessionId)
     }
 
-    public getPresenceByUserId(userId: Id): Promise<Presence[]> {
+    public getPresenceByUserId(userId: string): Promise<Presence[]> {
         return this.presenceService.getPresenceByUserId(userId)
     }
 
-    public getPresenceByLocationId(locationId: Id): Promise<Presence[]> {
+    public getPresenceByLocationId(locationId: string): Promise<Presence[]> {
         return this.presenceService.getPresenceByLocationId(locationId)
     }
 
-    public streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
+    public streamPresenceBySessionId(sessionId: string): Promise<Duplex> {
         return this.presenceService.streamPresenceBySessionId(sessionId)
     }
 
-    public streamPresenceByUserId(userId: Id): Promise<Duplex> {
+    public streamPresenceByUserId(userId: string): Promise<Duplex> {
         return this.presenceService.streamPresenceByUserId(userId)
     }
 
-    public streamPresenceByLocationId(locationId: Id): Promise<Duplex> {
+    public streamPresenceByLocationId(locationId: string): Promise<Duplex> {
         return this.presenceService.streamPresenceByLocationId(locationId)
     }
 
     private updateLocalPresence = (): void => {
         if (
-            isId(this.sessionId) &&
-            isId(this.userId) &&
-            isId(this.locationId)
+            typeof this.sessionId === 'string' &&
+            typeof this.userId === 'string' &&
+            typeof this.locationId === 'string'
         ) {
             this._localPresence = {
                 data: this.data,

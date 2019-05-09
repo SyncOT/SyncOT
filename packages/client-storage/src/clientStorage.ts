@@ -1,14 +1,13 @@
 import { Operation, Snapshot } from '@syncot/type'
-import { Id } from '@syncot/util'
 
 export interface ClientStorageStatus {
-    readonly documentId: Id
+    readonly documentId: string
     readonly documentType: string
     readonly initialized: boolean
     readonly lastRemoteVersion: number
     readonly lastSequence: number
     readonly lastVersion: number
-    readonly sessionId: Id
+    readonly sessionId: string
 }
 
 /**
@@ -37,14 +36,14 @@ export interface ClientStorage {
     /**
      * Removes all data associated with the specified `documentType` and `documentId`.
      */
-    clear(documentType: string, documentId: Id): Promise<void>
+    clear(documentType: string, documentId: string): Promise<void>
 
     /**
      * Returns the storage status for the specified combination of `documentType` and `documentId`.
      */
     getStatus(
         documentType: string,
-        documentId: Id,
+        documentId: string,
     ): Promise<ClientStorageStatus>
 
     /**
@@ -84,7 +83,7 @@ export interface ClientStorage {
      */
     load(
         documentType: string,
-        documentId: Id,
+        documentId: string,
         minVersion?: number,
         maxVersion?: number,
     ): Promise<Operation[]>

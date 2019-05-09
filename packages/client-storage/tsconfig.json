@@ -4,5 +4,5 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../type" }, { "path": "../util" }]
+  "references": [{ "path": "../type" }]
 }

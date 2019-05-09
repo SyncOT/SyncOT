@@ -1,5 +1,5 @@
 import { Presence } from '@syncot/presence'
-import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `AuthService` and `AuthClient`.
@@ -27,7 +27,7 @@ export interface AuthClient
     /**
      * Gets the user ID, if present, otherwise returns undefined.
      */
-    getUserId(): Id | undefined
+    getUserId(): string | undefined
 
     /**
      * Returns true, if the user ID is present, otherwise returns false.
@@ -55,13 +55,13 @@ export interface AuthService extends AuthClient {
      * Resolves to true, if the user may read from the specified document,
      * otherwise resolves to false.
      */
-    mayReadDocument(typeName: string, id: Id): Promise<boolean>
+    mayReadDocument(typeName: string, id: string): Promise<boolean>
 
     /**
      * Resolves to true, if the user may write to the specified document,
      * otherwise resolves to false.
      */
-    mayWriteDocument(typeName: string, id: Id): Promise<boolean>
+    mayWriteDocument(typeName: string, id: string): Promise<boolean>
 
     /**
      * Resolves to true, if the user may read/load the specified presence object,

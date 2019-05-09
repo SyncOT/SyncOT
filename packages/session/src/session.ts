@@ -1,4 +1,4 @@
-import { EmitterInterface, Id, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `SessionManager`.
@@ -26,7 +26,7 @@ export interface SessionManager
     /**
      * Returns the ID of the current session, or `undefined`, if there's no session.
      */
-    getSessionId(): Id | undefined
+    getSessionId(): string | undefined
 
     /**
      * Returns `true`, if there is an open session, otherwise `false`.

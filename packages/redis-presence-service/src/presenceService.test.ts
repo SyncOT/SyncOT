@@ -488,7 +488,7 @@ describe('submitPresence', () => {
         await expect(
             presenceProxy.submitPresence({
                 ...presence,
-                sessionId: Buffer.allocUnsafe(0),
+                sessionId: '',
             }),
         ).rejects.toEqual(
             expect.objectContaining({
@@ -579,15 +579,15 @@ describe('submitPresence', () => {
             presenceProxy = connection2.getProxy('presence') as PresenceService
 
             const effectiveLimit = presenceSizeLimit || 1024
-            authService.getUserId.mockReturnValue(123)
-            sessionService.getSessionId.mockReturnValue(34)
+            authService.getUserId.mockReturnValue('')
+            sessionService.getSessionId.mockReturnValue('')
             await expect(
                 presenceProxy.submitPresence({
                     data: Buffer.allocUnsafe(effectiveLimit - 9), // (type + int8 or int16 length + binary data)
                     lastModified: Date.now(), // 3 bytes (type + int16)
-                    locationId: 99, // 2 bytes (type + int8)
-                    sessionId: 34, // 2 bytes (type + int8)
-                    userId: 123, // 2 bytes (type + int8)
+                    locationId: '', // 2 bytes (type + int8 length)
+                    sessionId: '', // 2 bytes (type + int8 length)
+                    userId: '', // 2 bytes (type + int8 length)
                 }),
             ).rejects.toEqual(
                 expect.objectContaining({
@@ -1043,7 +1043,7 @@ describe('getPresenceBySessionId', () => {
             userId: userIdBuffer,
         })
         await expect(
-            presenceProxy.getPresenceBySessionId(encode('does not exist')),
+            presenceProxy.getPresenceBySessionId('does not exist'),
         ).resolves.toBeNull()
     })
 

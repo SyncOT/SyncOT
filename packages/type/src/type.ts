@@ -1,5 +1,5 @@
 import { createInvalidEntityError } from '@syncot/error'
-import { Id, isId, throwError, validate, Validator } from '@syncot/util'
+import { throwError, validate, Validator } from '@syncot/util'
 
 /**
  * Represents the actions which turn one snapshot into another.
@@ -8,12 +8,12 @@ import { Id, isId, throwError, validate, Validator } from '@syncot/util'
  */
 export interface Operation {
     readonly data: any
-    readonly documentId: Id
+    readonly documentId: string
     readonly documentType: string
     readonly kind: 'Operation'
     readonly meta: any
     readonly sequence: number
-    readonly sessionId: Id
+    readonly sessionId: string
     readonly version: number
 }
 
@@ -24,12 +24,12 @@ export interface Operation {
  */
 export interface Snapshot {
     readonly data: any
-    readonly documentId: Id
+    readonly documentId: string
     readonly documentType: string
     readonly kind: 'Snapshot'
     readonly meta: any
     readonly sequence: number
-    readonly sessionId: Id
+    readonly sessionId: string
     readonly version: number
 }
 
@@ -57,7 +57,7 @@ const validateKind: (
         : undefined
 
 const validateDocumentId: ValidatorFactory = entityName => self =>
-    isId(self.documentId)
+    typeof self.documentId === 'string'
         ? undefined
         : createInvalidEntityError(entityName, self, 'documentId')
 
@@ -74,7 +74,7 @@ const validateVersion: (
         : undefined
 
 const validateSessionId: ValidatorFactory = entityName => self =>
-    isId(self.sessionId)
+    typeof self.sessionId === 'string'
         ? undefined
         : createInvalidEntityError(entityName, self, 'sessionId')
 
@@ -144,7 +144,7 @@ export interface Type {
     /**
      * Creates an initial "empty" snapshot with the specified `id`.
      */
-    create(id: Id): Snapshot
+    create(id: string): Snapshot
 
     /**
      * Returns a new snapshot, which is the result of applying `operation` to `snapshot`.

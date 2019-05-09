@@ -3,7 +3,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { Id, invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
+import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import RedisServer from 'redis-server'
@@ -40,7 +40,7 @@ class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
     public mayWriteDocument = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockResolvedValue(true)
     public mayWritePresence = jest.fn().mockResolvedValue(true)
-    public constructor(userId: Id) {
+    public constructor(userId: string) {
         super()
         this.getUserId.mockReturnValue(userId)
     }
@@ -50,7 +50,7 @@ class MockAuthClient extends SyncOtEmitter<AuthEvents> implements AuthClient {
     public getUserId = jest.fn()
     public hasUserId = jest.fn().mockReturnValue(true)
     public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
-    public constructor(userId: Id) {
+    public constructor(userId: string) {
         super()
         this.getUserId.mockReturnValue(userId)
     }
@@ -61,7 +61,7 @@ class MockSessionService extends SyncOtEmitter<SessionEvents>
     public getSessionId = jest.fn()
     public hasSession = jest.fn().mockReturnValue(true)
     public hasActiveSession = jest.fn().mockReturnValue(true)
-    public constructor(sessionId: Id) {
+    public constructor(sessionId: string) {
         super()
         this.getSessionId.mockReturnValue(sessionId)
     }
@@ -72,16 +72,16 @@ class MockSessionClient extends SyncOtEmitter<SessionEvents>
     public getSessionId = jest.fn()
     public hasSession = jest.fn().mockReturnValue(true)
     public hasActiveSession = jest.fn().mockReturnValue(true)
-    public constructor(sessionId: Id) {
+    public constructor(sessionId: string) {
         super()
         this.getSessionId.mockReturnValue(sessionId)
     }
 }
 
 class Session {
-    public readonly sessionId: Id
-    public readonly userId: Id
-    public readonly locationId: Id
+    public readonly sessionId: string
+    public readonly userId: string
+    public readonly locationId: string
     public readonly data: any
     public readonly lastModified: number = 0
     public readonly presence: Presence

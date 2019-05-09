@@ -1,8 +1,6 @@
 import { createInvalidEntityError } from '@syncot/error'
 import {
     EmitterInterface,
-    Id,
-    isId,
     SyncOtEmitter,
     validate,
     Validator,
@@ -10,9 +8,9 @@ import {
 import { Duplex } from 'stream'
 
 export interface Presence {
-    readonly sessionId: Id
-    readonly userId: Id
-    readonly locationId: Id
+    readonly sessionId: string
+    readonly userId: string
+    readonly locationId: string
     readonly data: any
     readonly lastModified: number
 }
@@ -23,15 +21,15 @@ export const validatePresence: Validator<Presence> = validate([
             ? undefined
             : createInvalidEntityError('Presence', presence, null),
     presence =>
-        isId(presence.sessionId)
+        typeof presence.sessionId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'sessionId'),
     presence =>
-        isId(presence.userId)
+        typeof presence.userId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'userId'),
     presence =>
-        isId(presence.locationId)
+        typeof presence.locationId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'locationId'),
     presence =>
@@ -69,20 +67,20 @@ export interface PresenceServiceEvents {
  */
 export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
-    readonly sessionId: Id | undefined
-    readonly userId: Id | undefined
-    locationId: Id | undefined
+    readonly sessionId: string | undefined
+    readonly userId: string | undefined
+    locationId: string | undefined
     data: any
     readonly localPresence: Presence | undefined
     readonly online: boolean
 
-    getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
-    getPresenceByUserId(userId: Id): Promise<Presence[]>
-    getPresenceByLocationId(locationId: Id): Promise<Presence[]>
+    getPresenceBySessionId(sessionId: string): Promise<Presence | null>
+    getPresenceByUserId(userId: string): Promise<Presence[]>
+    getPresenceByLocationId(locationId: string): Promise<Presence[]>
 
-    streamPresenceBySessionId(sessionId: Id): Promise<Duplex>
-    streamPresenceByUserId(userId: Id): Promise<Duplex>
-    streamPresenceByLocationId(locationId: Id): Promise<Duplex>
+    streamPresenceBySessionId(sessionId: string): Promise<Duplex>
+    streamPresenceByUserId(userId: string): Promise<Duplex>
+    streamPresenceByLocationId(locationId: string): Promise<Duplex>
 }
 
 /**
@@ -105,13 +103,13 @@ export interface PresenceService
      */
     removePresence(): Promise<void>
 
-    getPresenceBySessionId(sessionId: Id): Promise<Presence | null>
-    getPresenceByUserId(userId: Id): Promise<Presence[]>
-    getPresenceByLocationId(locationId: Id): Promise<Presence[]>
+    getPresenceBySessionId(sessionId: string): Promise<Presence | null>
+    getPresenceByUserId(userId: string): Promise<Presence[]>
+    getPresenceByLocationId(locationId: string): Promise<Presence[]>
 
-    streamPresenceBySessionId(sessionId: Id): Promise<Duplex>
-    streamPresenceByUserId(userId: Id): Promise<Duplex>
-    streamPresenceByLocationId(locationId: Id): Promise<Duplex>
+    streamPresenceBySessionId(sessionId: string): Promise<Duplex>
+    streamPresenceByUserId(userId: string): Promise<Duplex>
+    streamPresenceByLocationId(locationId: string): Promise<Duplex>
 }
 
 /**
@@ -124,7 +122,7 @@ export type PresenceAddedMessage = [true, ...Presence[]]
  * Remove the presence objects with the specifed session IDs
  * from the current list of presence objects.
  */
-export type PresenceRemovedMessage = [false, ...Id[]]
+export type PresenceRemovedMessage = [false, ...string[]]
 
 /**
  * Presence messages emitted by the streams returned by `streamPresenceBy...` functions.

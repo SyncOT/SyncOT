@@ -7,7 +7,7 @@ import {
     PresenceServiceEvents,
 } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { Id, invertedStreams, SyncOtEmitter } from '@syncot/util'
+import { invertedStreams, SyncOtEmitter } from '@syncot/util'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex } from 'stream'
 import { createPresenceClient } from '.'
@@ -72,22 +72,22 @@ class MockPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         .fn<Promise<void>, []>()
         .mockResolvedValue(undefined)
     public getPresenceBySessionId = jest
-        .fn<Promise<Presence | null>, [Id]>()
+        .fn<Promise<Presence | null>, [string]>()
         .mockResolvedValue(null)
     public getPresenceByLocationId = jest
-        .fn<Promise<Presence[]>, [Id]>()
+        .fn<Promise<Presence[]>, [string]>()
         .mockResolvedValue([])
     public getPresenceByUserId = jest
-        .fn<Promise<Presence[]>, [Id]>()
+        .fn<Promise<Presence[]>, [string]>()
         .mockResolvedValue([])
     public streamPresenceBySessionId = jest
-        .fn<Promise<Duplex>, [Id]>()
+        .fn<Promise<Duplex>, [string]>()
         .mockRejectedValue(testError)
     public streamPresenceByLocationId = jest
-        .fn<Promise<Duplex>, [Id]>()
+        .fn<Promise<Duplex>, [string]>()
         .mockRejectedValue(testError)
     public streamPresenceByUserId = jest
-        .fn<Promise<Duplex>, [Id]>()
+        .fn<Promise<Duplex>, [string]>()
         .mockRejectedValue(testError)
 }
 

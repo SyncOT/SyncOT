@@ -4,22 +4,22 @@ describe('validatePresence', () => {
     const presence: Presence = {
         data: null,
         lastModified: 0,
-        locationId: Buffer.allocUnsafe(0),
-        sessionId: Buffer.allocUnsafe(0),
-        userId: Buffer.allocUnsafe(0),
+        locationId: '',
+        sessionId: '',
+        userId: '',
     }
     test.each<[any, string | null | undefined]>([
         [presence, undefined],
         [{ ...presence, userId: '' }, undefined],
-        [{ ...presence, userId: 0 }, undefined],
         [{ ...presence, locationId: '' }, undefined],
-        [{ ...presence, locationId: 0 }, undefined],
         [{ ...presence, sessionId: '' }, undefined],
-        [{ ...presence, sessionId: 0 }, undefined],
         [null, null],
         [() => undefined, null],
+        [{ ...presence, sessionId: 0 }, 'sessionId'],
         [{ ...presence, sessionId: null }, 'sessionId'],
+        [{ ...presence, userId: 0 }, 'userId'],
         [{ ...presence, userId: null }, 'userId'],
+        [{ ...presence, locationId: 0 }, 'locationId'],
         [{ ...presence, locationId: null }, 'locationId'],
         [
             {

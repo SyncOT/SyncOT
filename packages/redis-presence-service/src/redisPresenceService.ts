@@ -10,7 +10,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { decode, encode } from '@syncot/tson'
-import { Id, idEqual, isId, SyncOtEmitter, throwError } from '@syncot/util'
+import { SyncOtEmitter, throwError } from '@syncot/util'
 import { strict as assert } from 'assert'
 import Redis from 'ioredis'
 import { Duplex } from 'stream'
@@ -96,12 +96,12 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         throwError(validatePresence(presence))
 
         const sessionId = this.sessionService.getSessionId()
-        if (!idEqual(presence.sessionId, sessionId)) {
+        if (presence.sessionId !== sessionId) {
             throw createPresenceError('Session ID mismatch.')
         }
 
         const userId = this.authService.getUserId()
-        if (!idEqual(presence.userId, userId)) {
+        if (presence.userId !== userId) {
             throw createPresenceError('User ID mismatch.')
         }
 
@@ -145,7 +145,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     public async getPresenceBySessionId(
-        sessionId: Id,
+        sessionId: string,
     ): Promise<Presence | null> {
         this.assertOk()
 
@@ -162,7 +162,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async getPresenceByUserId(userId: Id): Promise<Presence[]> {
+    public async getPresenceByUserId(userId: string): Promise<Presence[]> {
         this.assertOk()
 
         try {
@@ -180,7 +180,9 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async getPresenceByLocationId(locationId: Id): Promise<Presence[]> {
+    public async getPresenceByLocationId(
+        locationId: string,
+    ): Promise<Presence[]> {
         this.assertOk()
 
         try {
@@ -198,7 +200,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async streamPresenceBySessionId(sessionId: Id): Promise<Duplex> {
+    public async streamPresenceBySessionId(sessionId: string): Promise<Duplex> {
         this.assertOk()
 
         const channel = Buffer.concat([sessionIdKeyPrefix, encode(sessionId)])
@@ -211,23 +213,25 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         return this.streamPresence(channel, getPresence, shouldAdd)
     }
 
-    public async streamPresenceByUserId(userId: Id): Promise<Duplex> {
+    public async streamPresenceByUserId(userId: string): Promise<Duplex> {
         this.assertOk()
         const channel = Buffer.concat([userIdKeyPrefix, encode(userId)])
         const getPresence = (): Promise<Presence[]> =>
             this.getPresenceByUserId(userId)
         const shouldAdd = (presence: Presence | null): presence is Presence =>
-            !!presence && idEqual(presence.userId, userId)
+            !!presence && presence.userId === userId
         return this.streamPresence(channel, getPresence, shouldAdd)
     }
 
-    public async streamPresenceByLocationId(locationId: Id): Promise<Duplex> {
+    public async streamPresenceByLocationId(
+        locationId: string,
+    ): Promise<Duplex> {
         this.assertOk()
         const channel = Buffer.concat([locationIdKeyPrefix, encode(locationId)])
         const getPresence = (): Promise<Presence[]> =>
             this.getPresenceByLocationId(locationId)
         const shouldAdd = (presence: Presence | null): presence is Presence =>
-            !!presence && idEqual(presence.locationId, locationId)
+            !!presence && presence.locationId === locationId
         return this.streamPresence(channel, getPresence, shouldAdd)
     }
 
@@ -429,9 +433,9 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             presence = {
                 data: decode(encodedPresence[3]),
                 lastModified: decode(encodedPresence[4]) as number,
-                locationId: decode(encodedPresence[2]) as Id,
-                sessionId: decode(encodedPresence[0]) as Id,
-                userId: decode(encodedPresence[1]) as Id,
+                locationId: decode(encodedPresence[2]) as string,
+                sessionId: decode(encodedPresence[0]) as string,
+                userId: decode(encodedPresence[1]) as string,
             }
 
             throwError(validatePresence(presence))
@@ -446,14 +450,14 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         return presence
     }
 
-    private decodeSessionId(encodedSessionId: Buffer): Id {
+    private decodeSessionId(encodedSessionId: Buffer): string {
         let id
         try {
             id = decode(encodedSessionId)
         } catch (error) {
             throw createPresenceError('Cannot decode sessionId.', error)
         }
-        if (!isId(id)) {
+        if (typeof id !== 'string') {
             throw createPresenceError('Invalid sessionId.')
         }
         return id

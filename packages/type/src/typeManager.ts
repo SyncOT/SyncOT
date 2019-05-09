@@ -1,5 +1,5 @@
 import { createTypeNotFoundError } from '@syncot/error'
-import { Id, Interface } from '@syncot/util'
+import { Interface } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Operation, Snapshot, Type } from './type'
 
@@ -39,7 +39,7 @@ class TypeManagerImpl {
     /**
      * Creates an empty snapshot of the specified type using `Type#create`.
      */
-    public create(type: string, id: Id): Snapshot {
+    public create(type: string, id: string): Snapshot {
         return this._getType(type).create(id)
     }
 

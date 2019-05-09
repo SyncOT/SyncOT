@@ -5,7 +5,6 @@ import {
     Type,
     TypeManager,
 } from '@syncot/type'
-import { Id } from '@syncot/util'
 import { ClientStorage, ClientStorageStatus } from '.'
 
 function omit<T extends object>(value: T, property: keyof T) {
@@ -22,12 +21,12 @@ interface ListOperation extends Operation {
 }
 const transformError = new Error('transform-error')
 const documentType: string = 'list-type'
-const sessionId: Id = 'session-id'
-const remoteSessionId: Id = 'remote-session-id'
+const sessionId: string = 'session-id'
+const remoteSessionId: string = 'remote-session-id'
 const typeManager: TypeManager = createTypeManager()
 const type: Type = {
     name: documentType,
-    create(documentId: Id): ListSnapshot {
+    create(documentId: string): ListSnapshot {
         return {
             data: [],
             documentId,
@@ -78,11 +77,11 @@ typeManager.registerType(type)
 
 export const clientStorageTests = (
     createClientStorage: (options: {
-        sessionId: Id
+        sessionId: string
         typeManager: TypeManager
     }) => ClientStorage,
 ) => {
-    const documentId: Id = 'id-1'
+    const documentId: string = 'id-1'
     const operation: Operation = {
         data: { index: 0, value: 0 },
         documentId,
@@ -121,10 +120,12 @@ export const clientStorageTests = (
 
     let clientStorage: ClientStorage
 
-    const getStatus = (typeName: string = documentType, id: Id = documentId) =>
-        clientStorage.getStatus(typeName, id)
+    const getStatus = (
+        typeName: string = documentType,
+        id: string = documentId,
+    ) => clientStorage.getStatus(typeName, id)
 
-    const load = (typeName: string = documentType, id: Id = documentId) =>
+    const load = (typeName: string = documentType, id: string = documentId) =>
         clientStorage.load(typeName, id)
 
     beforeEach(() => {
@@ -191,16 +192,6 @@ export const clientStorageTests = (
                 documentId: 'id-2',
                 version: 0,
             })
-            await clientStorage.init({
-                ...snapshot,
-                documentId: 5,
-                version: 0,
-            })
-            await clientStorage.init({
-                ...snapshot,
-                documentId: Buffer.from('binary-id'),
-                version: 0,
-            })
 
             await expect(getStatus(documentType, documentId)).resolves.toEqual(
                 status,
@@ -213,30 +204,14 @@ export const clientStorageTests = (
                 ...status0,
                 documentId: 'id-2',
             })
-            await expect(getStatus(documentType, 5)).resolves.toEqual({
-                ...status0,
-                documentId: 5,
-            })
-            await expect(
-                getStatus(documentType, Buffer.from('binary-id')),
-            ).resolves.toEqual({
-                ...status0,
-                documentId: Buffer.from('binary-id'),
-            })
 
             await expect(load(documentType, documentId)).resolves.toEqual([])
             await expect(load('type-2', documentId)).resolves.toEqual([])
             await expect(load(documentType, 'id-2')).resolves.toEqual([])
-            await expect(load(documentType, 5)).resolves.toEqual([])
-            await expect(
-                load(documentType, Buffer.from('binary-id')),
-            ).resolves.toEqual([])
 
             await clientStorage.clear(documentType, documentId)
             await clientStorage.clear('type-2', documentId)
             await clientStorage.clear(documentType, 'id-2')
-            await clientStorage.clear(documentType, 5)
-            await clientStorage.clear(documentType, Buffer.from('binary-id'))
 
             await expect(getStatus(documentType, documentId)).resolves.toEqual(
                 uninitializedStatus0,
@@ -248,16 +223,6 @@ export const clientStorageTests = (
             await expect(getStatus(documentType, 'id-2')).resolves.toEqual({
                 ...uninitializedStatus0,
                 documentId: 'id-2',
-            })
-            await expect(getStatus(documentType, 5)).resolves.toEqual({
-                ...uninitializedStatus0,
-                documentId: 5,
-            })
-            await expect(
-                getStatus(documentType, Buffer.from('binary-id')),
-            ).resolves.toEqual({
-                ...uninitializedStatus0,
-                documentId: Buffer.from('binary-id'),
             })
         })
     })

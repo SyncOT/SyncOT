@@ -27,7 +27,6 @@
   },
   "dependencies": {
     "@syncot/type": "file:../type",
-    "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }
 }

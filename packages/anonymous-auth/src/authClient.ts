@@ -1,6 +1,6 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { Id, isId, SyncOtEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a new AuthClient which allows full anonymous access.
@@ -14,7 +14,7 @@ export function createAuthClient(connection: Connection): AuthClient {
  */
 export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
     implements AuthClient {
-    private userId: Id | undefined = undefined
+    private userId: string | undefined = undefined
     private authenticated: boolean = false
 
     public constructor(private connection: Connection) {
@@ -22,12 +22,12 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
         Promise.resolve().then(() => this.init())
     }
 
-    public getUserId(): Id | undefined {
+    public getUserId(): string | undefined {
         return this.userId
     }
 
     public hasUserId(): boolean {
-        return isId(this.userId)
+        return this.userId !== undefined
     }
 
     public hasAuthenticatedUserId(): boolean {
@@ -53,7 +53,7 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
         this.connection.on('connect', this.onConnect)
         this.connection.on('disconnect', this.onDisconnect)
 
-        this.userId = 0
+        this.userId = ''
         this.emitAsync('user')
 
         this.authenticated = this.connection.isConnected()

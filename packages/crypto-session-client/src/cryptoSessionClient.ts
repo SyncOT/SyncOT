@@ -1,7 +1,7 @@
 import { Connection } from '@syncot/connection'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { Id, isId, SyncOtEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 
 /**
  * Creates a client-side cryptographic session manager on the specified connection.
@@ -20,7 +20,7 @@ interface SessionService {
     getChallenge(): Promise<Challenge>
     activateSession(
         publicKey: Buffer,
-        sessionId: Id,
+        sessionId: string,
         challangeReply: ChallengeReply,
     ): Promise<void>
 }
@@ -32,7 +32,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
     private keyPair: CryptoKeyPair | undefined = undefined
     private publicKey: Buffer | undefined = undefined
-    private sessionId: Id | undefined = undefined
+    private sessionId: string | undefined = undefined
     private active: boolean = false
     private readonly sessionService: SessionService
 
@@ -50,12 +50,12 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         Promise.resolve().then(() => this.init())
     }
 
-    public getSessionId(): Id | undefined {
+    public getSessionId(): string | undefined {
         return this.sessionId
     }
 
     public hasSession(): boolean {
-        return isId(this.sessionId)
+        return this.sessionId !== undefined
     }
 
     public hasActiveSession(): boolean {
@@ -119,7 +119,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
                 await crypto.subtle.digest('SHA-256', spki),
                 0,
                 16,
-            )
+            ).toString('base64')
 
             if (this.destroyed) {
                 return

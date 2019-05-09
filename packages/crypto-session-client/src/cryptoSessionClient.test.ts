@@ -3,7 +3,7 @@
  */
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import { Id, idEqual, invertedStreams } from '@syncot/util'
+import { invertedStreams } from '@syncot/util'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 import { Duplex } from 'stream'
 import { createSessionManager } from '.'
@@ -20,7 +20,7 @@ let clientConnection: Connection
 let sessionManager: SessionManager
 let sessionService: {
     getChallenge: jest.Mock<Promise<Buffer>>
-    activateSession: jest.Mock<Promise<void>, [Buffer, Id, Buffer]>
+    activateSession: jest.Mock<Promise<void>, [Buffer, string, Buffer]>
 }
 
 const disconnect = async () => {
@@ -52,7 +52,7 @@ beforeEach(() => {
         activateSession: jest.fn(
             async (
                 publicKeyDer: Buffer,
-                sessionId: Id,
+                sessionId: string,
                 challangeReply: Buffer,
             ) => {
                 const publicKey = createPublicKey({
@@ -69,7 +69,13 @@ beforeEach(() => {
 
                 const hash = createHash('SHA256')
                 hash.update(publicKeyDer)
-                if (!idEqual(hash.digest().slice(0, 16), sessionId)) {
+                if (
+                    sessionId !==
+                    hash
+                        .digest()
+                        .slice(0, 16)
+                        .toString('base64')
+                ) {
                     throw new Error('Invalid session ID.')
                 }
             },
@@ -184,8 +190,10 @@ test('disconnect', async () => {
     await new Promise(resolve => sessionManager.on('sessionOpen', resolve))
     expect(sessionManager.hasSession()).toBeTrue()
     expect(sessionManager.hasActiveSession()).toBeFalse()
-    expect(sessionManager.getSessionId()).toBeInstanceOf(Buffer)
-    expect((sessionManager.getSessionId() as Buffer).length).toBe(16)
+    expect(sessionManager.getSessionId()).toBeString()
+    expect(Buffer.from(sessionManager.getSessionId()!, 'base64').length).toBe(
+        16,
+    )
     expect(onSessionInactive).not.toBeCalled()
 })
 
@@ -197,8 +205,10 @@ describe('sessionOpen', () => {
     test('state', () => {
         expect(sessionManager.hasSession()).toBeTrue()
         expect(sessionManager.hasActiveSession()).toBeFalse()
-        expect(sessionManager.getSessionId()).toBeInstanceOf(Buffer)
-        expect((sessionManager.getSessionId() as Buffer).length).toBe(16)
+        expect(sessionManager.getSessionId()).toBeString()
+        expect(
+            Buffer.from(sessionManager.getSessionId()!, 'base64').length,
+        ).toBe(16)
     })
     test('disconnect', async () => {
         const onSessionInactive = jest.fn()
@@ -254,7 +264,7 @@ describe('sessionOpen', () => {
         test('state', async () => {
             expect(sessionManager.hasSession()).toBeTrue()
             expect(sessionManager.hasActiveSession()).toBeTrue()
-            expect(sessionManager.getSessionId()).toBeInstanceOf(Buffer)
+            expect(sessionManager.getSessionId()).toBeString()
         })
         test('destroy', async () => {
             const onDestroy = jest.fn()
@@ -270,12 +280,12 @@ describe('sessionOpen', () => {
             await disconnect()
             expect(sessionManager.hasSession()).toBeTrue()
             expect(sessionManager.hasActiveSession()).toBeFalse()
-            expect(sessionManager.getSessionId()).toBeInstanceOf(Buffer)
+            expect(sessionManager.getSessionId()).toBeString()
 
             await connect()
             expect(sessionManager.hasSession()).toBeTrue()
             expect(sessionManager.hasActiveSession()).toBeTrue()
-            expect(sessionManager.getSessionId()).toBeInstanceOf(Buffer)
+            expect(sessionManager.getSessionId()).toBeString()
         })
         test('server returns an error', async () => {
             await disconnect()

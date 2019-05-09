@@ -13,7 +13,7 @@ import {
     Snapshot,
     TypeManager,
 } from '@syncot/type'
-import { Id, idEqual, ScalarMap } from '@syncot/util'
+import { ScalarMap } from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: number
@@ -23,7 +23,7 @@ interface Context {
     operations: Operation[]
     snapshot: Snapshot
 }
-type ContextMap = Map<string, ScalarMap<Id, Context>>
+type ContextMap = Map<string, ScalarMap<string, Context>>
 
 /**
  * A ClientStorage implementation that stores the data in the main memory.
@@ -32,7 +32,7 @@ class MemoryClientStorage implements ClientStorage {
     private contexts: ContextMap = new Map()
 
     public constructor(
-        private sessionId: Id,
+        private sessionId: string,
         private typeManager: TypeManager,
     ) {}
 
@@ -80,7 +80,10 @@ class MemoryClientStorage implements ClientStorage {
     /**
      * Removes all data associated with the specified `documentType` and `documentId`.
      */
-    public async clear(documentType: string, documentId: Id): Promise<void> {
+    public async clear(
+        documentType: string,
+        documentId: string,
+    ): Promise<void> {
         const documentTypeMap = this.contexts
         const documentIdMap = documentTypeMap.get(documentType)
 
@@ -98,7 +101,7 @@ class MemoryClientStorage implements ClientStorage {
      */
     public async getStatus(
         documentType: string,
-        documentId: Id,
+        documentId: string,
     ): Promise<ClientStorageStatus> {
         const context = this.getContext(documentType, documentId)
 
@@ -167,7 +170,7 @@ class MemoryClientStorage implements ClientStorage {
 
         if (local) {
             // Store a new local operation.
-            if (!idEqual(operation.sessionId, this.sessionId)) {
+            if (operation.sessionId !== this.sessionId) {
                 throw createUnexpectedSessionIdError()
             }
 
@@ -187,7 +190,7 @@ class MemoryClientStorage implements ClientStorage {
                 throw createUnexpectedVersionNumberError()
             }
 
-            if (idEqual(operation.sessionId, this.sessionId)) {
+            if (operation.sessionId === this.sessionId) {
                 // Store own remote operation.
                 if (context.localIndex >= context.operations.length) {
                     throw createUnexpectedSessionIdError()
@@ -239,7 +242,7 @@ class MemoryClientStorage implements ClientStorage {
      */
     public async load(
         documentType: string,
-        documentId: Id,
+        documentId: string,
         minVersion: number = 1,
         maxVersion: number = Number.MAX_SAFE_INTEGER,
     ): Promise<Operation[]> {
@@ -255,7 +258,7 @@ class MemoryClientStorage implements ClientStorage {
 
     private getContext(
         documentType: string,
-        documentId: Id,
+        documentId: string,
     ): Context | undefined {
         const documentTypeMap = this.contexts
         const documentIdMap = documentTypeMap.get(documentType)
@@ -273,7 +276,10 @@ class MemoryClientStorage implements ClientStorage {
         return context
     }
 
-    private getContextRequired(documentType: string, documentId: Id): Context {
+    private getContextRequired(
+        documentType: string,
+        documentId: string,
+    ): Context {
         const context = this.getContext(documentType, documentId)
 
         if (context == null) {
@@ -288,7 +294,7 @@ class MemoryClientStorage implements ClientStorage {
  * Options for `createClientStorage`.
  */
 export interface CreateClientStorageParams {
-    sessionId: Id
+    sessionId: string
     typeManager: TypeManager
 }
 

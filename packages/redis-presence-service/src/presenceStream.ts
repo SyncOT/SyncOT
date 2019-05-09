@@ -3,7 +3,7 @@ import {
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { Id, idEqual, ScalarMap } from '@syncot/util'
+import { ScalarMap } from '@syncot/util'
 import { AssertionError } from 'assert'
 import { Duplex } from 'stream'
 
@@ -12,7 +12,7 @@ import { Duplex } from 'stream'
  * are added or removed.
  */
 export class PresenceStream extends Duplex {
-    private presenceMap: ScalarMap<Id, Presence> = new ScalarMap()
+    private presenceMap: ScalarMap<string, Presence> = new ScalarMap()
 
     public constructor() {
         super(presenceStreamOptions)
@@ -46,7 +46,7 @@ export class PresenceStream extends Duplex {
      * Removes a presence object with the specified sessionId and
      * emits a corresponding `data` event.
      */
-    public removePresence(sessionId: Id): void {
+    public removePresence(sessionId: string): void {
         if (this.presenceMap.delete(sessionId)) {
             this.push([false, sessionId])
         }
@@ -83,7 +83,7 @@ export class PresenceStream extends Duplex {
         // it's not optimal for longer lists. Optimize it later, if necessary.
         this.presenceMap.forEach((_, sessionId) => {
             for (let i = 0, l = presenceList.length; i < l; ++i) {
-                if (idEqual(presenceList[i].sessionId, sessionId)) {
+                if (presenceList[i].sessionId === sessionId) {
                     return
                 }
             }

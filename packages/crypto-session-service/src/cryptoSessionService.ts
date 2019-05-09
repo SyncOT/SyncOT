@@ -1,7 +1,7 @@
 import { Connection } from '@syncot/connection'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { Id, idEqual, isId, SyncOtEmitter } from '@syncot/util'
+import { SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 
@@ -12,7 +12,7 @@ const randomUInt32 = () => Math.floor(Math.random() * 0x100000000)
  */
 class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     implements SessionManager {
-    private sessionId: Id | undefined = undefined
+    private sessionId: string | undefined = undefined
     private challenge: Buffer | undefined = undefined
 
     public constructor(private readonly connection: Connection) {
@@ -39,14 +39,17 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
 
     public activateSession(
         publicKeyDer: Buffer,
-        sessionId: Id,
+        sessionId: string,
         challangeReply: Buffer,
     ): void {
         this.assertNotDestroyed()
         assert.ok(this.connection.isConnected(), 'Connection must be active.')
-        assert.ok(isId(sessionId), 'Argument "sessionId" must be an "Id".')
+        assert.ok(
+            typeof sessionId === 'string',
+            'Argument "sessionId" must be a string.',
+        )
 
-        const sameSessionId = idEqual(this.sessionId, sessionId)
+        const sameSessionId = this.sessionId === sessionId
 
         if (!sameSessionId && this.hasSession()) {
             throw createSessionError('Session already exists.')
@@ -67,11 +70,11 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         const hash = createHash('SHA256')
         hash.update(publicKeyDer)
         if (
-            !Buffer.isBuffer(sessionId) ||
-            !hash
+            sessionId !==
+            hash
                 .digest()
                 .slice(0, 16)
-                .equals(sessionId)
+                .toString('base64')
         ) {
             throw createSessionError('Invalid session ID.')
         }
@@ -83,12 +86,12 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         }
     }
 
-    public getSessionId(): Id | undefined {
+    public getSessionId(): string | undefined {
         return this.sessionId
     }
 
     public hasSession(): boolean {
-        return isId(this.sessionId)
+        return this.sessionId !== undefined
     }
 
     public hasActiveSession(): boolean {
