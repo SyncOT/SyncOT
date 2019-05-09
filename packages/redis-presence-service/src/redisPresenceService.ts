@@ -122,7 +122,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('Presence size limit exceeded.')
         }
 
-        if (!this.authService.mayWritePresence(presence)) {
+        if (!(await this.authService.mayWritePresence(presence))) {
             throw createAuthError(
                 'Not authorized to submit this presence object.',
             )

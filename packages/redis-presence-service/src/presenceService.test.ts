@@ -530,7 +530,7 @@ describe('submitPresence', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayWritePresence.mockReturnValue(false)
+        authService.mayWritePresence.mockResolvedValue(false)
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'Not authorized to submit this presence object.',
