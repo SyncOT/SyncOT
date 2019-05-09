@@ -13,7 +13,6 @@ import {
     Snapshot,
     TypeManager,
 } from '@syncot/type'
-import { ScalarMap } from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: number
@@ -23,7 +22,7 @@ interface Context {
     operations: Operation[]
     snapshot: Snapshot
 }
-type ContextMap = Map<string, ScalarMap<string, Context>>
+type ContextMap = Map<string, Map<string, Context>>
 
 /**
  * A ClientStorage implementation that stores the data in the main memory.
@@ -57,7 +56,7 @@ class MemoryClientStorage implements ClientStorage {
         let documentIdMap = documentTypeMap.get(documentType)
 
         if (documentIdMap == null) {
-            documentIdMap = new ScalarMap()
+            documentIdMap = new Map()
             documentTypeMap.set(documentType, documentIdMap)
         }
 

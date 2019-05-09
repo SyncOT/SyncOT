@@ -10,18 +10,18 @@ const testErrorMatcher = expect.objectContaining({
     name: 'Error',
 })
 
-const channel1 = Buffer.from('channel 1!')
-const channel2 = Buffer.from('channel 2!')
-const channel3 = Buffer.from('channel 3!')
+const channel1 = 'channel 1!'
+const channel2 = 'channel 2!'
+const channel3 = 'channel 3!'
 
-const pattern1 = Buffer.from('channel 1!')
-const pattern2 = Buffer.from('channel [23]!')
-const pattern3 = Buffer.from('channel ?!')
-const pattern4 = Buffer.from('channel*')
+const pattern1 = 'channel 1!'
+const pattern2 = 'channel [23]!'
+const pattern3 = 'channel ?!'
+const pattern4 = 'channel*'
 
-const message1 = Buffer.from('message 1')
-const message2 = Buffer.from('message 2')
-const message3 = Buffer.from('message 3')
+const message1 = 'message 1'
+const message2 = 'message 2'
+const message3 = 'message 3'
 
 const whenRedisEvent = (name: string, count: number) =>
     new Promise(resolve => {
@@ -109,30 +109,11 @@ test('get a different subscriber given a different Redis client', () => {
     expect(subscriber2).not.toBe(subscriber)
 })
 
-test('throw on dropBufferSupport=true', () => {
-    expect(() =>
-        getRedisSubscriber(
-            new Redis({
-                autoResubscribe: false,
-                dropBufferSupport: true,
-                enableReadyCheck: true,
-                lazyConnect: true,
-            }),
-        ),
-    ).toThrow(
-        expect.objectContaining({
-            message: 'Redis must be configured with dropBufferSupport=false.',
-            name: 'AssertionError',
-        }),
-    )
-})
-
 test('throw on autoResubscribe=true', () => {
     expect(() =>
         getRedisSubscriber(
             new Redis({
                 autoResubscribe: true,
-                dropBufferSupport: false,
                 enableReadyCheck: true,
                 lazyConnect: true,
             }),
@@ -150,7 +131,6 @@ test('throw on enableReadyCheck=false', () => {
         getRedisSubscriber(
             new Redis({
                 autoResubscribe: false,
-                dropBufferSupport: false,
                 enableReadyCheck: false,
                 lazyConnect: true,
             }),
@@ -165,7 +145,7 @@ test('throw on enableReadyCheck=false', () => {
 
 describe('channel', () => {
     test('message with no listeners', () => {
-        redisSubscriber.emit('messageBuffer', channel1, message1)
+        redisSubscriber.emit('message', channel1, message1)
     })
     test('unsubscribe a non-registered listener', () => {
         const listener1 = jest.fn()
@@ -182,10 +162,10 @@ describe('channel', () => {
         subscriber.onChannel(channel1, onChannel1)
         subscriber.onChannel(channel2, onChannel2)
         subscriber.onChannel(channel3, onChannel3)
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        redis.publish(channel3 as any, message3 as any)
-        await whenRedisEvent('messageBuffer', 3)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        redis.publish(channel3, message3)
+        await whenRedisEvent('message', 3)
         expect(onChannel1).toHaveBeenCalledTimes(1)
         expect(onChannel1).toHaveBeenCalledWith(channel1, message1)
         expect(onChannel2).toHaveBeenCalledTimes(1)
@@ -210,8 +190,8 @@ describe('channel', () => {
         subscriber.onChannel(channel1, onChannel1)
         subscriber.onChannel(channel1, onChannel1)
         subscriber.onChannel(channel1, onChannel2)
-        redis.publish(channel1 as any, message1 as any)
-        await whenRedisEvent('messageBuffer', 1)
+        redis.publish(channel1, message1)
+        await whenRedisEvent('message', 1)
         expect(onChannel1).toHaveBeenCalledTimes(2)
         expect(onChannel1).toHaveBeenNthCalledWith(1, channel1, message1)
         expect(onChannel1).toHaveBeenNthCalledWith(2, channel1, message1)
@@ -221,8 +201,8 @@ describe('channel', () => {
         onChannel2.mockClear()
 
         subscriber.offChannel(channel1, onChannel1)
-        redis.publish(channel1 as any, message2 as any)
-        await whenRedisEvent('messageBuffer', 1)
+        redis.publish(channel1, message2)
+        await whenRedisEvent('message', 1)
         expect(onChannel1).toHaveBeenCalledTimes(1)
         expect(onChannel1).toHaveBeenNthCalledWith(1, channel1, message2)
         expect(onChannel2).toHaveBeenCalledTimes(1)
@@ -232,7 +212,7 @@ describe('channel', () => {
 
         subscriber.offChannel(channel1, onChannel1)
         subscriber.offChannel(channel1, onChannel2)
-        redis.publish(channel1 as any, message2 as any)
+        redis.publish(channel1, message2)
         await whenRedisCommandExecuted('unsubscribe')
         expect(onChannel1).toHaveBeenCalledTimes(0)
         expect(onChannel2).toHaveBeenCalledTimes(0)
@@ -250,9 +230,9 @@ describe('channel', () => {
         subscriber.onChannel(channel2, onChannel2)
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('SUBSCRIBE')
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        await whenRedisEvent('messageBuffer', 2)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        await whenRedisEvent('message', 2)
         expect(onChannel1).toHaveBeenCalledTimes(1)
         expect(onChannel1).toHaveBeenCalledWith(channel1, message1)
         expect(onChannel2).toHaveBeenCalledTimes(1)
@@ -268,9 +248,9 @@ describe('channel', () => {
         await redisSubscriber.ping().catch(noop) // wait until disconnected
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('SUBSCRIBE')
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        await whenRedisEvent('messageBuffer', 2)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        await whenRedisEvent('message', 2)
         expect(onChannel1).toHaveBeenCalledTimes(1)
         expect(onChannel1).toHaveBeenCalledWith(channel1, message1)
         expect(onChannel2).toHaveBeenCalledTimes(1)
@@ -303,7 +283,7 @@ describe('channel', () => {
 
 describe('pattern', () => {
     test('pattern with no listeners', () => {
-        redisSubscriber.emit('pmessageBuffer', pattern4, channel1, message1)
+        redisSubscriber.emit('pmessage', pattern4, channel1, message1)
     })
     test('unsubscribe a non-registered listener', () => {
         const listener1 = jest.fn()
@@ -322,10 +302,10 @@ describe('pattern', () => {
         subscriber.onPattern(pattern2, onPattern2)
         subscriber.onPattern(pattern3, onPattern3)
         subscriber.onPattern(pattern4, onPattern4)
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        redis.publish(channel3 as any, message3 as any)
-        await whenRedisEvent('pmessageBuffer', 3)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        redis.publish(channel3, message3)
+        await whenRedisEvent('pmessage', 3)
         expect(onPattern1).toHaveBeenCalledTimes(1)
         expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
         expect(onPattern2).toHaveBeenCalledTimes(2)
@@ -357,8 +337,8 @@ describe('pattern', () => {
         subscriber.onPattern(pattern1, onPattern1)
         subscriber.onPattern(pattern1, onPattern1)
         subscriber.onPattern(pattern1, onPattern2)
-        redis.publish(channel1 as any, message1 as any)
-        await whenRedisEvent('pmessageBuffer', 1)
+        redis.publish(channel1, message1)
+        await whenRedisEvent('pmessage', 1)
         expect(onPattern1).toHaveBeenCalledTimes(2)
         expect(onPattern1).toHaveBeenNthCalledWith(
             1,
@@ -383,8 +363,8 @@ describe('pattern', () => {
         onPattern2.mockClear()
 
         subscriber.offPattern(pattern1, onPattern1)
-        redis.publish(channel1 as any, message2 as any)
-        await whenRedisEvent('pmessageBuffer', 1)
+        redis.publish(channel1, message2)
+        await whenRedisEvent('pmessage', 1)
         expect(onPattern1).toHaveBeenCalledTimes(1)
         expect(onPattern1).toHaveBeenNthCalledWith(
             1,
@@ -404,7 +384,7 @@ describe('pattern', () => {
 
         subscriber.offPattern(pattern1, onPattern1)
         subscriber.offPattern(pattern1, onPattern2)
-        redis.publish(channel1 as any, message2 as any)
+        redis.publish(channel1, message2)
         await whenRedisCommandExecuted('punsubscribe')
         expect(onPattern1).toHaveBeenCalledTimes(0)
         expect(onPattern2).toHaveBeenCalledTimes(0)
@@ -422,9 +402,9 @@ describe('pattern', () => {
         subscriber.onPattern(pattern2, onPattern2)
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('PSUBSCRIBE')
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        await whenRedisEvent('pmessageBuffer', 2)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        await whenRedisEvent('pmessage', 2)
         expect(onPattern1).toHaveBeenCalledTimes(1)
         expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
         expect(onPattern2).toHaveBeenCalledTimes(1)
@@ -440,9 +420,9 @@ describe('pattern', () => {
         await redisSubscriber.ping().catch(noop) // wait until disconnected
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('PSUBSCRIBE')
-        redis.publish(channel1 as any, message1 as any)
-        redis.publish(channel2 as any, message2 as any)
-        await whenRedisEvent('pmessageBuffer', 2)
+        redis.publish(channel1, message1)
+        redis.publish(channel2, message2)
+        await whenRedisEvent('pmessage', 2)
         expect(onPattern1).toHaveBeenCalledTimes(1)
         expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
         expect(onPattern2).toHaveBeenCalledTimes(1)

@@ -30,7 +30,6 @@
     "@syncot/client-storage": "file:../client-storage",
     "@syncot/error": "file:../error",
     "@syncot/type": "file:../type",
-    "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }
 }

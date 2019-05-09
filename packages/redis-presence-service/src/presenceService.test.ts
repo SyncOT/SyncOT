@@ -8,7 +8,6 @@ import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import RedisServer from 'redis-server'
-import { SmartBuffer } from 'smart-buffer'
 import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
@@ -40,41 +39,17 @@ const data2 = Object.freeze({ key: 'value-2' })
 const lastModified = 1
 const lastModified2 = 2
 
-const sessionIdBuffer = encode(sessionId)
-const sessionIdBuffer2 = encode(sessionId2)
-const userIdBuffer = encode(userId)
-const userIdBuffer2 = encode(userId2)
-const locationIdBuffer = encode(locationId)
-const locationIdBuffer2 = encode(locationId2)
 const dataBuffer = encode(data)
 const dataBuffer2 = encode(data2)
 const lastModifiedBuffer = encode(lastModified)
 const lastModifiedBuffer2 = encode(lastModified2)
 
-const presenceKey = new SmartBuffer()
-    .writeString(presencePrefix)
-    .writeBuffer(sessionIdBuffer)
-    .toBuffer()
-const presenceKey2 = new SmartBuffer()
-    .writeString(presencePrefix)
-    .writeBuffer(sessionIdBuffer2)
-    .toBuffer()
-const userKey = new SmartBuffer()
-    .writeString(userPrefix)
-    .writeBuffer(userIdBuffer)
-    .toBuffer()
-const userKey2 = new SmartBuffer()
-    .writeString(userPrefix)
-    .writeBuffer(userIdBuffer2)
-    .toBuffer()
-const locationKey = new SmartBuffer()
-    .writeString(locationPrefix)
-    .writeBuffer(locationIdBuffer)
-    .toBuffer()
-const locationKey2 = new SmartBuffer()
-    .writeString(locationPrefix)
-    .writeBuffer(locationIdBuffer2)
-    .toBuffer()
+const presenceKey = presencePrefix + sessionId
+const presenceKey2 = presencePrefix + sessionId2
+const userKey = userPrefix + userId
+const userKey2 = userPrefix + userId2
+const locationKey = locationPrefix + locationId
+const locationKey2 = locationPrefix + locationId2
 
 const presence: Presence = Object.freeze({
     data,
@@ -137,18 +112,15 @@ const whenRedisCommandExecuted = (commandName: string) =>
         monitor.on('monitor', listener)
     })
 
-const whenMessage = (expectedTopic: Buffer, expectedMessage: Buffer) =>
+const whenMessage = (expectedTopic: string, expectedMessage: string) =>
     new Promise(resolve => {
-        const listener = (_pattern: any, topic: Buffer, message: Buffer) => {
-            if (
-                topic.equals(expectedTopic) &&
-                message.equals(expectedMessage)
-            ) {
-                testSubscriber.off('pmessageBuffer', listener)
+        const listener = (_pattern: string, topic: string, message: string) => {
+            if (topic === expectedTopic && message === expectedMessage) {
+                testSubscriber.off('pmessage', listener)
                 resolve()
             }
         }
-        testSubscriber.on('pmessageBuffer', listener)
+        testSubscriber.on('pmessage', listener)
     })
 
 const whenNextTick = () => new Promise(resolve => process.nextTick(resolve))
@@ -265,7 +237,7 @@ test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
     )
 })
 
-test.each(['123', 8] as any[])(
+test.each(['123', 2] as any[])(
     'invalid presenceSizeLimit: %p',
     presenceSizeLimit => {
         connection1.disconnect()
@@ -287,7 +259,7 @@ test.each(['123', 8] as any[])(
         ).toThrow(
             expect.objectContaining({
                 message:
-                    'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 9.',
+                    'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 3.',
                 name: 'AssertionError',
             }),
         )
@@ -349,24 +321,16 @@ test('remove presence on destroy', async () => {
 
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(1)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
 
     presenceService.destroy()
     clock.next() // Delete presence from Redis.
 
-    await whenMessage(presenceKey, sessionIdBuffer)
+    await whenMessage(presenceKey, sessionId)
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
 
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
@@ -392,12 +356,8 @@ test.each<[string, () => void]>([
     await new Promise(resolve => presenceService.once('inSync', resolve))
 
     await expect(redis.exists(presenceKey)).resolves.toBe(1)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
 
     const onOutOfSync = jest.fn()
     const onInSync = jest.fn()
@@ -409,12 +369,8 @@ test.each<[string, () => void]>([
 
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
 
     expect(onOutOfSync).toHaveBeenCalledTimes(1)
     expect(onInSync).toHaveBeenCalledTimes(1)
@@ -427,12 +383,8 @@ test('reuse service with a different client', async () => {
     clock.next()
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(1)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(1)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
 
     // Client 1 disconnects.
     sessionService.hasActiveSession.mockReturnValue(false)
@@ -442,12 +394,8 @@ test('reuse service with a different client', async () => {
     clock.next()
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
-    await expect(
-        redis.sismember(userKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
-    await expect(
-        redis.sismember(locationKey, sessionIdBuffer as any),
-    ).resolves.toBe(0)
+    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
+    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
 
     // Client 2 connects.
     sessionService.getSessionId.mockReturnValue(sessionId2)
@@ -461,12 +409,8 @@ test('reuse service with a different client', async () => {
     await new Promise(resolve => presenceService.once('inSync', resolve))
 
     await expect(redis.exists(presenceKey2)).resolves.toBe(1)
-    await expect(
-        redis.sismember(userKey2, sessionIdBuffer2 as any),
-    ).resolves.toBe(1)
-    await expect(
-        redis.sismember(locationKey2, sessionIdBuffer2 as any),
-    ).resolves.toBe(1)
+    await expect(redis.sismember(userKey2, sessionId2)).resolves.toBe(1)
+    await expect(redis.sismember(locationKey2, sessionId2)).resolves.toBe(1)
 })
 
 describe('submitPresence', () => {
@@ -542,7 +486,7 @@ describe('submitPresence', () => {
         expect(authService.mayWritePresence).toHaveBeenCalledWith(presence)
     })
 
-    test.each([undefined, 9, 20])(
+    test.each([undefined, 3, 20])(
         'presence size limit exceeded (%p)',
         async presenceSizeLimit => {
             connection1 = createConnection()
@@ -583,11 +527,11 @@ describe('submitPresence', () => {
             sessionService.getSessionId.mockReturnValue('')
             await expect(
                 presenceProxy.submitPresence({
-                    data: Buffer.allocUnsafe(effectiveLimit - 9), // (type + int8 or int16 length + binary data)
+                    data: Buffer.allocUnsafe(effectiveLimit - 3), // (type + int8 or int16 length + binary data)
                     lastModified: Date.now(), // 3 bytes (type + int16)
-                    locationId: '', // 2 bytes (type + int8 length)
-                    sessionId: '', // 2 bytes (type + int8 length)
-                    userId: '', // 2 bytes (type + int8 length)
+                    locationId: '', // 0 bytes
+                    sessionId: '', // 0 bytes
+                    userId: '', // 0 bytes
                 }),
             ).rejects.toEqual(
                 expect.objectContaining({
@@ -641,7 +585,7 @@ describe('submitPresence', () => {
         const onMessage = jest.fn()
         const onOutOfSync = jest.fn()
         const onInSync = jest.fn()
-        testSubscriber.on('pmessageBuffer', onMessage)
+        testSubscriber.on('pmessage', onMessage)
         presenceService.on('outOfSync', onOutOfSync)
         presenceService.on('inSync', onInSync)
 
@@ -657,37 +601,33 @@ describe('submitPresence', () => {
         }) // Submit new.
 
         // Old presence.
-        await whenMessage(presenceKey, sessionIdBuffer)
+        await whenMessage(presenceKey, sessionId)
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toEqual({ ...presence, lastModified: now })
-        await expect(
-            redis.sismember(userKey, sessionIdBuffer as any),
-        ).resolves.toBe(1)
-        await expect(
-            redis.sismember(locationKey, sessionIdBuffer as any),
-        ).resolves.toBe(1)
+        await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+        await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
         expect(onMessage).toHaveBeenCalledTimes(3)
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             presenceKey,
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             userKey,
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             locationKey,
-            sessionIdBuffer,
+            sessionId,
         )
         onMessage.mockClear()
 
         // New presence.
         clock.next() // Start saving the new presence to Redis.
-        await whenMessage(presenceKey, sessionIdBuffer)
+        await whenMessage(presenceKey, sessionId)
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toEqual({
@@ -695,43 +635,35 @@ describe('submitPresence', () => {
             lastModified: now,
             sessionId,
         })
-        await expect(
-            redis.sismember(userKey, sessionIdBuffer as any),
-        ).resolves.toBe(0)
-        await expect(
-            redis.sismember(locationKey, sessionIdBuffer as any),
-        ).resolves.toBe(0)
-        await expect(
-            redis.sismember(userKey2, sessionIdBuffer as any),
-        ).resolves.toBe(1)
-        await expect(
-            redis.sismember(locationKey2, sessionIdBuffer as any),
-        ).resolves.toBe(1)
+        await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
+        await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
+        await expect(redis.sismember(userKey2, sessionId)).resolves.toBe(1)
+        await expect(redis.sismember(locationKey2, sessionId)).resolves.toBe(1)
         expect(onMessage).toHaveBeenCalledTimes(5)
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             presenceKey, // Presence updated.
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             userKey, // Old index removed.
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             locationKey, // Old index removed.
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             userKey2, // New index added.
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             locationKey2, // New index added.
-            sessionIdBuffer,
+            sessionId,
         )
 
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
@@ -773,7 +705,7 @@ describe('submitPresence', () => {
             const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
-            testSubscriber.on('pmessageBuffer', onMessage)
+            testSubscriber.on('pmessage', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
@@ -781,7 +713,7 @@ describe('submitPresence', () => {
             clock.next()
             await Promise.all([
                 new Promise(resolve => presenceService.once('inSync', resolve)),
-                whenMessage(presenceKey, sessionIdBuffer),
+                whenMessage(presenceKey, sessionId),
             ])
 
             expect(onOutOfSync).toHaveBeenCalledTimes(1)
@@ -792,29 +724,27 @@ describe('submitPresence', () => {
                 presenceProxy.getPresenceBySessionId(sessionId),
             ).resolves.toEqual({ ...presence, lastModified: now })
             await expect(redis.ttl(presenceKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(userKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
             await expect(redis.ttl(userKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(locationKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(
+                1,
+            )
             await expect(redis.ttl(locationKey)).resolves.toBe(effectiveTtl)
             expect(onMessage).toHaveBeenCalledTimes(3)
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 presenceKey,
-                sessionIdBuffer,
+                sessionId,
             )
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 userKey,
-                sessionIdBuffer,
+                sessionId,
             )
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 locationKey,
-                sessionIdBuffer,
+                sessionId,
             )
         })
 
@@ -823,13 +753,13 @@ describe('submitPresence', () => {
             clock.next()
             await Promise.all([
                 new Promise(resolve => presenceService.once('inSync', resolve)),
-                whenMessage(presenceKey, sessionIdBuffer),
+                whenMessage(presenceKey, sessionId),
             ])
 
             const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
-            testSubscriber.on('pmessageBuffer', onMessage)
+            testSubscriber.on('pmessage', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
@@ -848,13 +778,11 @@ describe('submitPresence', () => {
                 presenceProxy.getPresenceBySessionId(sessionId),
             ).resolves.toEqual({ ...presence, lastModified: 7 })
             await expect(redis.ttl(presenceKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(userKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
             await expect(redis.ttl(userKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(locationKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(
+                1,
+            )
             await expect(redis.ttl(locationKey)).resolves.toBe(effectiveTtl)
 
             expect(onMessage).not.toHaveBeenCalled()
@@ -867,13 +795,13 @@ describe('submitPresence', () => {
             clock.next()
             await Promise.all([
                 new Promise(resolve => presenceService.once('inSync', resolve)),
-                whenMessage(presenceKey, sessionIdBuffer),
+                whenMessage(presenceKey, sessionId),
             ])
 
             const onMessage = jest.fn()
             const onOutOfSync = jest.fn()
             const onInSync = jest.fn()
-            testSubscriber.on('pmessageBuffer', onMessage)
+            testSubscriber.on('pmessage', onMessage)
             presenceService.on('outOfSync', onOutOfSync)
             presenceService.on('inSync', onInSync)
 
@@ -882,19 +810,17 @@ describe('submitPresence', () => {
             await redis.srem(locationKey, sessionId)
             clock.tick((effectiveTtl - 1) * 1000) // Trigger a refresh.
 
-            await whenMessage(presenceKey, sessionIdBuffer)
+            await whenMessage(presenceKey, sessionId)
 
             await expect(
                 presenceProxy.getPresenceBySessionId(sessionId),
             ).resolves.toEqual({ ...presence, lastModified: now })
             await expect(redis.ttl(presenceKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(userKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
             await expect(redis.ttl(userKey)).resolves.toBe(effectiveTtl)
-            await expect(
-                redis.sismember(locationKey, sessionIdBuffer as any),
-            ).resolves.toBe(1)
+            await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(
+                1,
+            )
             await expect(redis.ttl(locationKey)).resolves.toBe(effectiveTtl)
 
             expect(onOutOfSync).not.toHaveBeenCalled()
@@ -903,17 +829,17 @@ describe('submitPresence', () => {
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 presenceKey,
-                sessionIdBuffer,
+                sessionId,
             )
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 userKey,
-                sessionIdBuffer,
+                sessionId,
             )
             expect(onMessage).toHaveBeenCalledWith(
                 expect.anything(),
                 locationKey,
-                sessionIdBuffer,
+                sessionId,
             )
         })
     })
@@ -941,18 +867,14 @@ describe('removePresence', () => {
         clock.next()
         await Promise.all([
             new Promise(resolve => presenceService.once('inSync', resolve)),
-            whenMessage(presenceKey, sessionIdBuffer),
+            whenMessage(presenceKey, sessionId),
         ])
         await expect(redis.exists(presenceKey)).resolves.toBe(1)
-        await expect(
-            redis.sismember(userKey, sessionIdBuffer as any),
-        ).resolves.toBe(1)
-        await expect(
-            redis.sismember(locationKey, sessionIdBuffer as any),
-        ).resolves.toBe(1)
+        await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+        await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
 
         const onMessage = jest.fn()
-        testSubscriber.on('pmessageBuffer', onMessage)
+        testSubscriber.on('pmessage', onMessage)
         await presenceProxy.removePresence()
         const onOutOfSync = jest.fn()
         const onInSync = jest.fn()
@@ -961,15 +883,11 @@ describe('removePresence', () => {
         clock.next()
         await Promise.all([
             new Promise(resolve => presenceService.once('inSync', resolve)),
-            whenMessage(presenceKey, sessionIdBuffer),
+            whenMessage(presenceKey, sessionId),
         ])
         await expect(redis.exists(presenceKey)).resolves.toBe(0)
-        await expect(
-            redis.sismember(userKey, sessionIdBuffer as any),
-        ).resolves.toBe(0)
-        await expect(
-            redis.sismember(locationKey, sessionIdBuffer as any),
-        ).resolves.toBe(0)
+        await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
+        await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
 
         expect(onOutOfSync).toHaveBeenCalledTimes(1)
         expect(onInSync).toHaveBeenCalledTimes(1)
@@ -978,17 +896,17 @@ describe('removePresence', () => {
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             presenceKey,
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             userKey,
-            sessionIdBuffer,
+            sessionId,
         )
         expect(onMessage).toHaveBeenCalledWith(
             expect.anything(),
             locationKey,
-            sessionIdBuffer,
+            sessionId,
         )
     })
 
@@ -1012,8 +930,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1025,8 +943,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1039,8 +957,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId('does not exist'),
@@ -1051,8 +969,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            // userId: userIdBuffer,
+            locationId,
+            // userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1063,8 +981,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            // locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            // locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1075,8 +993,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             // data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1087,8 +1005,8 @@ describe('getPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             // lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1118,9 +1036,9 @@ describe('getPresenceBySessionId', () => {
     test('get invalid presence', async () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
-            lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: encode(true),
+            lastModified: encode(true),
+            locationId,
+            userId,
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
@@ -1129,7 +1047,7 @@ describe('getPresenceBySessionId', () => {
                 message:
                     'Failed to load presence by sessionId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.userId".',
+                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
         )
@@ -1185,10 +1103,10 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer)
+        await redis.sadd(userKey, sessionId)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1198,16 +1116,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
 
         const presenceObjects = await presenceProxy.getPresenceByUserId(userId)
         expect(presenceObjects.length).toBe(2)
@@ -1219,16 +1137,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
             async loadedPresence => loadedPresence.sessionId === sessionId,
@@ -1248,16 +1166,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            // userId: userIdBuffer,
+            locationId: locationId2,
+            // userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1267,16 +1185,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            // locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            // locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1286,16 +1204,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             // data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1305,16 +1223,16 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             // lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1324,10 +1242,10 @@ describe('getPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
@@ -1340,7 +1258,7 @@ describe('getPresenceByUserId', () => {
             locationId,
             userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer)
+        await redis.sadd(userKey, sessionId)
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
             expect.objectContaining({
                 message:
@@ -1355,17 +1273,17 @@ describe('getPresenceByUserId', () => {
     test('get invalid presence', async () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
-            lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: encode(true),
+            lastModified: encode(true),
+            locationId,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer)
+        await redis.sadd(userKey, sessionId)
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
             expect.objectContaining({
                 message:
                     'Failed to load presence by userId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.userId".',
+                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
         )
@@ -1415,10 +1333,10 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        await redis.sadd(locationKey, sessionIdBuffer)
+        await redis.sadd(locationKey, sessionId)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1428,16 +1346,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
 
         const presenceObjects = await presenceProxy.getPresenceByLocationId(
             locationId,
@@ -1451,16 +1369,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
             async loadedPresence => loadedPresence.sessionId === sessionId,
@@ -1480,16 +1398,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            // userId: userIdBuffer2,
+            locationId,
+            // userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1499,16 +1417,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            // locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            // locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1518,16 +1436,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             // data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1537,16 +1455,16 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             // lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1556,10 +1474,10 @@ describe('getPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([presence])
@@ -1572,7 +1490,7 @@ describe('getPresenceByLocationId', () => {
             locationId,
             userId,
         })
-        await redis.sadd(locationKey, sessionIdBuffer)
+        await redis.sadd(locationKey, sessionId)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).rejects.toEqual(
@@ -1589,11 +1507,11 @@ describe('getPresenceByLocationId', () => {
     test('get invalid presence', async () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
-            lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: encode(true),
+            lastModified: encode(true),
+            locationId,
+            userId,
         })
-        await redis.sadd(locationKey, sessionIdBuffer)
+        await redis.sadd(locationKey, sessionId)
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).rejects.toEqual(
@@ -1601,7 +1519,7 @@ describe('getPresenceByLocationId', () => {
                 message:
                     'Failed to load presence by locationId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.userId".',
+                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
         )
@@ -1735,7 +1653,7 @@ describe('streamPresenceBySessionId', () => {
     test('start with some presence', async () => {
         await presenceProxy.submitPresence(presence)
         clock.next()
-        await whenMessage(presenceKey, sessionIdBuffer)
+        await whenMessage(presenceKey, sessionId)
 
         const onData = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
@@ -1777,8 +1695,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         expect(onData).toHaveBeenCalledTimes(0)
 
@@ -1796,8 +1714,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
 
         const onData = jest.fn()
@@ -1824,8 +1742,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
 
         const onData = jest.fn()
@@ -1838,8 +1756,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         expect(onData).toHaveBeenCalledTimes(0)
 
@@ -1860,8 +1778,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
 
         const onError = jest.fn()
@@ -1898,8 +1816,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
             sessionId,
@@ -1928,8 +1846,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         expect(onData).toBeCalledTimes(0)
 
@@ -1970,7 +1888,7 @@ describe('streamPresenceBySessionId', () => {
     test('remove presence on message', async () => {
         await presenceProxy.submitPresence(presence)
         clock.next()
-        await whenMessage(presenceKey, sessionIdBuffer)
+        await whenMessage(presenceKey, sessionId)
 
         const onData = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
@@ -1993,83 +1911,10 @@ describe('streamPresenceBySessionId', () => {
         await whenNextTick()
     })
 
-    test('remove presence on message - sessionId decoding error', async () => {
-        await presenceProxy.submitPresence(presence)
-        clock.next()
-        await whenMessage(presenceKey, sessionIdBuffer)
-
-        const onError = jest.fn()
-        const onData = jest.fn()
-        const presenceStream = await presenceProxy.streamPresenceBySessionId(
-            sessionId,
-        )
-        presenceStream.on('data', onData)
-
-        // Load the presence to delay the test a bit.
-        await presenceProxy.getPresenceBySessionId(sessionId)
-
-        expect(onData).toHaveBeenCalledTimes(1)
-        onData.mockClear()
-
-        presenceService.on('error', onError)
-        redis.publish(presenceKey as any, Buffer.allocUnsafe(0) as any)
-        await new Promise(resolve => presenceService.once('error', resolve))
-        expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                cause: expect.objectContaining({
-                    message: 'Type code expected.',
-                    name: 'SyncOtError TSON',
-                }),
-                message:
-                    'Cannot decode sessionId. => SyncOtError TSON: Type code expected.',
-                name: 'SyncOtError Presence',
-            }),
-        )
-        await whenNextTick()
-        expect(onData).toHaveBeenCalledTimes(0)
-        presenceStream.destroy()
-        await whenNextTick()
-    })
-
-    test('remove presence on message - invalid sessionId', async () => {
-        await presenceProxy.submitPresence(presence)
-        clock.next()
-        await whenMessage(presenceKey, sessionIdBuffer)
-
-        const onError = jest.fn()
-        const onData = jest.fn()
-        const presenceStream = await presenceProxy.streamPresenceBySessionId(
-            sessionId,
-        )
-        presenceStream.on('data', onData)
-
-        // Load the presence to delay the test a bit.
-        await presenceProxy.getPresenceBySessionId(sessionId)
-
-        expect(onData).toHaveBeenCalledTimes(1)
-        onData.mockClear()
-
-        presenceService.on('error', onError)
-        redis.publish(presenceKey as any, encode(null) as any)
-        await new Promise(resolve => presenceService.once('error', resolve))
-        expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Invalid sessionId.',
-                name: 'SyncOtError Presence',
-            }),
-        )
-        await whenNextTick()
-        expect(onData).toHaveBeenCalledTimes(0)
-        presenceStream.destroy()
-        await whenNextTick()
-    })
-
     test('remove presence on message - loading failure', async () => {
         await presenceProxy.submitPresence(presence)
         clock.next()
-        await whenMessage(presenceKey, sessionIdBuffer)
+        await whenMessage(presenceKey, sessionId)
 
         const onError = jest.fn()
         const onData = jest.fn()
@@ -2086,7 +1931,7 @@ describe('streamPresenceBySessionId', () => {
 
         presenceService.on('error', onError)
         authService.mayReadPresence.mockRejectedValue(testError)
-        redis.publish(presenceKey as any, sessionIdBuffer as any)
+        redis.publish(presenceKey as any, sessionId)
         await new Promise(resolve => presenceService.once('error', resolve))
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
@@ -2116,16 +1961,16 @@ describe('streamPresenceByUserId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        await redis.sadd(userKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(userKey, sessionId, sessionId2)
         presenceStream = await presenceProxy.streamPresenceByUserId(userId)
     })
 
@@ -2154,10 +1999,10 @@ describe('streamPresenceByUserId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2172,7 +2017,7 @@ describe('streamPresenceByUserId', () => {
         presenceStream.on('data', onData)
 
         await redis.del(presenceKey2)
-        redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2181,10 +2026,10 @@ describe('streamPresenceByUserId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
@@ -2198,10 +2043,10 @@ describe('streamPresenceByUserId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer2,
+            locationId: locationId2,
+            userId: userId2,
         })
-        redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2210,10 +2055,10 @@ describe('streamPresenceByUserId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer,
+            locationId: locationId2,
+            userId,
         })
-        redis.publish(userKey as any, sessionIdBuffer2 as any)
+        redis.publish(userKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([true, { ...presence2, userId }])
@@ -2231,16 +2076,16 @@ describe('streamPresenceByLocationId', () => {
         await redis.hmset(presenceKey, {
             data: dataBuffer,
             lastModified: lastModifiedBuffer,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        await redis.sadd(locationKey, sessionIdBuffer, sessionIdBuffer2)
+        await redis.sadd(locationKey, sessionId, sessionId2)
         presenceStream = await presenceProxy.streamPresenceByLocationId(
             locationId,
         )
@@ -2274,10 +2119,10 @@ describe('streamPresenceByLocationId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer,
+            locationId,
+            userId,
         })
-        redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2292,7 +2137,7 @@ describe('streamPresenceByLocationId', () => {
         presenceStream.on('data', onData)
 
         await redis.del(presenceKey2)
-        redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2301,10 +2146,10 @@ describe('streamPresenceByLocationId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
@@ -2321,10 +2166,10 @@ describe('streamPresenceByLocationId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer2,
-            userId: userIdBuffer2,
+            locationId: locationId2,
+            userId: userId2,
         })
-        redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId2])
@@ -2333,10 +2178,10 @@ describe('streamPresenceByLocationId', () => {
         await redis.hmset(presenceKey2, {
             data: dataBuffer2,
             lastModified: lastModifiedBuffer2,
-            locationId: locationIdBuffer,
-            userId: userIdBuffer2,
+            locationId,
+            userId: userId2,
         })
-        redis.publish(locationKey as any, sessionIdBuffer2 as any)
+        redis.publish(locationKey as any, sessionId2)
         await whenData()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([

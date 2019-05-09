@@ -1,4 +1,4 @@
-import { Interface, ScalarMap } from '@syncot/util'
+import { Interface } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
@@ -8,7 +8,7 @@ import Redis from 'ioredis'
  * Messages are dispatched to listeners based on the channel or pattern.
  * Multiple listeners can be registered for the same channel or pattern without exchanging
  * any additional data with the Redis server.
- * For simplicity and efficiency, channels, patterns and messages are Buffers.
+ * For simplicity, channels, patterns and messages are strings.
  */
 export interface Subscriber extends Interface<RedisSubscriber> {}
 
@@ -19,7 +19,6 @@ export interface Subscriber extends Interface<RedisSubscriber> {}
  *
  * @param redis An ioredis client used for interacting with a Redis server.
  *   It must be be configured with:
- *   - `dropBufferSupport: false`
  *   - `autoResubscribe: false`
  *   - `enableReadyCheck: true`
  *   It is used for subscribing to messages, so it cannot be used for sending ordinary commands.
@@ -37,8 +36,8 @@ export function getRedisSubscriber(redis: Redis.Redis): Subscriber {
     return subscriber
 }
 
-type Channel = Buffer
-type Pattern = Buffer
+type Channel = string
+type Pattern = string
 type ChannelListener = (channel: Channel, message: any) => void
 type PatternListener = (
     pattern: Pattern,
@@ -49,14 +48,8 @@ type PatternListener = (
 const subscriberCache = new WeakMap<Redis.Redis, Subscriber>()
 
 class RedisSubscriber extends EventEmitter {
-    private channelSubscribers: ScalarMap<
-        Channel,
-        ChannelListener[]
-    > = new ScalarMap()
-    private patternSubscribers: ScalarMap<
-        Pattern,
-        PatternListener[]
-    > = new ScalarMap()
+    private channelSubscribers: Map<Channel, ChannelListener[]> = new Map()
+    private patternSubscribers: Map<Pattern, PatternListener[]> = new Map()
 
     public constructor(private redis: Redis.Redis) {
         super()
@@ -67,17 +60,12 @@ class RedisSubscriber extends EventEmitter {
             'Redis must be configured with autoResubscribe=false.',
         )
         assert.equal(
-            (redis as any).options.dropBufferSupport,
-            false,
-            'Redis must be configured with dropBufferSupport=false.',
-        )
-        assert.equal(
             (redis as any).options.enableReadyCheck,
             true,
             'Redis must be configured with enableReadyCheck=true.',
         )
 
-        this.redis.on('messageBuffer', (channel: Channel, message: any) => {
+        this.redis.on('message', (channel: Channel, message: any) => {
             const listeners = this.channelSubscribers.get(channel)
 
             if (listeners) {
@@ -90,15 +78,8 @@ class RedisSubscriber extends EventEmitter {
         })
 
         this.redis.on(
-            'pmessageBuffer',
+            'pmessage',
             (pattern: Pattern, channel: Channel, message: any) => {
-                // Work around an issue in ioredis, where the pattern is not always a Buffer,
-                // even though the event name is `pmessageBuffer`.
-                if (typeof pattern === 'string') {
-                    // tslint:disable-next-line:no-parameter-reassignment
-                    pattern = Buffer.from(pattern)
-                }
-
                 const listeners = this.patternSubscribers.get(pattern)
 
                 if (listeners) {
@@ -146,7 +127,7 @@ class RedisSubscriber extends EventEmitter {
         if (subscribers.length === 0) {
             this.channelSubscribers.delete(channel)
             if (this.redis.status === 'ready') {
-                this.redis.unsubscribe(channel as any).catch(this.onError)
+                this.redis.unsubscribe(channel).catch(this.onError)
             }
         }
     }
@@ -158,7 +139,7 @@ class RedisSubscriber extends EventEmitter {
             subscribers = [listener]
             this.patternSubscribers.set(pattern, subscribers)
             if (this.redis.status === 'ready') {
-                this.redis.psubscribe(pattern as any).catch(this.onError)
+                this.redis.psubscribe(pattern).catch(this.onError)
             }
         } else {
             subscribers.push(listener)
@@ -183,7 +164,7 @@ class RedisSubscriber extends EventEmitter {
         if (subscribers.length === 0) {
             this.patternSubscribers.delete(pattern)
             if (this.redis.status === 'ready') {
-                this.redis.punsubscribe(pattern as any).catch(this.onError)
+                this.redis.punsubscribe(pattern).catch(this.onError)
             }
         }
     }

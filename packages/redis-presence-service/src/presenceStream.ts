@@ -3,7 +3,6 @@ import {
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { ScalarMap } from '@syncot/util'
 import { AssertionError } from 'assert'
 import { Duplex } from 'stream'
 
@@ -12,7 +11,7 @@ import { Duplex } from 'stream'
  * are added or removed.
  */
 export class PresenceStream extends Duplex {
-    private presenceMap: ScalarMap<string, Presence> = new ScalarMap()
+    private presenceMap: Map<string, Presence> = new Map()
 
     public constructor() {
         super(presenceStreamOptions)
