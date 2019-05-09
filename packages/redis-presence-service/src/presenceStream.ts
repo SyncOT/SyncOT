@@ -47,8 +47,9 @@ export class PresenceStream extends Duplex {
      * emits a corresponding `data` event.
      */
     public removePresence(sessionId: Id): void {
-        this.presenceMap.delete(sessionId)
-        this.push([false, sessionId])
+        if (this.presenceMap.delete(sessionId)) {
+            this.push([false, sessionId])
+        }
     }
 
     /**

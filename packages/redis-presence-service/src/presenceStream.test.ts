@@ -89,8 +89,7 @@ test('addPresence and removePresence', async () => {
     onData.mockClear()
     presenceStream.removePresence(presenceList[0].sessionId)
     await whenNextTick()
-    expect(onData).toHaveBeenCalledTimes(1)
-    expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
+    expect(onData).toHaveBeenCalledTimes(0)
 
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
@@ -119,8 +118,7 @@ test('addPresence and removePresence', async () => {
     onData.mockClear()
     presenceStream.removePresence(presenceList[0].sessionId)
     await whenNextTick()
-    expect(onData).toHaveBeenCalledTimes(1)
-    expect(onData).toHaveBeenCalledWith([false, presenceList[0].sessionId])
+    expect(onData).toHaveBeenCalledTimes(0)
 
     onData.mockClear()
     presenceStream.removePresence(presenceList[1].sessionId)
@@ -217,7 +215,7 @@ test('addPresence, removePresence and resetPresence', async () => {
         presenceList[5],
     ])
     await whenNextTick()
-    expect(onData).toHaveBeenCalledTimes(7)
+    expect(onData).toHaveBeenCalledTimes(6)
     expect(onData).toHaveBeenNthCalledWith(1, [true, presenceList[0]])
     expect(onData).toHaveBeenNthCalledWith(2, [true, presenceList[1]])
     expect(onData).toHaveBeenNthCalledWith(3, [true, presenceList[2]])
@@ -226,17 +224,13 @@ test('addPresence, removePresence and resetPresence', async () => {
         presenceList[2].sessionId,
     ])
     expect(onData).toHaveBeenNthCalledWith(5, [
-        false,
-        presenceList[3].sessionId,
-    ])
-    expect(onData).toHaveBeenNthCalledWith(6, [
         true,
         presenceList[2],
         presenceList[3],
         presenceList[4],
         presenceList[5],
     ])
-    expect(onData).toHaveBeenNthCalledWith(7, [
+    expect(onData).toHaveBeenNthCalledWith(6, [
         false,
         presenceList[0].sessionId,
     ])
