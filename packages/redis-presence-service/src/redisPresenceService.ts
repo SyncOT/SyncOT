@@ -275,14 +275,14 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         resetPresence()
         const handle = setInterval(resetPresence, this.ttl * 1000)
-        this.redis.on('connect', resetPresence)
+        this.redis.on('ready', resetPresence)
         this.redis.on('close', onClose)
         subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
 
         stream.once('close', () => {
             clearInterval(handle)
-            this.redis.off('connect', resetPresence)
+            this.redis.off('ready', resetPresence)
             this.redis.off('close', onClose)
             subscriber.offChannel(channel, onMessage)
             this.presenceStreams.delete(stream)

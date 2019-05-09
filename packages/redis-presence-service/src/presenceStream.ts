@@ -3,7 +3,7 @@ import {
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { Id, ScalarMap } from '@syncot/util'
+import { Id, idEqual, ScalarMap } from '@syncot/util'
 import { AssertionError } from 'assert'
 import { Duplex } from 'stream'
 
@@ -83,7 +83,7 @@ export class PresenceStream extends Duplex {
         // it's not optimal for longer lists. Optimize it later, if necessary.
         this.presenceMap.forEach((_, sessionId) => {
             for (let i = 0, l = presenceList.length; i < l; ++i) {
-                if (presenceList[i].sessionId === sessionId) {
+                if (idEqual(presenceList[i].sessionId, sessionId)) {
                     return
                 }
             }
