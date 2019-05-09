@@ -175,6 +175,7 @@ beforeAll(async () => {
             redisServer = new RedisServer(port)
             await redisServer.open()
             redisOptions = {
+                autoResubscribe: false,
                 lazyConnect: true,
                 port,
                 showFriendlyErrorStack: true,

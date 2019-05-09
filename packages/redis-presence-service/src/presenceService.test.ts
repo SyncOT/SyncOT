@@ -178,6 +178,7 @@ afterAll(async () => {
 beforeEach(async () => {
     clock = installClock({ now })
     const options = {
+        autoResubscribe: false,
         lazyConnect: true,
         port,
         showFriendlyErrorStack: true,

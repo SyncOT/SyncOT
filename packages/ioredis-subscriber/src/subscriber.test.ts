@@ -1,8 +1,14 @@
-import { randomInteger } from '@syncot/util'
+import { noop, randomInteger } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import RedisServer from 'redis-server'
 import { getRedisSubscriber, Subscriber } from '.'
+
+const testError = new Error('test error')
+const testErrorMatcher = expect.objectContaining({
+    message: 'test error',
+    name: 'Error',
+})
 
 const channel1 = Buffer.from('channel 1!')
 const channel2 = Buffer.from('channel 2!')
@@ -71,6 +77,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
     const options = {
+        autoResubscribe: false,
         lazyConnect: true,
         port,
         showFriendlyErrorStack: true,
@@ -100,6 +107,60 @@ test('get a different subscriber given a different Redis client', () => {
     const subscriber2 = getRedisSubscriber(redis)
     expect(subscriber2).toBeObject()
     expect(subscriber2).not.toBe(subscriber)
+})
+
+test('throw on dropBufferSupport=true', () => {
+    expect(() =>
+        getRedisSubscriber(
+            new Redis({
+                autoResubscribe: false,
+                dropBufferSupport: true,
+                enableReadyCheck: true,
+                lazyConnect: true,
+            }),
+        ),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Redis must be configured with dropBufferSupport=false.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('throw on autoResubscribe=true', () => {
+    expect(() =>
+        getRedisSubscriber(
+            new Redis({
+                autoResubscribe: true,
+                dropBufferSupport: false,
+                enableReadyCheck: true,
+                lazyConnect: true,
+            }),
+        ),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Redis must be configured with autoResubscribe=false.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('throw on enableReadyCheck=false', () => {
+    expect(() =>
+        getRedisSubscriber(
+            new Redis({
+                autoResubscribe: false,
+                dropBufferSupport: false,
+                enableReadyCheck: false,
+                lazyConnect: true,
+            }),
+        ),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Redis must be configured with enableReadyCheck=true.',
+            name: 'AssertionError',
+        }),
+    )
 })
 
 describe('channel', () => {
@@ -178,6 +239,65 @@ describe('channel', () => {
 
         expect(subscribeCalls).toBe(1)
         expect(unsubscribeCalls).toBe(1)
+    })
+
+    test('disconnect, subscribe', async () => {
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        const onChannel1 = jest.fn()
+        const onChannel2 = jest.fn()
+        subscriber.onChannel(channel1, onChannel1)
+        subscriber.onChannel(channel2, onChannel2)
+        await redisSubscriber.connect()
+        await whenRedisCommandExecuted('SUBSCRIBE')
+        redis.publish(channel1 as any, message1 as any)
+        redis.publish(channel2 as any, message2 as any)
+        await whenRedisEvent('messageBuffer', 2)
+        expect(onChannel1).toHaveBeenCalledTimes(1)
+        expect(onChannel1).toHaveBeenCalledWith(channel1, message1)
+        expect(onChannel2).toHaveBeenCalledTimes(1)
+        expect(onChannel2).toHaveBeenCalledWith(channel2, message2)
+    })
+
+    test('subscribe, disconnect, re-connect', async () => {
+        const onChannel1 = jest.fn()
+        const onChannel2 = jest.fn()
+        subscriber.onChannel(channel1, onChannel1)
+        subscriber.onChannel(channel2, onChannel2)
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await redisSubscriber.connect()
+        await whenRedisCommandExecuted('SUBSCRIBE')
+        redis.publish(channel1 as any, message1 as any)
+        redis.publish(channel2 as any, message2 as any)
+        await whenRedisEvent('messageBuffer', 2)
+        expect(onChannel1).toHaveBeenCalledTimes(1)
+        expect(onChannel1).toHaveBeenCalledWith(channel1, message1)
+        expect(onChannel2).toHaveBeenCalledTimes(1)
+        expect(onChannel2).toHaveBeenCalledWith(channel2, message2)
+    })
+
+    test('error handling', async () => {
+        const onError = jest.fn()
+        subscriber.on('error', onError)
+        subscriber.onChannel(channel1, noop)
+        const subscribe = jest
+            .spyOn(redisSubscriber, 'subscribe')
+            .mockRejectedValue(testError)
+        const unsubscribe = jest
+            .spyOn(redisSubscriber, 'unsubscribe')
+            .mockRejectedValue(testError)
+        subscriber.offChannel(channel1, noop)
+        subscriber.onChannel(channel1, noop)
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop)
+        await redisSubscriber.connect()
+        expect(onError).toHaveBeenCalledTimes(3)
+        expect(onError).toHaveBeenNthCalledWith(1, testErrorMatcher)
+        expect(onError).toHaveBeenNthCalledWith(2, testErrorMatcher)
+        expect(onError).toHaveBeenNthCalledWith(3, testErrorMatcher)
+        subscribe.mockRestore()
+        unsubscribe.mockRestore()
     })
 })
 
@@ -291,5 +411,64 @@ describe('pattern', () => {
 
         expect(subscribeCalls).toBe(1)
         expect(unsubscribeCalls).toBe(1)
+    })
+
+    test('disconnect, subscribe', async () => {
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        const onPattern1 = jest.fn()
+        const onPattern2 = jest.fn()
+        subscriber.onPattern(pattern1, onPattern1)
+        subscriber.onPattern(pattern2, onPattern2)
+        await redisSubscriber.connect()
+        await whenRedisCommandExecuted('PSUBSCRIBE')
+        redis.publish(channel1 as any, message1 as any)
+        redis.publish(channel2 as any, message2 as any)
+        await whenRedisEvent('pmessageBuffer', 2)
+        expect(onPattern1).toHaveBeenCalledTimes(1)
+        expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
+        expect(onPattern2).toHaveBeenCalledTimes(1)
+        expect(onPattern2).toHaveBeenCalledWith(pattern2, channel2, message2)
+    })
+
+    test('subscribe, disconnect, re-connect', async () => {
+        const onPattern1 = jest.fn()
+        const onPattern2 = jest.fn()
+        subscriber.onPattern(pattern1, onPattern1)
+        subscriber.onPattern(pattern2, onPattern2)
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await redisSubscriber.connect()
+        await whenRedisCommandExecuted('PSUBSCRIBE')
+        redis.publish(channel1 as any, message1 as any)
+        redis.publish(channel2 as any, message2 as any)
+        await whenRedisEvent('pmessageBuffer', 2)
+        expect(onPattern1).toHaveBeenCalledTimes(1)
+        expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
+        expect(onPattern2).toHaveBeenCalledTimes(1)
+        expect(onPattern2).toHaveBeenCalledWith(pattern2, channel2, message2)
+    })
+
+    test('error handling', async () => {
+        const onError = jest.fn()
+        subscriber.on('error', onError)
+        subscriber.onPattern(pattern1, noop)
+        const psubscribe = jest
+            .spyOn(redisSubscriber, 'psubscribe')
+            .mockRejectedValue(testError)
+        const punsubscribe = jest
+            .spyOn(redisSubscriber, 'punsubscribe')
+            .mockRejectedValue(testError)
+        subscriber.offPattern(pattern1, noop)
+        subscriber.onPattern(pattern1, noop)
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop)
+        await redisSubscriber.connect()
+        expect(onError).toHaveBeenCalledTimes(3)
+        expect(onError).toHaveBeenNthCalledWith(1, testErrorMatcher)
+        expect(onError).toHaveBeenNthCalledWith(2, testErrorMatcher)
+        expect(onError).toHaveBeenNthCalledWith(3, testErrorMatcher)
+        psubscribe.mockRestore()
+        punsubscribe.mockRestore()
     })
 })
