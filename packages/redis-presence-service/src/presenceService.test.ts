@@ -1894,6 +1894,29 @@ describe('streamPresenceBySessionId', () => {
         await whenNextTick()
     })
 
+    test('remove presence on disconnect', async () => {
+        await redis.hmset(presenceKey, {
+            data: dataBuffer,
+            lastModified: lastModifiedBuffer,
+            locationId: locationIdBuffer,
+            userId: userIdBuffer,
+        })
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        await new Promise(resolve => presenceStream.once('data', resolve))
+
+        const onData = jest.fn()
+        presenceStream.on('data', onData)
+        redis.disconnect()
+        await new Promise(resolve => presenceStream.once('data', resolve))
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenCalledWith([false, sessionId])
+
+        presenceStream.destroy()
+        await redis.connect()
+    })
+
     test('load presence on reconnection', async () => {
         const onData = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
