@@ -1,6 +1,6 @@
 {
   "name": "@syncot/ioredis-subscriber",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "A smarter way to manage multiple ioredis subscriptions efficiently.",
   "keywords": [
     "ioredis",

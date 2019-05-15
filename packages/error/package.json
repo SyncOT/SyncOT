@@ -1,6 +1,6 @@
 {
   "name": "@syncot/error",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Helpers for managing errors.",
   "keywords": [
     "error"
