@@ -7,8 +7,8 @@ import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
-import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
 const now = 12345

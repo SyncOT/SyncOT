@@ -1,5 +1,5 @@
 import { invertedStreams, noop } from '@syncot/util'
-import { Duplex } from 'stream'
+import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,
     createConnection,
@@ -24,6 +24,10 @@ const testErrorMatcher = expect.objectContaining({
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
     name: 'AssertionError',
+})
+const invalidStreamMatcher = expect.objectContaining({
+    message: 'Service returned an invalid stream.',
+    name: 'SyncOtError InvalidStream',
 })
 let connection: Connection
 let stream1: Duplex
@@ -125,20 +129,26 @@ describe('connection', () => {
         expect(() => connection.connect({} as any)).toThrow(
             errorMatcher(
                 'AssertionError',
-                'Argument "stream" must be a Duplex.',
+                'Argument "stream" must be an open Duplex.',
             ),
         )
     })
     test('connect with a destroyed stream', () => {
         stream1.destroy()
         expect(() => connection.connect(stream1)).toThrow(
-            errorMatcher('AssertionError', '"stream" must not be destroyed.'),
+            errorMatcher(
+                'AssertionError',
+                'Argument "stream" must be an open Duplex.',
+            ),
         )
     })
     test('connect with a non-writable stream', () => {
         stream1.end()
         expect(() => connection.connect(stream1)).toThrow(
-            errorMatcher('AssertionError', '"stream" must be writable.'),
+            errorMatcher(
+                'AssertionError',
+                'Argument "stream" must be an open Duplex.',
+            ),
         )
     })
     test('connect with a non-readable stream', async () => {
@@ -146,7 +156,10 @@ describe('connection', () => {
         stream2.end()
         await delay()
         expect(() => connection.connect(stream1)).toThrow(
-            errorMatcher('AssertionError', '"stream" must be readable.'),
+            errorMatcher(
+                'AssertionError',
+                'Argument "stream" must be an open Duplex.',
+            ),
         )
     })
     test('disconnect', async () => {
@@ -821,6 +834,8 @@ describe('service and proxy', () => {
         resolveMethod: jest.Mock<Promise<any>, any[]>
         returnStreamMethod: jest.Mock<Duplex, any[]>
         resolveStreamMethod: jest.Mock<Promise<Duplex>, any[]>
+        returnInvalidStreamMethod: jest.Mock<Stream, any[]>
+        resolveInvalidStreamMethod: jest.Mock<Promise<Stream>, any[]>
         throwErrorMethod: jest.Mock<never, any[]>
         throwNonErrorMethod: jest.Mock<never, any[]>
         rejectErrorMethod: jest.Mock<Promise<never>, any[]>
@@ -831,6 +846,8 @@ describe('service and proxy', () => {
         resolveMethod: jest.Mock<Promise<any>, any[]>
         returnStreamMethod: jest.Mock<Promise<Duplex>, any[]>
         resolveStreamMethod: jest.Mock<Promise<Duplex>, any[]>
+        returnInvalidStreamMethod: jest.Mock<Stream, any[]>
+        resolveInvalidStreamMethod: jest.Mock<Promise<Stream>, any[]>
         throwErrorMethod: jest.Mock<Promise<never>, any[]>
         throwNonErrorMethod: jest.Mock<Promise<never>, any[]>
         rejectErrorMethod: jest.Mock<Promise<never>, any[]>
@@ -842,12 +859,16 @@ describe('service and proxy', () => {
     let returnedControllerStream: Duplex
     let resolvedServiceStream: Duplex
     let resolvedControllerStream: Duplex
+    let returnedInvalidStream: Stream
+    let resolvedInvalidStream: Stream
     const serviceName = 'a-service'
     const requestNames = new Set([
         'returnMethod',
         'resolveMethod',
         'returnStreamMethod',
         'resolveStreamMethod',
+        'returnInvalidStreamMethod',
+        'resolveInvalidStreamMethod',
         'throwErrorMethod',
         'throwNonErrorMethod',
         'rejectErrorMethod',
@@ -866,6 +887,8 @@ describe('service and proxy', () => {
         ;[resolvedServiceStream, resolvedControllerStream] = invertedStreams({
             objectMode: true,
         })
+        returnedInvalidStream = new Readable()
+        resolvedInvalidStream = new Readable()
 
         service = {
             rejectErrorMethod: jest.fn((..._args: any[]) =>
@@ -874,9 +897,15 @@ describe('service and proxy', () => {
             rejectNonErrorMethod: jest.fn((..._args: any[]) =>
                 Promise.reject(5),
             ),
+            resolveInvalidStreamMethod: jest.fn((..._args: any[]) =>
+                Promise.resolve(resolvedInvalidStream),
+            ),
             resolveMethod: jest.fn((..._args: any[]) => Promise.resolve(5)),
             resolveStreamMethod: jest.fn((..._args: any[]) =>
                 Promise.resolve(resolvedServiceStream),
+            ),
+            returnInvalidStreamMethod: jest.fn(
+                (..._args: any[]) => returnedInvalidStream,
             ),
             returnMethod: jest.fn((..._args: any[]) => 5),
             returnStreamMethod: jest.fn(
@@ -976,6 +1005,28 @@ describe('service and proxy', () => {
             expect(onData.mock.calls.length).toBe(1)
             expect(onData.mock.calls[0][0]).toEqual(response)
         })
+        test.each(['returnInvalidStreamMethod', 'resolveInvalidStreamMethod'])(
+            '%s',
+            async method => {
+                const onError = jest.fn()
+                const onData = jest.fn()
+                connection.once('error', onError)
+                stream2.on('data', onData)
+                stream2.write({
+                    ...message,
+                    name: method,
+                })
+                await delay()
+                expect(onData.mock.calls.length).toBe(1)
+                expect(onData.mock.calls[0][0]).toEqual({
+                    ...message,
+                    data: invalidStreamMatcher,
+                    name: null,
+                    type: MessageType.REPLY_ERROR,
+                })
+                expect(onError).toHaveBeenCalledWith(invalidStreamMatcher)
+            },
+        )
         test.each(['throwNonErrorMethod', 'rejectNonErrorMethod'])(
             '%s',
             async method => {

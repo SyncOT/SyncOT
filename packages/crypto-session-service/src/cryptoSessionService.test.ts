@@ -2,7 +2,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
 import { invertedStreams } from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 import { createSessionManager } from '.'
 
 const delay = (time: number = 0) =>

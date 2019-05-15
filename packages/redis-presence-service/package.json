@@ -35,6 +35,8 @@
     "@syncot/session": "file:../session",
     "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
+    "@types/readable-stream": "^2.3.1",
+    "readable-stream": "^3.3.0",
     "tslib": "^1.9.3"
   },
   "peerDependencies": {

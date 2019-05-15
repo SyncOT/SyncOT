@@ -5,6 +5,7 @@ import {
     createDuplicateIdError,
     createError,
     createInvalidEntityError,
+    createInvalidStreamError,
     createNoServiceError,
     createNotInitializedError,
     createPresenceError,
@@ -19,6 +20,7 @@ import {
     isDisconnectedError,
     isDuplicateIdError,
     isInvalidEntityError,
+    isInvalidStreamError,
     isNoServiceError,
     isNotInitializedError,
     isPresenceError,
@@ -466,5 +468,21 @@ describe('DuplicateIdError', () => {
         expect(isDuplicateIdError(error)).toBeTrue()
         expect(isDuplicateIdError(new Error())).toBeFalse()
         expect(isDuplicateIdError({})).toBeFalse()
+    })
+})
+
+describe('InvalidStreamError', () => {
+    test('createInvalidStreamError', () => {
+        const error = createInvalidStreamError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError InvalidStream')
+        expect(error.message).toBe('test')
+    })
+    test('isInvalidStreamError', () => {
+        const error = createInvalidStreamError('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isInvalidStreamError(error)).toBeTrue()
+        expect(isInvalidStreamError(new Error())).toBeFalse()
+        expect(isInvalidStreamError({})).toBeFalse()
     })
 })

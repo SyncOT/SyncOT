@@ -1,4 +1,4 @@
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 
 /**
  * Creates a pair of Duplex Streams [a, b], such that
@@ -14,15 +14,19 @@ export function invertedStreams({
         read() {
             return
         },
-        write(data, _encoding, callback) {
+        write(
+            data: any,
+            _encoding: string,
+            callback: (error: Error | null) => void,
+        ) {
             b.push(data)
-            callback()
+            callback(null)
         },
-        final(callback) {
+        final(callback: (error: Error | null) => void) {
             b.push(null)
-            callback()
+            callback(null)
         },
-        destroy(error, callback) {
+        destroy(error: Error | null, callback: (error: Error | null) => void) {
             b.destroy()
             callback(error)
         },
@@ -33,15 +37,19 @@ export function invertedStreams({
         read() {
             return
         },
-        write(data, _encoding, callback) {
+        write(
+            data: any,
+            _encoding: string,
+            callback: (error: Error | null) => void,
+        ) {
             a.push(data)
-            callback()
+            callback(null)
         },
-        final(callback) {
+        final(callback: (error: Error | null) => void) {
             a.push(null)
-            callback()
+            callback(null)
         },
-        destroy(error, callback) {
+        destroy(error: Error | null, callback: (error: Error | null) => void) {
             a.destroy()
             callback(error)
         },

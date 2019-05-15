@@ -4,7 +4,7 @@ import {
     PresenceRemovedMessage,
 } from '@syncot/presence'
 import { AssertionError } from 'assert'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 
 /**
  * A Presence object stream which emits data events whenever Presence objects

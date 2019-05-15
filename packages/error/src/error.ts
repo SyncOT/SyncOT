@@ -336,3 +336,16 @@ export function createDuplicateIdError(message?: string): DuplicateIdError {
 export function isDuplicateIdError(error: any): error is DuplicateIdError {
     return error instanceof Error && error.name === 'SyncOtError DuplicateId'
 }
+
+export interface InvalidStreamError extends Error {
+    name: 'SyncOtError InvalidStream'
+}
+export function createInvalidStreamError(message?: string): InvalidStreamError {
+    return createError({
+        message,
+        name: 'SyncOtError InvalidStream',
+    }) as InvalidStreamError
+}
+export function isInvalidStreamError(error: any): error is InvalidStreamError {
+    return error instanceof Error && error.name === 'SyncOtError InvalidStream'
+}

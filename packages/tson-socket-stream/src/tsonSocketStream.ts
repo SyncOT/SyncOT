@@ -1,6 +1,6 @@
 import { decode, encode } from '@syncot/tson'
 import { Binary } from '@syncot/util'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 
 export const enum ReadyState {
     CONNECTING,

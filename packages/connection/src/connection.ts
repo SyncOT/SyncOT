@@ -2,6 +2,7 @@ import {
     createDisconnectedError,
     createDuplicateIdError,
     createInvalidEntityError,
+    createInvalidStreamError,
     createNoServiceError,
 } from '@syncot/error'
 import {
@@ -11,7 +12,7 @@ import {
     Validator,
 } from '@syncot/util'
 import { strict as assert } from 'assert'
-import { Duplex } from 'stream'
+import { Duplex, Stream } from 'readable-stream'
 
 type RequestId = number
 type ServiceName = string
@@ -232,15 +233,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     public connect(stream: Duplex): void {
         this.assertNotDestroyed()
         assert.ok(
-            stream instanceof Duplex,
-            'Argument "stream" must be a Duplex.',
-        )
-        assert.equal(stream.readable, true, '"stream" must be readable.')
-        assert.equal(stream.writable, true, '"stream" must be writable.')
-        assert.equal(
-            (stream as any).destroyed,
-            false,
-            '"stream" must not be destroyed.',
+            isOpenDuplex(stream),
+            'Argument "stream" must be an open Duplex.',
         )
         assert.ok(
             !this.stream,
@@ -527,13 +521,13 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     .then(
                         reply => {
                             if (this.stream !== stream) {
-                                if (reply instanceof Duplex) {
+                                if (reply instanceof Stream) {
                                     reply.destroy()
                                 }
                                 return
                             }
 
-                            if (reply instanceof Duplex) {
+                            if (isOpenDuplex(reply)) {
                                 const serviceStream = reply
 
                                 if (serviceStreams.has(id)) {
@@ -613,6 +607,19 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                     service,
                                     type: MessageType.REPLY_STREAM,
                                 })
+                            } else if (reply instanceof Stream) {
+                                const error = createInvalidStreamError(
+                                    'Service returned an invalid stream.',
+                                )
+                                this.emitAsync('error', error)
+                                this.send({
+                                    data: error,
+                                    id,
+                                    name: null,
+                                    service,
+                                    type: MessageType.REPLY_ERROR,
+                                })
+                                reply.destroy()
                             } else {
                                 const typeOfReply = typeof reply
                                 const data =
@@ -799,6 +806,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
  *
  *   - `SyncOtError InvalidEntity` - emitted when sending or receiving an invalid message.
  *     It indicates presence of a bug in SyncOT or the client code.
+ *   - `SyncOtError InvalidStream` - emitted when a service returns a stream, or a promise which
+ *     resolves to a stream, and that stream is already destroyed, not readable, or not writable.
  * @event destroy Emitted when the Connection is destroyed.
  */
 export interface Connection extends EmitterInterface<ConnectionImpl> {}
@@ -808,4 +817,16 @@ export interface Connection extends EmitterInterface<ConnectionImpl> {}
  */
 export function createConnection(): Connection {
     return new ConnectionImpl()
+}
+
+function isOpenDuplex(stream: any): stream is Duplex {
+    // Ideally we'd use `stream instanceof Duplex`, however, that evaluates to `false` in jest,
+    // even if `stream` actually is a Duplex.
+    // It might be related to https://github.com/facebook/jest/issues/2549#issuecomment-423202304.
+    return (
+        stream instanceof Stream &&
+        stream.readable === true &&
+        (stream as Duplex).writable === true &&
+        stream.destroyed === false
+    )
 }

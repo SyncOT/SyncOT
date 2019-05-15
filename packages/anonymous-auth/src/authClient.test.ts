@@ -1,6 +1,6 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 import { createAuthClient } from '.'
 
 const delay = (time: number = 0) =>

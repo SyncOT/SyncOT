@@ -6,8 +6,8 @@ import { SessionEvents, SessionManager } from '@syncot/session'
 import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
+import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
-import { Duplex } from 'stream'
 import { createPresenceService } from '.'
 
 const whenRedisCommandExecuted = (commandName: string) =>

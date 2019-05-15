@@ -5,7 +5,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { createSessionManager as createSessionServer } from '@syncot/crypto-session-service'
 import { SessionManager } from '@syncot/session'
 import { invertedStreams } from '@syncot/util'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 import { createSessionManager as createSessionClient } from '.'
 
 let clientStream: Duplex

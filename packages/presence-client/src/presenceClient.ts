@@ -9,7 +9,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 
 /**
  * Creates a new presence client communicating with a presence service

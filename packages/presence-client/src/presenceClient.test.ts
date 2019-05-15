@@ -9,7 +9,7 @@ import {
 import { SessionEvents, SessionManager } from '@syncot/session'
 import { invertedStreams, SyncOtEmitter } from '@syncot/util'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
-import { Duplex } from 'stream'
+import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
 
 // setTimeout is overridden by lolex.
@@ -598,7 +598,7 @@ describe('streamPresenceBySessionId', () => {
         const clientStream = await presenceClient.streamPresenceBySessionId(
             sessionId,
         )
-        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(clientStream).toBeInstanceOf(Stream)
         expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledTimes(
             1,
         )
@@ -628,7 +628,7 @@ describe('streamPresenceByUserId', () => {
         })
         presenceService.streamPresenceByUserId.mockResolvedValue(serviceStream)
         const clientStream = await presenceClient.streamPresenceByUserId(userId)
-        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(clientStream).toBeInstanceOf(Stream)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
             userId,
@@ -658,7 +658,7 @@ describe('streamPresenceByLocationId', () => {
         const clientStream = await presenceClient.streamPresenceByLocationId(
             locationId,
         )
-        expect(clientStream).toBeInstanceOf(Duplex)
+        expect(clientStream).toBeInstanceOf(Stream)
         expect(
             presenceService.streamPresenceByLocationId,
         ).toHaveBeenCalledTimes(1)

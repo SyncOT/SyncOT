@@ -5,7 +5,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 
 export interface Presence {
     readonly sessionId: string

@@ -5,7 +5,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
 import { invertedStreams } from '@syncot/util'
 import { createHash, createPublicKey, createVerify } from 'crypto'
-import { Duplex } from 'stream'
+import { Duplex } from 'readable-stream'
 import { createSessionManager } from '.'
 
 const testError = new Error('test error')
