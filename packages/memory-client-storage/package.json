@@ -1,6 +1,6 @@
 {
   "name": "@syncot/memory-client-storage",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "An implementation of the ClientStorage interface which stores the data in the main memory.",
   "keywords": [
     "client",
