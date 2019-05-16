@@ -1,7 +1,7 @@
 /**
  * The binary types supported by `toBuffer`.
  */
-export type Binary = Buffer | ArrayBuffer | ArrayBufferView
+export type Binary = Buffer | ArrayBuffer | SharedArrayBuffer | ArrayBufferView
 
 /**
  * Returns a `Buffer` sharing memory with the specified binary type.
@@ -15,7 +15,7 @@ export function toBuffer(binary: any): Buffer | undefined {
         return binary
     }
 
-    if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
+    if (isArrayBuffer(binary) || isSharedArrayBuffer(binary)) {
         return Buffer.from(binary)
     }
 
@@ -35,7 +35,7 @@ export function toBuffer(binary: any): Buffer | undefined {
 export function toArrayBuffer(binary: Binary): ArrayBuffer
 export function toArrayBuffer(binary: any): ArrayBuffer | undefined
 export function toArrayBuffer(binary: any): ArrayBuffer | undefined {
-    if (binary instanceof ArrayBuffer || binary instanceof SharedArrayBuffer) {
+    if (isArrayBuffer(binary) || isSharedArrayBuffer(binary)) {
         return binary
     }
 
@@ -56,7 +56,17 @@ export function isBinary(value: any): value is Binary {
     return (
         Buffer.isBuffer(value) ||
         ArrayBuffer.isView(value) ||
-        value instanceof ArrayBuffer ||
-        value instanceof SharedArrayBuffer
+        isArrayBuffer(value) ||
+        isSharedArrayBuffer(value)
     )
+}
+
+const toString = Object.prototype.toString
+
+export function isArrayBuffer(value: any): value is ArrayBuffer {
+    return toString.call(value) === '[object ArrayBuffer]'
+}
+
+export function isSharedArrayBuffer(value: any): value is ArrayBuffer {
+    return toString.call(value) === '[object SharedArrayBuffer]'
 }

@@ -1,5 +1,5 @@
 import { decode, encode } from '@syncot/tson'
-import { Binary } from '@syncot/util'
+import { Binary, isArrayBuffer } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 export const enum ReadyState {
@@ -64,7 +64,7 @@ export class TsonSocketStream extends Duplex {
         })
         this.socket.addEventListener('message', ({ data }) => {
             try {
-                if (!(data instanceof ArrayBuffer)) {
+                if (!isArrayBuffer(data)) {
                     throw new TypeError('Received data must be an ArrayBuffer.')
                 }
 

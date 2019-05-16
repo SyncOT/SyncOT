@@ -59,7 +59,7 @@ function initBinaryTestData(arrayBuffer: ArrayBuffer): void {
 }
 
 const testArrayBuffer = new ArrayBuffer(128)
-const testSharedArrayBuffer = new ArrayBuffer(128)
+const testSharedArrayBuffer = new SharedArrayBuffer(128)
 const testBuffer = Buffer.from(testArrayBuffer, 8, 24)
 const testDataView = new DataView(testArrayBuffer, 8, 24)
 const testTypedArrays = [

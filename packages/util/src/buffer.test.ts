@@ -1,4 +1,10 @@
-import { isBinary, toArrayBuffer, toBuffer } from '.'
+import {
+    isArrayBuffer,
+    isBinary,
+    isSharedArrayBuffer,
+    toArrayBuffer,
+    toBuffer,
+} from '.'
 
 describe('toBuffer', () => {
     test('Buffer', () => {
@@ -156,5 +162,35 @@ describe('isBinary', () => {
         ]) as Array<[string, any, boolean]>),
     )('%s', (_, value, expectedResult) => {
         expect(isBinary(value)).toBe(expectedResult)
+    })
+})
+
+describe('isArrayBuffer', () => {
+    test.each<[any, boolean]>([
+        [null, false],
+        [undefined, false],
+        ['[object ArrayBuffer]', false],
+        ['[object SharedArrayBuffer]', false],
+        [new ArrayBuffer(0), true],
+        [new SharedArrayBuffer(0), false],
+        [Buffer.allocUnsafe(0), false],
+        [new Uint8Array(0), false],
+    ])('%s', (value, result) => {
+        expect(isArrayBuffer(value)).toBe(result)
+    })
+})
+
+describe('isSharedArrayBuffer', () => {
+    test.each<[any, boolean]>([
+        [null, false],
+        [undefined, false],
+        ['[object ArrayBuffer]', false],
+        ['[object SharedArrayBuffer]', false],
+        [new ArrayBuffer(0), false],
+        [new SharedArrayBuffer(0), true],
+        [Buffer.allocUnsafe(0), false],
+        [new Uint8Array(0), false],
+    ])('%s', (value, result) => {
+        expect(isSharedArrayBuffer(value)).toBe(result)
     })
 })
