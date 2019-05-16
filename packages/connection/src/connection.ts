@@ -7,12 +7,14 @@ import {
 } from '@syncot/error'
 import {
     EmitterInterface,
+    isOpenDuplexStream,
+    isStream,
     SyncOtEmitter,
     validate,
     Validator,
 } from '@syncot/util'
 import { strict as assert } from 'assert'
-import { Duplex, Stream } from 'readable-stream'
+import { Duplex } from 'readable-stream'
 
 type RequestId = number
 type ServiceName = string
@@ -233,7 +235,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     public connect(stream: Duplex): void {
         this.assertNotDestroyed()
         assert.ok(
-            isOpenDuplex(stream),
+            isOpenDuplexStream(stream),
             'Argument "stream" must be an open Duplex.',
         )
         assert.ok(
@@ -521,13 +523,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     .then(
                         reply => {
                             if (this.stream !== stream) {
-                                if (reply instanceof Stream) {
+                                if (isStream(reply)) {
                                     reply.destroy()
                                 }
-                                return
-                            }
-
-                            if (isOpenDuplex(reply)) {
+                            } else if (isOpenDuplexStream(reply)) {
                                 const serviceStream = reply
 
                                 if (serviceStreams.has(id)) {
@@ -607,7 +606,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                     service,
                                     type: MessageType.REPLY_STREAM,
                                 })
-                            } else if (reply instanceof Stream) {
+                            } else if (isStream(reply)) {
                                 const error = createInvalidStreamError(
                                     'Service returned an invalid stream.',
                                 )
@@ -817,16 +816,4 @@ export interface Connection extends EmitterInterface<ConnectionImpl> {}
  */
 export function createConnection(): Connection {
     return new ConnectionImpl()
-}
-
-function isOpenDuplex(stream: any): stream is Duplex {
-    // Ideally we'd use `stream instanceof Duplex`, however, that evaluates to `false` in jest,
-    // even if `stream` actually is a Duplex.
-    // It might be related to https://github.com/facebook/jest/issues/2549#issuecomment-423202304.
-    return (
-        stream instanceof Stream &&
-        stream.readable === true &&
-        (stream as Duplex).writable === true &&
-        stream.destroyed === false
-    )
 }
