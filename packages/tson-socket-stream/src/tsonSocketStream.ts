@@ -1,3 +1,4 @@
+import { createSocketError } from '@syncot/error'
 import { decode, encode } from '@syncot/tson'
 import { Binary, isArrayBuffer } from '@syncot/util'
 import { Duplex } from 'readable-stream'
@@ -24,11 +25,19 @@ export interface TsonSocket {
         name: 'message',
         callback: (event: { data: any }) => void,
     ): void
+    addEventListener(
+        name: 'error',
+        callback: (event: { error?: Error }) => void,
+    ): void
 
     removeEventListener(name: 'open' | 'close', callback: () => void): void
     removeEventListener(
         name: 'message',
         callback: (event: { data: any }) => void,
+    ): void
+    removeEventListener(
+        name: 'error',
+        callback: (event: { error?: Error }) => void,
     ): void
 }
 
@@ -38,17 +47,15 @@ export interface TsonSocket {
  * When the stream is finished, the socket is closed automatically.
  * When the socket is closed, the stream is destroyed automatically.
  *
- * Socket errors are completely ignored because the socket is closed on errors anyway and
- * the errors are not consistent between the supported socket implementations
- * (browser WebSocket, jsdom WebSocket, ws module, SockJS).
- *
- * The client code should still handle socket errors to
- * avoid unnecessary crashes on trivial issues (in nodejs) and to report problems.
+ * Socket errors are listened for and re-emitted on the stream, however, they do
+ * not automatically close the stream. The socket implementations usually close the
+ * socket after emitting an error.
  *
  * The stream emits the following errors:
  *
  * - `TypeError`: If receiving anything other than an `ArrayBuffer`, or if the decoded received data is `null`.
  * - `SyncOtError TSON`: If serializing or parsing TSON fails.
+ * - `SyncOtError Socket`: If an error is emitted by the `socket`.
  */
 export class TsonSocketStream extends Duplex {
     /**
@@ -59,28 +66,9 @@ export class TsonSocketStream extends Duplex {
         super({ objectMode: true })
 
         this.socket.binaryType = 'arraybuffer'
-        this.socket.addEventListener('close', () => {
-            this.destroy()
-        })
-        this.socket.addEventListener('message', ({ data }) => {
-            try {
-                if (!isArrayBuffer(data)) {
-                    throw new TypeError('Received data must be an ArrayBuffer.')
-                }
-
-                const decodedData = decode(data)
-
-                if (decodedData === null) {
-                    throw new TypeError(
-                        'Received data must not decode to `null`.',
-                    )
-                }
-
-                this.push(decodedData)
-            } catch (error) {
-                this.destroy(error)
-            }
-        })
+        this.socket.addEventListener('close', this.onClose)
+        this.socket.addEventListener('message', this.onMessage)
+        this.socket.addEventListener('error', this.onError)
     }
 
     public _read(): void {
@@ -136,5 +124,42 @@ export class TsonSocketStream extends Duplex {
     ): void {
         this.socket.close()
         callback(error)
+    }
+
+    private onClose = (): void => {
+        this.destroy()
+    }
+
+    private onMessage = ({ data }: { data: ArrayBuffer }): void => {
+        try {
+            if (!isArrayBuffer(data)) {
+                throw new TypeError('Received data must be an ArrayBuffer.')
+            }
+
+            const decodedData = decode(data)
+
+            if (decodedData === null) {
+                throw new TypeError('Received data must not decode to `null`.')
+            }
+
+            this.push(decodedData)
+        } catch (error) {
+            this.destroy(error)
+        }
+    }
+
+    private onError = (event: { error?: Error }): void => {
+        if (this.destroyed) {
+            return
+        }
+        // Just in case, be flexible with handling of the "error" event.
+        /* istanbul ignore next */
+        const cause =
+            event instanceof Error
+                ? event
+                : event.error instanceof Error
+                ? event.error
+                : undefined
+        this.emit('error', createSocketError('Socket error.', cause))
     }
 }

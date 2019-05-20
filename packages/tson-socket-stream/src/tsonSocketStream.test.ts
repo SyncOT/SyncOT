@@ -211,7 +211,19 @@ describe.each<[string, () => void]>([
             clientSocket.close()
             await allClosed
             expect(onWrite).toHaveBeenCalledTimes(0)
-            expect(onError).toHaveBeenCalledTimes(0)
+
+            // The socket implementations are a bit inconsistent with regard to error reporting.
+            if (socketType === 'SockJS') {
+                expect(onError).toHaveBeenCalledTimes(0)
+            } else {
+                expect(onError).toHaveBeenCalledTimes(1)
+                expect(onError).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: expect.stringContaining('Socket error.'),
+                        name: 'SyncOtError Socket',
+                    }),
+                )
+            }
         })
     })
 
@@ -504,6 +516,42 @@ describe.each<[string, () => void]>([
             await allClosed
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(error)
+        })
+
+        test('socket error event', async () => {
+            const errorEvent = new Event('error') as Event & { error: Error }
+            errorEvent.error = error
+            const onError = jest.fn()
+            clientStream.on('error', onError)
+
+            // Send a fake error event using whatever means are available.
+            if (socketType === 'WebSocket' && side === 'client') {
+                // Browser WebSocket.
+                ;(clientSocket as any).dispatchEvent(errorEvent)
+            } else if (socketType === 'SockJS' && side === 'client') {
+                // Client SockJS socket.
+                ;(clientSocket as any).sockJs.dispatchEvent(errorEvent)
+            } else if (socketType === 'SockJS' && side === 'server') {
+                // Server SockJS socket.
+                ;(clientSocket as any).sockJs.emit('error', errorEvent)
+            } else {
+                // "ws" module WebSocket.
+                ;(clientSocket as any).emit('error', error)
+            }
+
+            await delay()
+            expect(clientSocket.readyState).toBe(ReadyState.OPEN)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    cause: expect.objectContaining({
+                        message: 'test error',
+                        name: 'Error',
+                    }),
+                    message: 'Socket error. => Error: test error',
+                    name: 'SyncOtError Socket',
+                }),
+            )
         })
     })
 })

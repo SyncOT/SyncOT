@@ -29,6 +29,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/error": "file:../error",
     "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
     "@types/node": "^10.12.21",

@@ -32,6 +32,9 @@ class SockJsClientConnectionTsonSocket extends EventEmitter
                 data: toArrayBuffer(Buffer.from(data, 'base64')),
             }),
         )
+        this.sockJs.addEventListener('error', (event: any) => {
+            this.emit('error', event)
+        })
     }
 
     public send(data: Binary): void {
@@ -73,6 +76,9 @@ class SockJsServerConnectionTsonSocket extends EventEmitter
                 data: toArrayBuffer(Buffer.from(data, 'base64')),
             }),
         )
+        this.sockJs.on('error', (event: any) => {
+            this.emit('error', event)
+        })
     }
 
     public send(data: Binary): void {
