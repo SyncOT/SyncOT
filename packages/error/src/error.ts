@@ -349,3 +349,21 @@ export function createInvalidStreamError(message?: string): InvalidStreamError {
 export function isInvalidStreamError(error: any): error is InvalidStreamError {
     return error instanceof Error && error.name === 'SyncOtError InvalidStream'
 }
+
+export interface SocketError extends Error {
+    cause?: Error
+    name: 'SyncOtError Socket'
+}
+export function createSocketError(
+    message?: string,
+    cause?: Error,
+): SocketError {
+    return createError({
+        cause,
+        message,
+        name: 'SyncOtError Socket',
+    }) as SocketError
+}
+export function isSocketError(error: any): error is SocketError {
+    return error instanceof Error && error.name === 'SyncOtError Socket'
+}

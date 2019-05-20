@@ -10,6 +10,7 @@ import {
     createNotInitializedError,
     createPresenceError,
     createSessionError,
+    createSocketError,
     createTsonError,
     createTypeNotFoundError,
     createUnexpectedSequenceNumberError,
@@ -25,6 +26,7 @@ import {
     isNotInitializedError,
     isPresenceError,
     isSessionError,
+    isSocketError,
     isSyncOtError,
     isTsonError,
     isTypeNotFoundError,
@@ -484,5 +486,33 @@ describe('InvalidStreamError', () => {
         expect(isInvalidStreamError(error)).toBeTrue()
         expect(isInvalidStreamError(new Error())).toBeFalse()
         expect(isInvalidStreamError({})).toBeFalse()
+    })
+})
+
+describe('SocketError', () => {
+    test('createSocketError', () => {
+        const error = createSocketError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Socket')
+        expect(error.message).toBe('test')
+        expect(error.cause).toBe(undefined)
+    })
+    test('createSocketError with cause', () => {
+        const cause = new Error('Test cause!')
+        const error = createSocketError('Test message.', cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Socket')
+        expect(error.message).toBe('Test message. => Error: Test cause!')
+        expect(error.toString()).toBe(
+            'SyncOtError Socket: Test message. => Error: Test cause!',
+        )
+        expect(error.cause).toBe(cause)
+    })
+    test('isSocketError', () => {
+        const error = createSocketError('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSocketError(error)).toBeTrue()
+        expect(isSocketError(new Error())).toBeFalse()
+        expect(isSocketError({})).toBeFalse()
     })
 })
