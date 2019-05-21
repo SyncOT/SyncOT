@@ -1,6 +1,7 @@
 import {
     createAlreadyInitializedError,
     createAuthError,
+    createCompositeError,
     createDisconnectedError,
     createDuplicateIdError,
     createError,
@@ -18,6 +19,7 @@ import {
     createUnexpectedVersionNumberError,
     isAlreadyInitializedError,
     isAuthError,
+    isCompositeError,
     isDisconnectedError,
     isDuplicateIdError,
     isInvalidEntityError,
@@ -514,5 +516,31 @@ describe('SocketError', () => {
         expect(isSocketError(error)).toBeTrue()
         expect(isSocketError(new Error())).toBeFalse()
         expect(isSocketError({})).toBeFalse()
+    })
+})
+
+describe('CompositeError', () => {
+    test('createCompositeError', () => {
+        const error = createCompositeError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Composite')
+        expect(error.message).toBe('test')
+        expect(error.errors).toEqual([])
+    })
+    test('createCompositeError with errors', () => {
+        const errors = [new Error('error 1.'), new Error('error 2.')]
+        const error = createCompositeError('Test message.', errors)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Composite')
+        expect(error.message).toBe('Test message.')
+        expect(error.toString()).toBe('SyncOtError Composite: Test message.')
+        expect(error.errors).toBe(errors)
+    })
+    test('isCompositeError', () => {
+        const error = createCompositeError('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isCompositeError(error)).toBeTrue()
+        expect(isCompositeError(new Error())).toBeFalse()
+        expect(isCompositeError({})).toBeFalse()
     })
 })

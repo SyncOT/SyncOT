@@ -367,3 +367,21 @@ export function createSocketError(
 export function isSocketError(error: any): error is SocketError {
     return error instanceof Error && error.name === 'SyncOtError Socket'
 }
+
+export interface CompositeError extends Error {
+    errors: Error[]
+    name: 'SyncOtError Composite'
+}
+export function createCompositeError(
+    message?: string,
+    errors: Error[] = [],
+): CompositeError {
+    return createError({
+        errors,
+        message,
+        name: 'SyncOtError Composite',
+    }) as CompositeError
+}
+export function isCompositeError(error: any): error is CompositeError {
+    return error instanceof Error && error.name === 'SyncOtError Composite'
+}
