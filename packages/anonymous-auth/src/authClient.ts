@@ -70,6 +70,7 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
     }
 
     private onDisconnect = () => {
+        /* istanbul ignore else */
         if (!this.destroyed && this.authenticated) {
             this.authenticated = false
             this.emitAsync('authEnd')

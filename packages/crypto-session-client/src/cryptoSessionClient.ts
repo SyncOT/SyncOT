@@ -76,12 +76,14 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     }
 
     private onConnect = () => {
+        /* istanbul ignore else */
         if (!this.destroyed) {
             this.activateSession()
         }
     }
 
     private onDisconnect = () => {
+        /* istanbul ignore else */
         if (!this.destroyed) {
             if (this.active) {
                 this.active = false
@@ -160,6 +162,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
                 challengeReply,
             )
 
+            /* istanbul ignore else */
             if (
                 !this.destroyed &&
                 this.connection.connectionId === connectionId &&

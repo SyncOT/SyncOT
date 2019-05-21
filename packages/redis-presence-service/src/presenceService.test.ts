@@ -581,6 +581,56 @@ describe('submitPresence', () => {
         expect(onOutOfSync).toHaveBeenCalledBefore(onInSync)
     })
 
+    test('storage error on refresh', async () => {
+        await presenceProxy.submitPresence(presence)
+        clock.next() // Store presence.
+        await new Promise(resolve => presenceService.once('inSync', resolve))
+
+        const onError = jest.fn()
+        const onOutOfSync = jest.fn()
+        const onInSync = jest.fn()
+        presenceService.on('error', onError)
+        presenceService.on('outOfSync', onOutOfSync)
+        presenceService.on('inSync', onInSync)
+
+        redis.disconnect()
+        clock.next() // Attempt to refresh presence.
+        await new Promise(resolve => presenceService.once('error', resolve))
+        expect(onError).toHaveBeenCalledWith(
+            expect.objectContaining({
+                cause: expect.objectContaining({
+                    message: 'Connection is closed.',
+                    name: 'Error',
+                }),
+                message:
+                    'Failed to sync presence with Redis. => Error: Connection is closed.',
+                name: 'SyncOtError Presence',
+            }),
+        )
+
+        await redis.connect()
+        await redis.hset(presenceKey, 'lastModified', encode(7))
+        await redis.expire(presenceKey, 1)
+        await redis.expire(userKey, 1)
+        await redis.expire(locationKey, 1)
+
+        clock.next() // Refresh presence
+        // lastModified is 7 as set above, rather than `now`, because the PresenceService realised that
+        // the previously stored hash still exists, so it updated only its TTL without checking
+        // the stored values in order to reduce the load on the Redis server.
+        await expect(
+            presenceProxy.getPresenceBySessionId(sessionId),
+        ).resolves.toEqual({ ...presence, lastModified: 7 })
+        await expect(redis.ttl(presenceKey)).resolves.toBe(60)
+        await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
+        await expect(redis.ttl(userKey)).resolves.toBe(60)
+        await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
+        await expect(redis.ttl(locationKey)).resolves.toBe(60)
+
+        expect(onOutOfSync).not.toHaveBeenCalled()
+        expect(onInSync).not.toHaveBeenCalled()
+    })
+
     test('submit new presence while saving old to Redis', async () => {
         const onMessage = jest.fn()
         const onOutOfSync = jest.fn()

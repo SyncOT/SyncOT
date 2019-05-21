@@ -356,10 +356,8 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 this.scheduleUpdateRedis()
             } else {
                 this.emitInSync()
-                if (this.encodedPresence) {
-                    // Refresh after 90% of ttl has elapsed.
-                    this.scheduleUpdateRedis(this.ttl - 1)
-                }
+                // Refresh after 90% of ttl has elapsed.
+                this.scheduleUpdateRedis(this.ttl - 1)
             }
         } catch (error) {
             if (wasModified) {

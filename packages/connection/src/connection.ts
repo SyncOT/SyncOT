@@ -544,6 +544,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                 }
 
                                 const onData = (data: any) => {
+                                    /* istanbul ignore else */
                                     if (
                                         this.stream === stream &&
                                         data != null
@@ -560,6 +561,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                                 }
 
                                 const onEnd = () => {
+                                    /* istanbul ignore else */
                                     if (this.stream === stream) {
                                         this.send({
                                             data: null,
@@ -654,6 +656,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
             case MessageType.STREAM_INPUT_DATA: {
                 const serviceStream = serviceStreams.get(message.id)
+                /* istanbul ignore else */
                 if (serviceStream) {
                     serviceStream.write(message.data)
                 }
@@ -662,6 +665,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
             case MessageType.STREAM_INPUT_END: {
                 const serviceStream = serviceStreams.get(message.id)
+                /* istanbul ignore else */
                 if (serviceStream) {
                     serviceStream.end()
                 }
@@ -716,6 +720,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
                     const proxyStream = new Duplex({
                         final: (callback: Callback) => {
+                            /* istanbul ignore else */
                             if (this.stream === stream) {
                                 this.send({
                                     data: null,
@@ -734,6 +739,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                             _encoding: string,
                             callback: Callback,
                         ) => {
+                            /* istanbul ignore else */
                             if (this.stream === stream && data != null) {
                                 this.send({
                                     data,
@@ -770,6 +776,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
             case MessageType.STREAM_OUTPUT_DATA: {
                 const serviceStream = proxyStreams.get(message.id)
+                /* istanbul ignore else */
                 if (serviceStream) {
                     serviceStream.push(message.data)
                 }
@@ -778,6 +785,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
             case MessageType.STREAM_OUTPUT_END: {
                 const serviceStream = proxyStreams.get(message.id)
+                /* istanbul ignore else */
                 if (serviceStream) {
                     serviceStream.push(null)
                 }

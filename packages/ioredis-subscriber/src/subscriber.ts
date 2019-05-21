@@ -194,8 +194,6 @@ class RedisSubscriber extends EventEmitter {
     }
 
     private onError = (error: Error): void => {
-        if (this.redis.status === 'ready') {
-            this.emit('error', error)
-        }
+        this.emit('error', error)
     }
 }

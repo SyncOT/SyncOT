@@ -239,6 +239,20 @@ describe('channel', () => {
         expect(onChannel2).toHaveBeenCalledWith(channel2, message2)
     })
 
+    test('subscribe, disconnect, unsubscribe, re-connect', async () => {
+        // Just ensure that there are no uncaught errors.
+        const onChannel1 = jest.fn()
+        const onChannel2 = jest.fn()
+        subscriber.onChannel(channel1, onChannel1)
+        subscriber.onChannel(channel2, onChannel2)
+        await whenRedisCommandExecuted('SUBSCRIBE')
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        subscriber.offChannel(channel1, onChannel1)
+        subscriber.offChannel(channel2, onChannel2)
+        await redisSubscriber.connect()
+    })
+
     test('subscribe, disconnect, re-connect', async () => {
         const onChannel1 = jest.fn()
         const onChannel2 = jest.fn()
@@ -409,6 +423,20 @@ describe('pattern', () => {
         expect(onPattern1).toHaveBeenCalledWith(pattern1, channel1, message1)
         expect(onPattern2).toHaveBeenCalledTimes(1)
         expect(onPattern2).toHaveBeenCalledWith(pattern2, channel2, message2)
+    })
+
+    test('subscribe, disconnect, unsubscribe, re-connect', async () => {
+        // Just ensure that there are no uncaught errors.
+        const onPattern1 = jest.fn()
+        const onPattern2 = jest.fn()
+        subscriber.onPattern(pattern1, onPattern1)
+        subscriber.onPattern(pattern2, onPattern2)
+        await whenRedisCommandExecuted('PSUBSCRIBE')
+        redisSubscriber.disconnect()
+        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        subscriber.offPattern(pattern1, onPattern1)
+        subscriber.offPattern(pattern2, onPattern2)
+        await redisSubscriber.connect()
     })
 
     test('subscribe, disconnect, re-connect', async () => {
