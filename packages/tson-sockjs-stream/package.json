@@ -1,11 +1,11 @@
 {
-  "name": "@syncot/tson-websocket-stream",
+  "name": "@syncot/tson-sockjs-stream",
   "version": "0.0.0",
-  "description": "A factory for TSON-encoded client WebSocket streams.",
+  "description": "A factory for TSON-encoded client SockJS streams.",
   "keywords": [
     "tson",
     "client",
-    "websocket",
+    "sockjs",
     "stream",
     "factory"
   ],
@@ -33,7 +33,9 @@
     "@syncot/tson-socket-stream": "file:../tson-socket-stream",
     "@types/node": "^10.12.21",
     "@types/readable-stream": "^2.3.1",
+    "@types/sockjs-client": "^1.1.1",
     "readable-stream": "^3.3.0",
+    "sockjs-client": "^1.3.0",
     "tslib": "^1.9.3"
   }
 }

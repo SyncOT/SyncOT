@@ -2,13 +2,15 @@
  * @jest-environment jsdom
  */
 import { encode } from '@syncot/tson'
+import http from 'http'
+import { AddressInfo } from 'net'
 import { Duplex } from 'readable-stream'
-import ws from 'ws'
-import { createWebSocketStream } from '.'
+import sockjs from 'sockjs'
+import { createSockJsStream } from '.'
 
 const greeting = 'Hello'
-const encodedGreeting = encode(greeting)
-let server: ws.Server
+const encodedGreeting = encode(greeting).toString('base64')
+let server: http.Server
 let url: string
 
 const whenConnected = (stream: Duplex) =>
@@ -24,17 +26,20 @@ const whenConnected = (stream: Duplex) =>
     })
 
 beforeAll(done => {
-    server = new ws.Server({ port: 0 })
-    server.on('connection', socket => {
-        socket.send(encodedGreeting)
+    const sockJsServer = sockjs.createServer({ log: () => undefined })
+    sockJsServer.on('connection', socket => {
+        socket.write(encodedGreeting)
         socket.close()
     })
-    server.once('listening', () => {
-        const { address, family, port } = server.address() as ws.AddressInfo
+
+    server = http.createServer()
+    sockJsServer.installHandlers(server)
+    server.listen(() => {
+        const { address, family, port } = server.address() as AddressInfo
         url =
             family === 'IPv6'
-                ? `ws://[${address}]:${port}`
-                : `ws://${address}:${port}`
+                ? `http://[${address}]:${port}`
+                : `http://${address}:${port}`
         done()
     })
 })
@@ -44,16 +49,16 @@ afterAll(done => {
 })
 
 test('invalid URL', () => {
-    expect(() => createWebSocketStream(5 as any)).toThrow(
+    expect(() => createSockJsStream(5 as any)).toThrow(
         expect.objectContaining({
-            message: 'Argument "webSocketUrl" must be a string.',
+            message: 'Argument "sockJsUrl" must be a string.',
             name: 'AssertionError',
         }),
     )
 })
 
 test('invalid timeout (< 0)', () => {
-    expect(() => createWebSocketStream(url, -1)).toThrow(
+    expect(() => createSockJsStream(url, -1)).toThrow(
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
@@ -63,7 +68,7 @@ test('invalid timeout (< 0)', () => {
 })
 
 test('invalid timeout (string)', () => {
-    expect(() => createWebSocketStream(url, '5' as any)).toThrow(
+    expect(() => createSockJsStream(url, '5' as any)).toThrow(
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
@@ -73,20 +78,20 @@ test('invalid timeout (string)', () => {
 })
 
 test('connect without timeout', async () => {
-    const stream = await createWebSocketStream(url)()
+    const stream = await createSockJsStream(url)()
     await whenConnected(stream)
 })
 
 test('connect with timeout', async () => {
-    const stream = await createWebSocketStream(url, 5000)()
+    const stream = await createSockJsStream(url, 5000)()
     await whenConnected(stream)
 })
 
 test('time out while connecting', async () => {
-    const streamPromise = createWebSocketStream(url, 0)()
+    const streamPromise = createSockJsStream(url, 0)()
     await expect(streamPromise).rejects.toEqual(
         expect.objectContaining({
-            message: 'Timed out while establishing a WebSocket connection.',
+            message: 'Timed out while establishing a SockJS connection.',
             name: 'SyncOtError Socket',
         }),
     )
@@ -94,10 +99,10 @@ test('time out while connecting', async () => {
 
 test('fail to connect', async () => {
     await expect(
-        createWebSocketStream('ws://does-not-exist.localhost')(),
+        createSockJsStream('http://does-not-exist.localhost')(),
     ).rejects.toEqual(
         expect.objectContaining({
-            message: 'Failed to establish a WebSocket connection.',
+            message: 'Failed to establish a SockJS connection.',
             name: 'SyncOtError Socket',
         }),
     )

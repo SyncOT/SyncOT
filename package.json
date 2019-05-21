@@ -65,6 +65,7 @@
     "@syncot/session": "file:packages/session",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
+    "@syncot/tson-sockjs-stream": "file:packages/tson-sockjs-stream",
     "@syncot/tson-websocket-stream": "file:packages/tson-websocket-stream",
     "@syncot/type": "file:packages/type",
     "@syncot/util": "file:packages/util"
