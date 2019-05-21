@@ -17,7 +17,7 @@ export const createWebSocketStream = (
 ): Factory => {
     assert.ok(
         typeof webSocketUrl === 'string',
-        'Argument "timeout" must be a string.',
+        'Argument "webSocketUrl" must be a string.',
     )
     assert.ok(
         timeout === undefined ||
