@@ -9,20 +9,31 @@ import SockJS from 'sockjs-client'
 
 type Factory = () => Promise<Duplex>
 
+export interface CreateSockJsStreamOptions {
+    /**
+     * The SockJS URL to connect to.
+     */
+    url: string
+    /**
+     * The timeout in milliseconds for establishing a connection.
+     * Defaults to no timeout.
+     */
+    timeout?: number
+    /**
+     * Additional SockJS options passed directly to the SockJS constructor.
+     */
+    sockJsOptions?: SockJS.Options
+}
+
 /**
  * Creates a factory producing TSON-encoded client SockJS streams.
- * @param sockJsUrl The SockJS URL to connect to.
- * @param timeout The timeout in milliseconds for establishing a connection.
- *   Defaults to no timeout.
  */
-export const createSockJsStream = (
-    sockJsUrl: string,
-    timeout?: number,
-): Factory => {
-    assert.ok(
-        typeof sockJsUrl === 'string',
-        'Argument "sockJsUrl" must be a string.',
-    )
+export const createSockJsStream = ({
+    url,
+    timeout,
+    sockJsOptions,
+}: CreateSockJsStreamOptions): Factory => {
+    assert.ok(typeof url === 'string', 'Argument "url" must be a string.')
     assert.ok(
         timeout === undefined ||
             (Number.isSafeInteger(timeout) && timeout >= 0),
@@ -31,7 +42,7 @@ export const createSockJsStream = (
 
     return () =>
         new Promise((resolve, reject) => {
-            const socket = new SockJS(sockJsUrl)
+            const socket = new SockJS(url, undefined, sockJsOptions)
 
             const onOpen = () => {
                 cleanUp()

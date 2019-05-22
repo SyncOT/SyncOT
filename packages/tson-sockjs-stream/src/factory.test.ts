@@ -49,16 +49,16 @@ afterAll(done => {
 })
 
 test('invalid URL', () => {
-    expect(() => createSockJsStream(5 as any)).toThrow(
+    expect(() => createSockJsStream({ url: 5 as any })).toThrow(
         expect.objectContaining({
-            message: 'Argument "sockJsUrl" must be a string.',
+            message: 'Argument "url" must be a string.',
             name: 'AssertionError',
         }),
     )
 })
 
 test('invalid timeout (< 0)', () => {
-    expect(() => createSockJsStream(url, -1)).toThrow(
+    expect(() => createSockJsStream({ url, timeout: -1 })).toThrow(
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
@@ -68,7 +68,7 @@ test('invalid timeout (< 0)', () => {
 })
 
 test('invalid timeout (string)', () => {
-    expect(() => createSockJsStream(url, '5' as any)).toThrow(
+    expect(() => createSockJsStream({ url, timeout: '5' as any })).toThrow(
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
@@ -78,17 +78,17 @@ test('invalid timeout (string)', () => {
 })
 
 test('connect without timeout', async () => {
-    const stream = await createSockJsStream(url)()
+    const stream = await createSockJsStream({ url })()
     await whenConnected(stream)
 })
 
 test('connect with timeout', async () => {
-    const stream = await createSockJsStream(url, 5000)()
+    const stream = await createSockJsStream({ url, timeout: 5000 })()
     await whenConnected(stream)
 })
 
 test('time out while connecting', async () => {
-    const streamPromise = createSockJsStream(url, 0)()
+    const streamPromise = createSockJsStream({ url, timeout: 0 })()
     await expect(streamPromise).rejects.toEqual(
         expect.objectContaining({
             message: 'Timed out while establishing a SockJS connection.',
@@ -99,7 +99,11 @@ test('time out while connecting', async () => {
 
 test('fail to connect', async () => {
     await expect(
-        createSockJsStream('http://does-not-exist.localhost')(),
+        createSockJsStream({
+            // Allow only one transport to get an error faster.
+            sockJsOptions: { transports: ['websocket'] },
+            url: 'http://does-not-exist.localhost',
+        })(),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Failed to establish a SockJS connection.',
