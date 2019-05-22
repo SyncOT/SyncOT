@@ -5,20 +5,26 @@ import { Duplex } from 'readable-stream'
 
 type Factory = () => Promise<Duplex>
 
+export interface CreateWebSocketStreamOptions {
+    /**
+     * The WebSocket URL to connect to.
+     */
+    url: string
+    /**
+     * The timeout in milliseconds for establishing a connection.
+     * Defaults to no timeout.
+     */
+    timeout?: number
+}
+
 /**
  * Creates a factory producing TSON-encoded client WebSocket streams.
- * @param webSocketUrl The WebSocket URL to connect to.
- * @param timeout The timeout in milliseconds for establishing a connection.
- *   Defaults to no timeout.
  */
-export const createWebSocketStream = (
-    webSocketUrl: string,
-    timeout?: number,
-): Factory => {
-    assert.ok(
-        typeof webSocketUrl === 'string',
-        'Argument "webSocketUrl" must be a string.',
-    )
+export const createWebSocketStream = ({
+    url,
+    timeout,
+}: CreateWebSocketStreamOptions): Factory => {
+    assert.ok(typeof url === 'string', 'Argument "url" must be a string.')
     assert.ok(
         timeout === undefined ||
             (Number.isSafeInteger(timeout) && timeout >= 0),
@@ -27,7 +33,7 @@ export const createWebSocketStream = (
 
     return () =>
         new Promise((resolve, reject) => {
-            const webSocket = new WebSocket(webSocketUrl)
+            const webSocket = new WebSocket(url)
 
             const onOpen = () => {
                 cleanUp()
