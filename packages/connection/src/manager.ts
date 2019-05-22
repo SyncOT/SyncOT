@@ -149,7 +149,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         this.scheduleConnect()
     }
 
-    private onDestroy = () => {
+    private onDestroy = (): void => {
         this.destroy()
     }
 

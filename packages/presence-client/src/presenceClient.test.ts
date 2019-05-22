@@ -154,6 +154,45 @@ afterEach(() => {
     presenceClient.destroy()
 })
 
+test('invalid connection (missing)', () => {
+    expect(() =>
+        createPresenceClient({
+            authClient,
+            connection: undefined as any,
+            sessionClient,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid connection (destroyed)', () => {
+    const newConnection = createConnection()
+    newConnection.destroy()
+    expect(() =>
+        createPresenceClient({
+            authClient,
+            connection: newConnection,
+            sessionClient,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on connection destroy', async () => {
+    connection1.destroy()
+    await new Promise(resolve => presenceClient.once('destroy', resolve))
+})
+
 test('register twice on the same connection', () => {
     expect(() =>
         createPresenceClient({

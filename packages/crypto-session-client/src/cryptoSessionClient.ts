@@ -2,6 +2,7 @@ import { Connection } from '@syncot/connection'
 import { createSessionError } from '@syncot/error'
 import { SessionEvents, SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
+import { strict as assert } from 'assert'
 
 /**
  * Creates a client-side cryptographic session manager on the specified connection.
@@ -39,6 +40,12 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     public constructor(private readonly connection: Connection) {
         super()
 
+        assert.ok(
+            this.connection && !this.connection.destroyed,
+            'Argument "connection" must be a non-destroyed Connection.',
+        )
+        this.connection.on('destroy', this.onDestroy)
+
         this.connection.registerProxy({
             name: 'session',
             requestNames: new Set(['getChallenge', 'activateSession']),
@@ -66,6 +73,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         if (this.destroyed) {
             return
         }
+        this.connection.off('destroy', this.onDestroy)
         this.connection.off('connect', this.onConnect)
         this.connection.off('disconnect', this.onDisconnect)
         this.keyPair = undefined
@@ -90,6 +98,10 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
                 this.emitAsync('sessionInactive')
             }
         }
+    }
+
+    private onDestroy = (): void => {
+        this.destroy()
     }
 
     private async init(): Promise<void> {

@@ -1,6 +1,7 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { SyncOtEmitter } from '@syncot/util'
+import { strict as assert } from 'assert'
 
 /**
  * Creates a new AuthClient which allows full anonymous access.
@@ -19,6 +20,11 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
 
     public constructor(private connection: Connection) {
         super()
+        assert.ok(
+            this.connection && !this.connection.destroyed,
+            'Argument "connection" must be a non-destroyed Connection.',
+        )
+        this.connection.on('destroy', this.onDestroy)
         Promise.resolve().then(() => this.init())
     }
 
@@ -40,6 +46,7 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
         }
         this.userId = undefined
         this.authenticated = false
+        this.connection.off('destroy', this.onDestroy)
         this.connection.off('connect', this.onConnect)
         this.connection.off('disconnect', this.onDisconnect)
         super.destroy()
@@ -75,5 +82,9 @@ export class AnonymousAuthClient extends SyncOtEmitter<AuthEvents>
             this.authenticated = false
             this.emitAsync('authEnd')
         }
+    }
+
+    private onDestroy = (): void => {
+        this.destroy()
     }
 }

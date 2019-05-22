@@ -65,6 +65,33 @@ beforeEach(() => {
     proxy = clientConnection.getProxy('session') as SessionManagerProxy
 })
 
+test('invalid connection (missing)', () => {
+    expect(() => createSessionManager(undefined as any)).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid connection (destroyed)', () => {
+    const newConnection = createConnection()
+    newConnection.destroy()
+    expect(() => createSessionManager(newConnection)).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on connection destroy', async () => {
+    serverConnection.destroy()
+    await new Promise(resolve => sessionManager.once('destroy', resolve))
+})
+
 test('initial state', () => {
     expect(sessionManager.getSessionId()).toBeUndefined()
     expect(sessionManager.hasSession()).toBeFalse()

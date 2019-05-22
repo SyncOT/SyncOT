@@ -211,6 +211,49 @@ afterEach(async () => {
     testSubscriber.disconnect()
 })
 
+test('invalid connection (missing)', () => {
+    expect(() =>
+        createPresenceService({
+            authService,
+            connection: undefined as any,
+            redis,
+            redisSubscriber,
+            sessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid connection (destroyed)', () => {
+    const newConnection = createConnection()
+    newConnection.destroy()
+    expect(() =>
+        createPresenceService({
+            authService,
+            connection: newConnection,
+            redis,
+            redisSubscriber,
+            sessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "connection" must be a non-destroyed Connection.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on connection destroy', async () => {
+    connection1.destroy()
+    await new Promise(resolve => presenceService.once('destroy', resolve))
+})
+
 test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
     connection1.disconnect()
     connection2.disconnect()

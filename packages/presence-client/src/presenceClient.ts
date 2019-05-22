@@ -9,6 +9,7 @@ import {
 } from '@syncot/presence'
 import { SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
+import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -77,6 +78,12 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     ) {
         super()
 
+        assert.ok(
+            this.connection && !this.connection.destroyed,
+            'Argument "connection" must be a non-destroyed Connection.',
+        )
+        this.connection.on('destroy', this.onDestroy)
+
         this.connection.registerProxy({
             name: 'presence',
             requestNames: new Set([
@@ -110,6 +117,7 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         if (this.destroyed) {
             return
         }
+        this.connection.off('destroy', this.onDestroy)
         this.sessionClient.off('sessionOpen', this.updateLocalPresence)
         this.sessionClient.off('sessionActive', this.updateOnline)
         this.sessionClient.off('sessionInactive', this.updateOnline)
@@ -216,5 +224,9 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             'error',
             createPresenceError('Failed to sync presence.', error),
         )
+    }
+
+    private onDestroy = (): void => {
+        this.destroy()
     }
 }

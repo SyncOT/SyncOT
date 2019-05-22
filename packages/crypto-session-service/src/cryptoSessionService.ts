@@ -18,6 +18,12 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
     public constructor(private readonly connection: Connection) {
         super()
 
+        assert.ok(
+            this.connection && !this.connection.destroyed,
+            'Argument "connection" must be a non-destroyed Connection.',
+        )
+        this.connection.on('destroy', this.onDestroy)
+
         this.connection.registerService({
             instance: this,
             name: 'session',
@@ -104,6 +110,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
         }
         this.sessionId = undefined
         this.challenge = undefined
+        this.connection.off('destroy', this.onDestroy)
         this.connection.off('disconnect', this.onDisconnect)
         super.destroy()
     }
@@ -115,6 +122,10 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             this.emitAsync('sessionInactive')
             this.emitAsync('sessionClose')
         }
+    }
+
+    private onDestroy = (): void => {
+        this.destroy()
     }
 }
 

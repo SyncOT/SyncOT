@@ -41,6 +41,12 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     ) {
         super()
 
+        assert.ok(
+            this.connection && !this.connection.destroyed,
+            'Argument "connection" must be a non-destroyed Connection.',
+        )
+        this.connection.on('destroy', this.onDestroy)
+
         this.redis = defineRedisCommands(redis)
 
         if (typeof options.ttl !== 'undefined') {
@@ -83,6 +89,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         if (this.destroyed) {
             return
         }
+        this.connection.off('destroy', this.onDestroy)
         this.authService.off('authEnd', this.onAuthEnd)
         this.sessionService.off('sessionInactive', this.onSessionInactive)
         this.ensureNoPresence()
@@ -405,6 +412,10 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
     private onSessionInactive = (): void => {
         this.ensureNoPresence()
+    }
+
+    private onDestroy = (): void => {
+        this.destroy()
     }
 
     private decodePresence = async (

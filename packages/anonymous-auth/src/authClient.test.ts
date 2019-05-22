@@ -24,6 +24,31 @@ beforeEach(() => {
 
 describe('AuthClient', () => {
     describe('right after create', () => {
+        test('invalid connection (missing)', () => {
+            expect(() => createAuthClient(undefined as any)).toThrow(
+                expect.objectContaining({
+                    message:
+                        'Argument "connection" must be a non-destroyed Connection.',
+                    name: 'AssertionError',
+                }),
+            )
+        })
+        test('invalid connection (destroyed)', () => {
+            const newConnection = createConnection()
+            newConnection.destroy()
+            expect(() => createAuthClient(newConnection)).toThrow(
+                expect.objectContaining({
+                    message:
+                        'Argument "connection" must be a non-destroyed Connection.',
+                    name: 'AssertionError',
+                }),
+            )
+        })
+        test('destroy on connection destroy', async () => {
+            authClient = createAuthClient(connection)
+            connection.destroy()
+            await new Promise(resolve => authClient.once('destroy', resolve))
+        })
         test('initial state', async () => {
             authClient = createAuthClient(connection)
             expect(authClient.getUserId()).toBeUndefined()
