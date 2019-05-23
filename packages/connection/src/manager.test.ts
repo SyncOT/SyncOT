@@ -14,8 +14,8 @@ let initialStream: Duplex
 let createStream: jest.Mock<Promise<Duplex>>
 let manager: StreamManager
 
-const minDelay = 1
-const maxDelay = 8
+const minDelay = 1000
+const maxDelay = 8000
 const delayFactor = 2
 const read = () => undefined
 const write = (
@@ -32,9 +32,9 @@ const whenConnected = () =>
 const whenDisconnected = () =>
     new Promise(resolve => connection.once('disconnect', resolve))
 
-const whenManagerError = (message: string = 'test error') =>
+const whenManagerError = () =>
     new Promise<Error>(resolve => manager.once('error', resolve)).then(error =>
-        expect(error.message).toBe(message),
+        expect(error.message).toBe('test error'),
     )
 
 beforeEach(() => {
@@ -195,25 +195,66 @@ test('initially connected', async () => {
     expect(createStream).not.toHaveBeenCalled()
 })
 
-test('initially disconnected', async () => {
-    expect(clock.countTimers()).toBe(0)
-    const newConnection = createConnection()
-    const newManager = createStreamManager({
-        connection: newConnection,
+test('initially disconnected, connect', async () => {
+    connection.destroy()
+    manager.destroy()
+    connection = createConnection()
+    manager = createStreamManager({
+        connection,
         createStream,
         delayFactor,
         maxDelay,
         minDelay,
     })
-    expect(newConnection.isConnected()).toBe(false)
-    const stream = newStream()
-    createStream.mockResolvedValueOnce(stream)
-    clock.tick(0)
-    await new Promise(resolve => newConnection.once('connect', resolve))
-    expect(newConnection.isConnected()).toBe(true)
+
+    createStream.mockResolvedValueOnce(newStream())
+    clock.next()
+    expect(clock.now).toBe(0)
+    await whenConnected()
+    expect(connection.isConnected()).toBe(true)
     expect(clock.countTimers()).toBe(0)
-    newConnection.destroy()
-    newManager.destroy()
+})
+
+test('initially disconnected, fail to connect, connect', async () => {
+    connection.destroy()
+    manager.destroy()
+    connection = createConnection()
+    manager = createStreamManager({
+        connection,
+        createStream,
+        delayFactor,
+        maxDelay,
+        minDelay,
+    })
+
+    createStream.mockRejectedValue(testError)
+    let expectedNow = 0
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    expectedNow += 1000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    expectedNow += 2000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    createStream.mockResolvedValueOnce(newStream())
+    expectedNow += 4000
+    clock.next()
+    await whenConnected()
+
+    connection.disconnect()
+    await whenDisconnected()
+
+    createStream.mockResolvedValueOnce(newStream())
+    expectedNow += 1000
+    clock.next()
+    await whenConnected()
 })
 
 test('disconnect, connect', async () => {
@@ -281,46 +322,46 @@ test('reconnect retries', async () => {
     createStream.mockRejectedValue(testError)
 
     clock.next()
-    expectedNow += 1
+    expectedNow += 1000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     clock.next()
-    expectedNow += 2
+    expectedNow += 2000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     clock.next()
-    expectedNow += 4
+    expectedNow += 4000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     clock.next()
-    expectedNow += 8
+    expectedNow += 8000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     clock.next()
-    expectedNow += 8
+    expectedNow += 8000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     const stream = newStream()
     createStream.mockResolvedValueOnce(stream)
     clock.next()
-    expectedNow += 8
+    expectedNow += 8000
     expect(clock.now).toBe(expectedNow)
     await whenConnected()
 
     connection.disconnect()
     await whenDisconnected()
     clock.next()
-    expectedNow += 1
+    expectedNow += 1000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 
     clock.next()
-    expectedNow += 2
+    expectedNow += 2000
     expect(clock.now).toBe(expectedNow)
     await whenManagerError()
 })

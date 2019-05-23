@@ -165,10 +165,10 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
                 ? 0
                 : Math.min(
                       this.maxDelay,
-                      this.minDelay *
-                          Math.pow(this.delayFactor, this.attempt++),
+                      this.minDelay * Math.pow(this.delayFactor, this.attempt),
                   )
 
+        this.attempt++
         this.scheduledConnect = setTimeout(() => {
             this.scheduledConnect = undefined
             this.connect().catch(error => {
