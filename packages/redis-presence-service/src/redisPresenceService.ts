@@ -48,6 +48,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.connection.on('destroy', this.onDestroy)
 
         this.redis = defineRedisCommands(redis)
+        this.redis.on('ready', this.onReady)
 
         if (typeof options.ttl !== 'undefined') {
             assert.ok(
@@ -90,6 +91,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             return
         }
         this.connection.off('destroy', this.onDestroy)
+        this.redis.off('ready', this.onReady)
         this.authService.off('authEnd', this.onAuthEnd)
         this.sessionService.off('sessionInactive', this.onSessionInactive)
         this.ensureNoPresence()
@@ -416,6 +418,10 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
     private onDestroy = (): void => {
         this.destroy()
+    }
+
+    private onReady = (): void => {
+        this.scheduleUpdateRedis()
     }
 
     private decodePresence = async (

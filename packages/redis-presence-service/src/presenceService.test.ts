@@ -3,7 +3,12 @@ import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceService } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'
-import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
+import {
+    invertedStreams,
+    noop,
+    randomInteger,
+    SyncOtEmitter,
+} from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
@@ -592,7 +597,10 @@ describe('submitPresence', () => {
         presenceService.on('outOfSync', onOutOfSync)
         presenceService.on('inSync', onInSync)
 
-        redis.disconnect()
+        await redis.set(
+            presenceKey,
+            'invalid-value-type-to-block-presence-update',
+        )
         await presenceProxy.submitPresence(presence)
         presenceService.once('error', onError)
         clock.next() // Attempt to store presence.
@@ -600,17 +608,19 @@ describe('submitPresence', () => {
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
                 cause: expect.objectContaining({
-                    message: 'Connection is closed.',
-                    name: 'Error',
+                    message: expect.stringContaining(
+                        'ERR Error running script',
+                    ),
+                    name: 'ReplyError',
                 }),
-                message:
-                    'Failed to sync presence with Redis. => Error: Connection is closed.',
+                message: expect.stringContaining(
+                    'Failed to sync presence with Redis. => ReplyError: ERR Error running script',
+                ),
                 name: 'SyncOtError Presence',
             }),
         )
 
-        await redis.connect()
-        await expect(redis.exists(presenceKey)).resolves.toBe(0)
+        await redis.del(presenceKey)
         clock.next() // Attempt to store presence again.
         await new Promise(resolve => presenceService.once('inSync', resolve))
         // Detailed validation of the stored data is in the "storage" test below.
@@ -934,6 +944,22 @@ describe('submitPresence', () => {
                 locationKey,
                 sessionId,
             )
+        })
+
+        test('refresh on reconnecting to redis', async () => {
+            await presenceProxy.submitPresence(presence)
+            clock.tick(0) // Store in Redis.
+            await new Promise(resolve =>
+                presenceService.once('inSync', resolve),
+            )
+
+            redis.disconnect()
+            await redis.ping().catch(noop) // Wait until disconnected.
+            await redis.connect()
+            await redis.expire(presenceKey, 1)
+            clock.tick(0) // Refresh should happen immediately.
+            await whenRedisCommandExecuted('EXPIRE')
+            await expect(redis.ttl(presenceKey)).resolves.toBe(effectiveTtl)
         })
     })
 })
