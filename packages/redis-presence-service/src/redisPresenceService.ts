@@ -140,12 +140,13 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.encodedPresence = encodedPresence
         this.shouldStorePresence = true
         this.modified = true
-        this.scheduleUpdateRedis()
+        this.updateRedis()
 
         return
     }
 
     public async removePresence(): Promise<void> {
+        this.assertNotDestroyed()
         // Explicit authentication is not needed because if the user is not authenticated,
         // then any existing presence is automatically removed and new presence cannot be
         // submitted. Consequently, the state of this service cannot be affected by an
@@ -314,11 +315,12 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    private scheduleUpdateRedis(delaySeconds: number = 0): void {
+    private scheduleUpdateRedis(delaySeconds: number): void {
         if (this.destroyed) {
             return
         }
         this.cancelUpdateRedis()
+
         this.updateHandle = setTimeout(() => {
             this.updateHandle = undefined
             this.updateRedis()
@@ -333,6 +335,13 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private async updateRedis(): Promise<void> {
+        /* istanbul ignore if */
+        if (this.destroyed) {
+            // It should not be possible to get here but check just in case.
+            return
+        }
+        this.cancelUpdateRedis()
+
         if (this.updatingRedis || !this.encodedPresence) {
             return
         }
@@ -362,10 +371,10 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
 
             if (this.modified) {
-                this.scheduleUpdateRedis()
+                this.scheduleUpdateRedis(0)
             } else {
                 this.emitInSync()
-                // Refresh after 90% of ttl has elapsed.
+                // Refresh 1 second before ttl has elapsed.
                 this.scheduleUpdateRedis(this.ttl - 1)
             }
         } catch (error) {
@@ -405,7 +414,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.shouldStorePresence = false
             this.modified = true
         }
-        this.scheduleUpdateRedis()
+        this.updateRedis()
     }
 
     private onAuthEnd = (): void => {
@@ -421,7 +430,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private onReady = (): void => {
-        this.scheduleUpdateRedis()
+        this.updateRedis()
     }
 
     private decodePresence = async (
