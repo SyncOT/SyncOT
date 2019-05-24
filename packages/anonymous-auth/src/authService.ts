@@ -11,19 +11,19 @@ export function createAuthService(connection: Connection): AuthService {
 
 export class AnonymousAuthService extends AnonymousAuthClient
     implements AuthService {
-    public async mayReadDocument(): Promise<boolean> {
+    public mayReadDocument(): boolean {
         return this.hasUserId()
     }
 
-    public async mayWriteDocument(): Promise<boolean> {
+    public mayWriteDocument(): boolean {
         return this.hasUserId()
     }
 
-    public async mayReadPresence(): Promise<boolean> {
+    public mayReadPresence(): boolean {
         return this.hasUserId()
     }
 
-    public async mayWritePresence(): Promise<boolean> {
+    public mayWritePresence(): boolean {
         return this.hasUserId()
     }
 }

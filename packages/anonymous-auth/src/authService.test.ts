@@ -32,10 +32,10 @@ async function checkAccess(granted: boolean) {
     const mayReadPresence = authService.mayReadPresence(presence)
     const mayWritePresence = authService.mayWritePresence(presence)
 
-    await expect(mayReadDocument).resolves.toBe(granted)
-    await expect(mayWriteDocument).resolves.toBe(granted)
-    await expect(mayReadPresence).resolves.toBe(granted)
-    await expect(mayWritePresence).resolves.toBe(granted)
+    expect(mayReadDocument).toBe(granted)
+    expect(mayWriteDocument).toBe(granted)
+    expect(mayReadPresence).toBe(granted)
+    expect(mayWritePresence).toBe(granted)
 }
 
 beforeEach(() => {

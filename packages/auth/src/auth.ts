@@ -52,26 +52,19 @@ export interface AuthClient
  */
 export interface AuthService extends AuthClient {
     /**
-     * Resolves to true, if the user may read from the specified document,
-     * otherwise resolves to false.
+     * Determines if the user may read from the specified document.
      */
-    mayReadDocument(typeName: string, id: string): Promise<boolean>
-
+    mayReadDocument(typeName: string, id: string): boolean | Promise<boolean>
     /**
-     * Resolves to true, if the user may write to the specified document,
-     * otherwise resolves to false.
+     * Determines if the user may write to the specified document.
      */
-    mayWriteDocument(typeName: string, id: string): Promise<boolean>
-
+    mayWriteDocument(typeName: string, id: string): boolean | Promise<boolean>
     /**
-     * Resolves to true, if the user may read/load the specified presence object,
-     * otherwise resolves to false.
+     * Determines if the user may read/load the specified presence object.
      */
-    mayReadPresence(presence: Presence): Promise<boolean>
-
+    mayReadPresence(presence: Presence): boolean | Promise<boolean>
     /**
-     * Resolves to true, if the user may write/store the specified presence object,
-     * otherwise resolves to false.
+     * Determines if the user may write/store the specified presence object.
      */
-    mayWritePresence(presence: Presence): Promise<boolean>
+    mayWritePresence(presence: Presence): boolean | Promise<boolean>
 }
