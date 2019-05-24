@@ -259,6 +259,92 @@ test('destroy on connection destroy', async () => {
     await new Promise(resolve => presenceService.once('destroy', resolve))
 })
 
+test('invalid authService (missing)', () => {
+    expect(() =>
+        createPresenceService({
+            authService: undefined as any,
+            connection: connection1,
+            redis,
+            redisSubscriber,
+            sessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "authService" must be a non-destroyed AuthService.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid authService (destroyed)', () => {
+    const newAuthService = new MockAuthService()
+    newAuthService.destroy()
+    expect(() =>
+        createPresenceService({
+            authService: newAuthService,
+            connection: connection1,
+            redis,
+            redisSubscriber,
+            sessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "authService" must be a non-destroyed AuthService.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on authService destroy', async () => {
+    authService.destroy()
+    await new Promise(resolve => presenceService.once('destroy', resolve))
+})
+
+test('invalid sessionService (missing)', () => {
+    expect(() =>
+        createPresenceService({
+            authService,
+            connection: connection1,
+            redis,
+            redisSubscriber,
+            sessionService: undefined as any,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "sessionService" must be a non-destroyed SessionService.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid sessionService (destroyed)', () => {
+    const newSessionService = new MockSessionService()
+    newSessionService.destroy()
+    expect(() =>
+        createPresenceService({
+            authService,
+            connection: connection1,
+            redis,
+            redisSubscriber,
+            sessionService: newSessionService,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "sessionService" must be a non-destroyed SessionService.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on sessionService destroy', async () => {
+    sessionService.destroy()
+    await new Promise(resolve => presenceService.once('destroy', resolve))
+})
+
 test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
     connection1.disconnect()
     connection2.disconnect()

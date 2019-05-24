@@ -45,10 +45,14 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )
-        this.connection.on('destroy', this.onDestroy)
-
-        this.redis = defineRedisCommands(redis)
-        this.redis.on('ready', this.onReady)
+        assert.ok(
+            this.sessionService && !this.sessionService.destroyed,
+            'Argument "sessionService" must be a non-destroyed SessionService.',
+        )
+        assert.ok(
+            this.authService && !this.authService.destroyed,
+            'Argument "authService" must be a non-destroyed AuthService.',
+        )
 
         if (typeof options.ttl !== 'undefined') {
             assert.ok(
@@ -82,7 +86,12 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             ]),
         })
 
+        this.redis = defineRedisCommands(redis)
+        this.redis.on('ready', this.onReady)
+        this.connection.on('destroy', this.onDestroy)
+        this.authService.on('destroy', this.onDestroy)
         this.authService.on('authEnd', this.onAuthEnd)
+        this.sessionService.on('destroy', this.onDestroy)
         this.sessionService.on('sessionInactive', this.onSessionInactive)
     }
 
@@ -90,10 +99,14 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         if (this.destroyed) {
             return
         }
-        this.connection.off('destroy', this.onDestroy)
+
         this.redis.off('ready', this.onReady)
+        this.connection.off('destroy', this.onDestroy)
+        this.authService.off('destroy', this.onDestroy)
         this.authService.off('authEnd', this.onAuthEnd)
+        this.sessionService.off('destroy', this.onDestroy)
         this.sessionService.off('sessionInactive', this.onSessionInactive)
+
         this.ensureNoPresence()
         this.presenceStreams.forEach(stream => stream.destroy())
         this.presenceStreams.clear()

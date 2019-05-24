@@ -193,6 +193,84 @@ test('destroy on connection destroy', async () => {
     await new Promise(resolve => presenceClient.once('destroy', resolve))
 })
 
+test('invalid sessionClient (missing)', () => {
+    expect(() =>
+        createPresenceClient({
+            authClient,
+            connection: connection1,
+            sessionClient: undefined as any,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "sessionClient" must be a non-destroyed SessionClient.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid sessionClient (destroyed)', () => {
+    const newSessionClient = new MockSessionClient()
+    newSessionClient.destroy()
+    expect(() =>
+        createPresenceClient({
+            authClient,
+            connection: connection1,
+            sessionClient: newSessionClient,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "sessionClient" must be a non-destroyed SessionClient.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on sessionClient destroy', async () => {
+    sessionClient.destroy()
+    await new Promise(resolve => presenceClient.once('destroy', resolve))
+})
+
+test('invalid authClient (missing)', () => {
+    expect(() =>
+        createPresenceClient({
+            authClient: undefined as any,
+            connection: connection1,
+            sessionClient,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "authClient" must be a non-destroyed AuthClient.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('invalid authClient (destroyed)', () => {
+    const newAuthClient = new MockAuthClient()
+    newAuthClient.destroy()
+    expect(() =>
+        createPresenceClient({
+            authClient: newAuthClient,
+            connection: connection1,
+            sessionClient,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "authClient" must be a non-destroyed AuthClient.',
+            name: 'AssertionError',
+        }),
+    )
+})
+
+test('destroy on authClient destroy', async () => {
+    authClient.destroy()
+    await new Promise(resolve => presenceClient.once('destroy', resolve))
+})
+
 test('register twice on the same connection', () => {
     expect(() =>
         createPresenceClient({

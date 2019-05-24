@@ -82,7 +82,14 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )
-        this.connection.on('destroy', this.onDestroy)
+        assert.ok(
+            this.sessionClient && !this.sessionClient.destroyed,
+            'Argument "sessionClient" must be a non-destroyed SessionClient.',
+        )
+        assert.ok(
+            this.authClient && !this.authClient.destroyed,
+            'Argument "authClient" must be a non-destroyed AuthClient.',
+        )
 
         this.connection.registerProxy({
             name: 'presence',
@@ -101,10 +108,13 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             'presence',
         ) as PresenceService
 
+        this.connection.on('destroy', this.onDestroy)
+        this.sessionClient.on('destroy', this.onDestroy)
         this.sessionClient.on('sessionOpen', this.updateLocalPresence)
         this.sessionClient.on('sessionActive', this.updateOnline)
         this.sessionClient.on('sessionInactive', this.updateOnline)
         this.sessionClient.on('sessionClose', this.updateLocalPresence)
+        this.authClient.on('destroy', this.onDestroy)
         this.authClient.on('user', this.updateLocalPresence)
         this.authClient.on('auth', this.updateOnline)
         this.authClient.on('authEnd', this.updateOnline)
@@ -118,10 +128,12 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             return
         }
         this.connection.off('destroy', this.onDestroy)
+        this.sessionClient.off('destroy', this.onDestroy)
         this.sessionClient.off('sessionOpen', this.updateLocalPresence)
         this.sessionClient.off('sessionActive', this.updateOnline)
         this.sessionClient.off('sessionInactive', this.updateOnline)
         this.sessionClient.off('sessionClose', this.updateLocalPresence)
+        this.authClient.off('destroy', this.onDestroy)
         this.authClient.off('user', this.updateLocalPresence)
         this.authClient.off('auth', this.updateOnline)
         this.authClient.off('authEnd', this.updateOnline)
