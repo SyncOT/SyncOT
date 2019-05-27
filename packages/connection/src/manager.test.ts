@@ -169,21 +169,23 @@ test('invalid delayFactor==="5"', () => {
         }),
     ).toThrow(
         expect.objectContaining({
-            message: 'Argument "delayFactor" must be a finite number >= 1.',
+            message:
+                'Argument "delayFactor" must be a finite number >= 1 or == 0.',
             name: 'AssertionError',
         }),
     )
 })
-test('invalid delayFactor===0', () => {
+test('invalid delayFactor===-1', () => {
     expect(() =>
         createStreamManager({
             connection,
             createStream,
-            delayFactor: 0,
+            delayFactor: -1,
         }),
     ).toThrow(
         expect.objectContaining({
-            message: 'Argument "delayFactor" must be a finite number >= 1.',
+            message:
+                'Argument "delayFactor" must be a finite number >= 1 or == 0.',
             name: 'AssertionError',
         }),
     )
@@ -215,7 +217,7 @@ test('initially disconnected, connect', async () => {
     expect(clock.countTimers()).toBe(0)
 })
 
-test('initially disconnected, fail to connect, connect', async () => {
+test('initially disconnected, fail to connect, connect (exponential back-off)', async () => {
     connection.destroy()
     manager.destroy()
     connection = createConnection()
@@ -254,6 +256,54 @@ test('initially disconnected, fail to connect, connect', async () => {
     createStream.mockResolvedValueOnce(newStream())
     expectedNow += 1000
     clock.next()
+    await whenConnected()
+})
+
+test('initially disconnected, fail to connect, connect (random back-off)', async () => {
+    connection.destroy()
+    manager.destroy()
+    connection = createConnection()
+    manager = createStreamManager({
+        connection,
+        createStream,
+        delayFactor: 0,
+        maxDelay,
+        minDelay,
+    })
+
+    createStream.mockRejectedValue(testError)
+    let expectedNow = 0
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    clock.next()
+    expect(clock.now).toBeGreaterThanOrEqual(expectedNow + minDelay)
+    expect(clock.now).toBeLessThan(expectedNow + maxDelay)
+    expectedNow = clock.now
+    await whenManagerError()
+
+    clock.next()
+    expect(clock.now).toBeGreaterThanOrEqual(expectedNow + minDelay)
+    expect(clock.now).toBeLessThan(expectedNow + maxDelay)
+    expectedNow = clock.now
+    await whenManagerError()
+
+    createStream.mockResolvedValueOnce(newStream())
+    clock.next()
+    expect(clock.now).toBeGreaterThanOrEqual(expectedNow + minDelay)
+    expect(clock.now).toBeLessThan(expectedNow + maxDelay)
+    expectedNow = clock.now
+    await whenConnected()
+
+    connection.disconnect()
+    await whenDisconnected()
+
+    createStream.mockResolvedValueOnce(newStream())
+    clock.next()
+    expect(clock.now).toBeGreaterThanOrEqual(expectedNow + minDelay)
+    expect(clock.now).toBeLessThan(expectedNow + maxDelay)
+    expectedNow = clock.now
     await whenConnected()
 })
 

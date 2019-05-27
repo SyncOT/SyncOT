@@ -1,4 +1,4 @@
-import { SyncOtEmitter } from '@syncot/util'
+import { randomInteger, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 import { Connection } from './connection'
@@ -43,6 +43,7 @@ export interface StreamManagerOptions {
     maxDelay?: number
     /**
      * How many times longer to wait on each subsequent reconnect attempt.
+     * If set to 0, a random delay is used every time.
      * Default is 1.5.
      */
     delayFactor?: number
@@ -99,8 +100,9 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
             'Argument "maxDelay" must be a safe integer >= minDelay.',
         )
         assert.ok(
-            Number.isFinite(this.delayFactor) && this.delayFactor >= 1,
-            'Argument "delayFactor" must be a finite number >= 1.',
+            Number.isFinite(this.delayFactor) &&
+                (this.delayFactor >= 1 || this.delayFactor === 0),
+            'Argument "delayFactor" must be a finite number >= 1 or == 0.',
         )
 
         this.connection.on('connect', this.onConnect)
@@ -163,6 +165,8 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         const delay =
             this.attempt === -1
                 ? 0
+                : this.delayFactor === 0
+                ? randomInteger(this.minDelay, this.maxDelay)
                 : Math.min(
                       this.maxDelay,
                       this.minDelay * Math.pow(this.delayFactor, this.attempt),
