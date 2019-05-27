@@ -297,6 +297,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         resetPresence()
         const handle = setInterval(resetPresence, this.ttl * 1000)
+        this.redis.setMaxListeners(this.redis.getMaxListeners() + 1)
         this.redis.on('ready', resetPresence)
         this.redis.on('close', onClose)
         subscriber.onChannel(channel, onMessage)
@@ -306,6 +307,9 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             clearInterval(handle)
             this.redis.off('ready', resetPresence)
             this.redis.off('close', onClose)
+            this.redis.setMaxListeners(
+                Math.max(this.redis.getMaxListeners() - 1, 0),
+            )
             subscriber.offChannel(channel, onMessage)
             this.presenceStreams.delete(stream)
         })
