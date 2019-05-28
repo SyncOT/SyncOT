@@ -1,6 +1,5 @@
-import { invertedStreams } from '.'
+import { delay, invertedStreams } from '.'
 
-const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 const error = new Error('test')
 
 describe('objectMode=false', () => {

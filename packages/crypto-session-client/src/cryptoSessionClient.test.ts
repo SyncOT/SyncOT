@@ -3,14 +3,12 @@
  */
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import { invertedStreams, whenNextTick } from '@syncot/util'
+import { delay, invertedStreams, whenNextTick } from '@syncot/util'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 import { Duplex } from 'readable-stream'
 import { createSessionManager } from '.'
 
 const testError = new Error('test error')
-const delay = (time: number = 0) =>
-    new Promise(resolve => setTimeout(resolve, time))
 
 let challenge: Buffer
 let serverStream: Duplex

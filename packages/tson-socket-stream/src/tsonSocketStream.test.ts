@@ -3,6 +3,7 @@
  */
 /// <reference lib="dom" />
 import { decode, encode } from '@syncot/tson'
+import { delay } from '@syncot/util'
 import * as http from 'http'
 import { AddressInfo } from 'net'
 import * as sockJs from 'sockjs'
@@ -16,7 +17,6 @@ import {
 import { ReadyState } from './tsonSocketStream'
 
 const error = new Error('test error')
-const delay = (time = 0) => new Promise(resolve => setTimeout(resolve, time))
 
 const streamDestroyedMatcher = expect.objectContaining({
     message: 'Cannot call write after a stream was destroyed',

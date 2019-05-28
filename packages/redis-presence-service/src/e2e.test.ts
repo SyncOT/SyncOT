@@ -3,7 +3,12 @@ import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
+import {
+    delay,
+    invertedStreams,
+    randomInteger,
+    SyncOtEmitter,
+} from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
@@ -20,9 +25,6 @@ const whenRedisCommandExecuted = (commandName: string) =>
         }
         monitor.on('monitor', listener)
     })
-
-const delay = (time: number = 0) =>
-    new Promise(resolve => setTimeout(resolve, time))
 
 let port: number
 let redisOptions: Redis.RedisOptions

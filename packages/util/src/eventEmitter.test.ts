@@ -1,4 +1,4 @@
-import { SyncOtEmitter, whenNextTick } from '.'
+import { delay, SyncOtEmitter, whenNextTick } from '.'
 
 type Params = [number, string, boolean]
 const params: Params = [1, 'test', true]
@@ -10,8 +10,6 @@ interface Events {
 
 let emitter: SyncOtEmitter<Events>
 let onEvent: jest.Mock<Params>
-
-const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => {
     emitter = new SyncOtEmitter()

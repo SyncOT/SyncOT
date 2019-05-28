@@ -1,10 +1,8 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
+import { delay } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { createAuthClient } from '.'
-
-const delay = (time: number = 0) =>
-    new Promise(resolve => setTimeout(resolve, time))
 
 const createDuplex = () =>
     new Duplex({

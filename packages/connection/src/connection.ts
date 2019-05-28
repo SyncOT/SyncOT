@@ -246,6 +246,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         this._connectionId++
 
         const onData = (data: Message) => {
+            /* istanbul ignore else */
             if (this.stream === stream) {
                 this.onData(data)
             }

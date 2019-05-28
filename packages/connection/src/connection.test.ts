@@ -1,4 +1,4 @@
-import { invertedStreams, noop, whenNextTick } from '@syncot/util'
+import { delay, invertedStreams, noop, whenNextTick } from '@syncot/util'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,
@@ -36,7 +36,6 @@ let instance: {
     testMethod?: (..._args: any) => any
     anotherMethod?: (..._args: any) => any
 }
-const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 const whenClose = (stream: Duplex) =>
     new Promise(resolve => stream.once('close', resolve))
