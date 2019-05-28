@@ -1,4 +1,4 @@
-import { invertedStreams, noop } from '@syncot/util'
+import { invertedStreams, noop, whenNextTick } from '@syncot/util'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,
@@ -79,7 +79,7 @@ describe('connection', () => {
         connection.connect(stream1)
         expect(connection.connectionId).toBe(1)
         expect(connection.isConnected()).toBe(true)
-        await Promise.resolve()
+        await whenNextTick()
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('destroy, connect', () => {
@@ -98,7 +98,7 @@ describe('connection', () => {
         connection.connect(stream1)
         connection.destroy()
         expect(connection.isConnected()).toBe(false)
-        await Promise.resolve()
+        await whenNextTick()
         expect(connectedCallback).not.toHaveBeenCalled()
         expect(disconnectedCallback).not.toHaveBeenCalled()
         expect(destroyedCallback).toHaveBeenCalledTimes(1)
@@ -108,7 +108,7 @@ describe('connection', () => {
         connection.on('destroy', onDestroy)
         connection.destroy()
         connection.destroy()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onDestroy).toBeCalledTimes(1)
     })
     test('connect twice', async () => {
@@ -122,7 +122,7 @@ describe('connection', () => {
             ),
         )
         expect(connection.isConnected()).toBe(true)
-        await Promise.resolve()
+        await whenNextTick()
         expect(connectedCallback).toHaveBeenCalledTimes(1)
     })
     test('connect with an invalid stream', () => {
@@ -176,7 +176,7 @@ describe('connection', () => {
         connection.disconnect()
         expect(connection.connectionId).toBe(0)
         expect(connection.isConnected()).toBe(false)
-        await Promise.resolve()
+        await whenNextTick()
         expect(connectCallback).toHaveBeenCalledTimes(1)
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
         expect(connectCallback).toHaveBeenCalledBefore(disconnectCallback)
@@ -193,7 +193,7 @@ describe('connection', () => {
         connection.disconnect()
         connection.disconnect()
         expect(connection.isConnected()).toBe(false)
-        await Promise.resolve()
+        await whenNextTick()
         expect(disconnectCallback).toHaveBeenCalledTimes(1)
         expect(errorCallback).not.toHaveBeenCalled()
     })
@@ -223,7 +223,7 @@ describe('connection', () => {
         expect(connection.connectionId).toBe(0)
         expect(connection.isConnected()).toBe(false)
 
-        await Promise.resolve()
+        await whenNextTick()
         expect(connectCallback).toHaveBeenCalledTimes(2)
         expect(disconnectCallback).toHaveBeenCalledTimes(2)
         expect(errorCallback).not.toHaveBeenCalled()

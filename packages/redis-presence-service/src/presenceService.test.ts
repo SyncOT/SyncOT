@@ -8,6 +8,7 @@ import {
     noop,
     randomInteger,
     SyncOtEmitter,
+    whenNextTick,
 } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
@@ -127,8 +128,6 @@ const whenMessage = (expectedTopic: string, expectedMessage: string) =>
         }
         testSubscriber.on('pmessage', listener)
     })
-
-const whenNextTick = () => new Promise(resolve => process.nextTick(resolve))
 
 beforeAll(async () => {
     let attempt = 1

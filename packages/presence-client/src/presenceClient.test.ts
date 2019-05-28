@@ -7,7 +7,7 @@ import {
     PresenceServiceEvents,
 } from '@syncot/presence'
 import { SessionEvents, SessionManager } from '@syncot/session'
-import { invertedStreams, SyncOtEmitter } from '@syncot/util'
+import { invertedStreams, SyncOtEmitter, whenNextTick } from '@syncot/util'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
@@ -290,10 +290,10 @@ test('destroy', async () => {
     const onDestroy = jest.fn()
     presenceClient.on('destroy', onDestroy)
     presenceClient.destroy()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
     presenceClient.destroy()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
@@ -353,8 +353,8 @@ test('localPresence', async () => {
     expect(presenceClient.localPresence).toBeUndefined()
     onLocalPresence = jest.fn()
     presenceClient.on('localPresence', onLocalPresence)
-    await Promise.resolve()
-    await Promise.resolve()
+    await whenNextTick()
+    await whenNextTick()
     expect(onLocalPresence).not.toHaveBeenCalled()
     presenceClient.off('localPresence', onLocalPresence)
 

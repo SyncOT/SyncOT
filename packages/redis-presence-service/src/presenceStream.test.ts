@@ -1,4 +1,5 @@
 import { Presence } from '@syncot/presence'
+import { whenNextTick } from '@syncot/util'
 import { PresenceStream } from './presenceStream'
 
 let presenceStream: PresenceStream
@@ -8,8 +9,6 @@ const testErrorMatcher = expect.objectContaining({
     message: 'test error',
     name: 'Error',
 })
-
-const whenNextTick = () => new Promise(resolve => process.nextTick(resolve))
 
 const lastModified = 999
 const createPresence = (id: number): Presence => ({

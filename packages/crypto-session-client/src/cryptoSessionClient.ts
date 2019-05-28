@@ -54,7 +54,7 @@ class CryptoSessionManager extends SyncOtEmitter<SessionEvents>
             'session',
         ) as SessionService
 
-        Promise.resolve().then(() => this.init())
+        process.nextTick(() => this.init())
     }
 
     public getSessionId(): string | undefined {

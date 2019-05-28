@@ -155,27 +155,25 @@ export class SyncOtEmitter<Events> extends TypedEventEmitter<
     /**
      * Just like `emit` but dispatches the event asynchronously in a microtask.
      */
-    public async emitAsync<K extends keyof Events>(
+    public emitAsync<K extends keyof Events>(
         name: K,
         ...args: Args<Events[K]>
-    ): Promise<boolean>
-    public async emitAsync(name: symbol, ...args: any[]): Promise<boolean>
-    public async emitAsync(name: any, ...args: any[]): Promise<boolean> {
-        await Promise.resolve()
-        return this.emit(name, ...args)
+    ): void
+    public emitAsync(name: symbol, ...args: any[]): void
+    public emitAsync(name: any, ...args: any[]): void {
+        process.nextTick(() => this.emit(name, ...args))
     }
 
     /**
      * Just like `emitAsync` but dispatches the event even if the emitter has been destroyed.
      */
-    public async emitAsyncForce<K extends keyof Events>(
+    public emitAsyncForce<K extends keyof Events>(
         name: K,
         ...args: Args<Events[K]>
-    ): Promise<boolean>
-    public async emitAsyncForce(name: symbol, ...args: any[]): Promise<boolean>
-    public async emitAsyncForce(name: any, ...args: any[]): Promise<boolean> {
-        await Promise.resolve()
-        return this.emitForce(name, ...args)
+    ): void
+    public emitAsyncForce(name: symbol, ...args: any[]): void
+    public emitAsyncForce(name: any, ...args: any[]): void {
+        process.nextTick(() => this.emitForce(name, ...args))
     }
 
     /**

@@ -3,7 +3,7 @@
  */
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import { invertedStreams } from '@syncot/util'
+import { invertedStreams, whenNextTick } from '@syncot/util'
 import { createHash, createPublicKey, createVerify } from 'crypto'
 import { Duplex } from 'readable-stream'
 import { createSessionManager } from '.'
@@ -28,7 +28,9 @@ const disconnect = async () => {
         clientConnection.disconnect()
         serverConnection.disconnect()
     })
-    await new Promise(resolve => sessionManager.on('sessionInactive', resolve))
+    await new Promise(resolve =>
+        sessionManager.once('sessionInactive', resolve),
+    )
 }
 
 const connect = async () => {
@@ -40,7 +42,7 @@ const connect = async () => {
         serverConnection.connect(serverStream)
         clientConnection.connect(clientStream)
     })
-    await new Promise(resolve => sessionManager.on('sessionActive', resolve))
+    await new Promise(resolve => sessionManager.once('sessionActive', resolve))
 }
 
 beforeEach(() => {
@@ -144,10 +146,10 @@ test('destroy', async () => {
     expect(sessionManager.hasSession()).toBeFalse()
     expect(sessionManager.hasActiveSession()).toBeFalse()
     expect(sessionManager.getSessionId()).toBeUndefined()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
     sessionManager.destroy()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 test('error', async () => {
@@ -225,7 +227,13 @@ test('disconnect', async () => {
 })
 
 describe('sessionOpen', () => {
+    let resolveGetChallenge: (challenge: Buffer) => void
+
     beforeEach(done => {
+        const challengePromise: Promise<Buffer> = new Promise(
+            resolve => (resolveGetChallenge = resolve),
+        )
+        sessionService.getChallenge.mockReturnValue(challengePromise)
         sessionManager.once('sessionOpen', done)
     })
 
@@ -251,6 +259,7 @@ describe('sessionOpen', () => {
         sessionManager.on('sessionInactive', onSessionInactive)
         clientConnection.disconnect()
         serverConnection.disconnect()
+        resolveGetChallenge(challenge)
         await delay()
         await connect()
         expect(onSessionActive).toBeCalledTimes(1)
@@ -264,7 +273,7 @@ describe('sessionOpen', () => {
         expect(sessionManager.hasSession()).toBeFalse()
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(sessionManager.getSessionId()).toBeUndefined()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
     test('destroy then error', async () => {
@@ -286,6 +295,7 @@ describe('sessionOpen', () => {
     describe('sessionActive', () => {
         beforeEach(done => {
             sessionManager.on('sessionActive', done)
+            resolveGetChallenge(challenge)
         })
 
         test('state', async () => {
@@ -300,7 +310,7 @@ describe('sessionOpen', () => {
             expect(sessionManager.hasSession()).toBeFalse()
             expect(sessionManager.hasActiveSession()).toBeFalse()
             expect(sessionManager.getSessionId()).toBeUndefined()
-            await Promise.resolve()
+            await whenNextTick()
             expect(onDestroy).toHaveBeenCalledTimes(1)
         })
         test('disconnect, reconnect', async () => {

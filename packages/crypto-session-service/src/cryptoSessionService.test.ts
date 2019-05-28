@@ -1,6 +1,6 @@
 import { Connection, createConnection } from '@syncot/connection'
 import { SessionManager } from '@syncot/session'
-import { invertedStreams } from '@syncot/util'
+import { invertedStreams, whenNextTick } from '@syncot/util'
 import { createHash, createSign, generateKeyPairSync } from 'crypto'
 import { Duplex } from 'readable-stream'
 import { createSessionManager } from '.'
@@ -111,10 +111,10 @@ test('destroy', async () => {
     const onDestroy = jest.fn()
     sessionManager.on('destroy', onDestroy)
     sessionManager.destroy()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
     sessionManager.destroy()
-    await Promise.resolve()
+    await whenNextTick()
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
@@ -124,7 +124,7 @@ test('disconnect', async () => {
     sessionManager.on('sessionInactive', onSessionInactive)
     sessionManager.on('sessionClose', onSessionClose)
     serverConnection.disconnect()
-    await Promise.resolve()
+    await whenNextTick()
     expect(sessionManager.getSessionId()).toBeUndefined()
     expect(sessionManager.hasSession()).toBeFalse()
     expect(sessionManager.hasActiveSession()).toBeFalse()
@@ -157,7 +157,7 @@ test('get different challenge after reconnection', async () => {
     })
     clientConnection.connect(clientStream)
     serverConnection.connect(serverStream)
-    await Promise.resolve()
+    await whenNextTick()
 
     const challenge2 = await proxy.getChallenge()
     expect(challenge2).toBeInstanceOf(Buffer)
@@ -178,6 +178,7 @@ test('activateSession', async () => {
     expect(sessionManager.getSessionId()).toBe(sessionId)
     expect(sessionManager.hasSession()).toBeTrue()
     expect(sessionManager.hasActiveSession()).toBeTrue()
+    await whenNextTick()
     expect(onSessionOpen).toHaveBeenCalledTimes(1)
     expect(onSessionActive).toHaveBeenCalledTimes(1)
     expect(onSessionOpen).toHaveBeenCalledBefore(onSessionActive)
@@ -255,7 +256,7 @@ describe('active session', () => {
         expect(sessionManager.hasActiveSession()).toBeFalse()
         expect(onSessionInactive).not.toHaveBeenCalled()
         expect(onSessionClose).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
 

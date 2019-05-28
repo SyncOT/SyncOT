@@ -1,4 +1,4 @@
-import { noop } from '@syncot/util'
+import { noop, whenNextTick } from '@syncot/util'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex } from 'readable-stream'
 import {
@@ -429,7 +429,7 @@ test('managed stream error', async () => {
     manager.on('error', onError)
     stream.on('error', noop)
     stream.emit('error', testError)
-    await Promise.resolve()
+    await whenNextTick()
 
     expect(onError).toHaveBeenCalledTimes(1)
     expect(onError).toHaveBeenCalledWith(testError)
@@ -442,7 +442,7 @@ test('non-managed stream error', async () => {
     manager.on('error', onError)
     stream.on('error', noop)
     stream.emit('error', testError)
-    await Promise.resolve()
+    await whenNextTick()
 
     expect(onError).toHaveBeenCalledTimes(0)
 })

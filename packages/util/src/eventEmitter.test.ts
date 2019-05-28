@@ -1,4 +1,4 @@
-import { SyncOtEmitter } from '.'
+import { SyncOtEmitter, whenNextTick } from '.'
 
 type Params = [number, string, boolean]
 const params: Params = [1, 'test', true]
@@ -10,6 +10,8 @@ interface Events {
 
 let emitter: SyncOtEmitter<Events>
 let onEvent: jest.Mock<Params>
+
+const delay = () => new Promise(resolve => setTimeout(resolve, 0))
 
 beforeEach(() => {
     emitter = new SyncOtEmitter()
@@ -25,12 +27,11 @@ describe('destroy', () => {
         emitter.destroy()
         expect(emitter.destroyed).toBeTrue()
         expect(onDestroy).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onDestroy).toHaveBeenCalledWith()
         emitter.destroy()
         emitter.destroy()
-        await Promise.resolve()
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
     })
     test('with error', async () => {
@@ -41,12 +42,12 @@ describe('destroy', () => {
         emitter.on('error', onError)
         emitter.destroy(error)
         expect(emitter.destroyed).toBeTrue()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onDestroy).toHaveBeenCalledWith()
         expect(onError).toHaveBeenCalledWith(error)
         expect(onError).toHaveBeenCalledBefore(onDestroy)
         emitter.destroy(error)
-        await Promise.resolve()
+        await delay()
         expect(onDestroy).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledTimes(1)
     })
@@ -112,22 +113,15 @@ describe('emitAsync', () => {
     test('emit an event', async () => {
         emitter.emitAsync('event', ...params)
         expect(onEvent).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onEvent).toHaveBeenCalledWith(...params)
     })
     test('emit after destroy', async () => {
         emitter.destroy()
         emitter.emitAsync('event', ...params)
         expect(onEvent).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onEvent).not.toHaveBeenCalled()
-    })
-    test('return value', async () => {
-        await expect(emitter.emitAsync('event', ...params)).resolves.toBeTrue()
-        await expect(emitter.emitAsync('other', ...params)).resolves.toBeFalse()
-        emitter.destroy()
-        await expect(emitter.emitAsync('event', ...params)).resolves.toBeTrue()
-        await expect(emitter.emitAsync('other', ...params)).resolves.toBeFalse()
     })
 })
 
@@ -135,29 +129,14 @@ describe('emitAsyncForce', () => {
     test('emit an event', async () => {
         emitter.emitAsyncForce('event', ...params)
         expect(onEvent).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onEvent).toHaveBeenCalledWith(...params)
     })
     test('emit after destroy', async () => {
         emitter.destroy()
         emitter.emitAsyncForce('event', ...params)
         expect(onEvent).not.toHaveBeenCalled()
-        await Promise.resolve()
+        await whenNextTick()
         expect(onEvent).toHaveBeenCalledWith(...params)
-    })
-    test('return value', async () => {
-        await expect(
-            emitter.emitAsyncForce('event', ...params),
-        ).resolves.toBeTrue()
-        await expect(
-            emitter.emitAsyncForce('other', ...params),
-        ).resolves.toBeFalse()
-        emitter.destroy()
-        await expect(
-            emitter.emitAsyncForce('event', ...params),
-        ).resolves.toBeTrue()
-        await expect(
-            emitter.emitAsyncForce('other', ...params),
-        ).resolves.toBeFalse()
     })
 })
