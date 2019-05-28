@@ -1,6 +1,6 @@
 {
   "name": "@syncot/presence-client",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A generic presence client.",
   "keywords": [
     "presence",
