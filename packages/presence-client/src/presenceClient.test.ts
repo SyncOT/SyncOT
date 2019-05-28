@@ -12,10 +12,6 @@ import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
 
-// setTimeout is overridden by lolex.
-const originalSetTimeout = setTimeout
-const delay = () => new Promise(resolve => originalSetTimeout(resolve, 0))
-
 const testError = new Error('test-error')
 const testErrorMatcher = expect.objectContaining({
     message: 'test-error',
@@ -498,7 +494,7 @@ describe('online', () => {
 describe('submitPresence', () => {
     test('submit presence', async () => {
         presenceClient.locationId = locationId
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
         expect(presenceService.submitPresence).toHaveBeenCalledWith({
@@ -510,7 +506,7 @@ describe('submitPresence', () => {
     test('submit presence - avoiding unnecessary requests', async () => {
         presenceClient.locationId = locationId
         presenceClient.data = data
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
         expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
@@ -520,7 +516,7 @@ describe('submitPresence', () => {
         presenceClient.locationId = locationId
         presenceClient.data = data
         presenceClient.destroy()
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     })
@@ -530,7 +526,7 @@ describe('submitPresence', () => {
         presenceClient.data = data
         sessionClient.hasActiveSession.mockReturnValue(false)
         sessionClient.emit('sessionInactive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     })
@@ -540,13 +536,13 @@ describe('submitPresence', () => {
         presenceClient.data = data
         sessionClient.hasActiveSession.mockReturnValue(false)
         sessionClient.emit('sessionInactive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
 
         sessionClient.hasActiveSession.mockReturnValue(true)
         sessionClient.emit('sessionActive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
         expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
@@ -557,7 +553,8 @@ describe('submitPresence', () => {
         presenceClient.on('error', onError)
         presenceService.submitPresence.mockRejectedValue(testError)
         presenceClient.locationId = locationId
-        await delay()
+        await whenNextTick()
+        await whenNextTick()
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(syncErrorMatcher)
     })
@@ -566,9 +563,9 @@ describe('submitPresence', () => {
 describe('removePresence', () => {
     test('remove presence', async () => {
         presenceClient.locationId = locationId
-        await delay()
+        await whenNextTick()
         presenceClient.locationId = undefined
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(1)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     })
@@ -576,7 +573,7 @@ describe('removePresence', () => {
     test('remove presence - avoiding unnecessary requests', async () => {
         presenceClient.locationId = locationId
         presenceClient.locationId = undefined
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(1)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     })
@@ -585,7 +582,7 @@ describe('removePresence', () => {
         presenceClient.locationId = locationId
         presenceClient.locationId = undefined
         presenceClient.destroy()
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     })
@@ -595,7 +592,7 @@ describe('removePresence', () => {
         presenceClient.locationId = undefined
         sessionClient.hasActiveSession.mockReturnValue(false)
         sessionClient.emit('sessionInactive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     })
@@ -603,25 +600,25 @@ describe('removePresence', () => {
     test('do not remove presence on getting online or offline', async () => {
         presenceClient.locationId = locationId
         presenceClient.data = data
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
 
         // Do not remove presence when getting offline because the server does it automatically.
         sessionClient.hasActiveSession.mockReturnValue(false)
         sessionClient.emit('sessionInactive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
 
         // Clear the local presence.
         presenceClient.locationId = undefined
-        await delay()
+        await whenNextTick()
 
         // Do not remove presence when getting online because it is not on the server anyway.
         sessionClient.hasActiveSession.mockReturnValue(true)
         sessionClient.emit('sessionActive')
-        await delay()
+        await whenNextTick()
         expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
         expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     })
@@ -631,9 +628,9 @@ describe('removePresence', () => {
         presenceClient.on('error', onError)
         presenceService.removePresence.mockRejectedValue(testError)
         presenceClient.locationId = locationId
-        await delay()
+        await whenNextTick()
         presenceClient.locationId = undefined
-        await delay()
+        await whenNextTick()
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(syncErrorMatcher)
     })
