@@ -1,6 +1,6 @@
 {
   "name": "@syncot/session",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Interfaces and type definitions related to session management.",
   "keywords": [
     "interface",
