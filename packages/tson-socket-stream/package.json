@@ -1,6 +1,6 @@
 {
   "name": "@syncot/tson-socket-stream",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "A Duplex object stream backed by a socket (WebSocket, ws, SockJS) exchanging TSON encoded messages.",
   "keywords": [
     "tson",
