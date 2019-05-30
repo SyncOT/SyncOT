@@ -1,5 +1,5 @@
 import { Presence, PresenceClient, PresenceMessage } from '@syncot/presence'
-import { noop, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, noop, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 
@@ -18,7 +18,8 @@ export interface PresenceSyncEvents {
  * @event error `(error: Error) => void` Emitted when an underlying `Presence` stream gets an error.
  * @event destroy `() => void` Emitted once this `PresenceSync` object gets destroyed.
  */
-export interface PresenceSync extends SyncOtEmitter<PresenceSyncEvents> {
+export interface PresenceSync
+    extends EmitterInterface<SyncOtEmitter<PresenceSyncEvents>> {
     /**
      * A map of Presence objects indexed by sessionId.
      * It is synchronized with a server based on a filter.

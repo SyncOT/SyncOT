@@ -1,4 +1,4 @@
-import { randomInteger, SyncOtEmitter } from '@syncot/util'
+import { EmitterInterface, randomInteger, SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 import { Connection } from './connection'
@@ -17,7 +17,8 @@ export interface StreamManagerEvents {
  * @event error When a managed stream emits an error.
  * @event destroy When the `StreamManager` is destroyed.
  */
-export interface StreamManager extends SyncOtEmitter<StreamManagerEvents> {}
+export interface StreamManager
+    extends EmitterInterface<SyncOtEmitter<StreamManagerEvents>> {}
 
 /**
  * The parameter type for `createStreamManager`.
