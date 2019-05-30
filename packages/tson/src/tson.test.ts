@@ -95,6 +95,71 @@ describe('encode', () => {
         })
     })
 
+    describe('circular references', () => {
+        let root: any
+        beforeEach(() => {
+            root = {
+                a: [
+                    Buffer.allocUnsafe(0),
+                    null,
+                    new Error('test error'),
+                    { b: [1, 1, 1, { c: [] }] },
+                ],
+                d: true,
+                e: 5,
+                f: 's',
+            }
+        })
+        test('cycle at the root object', () => {
+            root.a[3].b[3].c[0] = root
+            expect(() => encode(root)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('nested cycle at an object', () => {
+            root.a[3].b[3].c[0] = root.a[3]
+            expect(() => encode(root)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('cycle at the root array', () => {
+            root.a[3].b[3].c[0] = root.a
+            expect(() => encode(root.a)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('nested cycle at an array', () => {
+            root.a[3].b[3].c[0] = root.a[3].b
+            expect(() => encode(root.a)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('cycle at the root error', () => {
+            root.a[2].r = root
+            expect(() => encode(root.a[2])).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('nested cycle at an error', () => {
+            root.a[2].r = root
+            expect(() => encode(root)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('duplicate object without a cycle', () => {
+            root.g = root.a[3]
+            expect(decode(encode(root))).toEqual(root)
+        })
+        test('duplicate array without a cycle', () => {
+            root.g = root.a
+            expect(decode(encode(root))).toEqual(root)
+        })
+        test('duplicate error without a cycle', () => {
+            root.g = root.a[2]
+            expect(decode(encode(root))).toEqual(root)
+        })
+    })
+
     describe('null', () => {
         test('null', () => {
             const buffer = encodeToSmartBuffer(null)

@@ -138,12 +138,22 @@ function canSaveWithSinglePrecision(item: number): boolean {
     return floatPrecisionTestingMemory.readFloatLE(0) === item
 }
 
+function detectCircularReference(path: Path, object: object): void {
+    for (let i = 0, l = path.length; i < l; ++i) {
+        if (path[i] === object) {
+            throw createTsonError('Circular reference detected.')
+        }
+    }
+}
+
 // Working memory which should be sufficient for encoding most objects.
 const workingMemory = Buffer.allocUnsafe(8192)
 
 // Used to prevent uncontrolled recursion when encoding because it could
 // easily corrupt the **shared** `workingMemory`.
 let encoding = false
+
+type Path = object[]
 
 /**
  * Returns the encoded `data` as a `Buffer`.
@@ -163,8 +173,11 @@ export function encode(data: any): Buffer {
         const smartBuffer = SmartBuffer.fromBuffer(workingMemory)
         smartBuffer.clear()
 
+        // Used for detecting circular references.
+        const path: Path = []
+
         // Encode the `data` into the `buffer`.
-        encodeAny(smartBuffer, data)
+        encodeAny(smartBuffer, data, path)
 
         // Slice out a nodejs buffer from the smart buffer.
         // Both `buffer` and `smartBuffer` reference the same data.
@@ -178,7 +191,7 @@ export function encode(data: any): Buffer {
     }
 }
 
-function encodeAny(buffer: SmartBuffer, item: any): void {
+function encodeAny(buffer: SmartBuffer, item: any, path: Path): void {
     switch (typeof item) {
         case 'boolean':
             return encodeBoolean(buffer, item)
@@ -187,9 +200,9 @@ function encodeAny(buffer: SmartBuffer, item: any): void {
         case 'string':
             return encodeString(buffer, item)
         case 'object':
-            return encodeObject(buffer, item)
+            return encodeObject(buffer, item, path)
         default:
-            return encodeObject(buffer, null)
+            return encodeObject(buffer, null, path)
     }
 }
 
@@ -242,18 +255,22 @@ function encodeString(buffer: SmartBuffer, item: string): void {
     buffer.writeString(item)
 }
 
-function encodeObject(buffer: SmartBuffer, object: object | null): void {
+function encodeObject(
+    buffer: SmartBuffer,
+    object: object | null,
+    path: Path,
+): void {
     const objectBuffer = toBuffer(object)
     if (objectBuffer) {
         encodeBuffer(buffer, objectBuffer)
     } else if (object === null) {
         encodeNull(buffer)
     } else if (Array.isArray(object)) {
-        encodeArray(buffer, object)
+        encodeArray(buffer, object, path)
     } else if (object instanceof Error) {
-        encodeError(buffer, object)
+        encodeError(buffer, object, path)
     } else {
-        encodePlainObject(buffer, object)
+        encodePlainObject(buffer, object, path)
     }
 }
 
@@ -279,7 +296,10 @@ function encodeBuffer(buffer: SmartBuffer, inputBuffer: Buffer): void {
     buffer.writeBuffer(inputBuffer)
 }
 
-function encodeArray(buffer: SmartBuffer, array: any[]): void {
+function encodeArray(buffer: SmartBuffer, array: any[], path: Path): void {
+    detectCircularReference(path, array)
+    path.push(array)
+
     const length = array.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
@@ -295,11 +315,13 @@ function encodeArray(buffer: SmartBuffer, array: any[]): void {
         buffer.writeUInt32LE(length)
     }
     for (let i = 0; i < length; ++i) {
-        encodeAny(buffer, array[i])
+        encodeAny(buffer, array[i], path)
     }
+
+    path.pop()
 }
 
-function encodeError(buffer: SmartBuffer, error: Error): void {
+function encodeError(buffer: SmartBuffer, error: Error, path: Path): void {
     if (typeof error.name !== 'string') {
         throw createTsonError('Error name is not a string.')
     }
@@ -325,15 +347,19 @@ function encodeError(buffer: SmartBuffer, error: Error): void {
     if (keys.length === 0) {
         encodeNull(buffer)
     } else {
-        encodePlainObject(buffer, error, keys)
+        encodePlainObject(buffer, error, path, keys)
     }
 }
 
 function encodePlainObject(
     buffer: SmartBuffer,
     object: object,
-    keys = Object.keys(object),
+    path: Path,
+    keys: string[] = Object.keys(object),
 ): void {
+    detectCircularReference(path, object)
+    path.push(object)
+
     const length = keys.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
@@ -351,9 +377,11 @@ function encodePlainObject(
     for (let i = 0; i < length; ++i) {
         const key = keys[i]
         const value = (object as any)[key]
-        encodeAny(buffer, key)
-        encodeAny(buffer, value)
+        encodeAny(buffer, key, path)
+        encodeAny(buffer, value, path)
     }
+
+    path.pop()
 }
 
 /**
