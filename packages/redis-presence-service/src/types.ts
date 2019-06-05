@@ -1,6 +1,5 @@
 import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { SessionManager } from '@syncot/session'
 import Redis from 'ioredis'
 
 /**
@@ -10,7 +9,6 @@ export type EncodedPresence = [Buffer, Buffer, Buffer, Buffer, Buffer]
 
 export interface PresenceServiceConfig {
     connection: Connection
-    sessionService: SessionManager
     authService: AuthService
     redis: Redis.Redis
     redisSubscriber: Redis.Redis

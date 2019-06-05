@@ -2,7 +2,6 @@ import { AuthClient, AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
-import { SessionEvents, SessionManager } from '@syncot/session'
 import {
     delay,
     invertedStreams,
@@ -35,48 +34,29 @@ let session1: Session
 let session2: Session
 
 class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
-    public getUserId = jest.fn()
-    public hasUserId = jest.fn().mockReturnValue(true)
+    public active: boolean = true
+    public sessionId: string | undefined = undefined
+    public userId: string | undefined = undefined
     public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
     public mayReadDocument = jest.fn().mockResolvedValue(true)
     public mayWriteDocument = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockResolvedValue(true)
     public mayWritePresence = jest.fn().mockResolvedValue(true)
-    public constructor(userId: string) {
+    public constructor(sessionId: string, userId: string) {
         super()
-        this.getUserId.mockReturnValue(userId)
+        this.sessionId = sessionId
+        this.userId = userId
     }
 }
 
 class MockAuthClient extends SyncOtEmitter<AuthEvents> implements AuthClient {
-    public getUserId = jest.fn()
-    public hasUserId = jest.fn().mockReturnValue(true)
-    public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
-    public constructor(userId: string) {
+    public active: boolean = true
+    public sessionId: string | undefined = undefined
+    public userId: string | undefined = undefined
+    public constructor(sessionId: string, userId: string) {
         super()
-        this.getUserId.mockReturnValue(userId)
-    }
-}
-
-class MockSessionService extends SyncOtEmitter<SessionEvents>
-    implements SessionManager {
-    public getSessionId = jest.fn()
-    public hasSession = jest.fn().mockReturnValue(true)
-    public hasActiveSession = jest.fn().mockReturnValue(true)
-    public constructor(sessionId: string) {
-        super()
-        this.getSessionId.mockReturnValue(sessionId)
-    }
-}
-
-class MockSessionClient extends SyncOtEmitter<SessionEvents>
-    implements SessionManager {
-    public getSessionId = jest.fn()
-    public hasSession = jest.fn().mockReturnValue(true)
-    public hasActiveSession = jest.fn().mockReturnValue(true)
-    public constructor(sessionId: string) {
-        super()
-        this.getSessionId.mockReturnValue(sessionId)
+        this.sessionId = sessionId
+        this.userId = userId
     }
 }
 
@@ -100,8 +80,6 @@ class Session {
 
     public readonly authService: MockAuthService
     public readonly authClient: MockAuthClient
-    public readonly sessionService: MockSessionService
-    public readonly sessionClient: MockSessionClient
 
     public readonly presenceService: PresenceService
     public readonly presenceClient: PresenceClient
@@ -135,22 +113,18 @@ class Session {
         this.serviceConnection.connect(this.serviceStream)
         this.clientConnection.connect(this.clientStream)
 
-        this.authService = new MockAuthService(this.userId)
-        this.authClient = new MockAuthClient(this.userId)
-        this.sessionService = new MockSessionService(this.sessionId)
-        this.sessionClient = new MockSessionClient(this.sessionId)
+        this.authService = new MockAuthService(this.sessionId, this.userId)
+        this.authClient = new MockAuthClient(this.sessionId, this.userId)
 
         this.presenceService = createPresenceService({
             authService: this.authService,
             connection: this.serviceConnection,
             redis: this.redis,
             redisSubscriber: this.redisSubscriber,
-            sessionService: this.sessionService,
         })
         this.presenceClient = createPresenceClient({
             authClient: this.authClient,
             connection: this.clientConnection,
-            sessionClient: this.sessionClient,
         })
     }
 

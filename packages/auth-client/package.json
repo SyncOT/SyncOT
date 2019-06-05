@@ -1,10 +1,9 @@
 {
-  "name": "@syncot/crypto-session-client",
-  "version": "0.0.12",
-  "description": "A cryptographic session client.",
+  "name": "@syncot/auth-client",
+  "version": "0.0.0",
+  "description": "A generic client auth module.",
   "keywords": [
-    "crypto",
-    "session",
+    "auth",
     "client"
   ],
   "sideEffects": false,
@@ -28,9 +27,9 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
-    "@syncot/error": "file:../error",
-    "@syncot/session": "file:../session",
+    "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }

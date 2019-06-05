@@ -436,7 +436,9 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const error = createDisconnectedError('Disconnected, stream destroyed.')
         for (const { streams } of this.proxies.values()) {
             for (const stream of streams.values()) {
-                stream.destroy(error)
+                if (stream.destroyed !== true) {
+                    stream.destroy(error)
+                }
             }
             streams.clear()
         }

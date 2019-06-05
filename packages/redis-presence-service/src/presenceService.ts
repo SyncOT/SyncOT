@@ -5,7 +5,7 @@ import { PresenceServiceConfig, PresenceServiceOptions } from './types'
 /**
  * Creates a new presence service based on Redis and communicating with a presence client
  * through the specified `connection`.
- * The `sessionService` and `authService` are used for authentication and authorization.
+ * The `authService` is used for authentication and authorization.
  * `redis` is used for storage and publishing events.
  * `redisSubscriber` is used for subscribing to events.
  *
@@ -21,18 +21,11 @@ import { PresenceServiceConfig, PresenceServiceOptions } from './types'
  * on `redis` with names starting with `presence`.
  */
 export function createPresenceService(
-    {
-        connection,
-        sessionService,
-        authService,
-        redis,
-        redisSubscriber,
-    }: PresenceServiceConfig,
+    { connection, authService, redis, redisSubscriber }: PresenceServiceConfig,
     options: PresenceServiceOptions = {},
 ): PresenceService {
     return new RedisPresenceService(
         connection,
-        sessionService,
         authService,
         redis,
         redisSubscriber,

@@ -98,8 +98,8 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
     ) {
         super()
         this.presenceClient.on('destroy', this.onDestroy)
-        this.presenceClient.on('online', this.onOnline)
-        this.presenceClient.on('localPresence', this.onLocalPresence)
+        this.presenceClient.on('active', this.onOnline)
+        this.presenceClient.on('presence', this.onLocalPresence)
         this.initStream()
     }
 
@@ -108,8 +108,8 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
             return
         }
         this.presenceClient.off('destroy', this.onDestroy)
-        this.presenceClient.off('online', this.onOnline)
-        this.presenceClient.off('localPresence', this.onLocalPresence)
+        this.presenceClient.off('active', this.onOnline)
+        this.presenceClient.off('presence', this.onLocalPresence)
         this.streamPromise = undefined
         if (this.stream) {
             this.stream.destroy()
@@ -179,7 +179,7 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
             return
         }
 
-        if (this.destroyed || !this.presenceClient.online) {
+        if (!this.presenceClient.active) {
             return
         }
 

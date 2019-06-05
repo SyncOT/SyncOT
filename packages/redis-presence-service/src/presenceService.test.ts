@@ -1,7 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceService } from '@syncot/presence'
-import { SessionEvents, SessionManager } from '@syncot/session'
 import { encode } from '@syncot/tson'
 import {
     invertedStreams,
@@ -16,6 +15,7 @@ import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
 import { createPresenceService } from '.'
+import { requestNames } from './redisPresenceService'
 
 const now = 12345
 let clock: InstalledClock<Clock>
@@ -81,7 +81,6 @@ let monitor: EventEmitter
 let testSubscriber: Redis.Redis
 
 let authService: MockAuthService
-let sessionService: MockSessionService
 
 let stream1: Duplex
 let stream2: Duplex
@@ -91,20 +90,13 @@ let presenceService: PresenceService
 let presenceProxy: PresenceService
 
 class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
-    public getUserId = jest.fn().mockReturnValue(userId)
-    public hasUserId = jest.fn().mockReturnValue(true)
-    public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
+    public active: boolean = true
+    public sessionId: string | undefined = sessionId
+    public userId: string | undefined = userId
     public mayReadDocument = jest.fn().mockResolvedValue(true)
     public mayWriteDocument = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockResolvedValue(true)
     public mayWritePresence = jest.fn().mockResolvedValue(true)
-}
-
-class MockSessionService extends SyncOtEmitter<SessionEvents>
-    implements SessionManager {
-    public getSessionId = jest.fn().mockReturnValue(sessionId)
-    public hasSession = jest.fn().mockReturnValue(true)
-    public hasActiveSession = jest.fn().mockReturnValue(true)
 }
 
 const whenRedisCommandExecuted = (commandName: string) =>
@@ -169,7 +161,6 @@ beforeEach(async () => {
     await testSubscriber.psubscribe('presence:*')
 
     authService = new MockAuthService()
-    sessionService = new MockSessionService()
 
     connection1 = createConnection()
     connection2 = createConnection()
@@ -185,20 +176,10 @@ beforeEach(async () => {
         connection: connection1,
         redis,
         redisSubscriber,
-        sessionService,
     })
     connection2.registerProxy({
         name: 'presence',
-        requestNames: new Set([
-            'submitPresence',
-            'removePresence',
-            'getPresenceBySessionId',
-            'getPresenceByUserId',
-            'getPresenceByLocationId',
-            'streamPresenceBySessionId',
-            'streamPresenceByUserId',
-            'streamPresenceByLocationId',
-        ]),
+        requestNames,
     })
     presenceProxy = connection2.getProxy('presence') as PresenceService
 })
@@ -222,7 +203,6 @@ test('invalid connection (missing)', () => {
             connection: undefined as any,
             redis,
             redisSubscriber,
-            sessionService,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -242,7 +222,6 @@ test('invalid connection (destroyed)', () => {
             connection: newConnection,
             redis,
             redisSubscriber,
-            sessionService,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -265,7 +244,6 @@ test('invalid authService (missing)', () => {
             connection: connection1,
             redis,
             redisSubscriber,
-            sessionService,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -285,7 +263,6 @@ test('invalid authService (destroyed)', () => {
             connection: connection1,
             redis,
             redisSubscriber,
-            sessionService,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -301,49 +278,6 @@ test('destroy on authService destroy', async () => {
     await new Promise(resolve => presenceService.once('destroy', resolve))
 })
 
-test('invalid sessionService (missing)', () => {
-    expect(() =>
-        createPresenceService({
-            authService,
-            connection: connection1,
-            redis,
-            redisSubscriber,
-            sessionService: undefined as any,
-        }),
-    ).toThrow(
-        expect.objectContaining({
-            message:
-                'Argument "sessionService" must be a non-destroyed SessionService.',
-            name: 'AssertionError',
-        }),
-    )
-})
-
-test('invalid sessionService (destroyed)', () => {
-    const newSessionService = new MockSessionService()
-    newSessionService.destroy()
-    expect(() =>
-        createPresenceService({
-            authService,
-            connection: connection1,
-            redis,
-            redisSubscriber,
-            sessionService: newSessionService,
-        }),
-    ).toThrow(
-        expect.objectContaining({
-            message:
-                'Argument "sessionService" must be a non-destroyed SessionService.',
-            name: 'AssertionError',
-        }),
-    )
-})
-
-test('destroy on sessionService destroy', async () => {
-    sessionService.destroy()
-    await new Promise(resolve => presenceService.once('destroy', resolve))
-})
-
 test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
     connection1.disconnect()
     connection2.disconnect()
@@ -355,7 +289,6 @@ test.each(['123', 9] as any[])('invalid ttl: %p', ttl => {
                 connection: connection1,
                 redis,
                 redisSubscriber,
-                sessionService,
             },
             {
                 ttl,
@@ -383,7 +316,6 @@ test.each(['123', 2] as any[])(
                     connection: connection1,
                     redis,
                     redisSubscriber,
-                    sessionService,
                 },
                 {
                     presenceSizeLimit,
@@ -406,7 +338,6 @@ test('create twice on the same connection', () => {
             connection: connection1,
             redis,
             redisSubscriber,
-            sessionService,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -464,22 +395,7 @@ test('remove presence on destroy', async () => {
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
-test.each<[string, () => void]>([
-    [
-        'sessionInactive',
-        () => {
-            sessionService.hasActiveSession.mockReturnValue(false)
-            sessionService.emit('sessionInactive')
-        },
-    ],
-    [
-        'authEnd',
-        () => {
-            authService.hasAuthenticatedUserId.mockReturnValue(false)
-            authService.emit('authEnd')
-        },
-    ],
-])('remove presence on %s', async (_, emitEvent) => {
+test('remove presence on AuthService "inactive" event', async () => {
     await presenceService.submitPresence(presence)
     await new Promise(resolve => presenceService.once('inSync', resolve))
 
@@ -492,7 +408,8 @@ test.each<[string, () => void]>([
     presenceService.on('outOfSync', onOutOfSync)
     presenceService.on('inSync', onInSync)
 
-    emitEvent()
+    authService.active = false
+    authService.emit('inactive')
 
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
@@ -513,20 +430,19 @@ test('reuse service with a different client', async () => {
     await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
 
     // Client 1 disconnects.
-    sessionService.hasActiveSession.mockReturnValue(false)
-    authService.hasAuthenticatedUserId.mockReturnValue(false)
-    sessionService.emit('sessionInactive')
-    authService.emit('authEnd')
+    authService.active = false
+    authService.sessionId = undefined
+    authService.userId = undefined
+    authService.emit('inactive')
     await new Promise(resolve => presenceService.once('inSync', resolve))
     await expect(redis.exists(presenceKey)).resolves.toBe(0)
     await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
     await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
 
     // Client 2 connects.
-    sessionService.getSessionId.mockReturnValue(sessionId2)
-    sessionService.hasActiveSession.mockReturnValue(true)
-    authService.getUserId.mockReturnValue(userId2)
-    authService.hasAuthenticatedUserId.mockReturnValue(true)
+    authService.active = true
+    authService.sessionId = sessionId2
+    authService.userId = userId2
 
     // Client 2 submits presence.
     await presenceService.submitPresence(presence2)
@@ -578,18 +494,10 @@ describe('submitPresence', () => {
         )
     })
 
-    test('no active session', async () => {
-        sessionService.hasActiveSession.mockReturnValue(false)
-        await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
-            expect.objectContaining({
-                message: 'No active session.',
-                name: 'SyncOtError Auth',
-            }),
-        )
-    })
-
     test('no authenticated user', async () => {
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
+        authService.sessionId = undefined
+        authService.userId = undefined
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
@@ -628,7 +536,6 @@ describe('submitPresence', () => {
                     connection: connection1,
                     redis,
                     redisSubscriber,
-                    sessionService,
                 },
                 {
                     presenceSizeLimit,
@@ -647,8 +554,8 @@ describe('submitPresence', () => {
             presenceProxy = connection2.getProxy('presence') as PresenceService
 
             const effectiveLimit = presenceSizeLimit || 1024
-            authService.getUserId.mockReturnValue('')
-            sessionService.getSessionId.mockReturnValue('')
+            authService.userId = ''
+            authService.sessionId = ''
             await expect(
                 presenceProxy.submitPresence({
                     data: Buffer.allocUnsafe(effectiveLimit - 3), // (type + int8 or int16 length + binary data)
@@ -772,7 +679,7 @@ describe('submitPresence', () => {
         // User ID would not change like this in practice, however, we do it
         // to test that the presence indexes are updated correctly even in this
         // extreme case.
-        authService.getUserId.mockReturnValue(userId2)
+        authService.userId = userId2
         await presenceProxy.submitPresence({
             ...presence2,
             sessionId,
@@ -870,7 +777,6 @@ describe('submitPresence', () => {
                         connection: connection1,
                         redis,
                         redisSubscriber,
-                        sessionService,
                     },
                     {
                         ttl: ttlOption,
@@ -1107,8 +1013,7 @@ describe('removePresence', () => {
     test('has presence but no authentication', async () => {
         await presenceProxy.submitPresence(presence)
         await new Promise(resolve => presenceService.once('inSync', resolve))
-        sessionService.hasActiveSession.mockReturnValue(false)
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
 
         await presenceProxy.removePresence()
         await new Promise(resolve => presenceService.once('inSync', resolve))
@@ -1244,20 +1149,8 @@ describe('getPresenceBySessionId', () => {
         )
     })
 
-    test('no active session', async () => {
-        sessionService.hasActiveSession.mockReturnValue(false)
-        await expect(
-            presenceProxy.getPresenceBySessionId(sessionId),
-        ).rejects.toEqual(
-            expect.objectContaining({
-                message: 'No active session.',
-                name: 'SyncOtError Auth',
-            }),
-        )
-    })
-
     test('no authenticated user', async () => {
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).rejects.toEqual(
@@ -1480,18 +1373,8 @@ describe('getPresenceByUserId', () => {
         )
     })
 
-    test('no active session', async () => {
-        sessionService.hasActiveSession.mockReturnValue(false)
-        await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
-            expect.objectContaining({
-                message: 'No active session.',
-                name: 'SyncOtError Auth',
-            }),
-        )
-    })
-
     test('no authenticated user', async () => {
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
@@ -1716,20 +1599,8 @@ describe('getPresenceByLocationId', () => {
         )
     })
 
-    test('no active session', async () => {
-        sessionService.hasActiveSession.mockReturnValue(false)
-        await expect(
-            presenceProxy.getPresenceByLocationId(locationId),
-        ).rejects.toEqual(
-            expect.objectContaining({
-                message: 'No active session.',
-                name: 'SyncOtError Auth',
-            }),
-        )
-    })
-
     test('no authenticated user', async () => {
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).rejects.toEqual(
@@ -1756,20 +1627,8 @@ describe('getPresenceByLocationId', () => {
 })
 
 describe('streamPresenceBySessionId', () => {
-    test('no active session', async () => {
-        sessionService.hasActiveSession.mockReturnValue(false)
-        await expect(
-            presenceProxy.streamPresenceBySessionId(sessionId),
-        ).rejects.toEqual(
-            expect.objectContaining({
-                message: 'No active session.',
-                name: 'SyncOtError Auth',
-            }),
-        )
-    })
-
     test('no authenticated user', async () => {
-        authService.hasAuthenticatedUserId.mockReturnValue(false)
+        authService.active = false
         await expect(
             presenceProxy.streamPresenceBySessionId(sessionId),
         ).rejects.toEqual(

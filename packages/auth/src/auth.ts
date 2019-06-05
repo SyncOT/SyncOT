@@ -5,52 +5,57 @@ import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
  * Events emitted by `AuthService` and `AuthClient`.
  */
 export interface AuthEvents {
-    user: void
-    auth: void
-    authEnd: void
-    userEnd: void
+    active: void
+    inactive: void
     error: Error
 }
 
 /**
  * Manages authentication and authorization on the client side.
  *
- * @event user A user ID has been set.
- * @event auth The user ID has been authenticated.
- * @event authEnd The user ID is no longer authenticated.
- * @event userEnd The user ID has been unset.
- * @event error An auth-related error has occurred. The system will attempt to recover automatically.
- * @event destroy The AuthManager has been destroyed.
+ * @event active The AuthClient has an authenticated user.
+ * @event inactive The AuthClient no longer has an authenticated.
+ * @event error The AuthClient has experienced an error.
+ * @event destroy The AuthClient has been destroyed.
  */
 export interface AuthClient
     extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
     /**
-     * Gets the user ID, if present, otherwise returns undefined.
+     * If a user is authenticated, then `true`, otherwise `false`.
      */
-    getUserId(): string | undefined
-
+    readonly active: boolean
     /**
-     * Returns true, if the user ID is present, otherwise returns false.
+     * If `active===true`, then a session ID, otherwise `undefined`.
      */
-    hasUserId(): boolean
-
+    readonly sessionId: string | undefined
     /**
-     * Returns true, if the user ID has been authenticated, otherwise returns false.
+     * If `active===true`, then the ID of the authenticated user, otherwise `undefined`.
      */
-    hasAuthenticatedUserId(): boolean
+    readonly userId: string | undefined
 }
 
 /**
  * Manages authentication and authorization on the server side.
  *
- * @event user A user ID has been set.
- * @event auth The user ID has been authenticated.
- * @event authEnd The user ID is no longer authenticated.
- * @event userEnd The user ID has been unset.
- * @event error An auth-related error has occurred. The system will attempt to recover automatically.
- * @event destroy The AuthManager has been destroyed.
+ * @event active The AuthService has an authenticated user.
+ * @event inactive The AuthService no longer has an authenticated user.
+ * @event error The AuthService has experienced an error.
+ * @event destroy The AuthService has been destroyed.
  */
-export interface AuthService extends AuthClient {
+export interface AuthService
+    extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
+    /**
+     * If a user is authenticated, then `true`, otherwise `false`.
+     */
+    readonly active: boolean
+    /**
+     * If `active===true`, then a session ID, otherwise `undefined`.
+     */
+    readonly sessionId: string | undefined
+    /**
+     * If `active===true`, then the ID of the authenticated user, otherwise `undefined`.
+     */
+    readonly userId: string | undefined
     /**
      * Determines if the user may read from the specified document.
      */

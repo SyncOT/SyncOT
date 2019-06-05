@@ -5,8 +5,10 @@
     "outDir": "./lib"
   },
   "references": [
+    { "path": "../auth" },
     { "path": "../connection" },
-    { "path": "../session" },
+    { "path": "../presence" },
+    { "path": "../auth-client" },
     { "path": "../util" }
   ]
 }

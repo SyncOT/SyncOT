@@ -65,8 +65,8 @@ class MockPresenceClient extends SyncOtEmitter<PresenceClientEvents>
     public userId: string | undefined = userId
     public locationId: string | undefined = locationId
     public data: any = data
-    public online: boolean = true
-    public localPresence: Presence | undefined = undefined
+    public active: boolean = true
+    public presence: Presence | undefined = undefined
     public getPresenceBySessionId = jest.fn<
         Promise<Presence | null>,
         [string]
@@ -302,7 +302,7 @@ describe('sync', () => {
             expect(presenceSync.presence).toEqual(new Map(pairList))
         })
 
-        test('recreate stream once presenceClient gets online', async () => {
+        test('recreate stream once presenceClient gets active', async () => {
             const onChange = jest.fn()
             const presenceSync = syncPresence(presenceClient, id)
             presenceSync.on('change', onChange)
@@ -317,7 +317,7 @@ describe('sync', () => {
             // Simulate a disconnection.
             onChange.mockClear()
             presenceClient[streamName].mockClear()
-            presenceClient.online = false
+            presenceClient.active = false
             controllerStream.destroy()
             await whenNextTick()
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(0)
@@ -325,8 +325,8 @@ describe('sync', () => {
             expect(presenceSync.presence).toEqual(new Map())
 
             // Simulate reconnection.
-            presenceClient.online = true
-            presenceClient.emit('online')
+            presenceClient.active = true
+            presenceClient.emit('active')
             await whenNextTick()
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(1)
 
@@ -359,7 +359,7 @@ describe('sync', () => {
             expect(onError).toHaveBeenCalledWith(testErrorMatcher)
         })
 
-        test('localPresence event - locationId changed', async () => {
+        test('presence event - locationId changed', async () => {
             const onChange = jest.fn()
             const presenceSync = syncPresence(presenceClient, id)
             presenceSync.on('change', onChange)
@@ -378,7 +378,7 @@ describe('sync', () => {
             onChange.mockClear()
             presenceClient[streamName].mockClear()
             presenceClient.locationId = differentLocationId
-            presenceClient.emit('localPresence')
+            presenceClient.emit('presence')
             await whenNextTick()
             if (syncPresence !== syncPresenceByCurrentLocationId) {
                 expect(onChange).toHaveBeenCalledTimes(0)
@@ -401,7 +401,7 @@ describe('sync', () => {
             expect(presenceSync.presence).toEqual(new Map(pairList))
         })
 
-        test('localPresence event - locationId not changed', async () => {
+        test('presence event - locationId not changed', async () => {
             const onChange = jest.fn()
             const presenceSync = syncPresence(presenceClient, id)
             presenceSync.on('change', onChange)
@@ -418,7 +418,7 @@ describe('sync', () => {
             onChange.mockClear()
             presenceClient[streamName].mockClear()
             presenceClient.data = 'different data'
-            presenceClient.emit('localPresence')
+            presenceClient.emit('presence')
             await whenNextTick()
             expect(onChange).toHaveBeenCalledTimes(0)
         })
@@ -441,9 +441,9 @@ describe('sync', () => {
             const controllerStream1 = controllerStream
 
             presenceClient[streamName].mockClear()
-            presenceClient.emit('online')
+            presenceClient.emit('active')
             const controllerStream2 = controllerStream
-            presenceClient.emit('online')
+            presenceClient.emit('active')
             const controllerStream3 = controllerStream
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(2)
             expect(controllerStream1).not.toBe(controllerStream2)
@@ -477,8 +477,8 @@ describe('sync', () => {
             presenceClient[streamName].mockRejectedValue(testError)
             const presenceSync = syncPresence(presenceClient, id)
             presenceSync.on('error', onError)
-            presenceClient.emit('online')
-            presenceClient.emit('online')
+            presenceClient.emit('active')
+            presenceClient.emit('active')
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(3)
             await whenNextTick()
             expect(onError).toHaveBeenCalledTimes(1)
@@ -502,7 +502,7 @@ describe('sync', () => {
             onChange.mockClear()
             presenceClient[streamName].mockClear()
             controllerStream.on('close', onClose)
-            presenceClient.emit('online')
+            presenceClient.emit('active')
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(0)
             await whenNextTick()
             expect(onClose).toHaveBeenCalledTimes(1)

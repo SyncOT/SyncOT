@@ -8,7 +8,6 @@ import {
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { SessionManager } from '@syncot/session'
 import { decode, encode } from '@syncot/tson'
 import { SyncOtEmitter, throwError } from '@syncot/util'
 import { strict as assert } from 'assert'
@@ -17,6 +16,17 @@ import { Duplex } from 'readable-stream'
 import { PresenceStream } from './presenceStream'
 import { defineRedisCommands, PresenceCommands } from './redisCommands'
 import { EncodedPresence, PresenceServiceOptions } from './types'
+
+export const requestNames = new Set([
+    'submitPresence',
+    'removePresence',
+    'getPresenceBySessionId',
+    'getPresenceByUserId',
+    'getPresenceByLocationId',
+    'streamPresenceBySessionId',
+    'streamPresenceByLocationId',
+    'streamPresenceByUserId',
+])
 
 export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
@@ -33,7 +43,6 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
     public constructor(
         private readonly connection: Connection,
-        private readonly sessionService: SessionManager,
         private readonly authService: AuthService,
         redis: Redis.Redis,
         private readonly redisSubscriber: Redis.Redis,
@@ -44,10 +53,6 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         assert.ok(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
-        )
-        assert.ok(
-            this.sessionService && !this.sessionService.destroyed,
-            'Argument "sessionService" must be a non-destroyed SessionService.',
         )
         assert.ok(
             this.authService && !this.authService.destroyed,
@@ -74,25 +79,14 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.connection.registerService({
             instance: this,
             name: 'presence',
-            requestNames: new Set([
-                'submitPresence',
-                'removePresence',
-                'getPresenceBySessionId',
-                'getPresenceByUserId',
-                'getPresenceByLocationId',
-                'streamPresenceBySessionId',
-                'streamPresenceByLocationId',
-                'streamPresenceByUserId',
-            ]),
+            requestNames,
         })
 
         this.redis = defineRedisCommands(redis)
         this.redis.on('ready', this.onReady)
         this.connection.on('destroy', this.onDestroy)
         this.authService.on('destroy', this.onDestroy)
-        this.authService.on('authEnd', this.onAuthEnd)
-        this.sessionService.on('destroy', this.onDestroy)
-        this.sessionService.on('sessionInactive', this.onSessionInactive)
+        this.authService.on('inactive', this.onInactive)
     }
 
     public destroy(): void {
@@ -103,9 +97,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.redis.off('ready', this.onReady)
         this.connection.off('destroy', this.onDestroy)
         this.authService.off('destroy', this.onDestroy)
-        this.authService.off('authEnd', this.onAuthEnd)
-        this.sessionService.off('destroy', this.onDestroy)
-        this.sessionService.off('sessionInactive', this.onSessionInactive)
+        this.authService.off('inactive', this.onInactive)
 
         this.ensureNoPresence()
         this.presenceStreams.forEach(stream => stream.destroy())
@@ -117,13 +109,11 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
         throwError(validatePresence(presence))
 
-        const sessionId = this.sessionService.getSessionId()
-        if (presence.sessionId !== sessionId) {
+        if (presence.sessionId !== this.authService.sessionId) {
             throw createPresenceError('Session ID mismatch.')
         }
 
-        const userId = this.authService.getUserId()
-        if (presence.userId !== userId) {
+        if (presence.userId !== this.authService.userId) {
             throw createPresenceError('User ID mismatch.')
         }
 
@@ -323,12 +313,8 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private assertAuthenticated(): void {
-        if (!this.authService.hasAuthenticatedUserId()) {
+        if (!this.authService.active) {
             throw createAuthError('No authenticated user.')
-        }
-
-        if (!this.sessionService.hasActiveSession()) {
-            throw createAuthError('No active session.')
         }
     }
 
@@ -434,11 +420,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.updateRedis()
     }
 
-    private onAuthEnd = (): void => {
-        this.ensureNoPresence()
-    }
-
-    private onSessionInactive = (): void => {
+    private onInactive = (): void => {
         this.ensureNoPresence()
     }
 

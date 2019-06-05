@@ -1,2 +1,5 @@
-export * from './presenceClient'
+export {
+    createPresenceClient,
+    CreatePresenceClientOptions,
+} from './presenceClient'
 export * from './presenceSync'

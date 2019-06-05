@@ -33,7 +33,6 @@
     "@syncot/error": "file:../error",
     "@syncot/ioredis-subscriber": "file:../ioredis-subscriber",
     "@syncot/presence": "file:../presence",
-    "@syncot/session": "file:../session",
     "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",

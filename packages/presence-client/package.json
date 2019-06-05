@@ -31,7 +31,6 @@
     "@syncot/connection": "file:../connection",
     "@syncot/error": "file:../error",
     "@syncot/presence": "file:../presence",
-    "@syncot/session": "file:../session",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",

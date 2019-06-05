@@ -1,10 +1,11 @@
 {
-  "name": "@syncot/session",
-  "version": "0.0.7",
-  "description": "Interfaces and type definitions related to session management.",
+  "name": "@syncot/anonymous-auth-service",
+  "version": "0.0.0",
+  "description": "A server auth module providing anonymous read-write access to all data.",
   "keywords": [
-    "interface",
-    "session"
+    "anonymous",
+    "auth",
+    "service"
   ],
   "sideEffects": false,
   "main": "lib/index.js",
@@ -27,6 +28,9 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/auth": "file:../auth",
+    "@syncot/connection": "file:../connection",
+    "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }

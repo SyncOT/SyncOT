@@ -44,9 +44,9 @@ export const validatePresence: Validator<Presence> = validate([
 ])
 
 export interface PresenceClientEvents {
-    localPresence: void
-    online: void
-    offline: void
+    presence: void
+    active: void
+    inactive: void
     error: Error
 }
 
@@ -59,20 +59,42 @@ export interface PresenceServiceEvents {
 /**
  * Manages presence on the client side and synchronizes it with PresenceService.
  *
- * @event localPresence When the local presence has changed.
- * @event online The PresenceClient has connected to PresenceService.
- * @event offline The PresenceClient has disconnected from PresenceService.
+ * @event presence When the local presence has changed.
+ * @event active The PresenceClient starts to synchronize presence with the PresenceService.
+ * @event inactive The PresenceClient stops to synchronize presence with the  PresenceService.
  * @event error A presence-related error has occurred.
  * @event destroy The PresenceClient has been destroyed.
  */
 export interface PresenceClient
     extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
+    /**
+     * The read-only local presence `sessionId`.
+     * It is `undefined` if, and only if, `active` is `false`.
+     */
     readonly sessionId: string | undefined
+    /**
+     * The read-only local presence `userId`.
+     * It is `undefined` if, and only if, `active` is `false`.
+     */
     readonly userId: string | undefined
+    /**
+     * The read-write local presence `locationId`.
+     */
     locationId: string | undefined
+    /**
+     * The read-write local presence `data`.
+     */
     data: any
-    readonly localPresence: Presence | undefined
-    readonly online: boolean
+    /**
+     * The read-only local presence.
+     * It is `undefined` if, and only if,
+     * either `sessionId`, `userId` or `locationId` is `undefined`.
+     */
+    readonly presence: Presence | undefined
+    /**
+     * If `true`, `presence` is synchronized with the PresenceService, otherwise `false`.
+     */
+    readonly active: boolean
 
     getPresenceBySessionId(sessionId: string): Promise<Presence | null>
     getPresenceByUserId(userId: string): Promise<Presence[]>

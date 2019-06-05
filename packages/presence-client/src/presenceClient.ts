@@ -7,74 +7,84 @@ import {
     PresenceClientEvents,
     PresenceService,
 } from '@syncot/presence'
-import { SessionManager } from '@syncot/session'
 import { SyncOtEmitter } from '@syncot/util'
 import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 
 /**
- * Creates a new presence client communicating with a presence service
- * through the specified `connection`. The `sessionClient` and `authClient` are
- * needed to get the `sessionId` and `userId` respectively.
+ * Options expected by `createPresenceClient`.
+ */
+export interface CreatePresenceClientOptions {
+    /**
+     * The Connection used for communication with PresenceService.
+     */
+    connection: Connection
+    /**
+     * The AuthClient used for authentication and authorization.
+     */
+    authClient: AuthClient
+    /**
+     * The name of the PresenceService on the Connection.
+     * Default is `presence`.
+     */
+    serviceName?: string
+}
+
+/**
+ * Creates a new PresenceClient communicating with a PresenceService
+ * through the specified Connection.
  */
 export function createPresenceClient({
     connection,
-    sessionClient,
     authClient,
-}: {
-    connection: Connection
-    sessionClient: SessionManager
-    authClient: AuthClient
-}): PresenceClient {
-    return new GenericPresenceClient(connection, sessionClient, authClient)
+    serviceName = 'presence',
+}: CreatePresenceClientOptions): PresenceClient {
+    return new Client(connection, authClient, serviceName)
 }
 
-class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
-    implements PresenceClient {
-    public get sessionId(): string | undefined {
-        return this.sessionClient.getSessionId()
-    }
+export const requestNames = new Set([
+    'submitPresence',
+    'removePresence',
+    'getPresenceBySessionId',
+    'getPresenceByUserId',
+    'getPresenceByLocationId',
+    'streamPresenceBySessionId',
+    'streamPresenceByLocationId',
+    'streamPresenceByUserId',
+])
 
-    public get userId(): string | undefined {
-        return this.authClient.getUserId()
-    }
+class Client extends SyncOtEmitter<PresenceClientEvents>
+    implements PresenceClient {
+    public active: boolean = false
+    public sessionId: string | undefined = undefined
+    public userId: string | undefined = undefined
+    public presence: Presence | undefined = undefined
 
     private _locationId: string | undefined = undefined
     public set locationId(locationId: string | undefined) {
         this._locationId = locationId
-        this.updateLocalPresence()
+        this.updatePresence()
     }
     public get locationId(): string | undefined {
         return this._locationId
     }
 
     private _data: any = null
-    public set data(presenceData: any) {
-        this._data = presenceData
-        this.updateLocalPresence()
+    public set data(data: any) {
+        this._data = data
+        this.updatePresence()
     }
     public get data(): any {
         return this._data
     }
 
-    private _localPresence: Presence | undefined = undefined
-    public get localPresence(): Presence | undefined {
-        return this._localPresence
-    }
-
-    private _online: boolean = false
-    public get online(): boolean {
-        return this._online
-    }
-
     private readonly presenceService: PresenceService
-
     private syncPending: boolean = false
 
     public constructor(
-        private connection: Connection,
-        private sessionClient: SessionManager,
-        private authClient: AuthClient,
+        private readonly connection: Connection,
+        private readonly authClient: AuthClient,
+        serviceName: string,
     ) {
         super()
 
@@ -83,61 +93,37 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
             'Argument "connection" must be a non-destroyed Connection.',
         )
         assert.ok(
-            this.sessionClient && !this.sessionClient.destroyed,
-            'Argument "sessionClient" must be a non-destroyed SessionClient.',
-        )
-        assert.ok(
             this.authClient && !this.authClient.destroyed,
             'Argument "authClient" must be a non-destroyed AuthClient.',
         )
 
         this.connection.registerProxy({
-            name: 'presence',
-            requestNames: new Set([
-                'submitPresence',
-                'removePresence',
-                'getPresenceBySessionId',
-                'getPresenceByUserId',
-                'getPresenceByLocationId',
-                'streamPresenceBySessionId',
-                'streamPresenceByLocationId',
-                'streamPresenceByUserId',
-            ]),
+            name: serviceName,
+            requestNames,
         })
         this.presenceService = this.connection.getProxy(
             'presence',
         ) as PresenceService
 
         this.connection.on('destroy', this.onDestroy)
-        this.sessionClient.on('destroy', this.onDestroy)
-        this.sessionClient.on('sessionOpen', this.updateLocalPresence)
-        this.sessionClient.on('sessionActive', this.updateOnline)
-        this.sessionClient.on('sessionInactive', this.updateOnline)
-        this.sessionClient.on('sessionClose', this.updateLocalPresence)
         this.authClient.on('destroy', this.onDestroy)
-        this.authClient.on('user', this.updateLocalPresence)
-        this.authClient.on('auth', this.updateOnline)
-        this.authClient.on('authEnd', this.updateOnline)
-        this.authClient.on('userEnd', this.updateLocalPresence)
-
-        this.updateOnline()
+        this.authClient.on('active', this.updateActive)
+        this.authClient.on('inactive', this.updateActive)
+        this.updateActive()
     }
 
     public destroy(): void {
         if (this.destroyed) {
             return
         }
+        this.active = false
+        this.sessionId = undefined
+        this.userId = undefined
+        this.presence = undefined
         this.connection.off('destroy', this.onDestroy)
-        this.sessionClient.off('destroy', this.onDestroy)
-        this.sessionClient.off('sessionOpen', this.updateLocalPresence)
-        this.sessionClient.off('sessionActive', this.updateOnline)
-        this.sessionClient.off('sessionInactive', this.updateOnline)
-        this.sessionClient.off('sessionClose', this.updateLocalPresence)
         this.authClient.off('destroy', this.onDestroy)
-        this.authClient.off('user', this.updateLocalPresence)
-        this.authClient.off('auth', this.updateOnline)
-        this.authClient.off('authEnd', this.updateOnline)
-        this.authClient.off('userEnd', this.updateLocalPresence)
+        this.authClient.off('active', this.updateActive)
+        this.authClient.off('inactive', this.updateActive)
         super.destroy()
     }
 
@@ -165,69 +151,74 @@ class GenericPresenceClient extends SyncOtEmitter<PresenceClientEvents>
         return this.presenceService.streamPresenceByLocationId(locationId)
     }
 
-    private updateLocalPresence = (): void => {
+    private updatePresence(): void {
         if (
-            typeof this.sessionId === 'string' &&
-            typeof this.userId === 'string' &&
-            typeof this.locationId === 'string'
+            this.sessionId !== undefined &&
+            this.userId !== undefined &&
+            this.locationId !== undefined
         ) {
-            this._localPresence = {
+            this.presence = {
                 data: this.data,
                 lastModified: Date.now(),
                 locationId: this.locationId,
                 sessionId: this.sessionId,
                 userId: this.userId,
             }
-            this.emitAsync('localPresence')
+            this.emitAsync('presence')
             this.scheduleSyncPresence()
-        } else if (this._localPresence !== undefined) {
-            this._localPresence = undefined
-            this.emitAsync('localPresence')
+        } else if (this.presence !== undefined) {
+            this.presence = undefined
+            this.emitAsync('presence')
             this.scheduleSyncPresence()
         }
     }
-
-    private updateOnline = (): void => {
-        const online =
-            this.sessionClient.hasActiveSession() &&
-            this.authClient.hasAuthenticatedUserId()
-
-        if (this._online === online) {
+    private updateActive = (): void => {
+        if (this.active === this.authClient.active) {
             return
         }
 
-        this._online = online
-
-        if (online) {
-            this.emitAsync('online')
-            if (this.localPresence) {
-                this.scheduleSyncPresence()
-            }
+        if (this.authClient.active) {
+            this.active = true
+            this.sessionId = this.authClient.sessionId
+            this.userId = this.authClient.userId
+            this.updatePresence()
+            this.emitAsync('active')
         } else {
-            this.emitAsync('offline')
+            this.active = false
+            this.sessionId = undefined
+            this.userId = undefined
+            this.updatePresence()
+            this.emitAsync('inactive')
         }
     }
 
+    /**
+     * Thanks to scheduling the sync to happen in `nextTick`, setting multiple presence
+     * properties synchronously results in a single request only.
+     */
     private scheduleSyncPresence(): void {
-        if (!this.syncPending) {
-            this.syncPending = true
-            Promise.resolve()
-                .then(this.syncPresence)
-                .catch(this.onSyncError)
-        }
-    }
-
-    private syncPresence = async (): Promise<void> => {
-        this.syncPending = false
-
-        if (this.destroyed || !this.online) {
+        if (this.syncPending) {
             return
         }
 
-        if (this.localPresence) {
-            await this.presenceService.submitPresence(this.localPresence)
+        this.syncPending = true
+        process.nextTick(() => {
+            this.syncPending = false
+            this.syncPresence()
+        })
+    }
+
+    private syncPresence(): void {
+        if (!this.active) {
+            return
+        }
+
+        if (this.presence) {
+            this.presenceService
+                .submitPresence(this.presence)
+                .catch(this.onSyncError)
         } else {
-            await this.presenceService.removePresence()
+            this.presenceService.removePresence().catch(this.onSyncError)
         }
     }
 

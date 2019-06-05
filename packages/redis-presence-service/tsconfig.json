@@ -10,7 +10,6 @@
     { "path": "../error" },
     { "path": "../ioredis-subscriber" },
     { "path": "../presence" },
-    { "path": "../session" },
     { "path": "../tson" },
     { "path": "../util" }
   ]
