@@ -155,11 +155,11 @@ class Runner<Result> extends SyncOtEmitter<TaskRunnerEvents<Result>>
         const baseDelay =
             this.delayFactor === 0
                 ? this.minDelay +
-                  Math.random() * (this.maxDelay - this.minDelay)
+                  Math.random() * (this.maxDelay - this.minDelay + 1)
                 : this.minDelay * Math.pow(this.delayFactor, this.attempt)
         const delay = Math.max(
             this.minDelay,
-            Math.min(this.maxDelay, Math.round(baseDelay)),
+            Math.min(this.maxDelay, Math.floor(baseDelay)),
         )
         this.attempt++
         this.timeout = setTimeout(this.onTimeout, delay)

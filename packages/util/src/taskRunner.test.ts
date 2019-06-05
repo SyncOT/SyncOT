@@ -248,7 +248,7 @@ test('retry with a random delay', async () => {
     clock.next()
     await whenDone()
     expect(clock.now).toBeGreaterThanOrEqual(1000)
-    expect(clock.now).toBeLessThan(1010)
+    expect(clock.now).toBeLessThanOrEqual(1010)
 })
 
 test('retry with exponential back-off', async () => {
