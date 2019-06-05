@@ -32,7 +32,7 @@
   "dependencies": {
     "@syncot/error": "file:../error",
     "@syncot/tson-socket-stream": "file:../tson-socket-stream",
-    "@types/node": "^10.12.21",
+    "@types/node": "^12.0.4",
     "@types/readable-stream": "^2.3.1",
     "@types/sockjs-client": "^1.1.1",
     "readable-stream": "^3.3.0",

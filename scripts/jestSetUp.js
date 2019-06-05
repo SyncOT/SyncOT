@@ -1,13 +1,3 @@
-if (typeof window !== 'undefined') {
-    if (window.crypto) {
-        throw new Error('window.crypto is already defined')
-    }
-
-    // `window.crypto` is not provided by jsdom, so we have to add it explicitly.
-    const { Crypto } = require('@peculiar/webcrypto')
-    window.crypto = new Crypto()
-}
-
 /**
  * Fixes `instanceof Error` in jest. The fix does not affect anything else -
  * not even `instanceof SomeSubClassOfError`.
