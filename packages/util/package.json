@@ -1,6 +1,6 @@
 {
   "name": "@syncot/util",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A collection of utilities required by other @syncot modules.",
   "keywords": [
     "util"

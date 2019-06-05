@@ -1,6 +1,6 @@
 {
   "name": "@syncot/anonymous-auth-service",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A server auth module providing anonymous read-write access to all data.",
   "keywords": [
     "anonymous",
