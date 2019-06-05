@@ -322,6 +322,10 @@ function encodeArray(buffer: SmartBuffer, array: any[], path: Path): void {
 }
 
 function encodeError(buffer: SmartBuffer, error: Error, path: Path): void {
+    if (typeof (error as any).toJSON === 'function') {
+        return encodeAny(buffer, (error as any).toJSON(''), path)
+    }
+
     if (typeof error.name !== 'string') {
         throw createTsonError('Error name is not a string.')
     }
@@ -357,6 +361,10 @@ function encodePlainObject(
     path: Path,
     keys: string[] = Object.keys(object),
 ): void {
+    if (typeof (object as any).toJSON === 'function') {
+        return encodeAny(buffer, (object as any).toJSON(''), path)
+    }
+
     detectCircularReference(path, object)
     path.push(object)
 

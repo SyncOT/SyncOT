@@ -158,6 +158,29 @@ describe('encode', () => {
             root.g = root.a[2]
             expect(decode(encode(root))).toEqual(root)
         })
+        test('cycle in Object toJSON', () => {
+            const a = {
+                toJSON() {
+                    return {
+                        b,
+                    }
+                },
+            }
+            const b = { a }
+            expect(() => encode(a)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
+        test('cycle in Error toJSON', () => {
+            const a = new Error()
+            ;(a as any).toJSON = () => ({
+                b,
+            })
+            const b = { a }
+            expect(() => encode(a)).toThrow(
+                errorMatcher('Circular reference detected.'),
+            )
+        })
     })
 
     describe('null', () => {
@@ -770,6 +793,178 @@ describe('encode', () => {
             expect(buffer.readString(1)).toBe('h')
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
+
+        test('toJSON', () => {
+            const object1 = {
+                toJSON(key: string) {
+                    expect(this).toBe(object1)
+                    expect(key).toBe('')
+                    return 5
+                },
+            }
+            const object2 = {
+                toJSON(key: string) {
+                    expect(this).toBe(object2)
+                    expect(key).toBe('')
+                    return 'value'
+                },
+            }
+            const object3 = {
+                toJSON(key: string) {
+                    expect(this).toBe(object3)
+                    expect(key).toBe('')
+                    return undefined
+                },
+            }
+            const object4 = {
+                toJSON(key: string) {
+                    expect(this).toBe(object4)
+                    expect(key).toBe('')
+                    return new Error('an error')
+                },
+            }
+            const object5 = new Error('test-error')
+            ;(object5 as any).toJSON = function(key: string) {
+                expect(this).toBe(object5)
+                expect(key).toBe('')
+                return 'converted error'
+            }
+            const object6 = {
+                a: 1,
+                toJSON: 123,
+            }
+            const object7 = new Error('an-error')
+            ;(object7 as any).b = 2
+            ;(object7 as any).toJSON = 999
+            const object8 = {
+                ignored: 'value',
+                toJSON(key: string) {
+                    expect(this).toBe(object8)
+                    expect(key).toBe('')
+                    return {
+                        object1,
+                        object2,
+                        object3,
+                        object4,
+                        object5,
+                        object6,
+                        object7,
+                    }
+                },
+            }
+            const object9 = Object.create({
+                blah: 'ignored',
+                toJSON(key: string) {
+                    expect(this).toBe(object9)
+                    expect(key).toBe('')
+                    return object8
+                },
+            })
+            const root = {
+                ignored: 123,
+                toJSON(key: string) {
+                    expect(this).toBe(root)
+                    expect(key).toBe('')
+                    return object9
+                },
+            }
+
+            // root.toJSON() => object9.toJSON() => object8.toJSON()
+            const buffer = encodeToSmartBuffer(root)
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readInt8()).toBe(7)
+
+            // object8.toJSON().object1.toJSON()
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object1')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(5)
+
+            // object8.toJSON().object2.toJSON()
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object2')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(5)
+            expect(buffer.readString(5)).toBe('value')
+
+            // object8.toJSON().object3.toJSON()
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object3')
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+
+            // object8.toJSON().object4.toJSON()
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object4')
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(5)
+            expect(buffer.readString(5)).toBe('Error')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(8)
+            expect(buffer.readString(8)).toBe('an error')
+            expect(buffer.readUInt8()).toBe(Type.NULL)
+
+            // object8.toJSON().object5.toJSON()
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object5')
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(15)
+            expect(buffer.readString(15)).toBe('converted error')
+
+            // object8.toJSON().object6
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object6')
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readInt8()).toBe(2)
+            // a
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('a')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(1)
+            // toJSON
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(6)
+            expect(buffer.readString(6)).toBe('toJSON')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(123)
+
+            // object8.toJSON().object7
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(7)
+            expect(buffer.readString(7)).toBe('object7')
+            expect(buffer.readUInt8()).toBe(Type.ERROR)
+            // error name
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(5)
+            expect(buffer.readString(5)).toBe('Error')
+            // error message
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(8)
+            expect(buffer.readString(8)).toBe('an-error')
+            // error details
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readInt8()).toBe(2)
+            // b
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(1)
+            expect(buffer.readString(1)).toBe('b')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(2)
+            // toJSON
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readInt8()).toBe(6)
+            expect(buffer.readString(6)).toBe('toJSON')
+            expect(buffer.readUInt8()).toBe(Type.INT16)
+            expect(buffer.readInt16LE()).toBe(999)
+            expect(buffer.remaining()).toBe(0)
+        })
     })
 
     describe('ERROR', () => {
@@ -1283,6 +1478,22 @@ describe('decode', () => {
         })
     })
 
+    test('toJSON', () => {
+        const buffer = encodeToSmartBuffer({
+            ignored: 123,
+            toJSON() {
+                return {
+                    toJSON() {
+                        const error = new Error()
+                        ;(error as any).toJSON = () => 'hello'
+                        return error
+                    },
+                }
+            },
+        }).toBuffer()
+        expect(decode(buffer)).toBe('hello')
+    })
+
     test.each<[string, number[]]>([
         ['Type code', []],
         ['INT8', [Type.INT8]],
@@ -1389,7 +1600,7 @@ test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000])(
     },
 )
 
-test('two encoded buffer are independent', () => {
+test('two encoded buffers are independent', () => {
     const expectedEncodedData = Buffer.from([
         Type.BINARY8,
         4,
