@@ -1,4 +1,4 @@
-import { randomFillSync } from 'crypto'
+import { randomInteger } from './random'
 
 export function noop() {
     // Do nothing.
@@ -19,7 +19,8 @@ export function delay(minDelayMilliseconds: number = 0) {
 }
 
 const randomIdBuffer = Buffer.allocUnsafeSlow(12)
-randomFillSync(randomIdBuffer, 4)
+randomIdBuffer.writeUInt32BE(randomInteger(0, 0x100000000), 4)
+randomIdBuffer.writeUInt32BE(randomInteger(0, 0x100000000), 8)
 let randomIdCounter = randomIdBuffer.readUIntBE(9, 3)
 
 /**
