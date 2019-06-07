@@ -1,6 +1,6 @@
 {
   "name": "@syncot/auth",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Interfaces and type definitions related to authentication and authorization.",
   "keywords": [
     "interface",
