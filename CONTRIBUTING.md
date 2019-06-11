@@ -22,6 +22,9 @@ The recommended editor is Visual Studio Code.
     },
     "files.autoSave": "onWindowChange",
     "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.tslint": true
+    },
     "typescript.referencesCodeLens.enabled": false,
     "typescript.implementationsCodeLens.enabled": false,
     "gitlens.codeLens.enabled": false,
