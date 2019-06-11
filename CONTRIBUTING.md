@@ -6,12 +6,11 @@ The recommended editor is Visual Studio Code.
 
 ### Extensions
 
--   peterjausovec.vscode-docker
--   editorconfig.editorconfig
--   dbaeumer.vscode-eslint
--   eamodio.gitlens
--   esbenp.prettier-vscode
 -   ms-vscode.vscode-typescript-tslint-plugin
+-   esbenp.prettier-vscode
+-   dbaeumer.vscode-eslint
+-   peterjausovec.vscode-docker
+-   eamodio.gitlens
 
 ### ~/.config/Code/User/settings.json
 
