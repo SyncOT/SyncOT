@@ -35,11 +35,8 @@ beforeAll(done => {
     server = http.createServer()
     sockJsServer.installHandlers(server)
     server.listen(() => {
-        const { address, family, port } = server.address() as AddressInfo
-        url =
-            family === 'IPv6'
-                ? `http://[${address}]:${port}`
-                : `http://${address}:${port}`
+        const { port } = server.address() as AddressInfo
+        url = `http://127.0.0.1:${port}`
         done()
     })
 })

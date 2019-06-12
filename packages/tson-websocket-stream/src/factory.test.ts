@@ -30,11 +30,8 @@ beforeAll(done => {
         socket.close()
     })
     server.once('listening', () => {
-        const { address, family, port } = server.address() as ws.AddressInfo
-        url =
-            family === 'IPv6'
-                ? `ws://[${address}]:${port}`
-                : `ws://${address}:${port}`
+        const { port } = server.address() as ws.AddressInfo
+        url = `ws://127.0.0.1:${port}`
         done()
     })
 })

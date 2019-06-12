@@ -54,12 +54,8 @@ const setUpWebSocket = (webSocketConstructor: any) => () => {
     beforeEach(done => {
         wsServer = new ws.Server({ port: 0 })
         wsServer.once('listening', () => {
-            const { address, family, port } = wsServer.address() as AddressInfo
-            clientSocket = new webSocketConstructor(
-                family === 'IPv6'
-                    ? `ws://[${address}]:${port}`
-                    : `ws://${address}:${port}`,
-            )
+            const { port } = wsServer.address() as AddressInfo
+            clientSocket = new webSocketConstructor(`ws://127.0.0.1:${port}`)
             ;(clientSocket as any).addEventListener('error', () => {
                 // Ignore errors - the socket will be closed anyway.
             })
@@ -84,17 +80,9 @@ const setUpSockJs = () => {
         sockJsServer = sockJs.createServer({ log: () => undefined })
         sockJsServer.installHandlers(httpServer)
         httpServer.once('listening', () => {
-            const {
-                address,
-                family,
-                port,
-            } = httpServer.address() as AddressInfo
+            const { port } = httpServer.address() as AddressInfo
             clientSocket = sockJsClientConnectionToTsonSocket(
-                new SockJsClient(
-                    family === 'IPv6'
-                        ? `http://[${address}]:${port}`
-                        : `http://${address}:${port}`,
-                ),
+                new SockJsClient(`http://127.0.0.1:${port}`),
             )
             clientStream = new TsonSocketStream(clientSocket)
         })
