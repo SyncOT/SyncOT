@@ -1,0 +1,14 @@
+language: generic
+if: tag is blank
+jobs:
+    include:
+        - before_install:
+              - nvm install 12
+              - nvm use 12
+          install:
+              - npm ci
+          cache:
+              directories:
+                  - '$HOME/.npm'
+          script:
+              - npm run build
