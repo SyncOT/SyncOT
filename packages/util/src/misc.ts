@@ -1,3 +1,4 @@
+import { createAssertError } from '@syncot/error'
 import { randomInteger } from './random'
 
 export function noop() {
@@ -34,4 +35,13 @@ export function generateId(): string {
     /* tslint:disable-next-line:no-bitwise */
     randomIdCounter = (randomIdCounter + 1) & 0x00ffffff
     return randomIdBuffer.toString('base64')
+}
+
+/**
+ * Throws an `AssertError` if `value` is falsy.
+ */
+export function assert(value: any, message?: string): void {
+    if (!value) {
+        throw createAssertError(message)
+    }
 }

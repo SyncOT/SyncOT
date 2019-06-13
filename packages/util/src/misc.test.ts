@@ -1,5 +1,5 @@
 import { Clock, install as installClock, InstalledClock } from 'lolex'
-import { delay, generateId, noop, whenNextTick } from '.'
+import { assert, delay, generateId, noop, whenNextTick } from '.'
 
 test('noop', () => {
     expect(noop).toBeFunction()
@@ -123,5 +123,41 @@ describe('generateId', () => {
         expect(time).toBe(3)
         expect(random).toBe(expectedRandom)
         expect(counter).toBe(expectedCounter)
+    })
+})
+
+describe('assert', () => {
+    const message = 'Test message'
+
+    test.each([true, 1, {}, noop, [], 'false'])(
+        'do not throw on: value === %p',
+        value => {
+            assert(value, message)
+        },
+    )
+
+    test.each([false, 0, null, undefined, ''])(
+        'throw on: value === %p',
+        value => {
+            expect(() => assert(value, message)).toThrow(
+                expect.objectContaining({
+                    message,
+                    name: 'SyncOtError Assert',
+                }),
+            )
+        },
+    )
+
+    test('do not throw without a message', () => {
+        assert(true)
+    })
+
+    test('throw without a message', () => {
+        expect(() => assert(false)).toThrow(
+            expect.objectContaining({
+                message: '',
+                name: 'SyncOtError Assert',
+            }),
+        )
     })
 })

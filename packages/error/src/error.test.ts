@@ -1,5 +1,6 @@
 import {
     createAlreadyInitializedError,
+    createAssertError,
     createAuthError,
     createCompositeError,
     createDisconnectedError,
@@ -18,6 +19,7 @@ import {
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
     isAlreadyInitializedError,
+    isAssertError,
     isAuthError,
     isCompositeError,
     isDisconnectedError,
@@ -542,5 +544,21 @@ describe('CompositeError', () => {
         expect(isCompositeError(error)).toBeTrue()
         expect(isCompositeError(new Error())).toBeFalse()
         expect(isCompositeError({})).toBeFalse()
+    })
+})
+
+describe('AssertError', () => {
+    test('createAssertError', () => {
+        const error = createAssertError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Assert')
+        expect(error.message).toBe('test')
+    })
+    test('isAssertError', () => {
+        const error = createAssertError('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isAssertError(error)).toBeTrue()
+        expect(isAssertError(new Error())).toBeFalse()
+        expect(isAssertError({})).toBeFalse()
     })
 })

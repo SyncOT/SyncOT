@@ -385,3 +385,16 @@ export function createCompositeError(
 export function isCompositeError(error: any): error is CompositeError {
     return error instanceof Error && error.name === 'SyncOtError Composite'
 }
+
+export interface AssertError extends Error {
+    name: 'SyncOtError Assert'
+}
+export function createAssertError(message?: string): AssertError {
+    return createError({
+        message,
+        name: 'SyncOtError Assert',
+    }) as AssertError
+}
+export function isAssertError(error: any): error is AssertError {
+    return error instanceof Error && error.name === 'SyncOtError Assert'
+}
