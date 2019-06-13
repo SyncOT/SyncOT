@@ -23,7 +23,7 @@ const testErrorMatcher = expect.objectContaining({
 })
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 const invalidStreamMatcher = expect.objectContaining({
     message: 'Service returned an invalid stream.',
@@ -116,7 +116,7 @@ describe('connection', () => {
         connection.connect(stream1)
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Connection is already associated with a stream.',
             ),
         )
@@ -127,7 +127,7 @@ describe('connection', () => {
     test('connect with an invalid stream', () => {
         expect(() => connection.connect({} as any)).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -136,7 +136,7 @@ describe('connection', () => {
         stream1.destroy()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -145,7 +145,7 @@ describe('connection', () => {
         stream1.end()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -156,7 +156,7 @@ describe('connection', () => {
         await delay()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -297,7 +297,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: 5 as any }),
         ).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -305,7 +305,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: null as any }),
         ).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -318,7 +318,10 @@ describe('service registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher('AssertionError', 'Connection events not implemented'),
+            errorMatcher(
+                'SyncOtError Assert',
+                'Connection events not implemented',
+            ),
         )
     })
     test('register with a missing method', () => {
@@ -331,7 +334,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Service.anotherMethod must be a function.',
             ),
         )
@@ -357,7 +360,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Service "service-or-proxy-name" has been already registered.',
             ),
         )
@@ -401,7 +404,10 @@ describe('proxy registration', () => {
                 name,
             }),
         ).toThrow(
-            errorMatcher('AssertionError', 'Connection events not implemented'),
+            errorMatcher(
+                'SyncOtError Assert',
+                'Connection events not implemented',
+            ),
         )
     })
     test('register with a method conflict', () => {
@@ -411,7 +417,10 @@ describe('proxy registration', () => {
                 requestNames: new Set(['testMethod', 'toString']),
             }),
         ).toThrow(
-            errorMatcher('AssertionError', 'Proxy.toString already exists.'),
+            errorMatcher(
+                'SyncOtError Assert',
+                'Proxy.toString already exists.',
+            ),
         )
     })
     test('register', () => {
@@ -424,7 +433,7 @@ describe('proxy registration', () => {
         connection.registerProxy({ name })
         expect(() => connection.registerProxy({ name })).toThrow(
             errorMatcher(
-                'AssertionError',
+                'SyncOtError Assert',
                 'Proxy "service-or-proxy-name" has been already registered.',
             ),
         )

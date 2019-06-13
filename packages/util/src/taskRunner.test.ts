@@ -30,7 +30,7 @@ const options = {
 const assertionMatcher = (message: string) =>
     expect.objectContaining({
         message,
-        name: 'AssertionError',
+        name: 'SyncOtError Assert',
     })
 
 const whenDestroy = () =>

@@ -1,11 +1,10 @@
 import {
+    assert,
     createDisconnectedError,
     createDuplicateIdError,
     createInvalidEntityError,
     createInvalidStreamError,
     createNoServiceError,
-} from '@syncot/error'
-import {
     EmitterInterface,
     isOpenDuplexStream,
     isStream,
@@ -13,7 +12,6 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
-import { strict as assert } from 'assert'
 import { Duplex } from 'readable-stream'
 
 type RequestId = number
@@ -234,14 +232,11 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
      */
     public connect(stream: Duplex): void {
         this.assertNotDestroyed()
-        assert.ok(
+        assert(
             isOpenDuplexStream(stream),
             'Argument "stream" must be an open Duplex.',
         )
-        assert.ok(
-            !this.stream,
-            'Connection is already associated with a stream.',
-        )
+        assert(!this.stream, 'Connection is already associated with a stream.')
         this.stream = stream
         this._connectionId++
 
@@ -314,19 +309,18 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         instance,
     }: ServiceDescriptor): void {
         this.assertNotDestroyed()
-        assert.ok(
+        assert(
             instance != null && typeof instance === 'object',
             'Argument "instance" must be an object.',
         )
-        assert.ok(
+        assert(
             !this.services.has(serviceName),
             `Service "${serviceName}" has been already registered.`,
         )
-        assert.equal(eventNames.size, 0, 'Connection events not implemented')
+        assert(eventNames.size === 0, 'Connection events not implemented')
         requestNames.forEach(requestName => {
-            assert.equal(
-                typeof (instance as any)[requestName],
-                'function',
+            assert(
+                typeof (instance as any)[requestName] === 'function',
                 `Service.${requestName} must be a function.`,
             )
         })
@@ -355,11 +349,11 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         eventNames = new Set(),
     }: ProxyDescriptor): void {
         this.assertNotDestroyed()
-        assert.ok(
+        assert(
             !this.proxies.has(proxyName),
             `Proxy "${proxyName}" has been already registered.`,
         )
-        assert.equal(eventNames.size, 0, 'Connection events not implemented')
+        assert(eventNames.size === 0, 'Connection events not implemented')
 
         const instance = {}
         let nextRequestId = 1
@@ -367,7 +361,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const proxyStreams: StreamMap = new Map()
 
         requestNames.forEach(requestName => {
-            assert.ok(
+            assert(
                 !(requestName in instance),
                 `Proxy.${requestName} already exists.`,
             )

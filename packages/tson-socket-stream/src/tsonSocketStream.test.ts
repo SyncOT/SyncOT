@@ -244,7 +244,7 @@ describe.each<[string, () => void]>([
                 ).toThrow(
                     expect.objectContaining({
                         message: 'Argument "binaryType" must be "arraybuffer".',
-                        name: 'AssertionError',
+                        name: 'SyncOtError Assert',
                     }),
                 )
                 expect(clientSocket.binaryType).toBe('arraybuffer')

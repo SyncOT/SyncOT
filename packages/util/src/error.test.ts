@@ -113,7 +113,7 @@ describe('CustomError', () => {
         expect(() => createError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "details" must be an object.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -122,7 +122,7 @@ describe('CustomError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.name" must be a string or undefined.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -131,7 +131,7 @@ describe('CustomError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.message" must be a string or undefined.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -140,7 +140,7 @@ describe('CustomError', () => {
             expect.objectContaining({
                 message:
                     'Argument "details.cause" must be an Error or undefined.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -148,7 +148,7 @@ describe('CustomError', () => {
         expect(() => createError({ stack: '' })).toThrow(
             expect.objectContaining({
                 message: 'Argument "details.stack" must not be present.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -185,7 +185,7 @@ describe('InvalidEntityError', () => {
         expect(() => createInvalidEntityError(5 as any, {})).toThrow(
             expect.objectContaining({
                 message: 'Argument "entityName" must be a string.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -193,7 +193,7 @@ describe('InvalidEntityError', () => {
         expect(() => createInvalidEntityError('', {}, 5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "key" must be a string or null.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -246,7 +246,7 @@ describe('TypeNotFoundError', () => {
         expect(() => createTypeNotFoundError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "typeName" must be a string.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })

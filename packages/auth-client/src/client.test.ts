@@ -21,7 +21,7 @@ const loginResponse = {
 }
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 const testError = new Error('test-error')
 

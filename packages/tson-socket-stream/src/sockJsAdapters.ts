@@ -1,5 +1,4 @@
-import { Binary, toArrayBuffer, toBuffer } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, Binary, toArrayBuffer, toBuffer } from '@syncot/util'
 import { EventEmitter } from 'events'
 import { TsonSocket } from './tsonSocketStream'
 
@@ -9,9 +8,8 @@ class SockJsClientConnectionTsonSocket extends EventEmitter
         return 'arraybuffer'
     }
     public set binaryType(binaryType: string) {
-        assert.equal(
-            binaryType,
-            'arraybuffer',
+        assert(
+            binaryType === 'arraybuffer',
             'Argument "binaryType" must be "arraybuffer".',
         )
     }
@@ -39,7 +37,7 @@ class SockJsClientConnectionTsonSocket extends EventEmitter
 
     public send(data: Binary): void {
         const buffer = toBuffer(data)
-        assert.ok(buffer, 'Argument "data" must be a Binary.')
+        assert(buffer, 'Argument "data" must be a Binary.')
         this.sockJs.send(buffer.toString('base64'))
     }
 
@@ -54,9 +52,8 @@ class SockJsServerConnectionTsonSocket extends EventEmitter
         return 'arraybuffer'
     }
     public set binaryType(binaryType: string) {
-        assert.equal(
-            binaryType,
-            'arraybuffer',
+        assert(
+            binaryType === 'arraybuffer',
             'Argument "binaryType" must be "arraybuffer".',
         )
     }
@@ -83,7 +80,7 @@ class SockJsServerConnectionTsonSocket extends EventEmitter
 
     public send(data: Binary): void {
         const buffer = toBuffer(data)
-        assert.ok(buffer, 'Argument "data" must be a Binary.')
+        assert(buffer, 'Argument "data" must be a Binary.')
         this.sockJs.write(buffer.toString('base64'))
     }
 

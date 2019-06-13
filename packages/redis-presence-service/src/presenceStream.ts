@@ -3,7 +3,7 @@ import {
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { AssertionError } from 'assert'
+import { createAssertError } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -105,6 +105,6 @@ const presenceStreamOptions = {
     objectMode: true,
 }
 
-const nonWritableError = new AssertionError({
-    message: 'PresenceStream does not support "write".',
-})
+const nonWritableError = createAssertError(
+    'PresenceStream does not support "write".',
+)

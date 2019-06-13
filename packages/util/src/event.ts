@@ -1,6 +1,5 @@
-import { strict as assert } from 'assert'
 import { EventEmitter } from 'events'
-import { Interface } from './types'
+import { assert, Interface } from './misc'
 
 /**
  * Converts T to an Array type as follows:
@@ -192,7 +191,7 @@ export class SyncOtEmitter<Events> extends TypedEventEmitter<
     }
 
     protected assertNotDestroyed(): void {
-        assert.ok(!this._destroyed, 'Already destroyed.')
+        assert(!this._destroyed, 'Already destroyed.')
     }
 }
 

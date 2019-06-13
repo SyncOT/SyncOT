@@ -64,7 +64,7 @@ test('assertNotDestroyed', () => {
     expect(() => test.test()).toThrow(
         expect.objectContaining({
             message: 'Already destroyed.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })

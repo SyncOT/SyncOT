@@ -69,7 +69,7 @@ test('invalid connection===undefined', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed connection.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -85,7 +85,7 @@ test('invalid connection===destroyed-connection', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed connection.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -98,7 +98,7 @@ test('invalid createStream===undefined', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Argument "createStream" must be a function.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -112,7 +112,7 @@ test('invalid minDelay==="5"', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Argument "minDelay" must be a safe integer >= 1.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -126,7 +126,7 @@ test('invalid minDelay===0', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Argument "minDelay" must be a safe integer >= 1.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -141,7 +141,7 @@ test('invalid maxDelay==="5"', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Argument "maxDelay" must be a safe integer >= minDelay.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -156,7 +156,7 @@ test('invalid maxDelay<minDelay', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Argument "maxDelay" must be a safe integer >= minDelay.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -171,7 +171,7 @@ test('invalid delayFactor==="5"', () => {
         expect.objectContaining({
             message:
                 'Argument "delayFactor" must be a finite number >= 1 or == 0.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -186,7 +186,7 @@ test('invalid delayFactor===-1', () => {
         expect.objectContaining({
             message:
                 'Argument "delayFactor" must be a finite number >= 1 or == 0.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })

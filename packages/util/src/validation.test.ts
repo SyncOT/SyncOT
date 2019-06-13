@@ -1,5 +1,10 @@
-import { createInvalidEntityError } from '@syncot/error'
-import { assertUnreachable, throwError, validate, Validator } from '.'
+import {
+    assertUnreachable,
+    createInvalidEntityError,
+    throwError,
+    validate,
+    Validator,
+} from '.'
 
 const error = createInvalidEntityError('test error', null)
 const numberError = createInvalidEntityError('number error', null)
@@ -42,7 +47,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable({} as never)).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })
@@ -50,7 +55,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable()).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })

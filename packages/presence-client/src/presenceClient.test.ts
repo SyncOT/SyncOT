@@ -164,7 +164,7 @@ test('invalid connection (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -180,7 +180,7 @@ test('invalid connection (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -201,7 +201,7 @@ test('invalid authClient (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "authClient" must be a non-destroyed AuthClient.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -217,7 +217,7 @@ test('invalid authClient (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "authClient" must be a non-destroyed AuthClient.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -238,7 +238,7 @@ test('register twice on the same connection', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Proxy "presence" has been already registered.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })

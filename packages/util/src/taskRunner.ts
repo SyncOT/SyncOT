@@ -1,5 +1,5 @@
-import { strict as assert } from 'assert'
-import { EmitterInterface, SyncOtEmitter } from './eventEmitter'
+import { EmitterInterface, SyncOtEmitter } from './event'
+import { assert } from './misc'
 
 /**
  * The type of tasks run by `TaskRunner`s.
@@ -84,20 +84,20 @@ class Runner<Result> extends SyncOtEmitter<TaskRunnerEvents<Result>>
         private readonly delayFactor: number,
     ) {
         super()
-        assert.ok(
+        assert(
             typeof this.task === 'function',
             'Argument "task" must be a function.',
         )
-        assert.ok(
+        assert(
             Number.isSafeInteger(this.minDelay) && this.minDelay >= 0,
             'Argument "minDelay" must be a safe integer >= 0.',
         )
-        assert.ok(
+        assert(
             Number.isSafeInteger(this.maxDelay) &&
                 this.maxDelay >= this.minDelay,
             'Argument "maxDelay" must be a safe integer >= minDelay.',
         )
-        assert.ok(
+        assert(
             (Number.isFinite(this.delayFactor) && this.delayFactor >= 1) ||
                 this.delayFactor === 0,
             'Argument "delayFactor" must be a finite number >= 1 or === 0.',

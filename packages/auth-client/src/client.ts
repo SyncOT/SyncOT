@@ -1,7 +1,11 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createTaskRunner, SyncOtEmitter, TaskRunner } from '@syncot/util'
-import { strict as assert } from 'assert'
+import {
+    assert,
+    createTaskRunner,
+    SyncOtEmitter,
+    TaskRunner,
+} from '@syncot/util'
 
 /**
  * Options expected by `createAuthClient`.
@@ -89,7 +93,7 @@ class Client extends SyncOtEmitter<AuthEvents> implements AuthClient {
     ) {
         super()
 
-        assert.ok(
+        assert(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )

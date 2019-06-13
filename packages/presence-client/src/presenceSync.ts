@@ -1,6 +1,5 @@
 import { Presence, PresenceClient, PresenceMessage } from '@syncot/presence'
-import { EmitterInterface, noop, SyncOtEmitter } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, EmitterInterface, noop, SyncOtEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -74,14 +73,14 @@ export function syncPresenceByCurrentLocationId(
 }
 
 function assertPresenceClient(presenceClient: PresenceClient): void {
-    assert.ok(
+    assert(
         presenceClient && !presenceClient.destroyed,
         'Argument "presenceClient" must be a non-destroyed PresenceClient.',
     )
 }
 
 function assertString(value: string, name: string): void {
-    assert.ok(typeof value === 'string', `Argument "${name}" must be a string.`)
+    assert(typeof value === 'string', `Argument "${name}" must be a string.`)
 }
 
 class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {

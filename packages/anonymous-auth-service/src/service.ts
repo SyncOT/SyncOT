@@ -1,7 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { generateId, SyncOtEmitter } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, generateId, SyncOtEmitter } from '@syncot/util'
 
 /**
  * The options expected by `createAuthService`.
@@ -47,7 +46,7 @@ class AnonymousAuthService extends SyncOtEmitter<AuthEvents>
     ) {
         super()
 
-        assert.ok(
+        assert(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )

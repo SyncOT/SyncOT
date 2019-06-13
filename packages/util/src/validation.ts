@@ -1,4 +1,4 @@
-import { strict as assert } from 'assert'
+import { createAssertError } from './error'
 
 /**
  * A simple function which throws an error, when a theoretically unreachable code path is executed anyway.
@@ -6,7 +6,7 @@ import { strict as assert } from 'assert'
  *   has type `never`.
  */
 export function assertUnreachable(_never?: never): never {
-    return assert.fail('This should never happen!')
+    throw createAssertError('This should never happen!')
 }
 
 /**

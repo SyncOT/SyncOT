@@ -1,6 +1,4 @@
-import { createTypeNotFoundError } from '@syncot/error'
-import { Interface } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, createTypeNotFoundError, Interface } from '@syncot/util'
 import { Operation, Snapshot, Type } from './type'
 
 function typeNotFound(name: string): never {
@@ -22,7 +20,7 @@ class TypeManagerImpl {
      * @param type An OT or CRDT type to register.
      */
     public registerType(type: Type): void {
-        assert.ok(
+        assert(
             !this.types.has(type.name),
             `Type "${type.name}" already registered.`,
         )

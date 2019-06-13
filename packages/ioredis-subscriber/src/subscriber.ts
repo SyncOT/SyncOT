@@ -1,5 +1,4 @@
-import { Interface } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, Interface } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 
@@ -54,14 +53,12 @@ class RedisSubscriber extends EventEmitter {
     public constructor(private redis: Redis.Redis) {
         super()
 
-        assert.equal(
-            (redis as any).options.autoResubscribe,
-            false,
+        assert(
+            (redis as any).options.autoResubscribe === false,
             'Redis must be configured with autoResubscribe=false.',
         )
-        assert.equal(
-            (redis as any).options.enableReadyCheck,
-            true,
+        assert(
+            (redis as any).options.enableReadyCheck === true,
             'Redis must be configured with enableReadyCheck=true.',
         )
 

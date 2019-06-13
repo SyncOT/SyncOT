@@ -14,7 +14,7 @@ let authClient: AuthClient
 let authService: AuthService
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 
 const whenActive = () =>

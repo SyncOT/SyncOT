@@ -1,5 +1,5 @@
-import { createInvalidEntityError } from '@syncot/error'
 import {
+    createInvalidEntityError,
     EmitterInterface,
     SyncOtEmitter,
     validate,

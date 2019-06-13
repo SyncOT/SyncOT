@@ -1,14 +1,12 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createPresenceError } from '@syncot/error'
 import {
     Presence,
     PresenceClient,
     PresenceClientEvents,
     PresenceService,
 } from '@syncot/presence'
-import { SyncOtEmitter } from '@syncot/util'
-import { strict as assert } from 'assert'
+import { assert, createPresenceError, SyncOtEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -88,11 +86,11 @@ class Client extends SyncOtEmitter<PresenceClientEvents>
     ) {
         super()
 
-        assert.ok(
+        assert(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )
-        assert.ok(
+        assert(
             this.authClient && !this.authClient.destroyed,
             'Argument "authClient" must be a non-destroyed AuthClient.',
         )

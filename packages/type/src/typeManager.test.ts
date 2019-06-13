@@ -83,7 +83,7 @@ describe('registerType', () => {
         expect(() => typeManager.registerType(type)).toThrow(
             expect.objectContaining({
                 message: 'Type "type-name" already registered.',
-                name: 'AssertionError',
+                name: 'SyncOtError Assert',
             }),
         )
     })

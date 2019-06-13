@@ -1,6 +1,5 @@
-import { createSocketError } from '@syncot/error'
 import { decode, encode } from '@syncot/tson'
-import { Binary, isArrayBuffer } from '@syncot/util'
+import { Binary, createSocketError, isArrayBuffer } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 export const enum ReadyState {

@@ -30,7 +30,6 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
-    "@syncot/error": "file:../error",
     "@syncot/ioredis-subscriber": "file:../ioredis-subscriber",
     "@syncot/presence": "file:../presence",
     "@syncot/tson": "file:../tson",

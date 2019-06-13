@@ -1,9 +1,8 @@
-import { createSocketError } from '@syncot/error'
 import {
     sockJsClientConnectionToTsonSocket as toTsonSocket,
     TsonSocketStream,
 } from '@syncot/tson-socket-stream'
-import { strict as assert } from 'assert'
+import { assert, createSocketError } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import SockJS from 'sockjs-client'
 
@@ -33,8 +32,8 @@ export const createSockJsStream = ({
     timeout,
     sockJsOptions,
 }: CreateSockJsStreamOptions): Factory => {
-    assert.ok(typeof url === 'string', 'Argument "url" must be a string.')
-    assert.ok(
+    assert(typeof url === 'string', 'Argument "url" must be a string.')
+    assert(
         timeout === undefined ||
             (Number.isSafeInteger(timeout) && timeout >= 0),
         'Argument "timeout" must be undefined or a safe integer >= 0.',

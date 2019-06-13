@@ -1,4 +1,4 @@
-import { strict as assert } from 'assert'
+import { assert } from './misc'
 
 export interface ErrorDetails {
     name?: string
@@ -17,23 +17,23 @@ export interface CustomError extends Error {
  * Additionally, `cause.message` is automatically appended to the new error's `message`.
  */
 export function createError(details: ErrorDetails = {}): CustomError {
-    assert.ok(
+    assert(
         details != null && typeof details === 'object',
         'Argument "details" must be an object.',
     )
-    assert.ok(
+    assert(
         typeof details.name === 'string' || details.name === undefined,
         'Argument "details.name" must be a string or undefined.',
     )
-    assert.ok(
+    assert(
         typeof details.message === 'string' || details.message === undefined,
         'Argument "details.message" must be a string or undefined.',
     )
-    assert.ok(
+    assert(
         details.cause instanceof Error || details.cause === undefined,
         'Argument "details.cause" must be an Error or undefined.',
     )
-    assert.ok(
+    assert(
         !('stack' in details),
         'Argument "details.stack" must not be present.',
     )
@@ -108,11 +108,11 @@ export function createInvalidEntityError(
     entity: any,
     key: string | null = null,
 ): InvalidEntityError {
-    assert.ok(
+    assert(
         typeof entityName === 'string',
         'Argument "entityName" must be a string.',
     )
-    assert.ok(
+    assert(
         typeof key === 'string' || key === null,
         'Argument "key" must be a string or null.',
     )
@@ -136,7 +136,7 @@ export interface TypeNotFoundError extends Error {
     typeName: string
 }
 export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
-    assert.ok(
+    assert(
         typeof typeName === 'string',
         'Argument "typeName" must be a string.',
     )

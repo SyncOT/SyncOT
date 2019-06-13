@@ -1,5 +1,9 @@
-import { EmitterInterface, randomInteger, SyncOtEmitter } from '@syncot/util'
-import { strict as assert } from 'assert'
+import {
+    assert,
+    EmitterInterface,
+    randomInteger,
+    SyncOtEmitter,
+} from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Connection } from './connection'
 import { StreamFactory } from './factory'
@@ -83,24 +87,24 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         private readonly delayFactor: number = 1.5,
     ) {
         super()
-        assert.ok(
+        assert(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed connection.',
         )
-        assert.ok(
+        assert(
             typeof this.createStream === 'function',
             'Argument "createStream" must be a function.',
         )
-        assert.ok(
+        assert(
             Number.isSafeInteger(this.minDelay) && this.minDelay >= 1,
             'Argument "minDelay" must be a safe integer >= 1.',
         )
-        assert.ok(
+        assert(
             Number.isSafeInteger(this.maxDelay) &&
                 this.maxDelay >= this.minDelay,
             'Argument "maxDelay" must be a safe integer >= minDelay.',
         )
-        assert.ok(
+        assert(
             Number.isFinite(this.delayFactor) &&
                 (this.delayFactor >= 1 || this.delayFactor === 0),
             'Argument "delayFactor" must be a finite number >= 1 or == 0.',

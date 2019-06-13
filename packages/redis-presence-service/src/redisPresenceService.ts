@@ -1,6 +1,5 @@
 import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createAuthError, createPresenceError } from '@syncot/error'
 import { getRedisSubscriber } from '@syncot/ioredis-subscriber'
 import {
     Presence,
@@ -9,8 +8,13 @@ import {
     validatePresence,
 } from '@syncot/presence'
 import { decode, encode } from '@syncot/tson'
-import { SyncOtEmitter, throwError } from '@syncot/util'
-import { strict as assert } from 'assert'
+import {
+    assert,
+    createAuthError,
+    createPresenceError,
+    SyncOtEmitter,
+    throwError,
+} from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import { PresenceStream } from './presenceStream'
@@ -50,17 +54,17 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     ) {
         super()
 
-        assert.ok(
+        assert(
             this.connection && !this.connection.destroyed,
             'Argument "connection" must be a non-destroyed Connection.',
         )
-        assert.ok(
+        assert(
             this.authService && !this.authService.destroyed,
             'Argument "authService" must be a non-destroyed AuthService.',
         )
 
         if (typeof options.ttl !== 'undefined') {
-            assert.ok(
+            assert(
                 Number.isSafeInteger(options.ttl) && options.ttl >= 10,
                 'Argument "options.ttl" must be undefined or a safe integer >= 10.',
             )
@@ -68,7 +72,7 @@ export class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
 
         if (typeof options.presenceSizeLimit !== 'undefined') {
-            assert.ok(
+            assert(
                 Number.isSafeInteger(options.presenceSizeLimit) &&
                     options.presenceSizeLimit >= 3,
                 'Argument "options.presenceSizeLimit" must be undefined or a safe integer >= 3.',

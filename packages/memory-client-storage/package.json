@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@syncot/client-storage": "file:../client-storage",
-    "@syncot/error": "file:../error",
+    "@syncot/util": "file:../util",
     "@syncot/type": "file:../type",
     "tslib": "^1.9.3"
   }

@@ -1,5 +1,4 @@
-import { createTsonError } from '@syncot/error'
-import { Binary, toBuffer } from '@syncot/util'
+import { Binary, createTsonError, toBuffer } from '@syncot/util'
 import { SmartBuffer } from 'smart-buffer'
 
 /**

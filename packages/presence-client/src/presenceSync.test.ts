@@ -32,19 +32,19 @@ const pairList: Array<[string, Presence]> = presenceList.map(presence => [
 const invalidPresenceClientMatcher = expect.objectContaining({
     message:
         'Argument "presenceClient" must be a non-destroyed PresenceClient.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 const invalidLocationIdMatcher = expect.objectContaining({
     message: 'Argument "locationId" must be a string.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 const invalidSessionIdMatcher = expect.objectContaining({
     message: 'Argument "sessionId" must be a string.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 const invalidUserIdMatcher = expect.objectContaining({
     message: 'Argument "userId" must be a string.',
-    name: 'AssertionError',
+    name: 'SyncOtError Assert',
 })
 let presenceClient: MockPresenceClient
 let presenceStream: Duplex

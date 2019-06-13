@@ -121,7 +121,7 @@ test('throw on autoResubscribe=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with autoResubscribe=false.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -138,7 +138,7 @@ test('throw on enableReadyCheck=false', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableReadyCheck=true.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })

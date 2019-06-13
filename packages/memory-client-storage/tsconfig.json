@@ -6,7 +6,7 @@
   },
   "references": [
     { "path": "../client-storage" },
-    { "path": "../error" },
+    { "path": "../util" },
     { "path": "../type" }
   ]
 }

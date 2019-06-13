@@ -44,7 +44,7 @@ test('invalid URL', () => {
     expect(() => createWebSocketStream({ url: 5 as any })).toThrow(
         expect.objectContaining({
             message: 'Argument "url" must be a string.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -54,7 +54,7 @@ test('invalid timeout (< 0)', () => {
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
@@ -64,7 +64,7 @@ test('invalid timeout (string)', () => {
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
-            name: 'AssertionError',
+            name: 'SyncOtError Assert',
         }),
     )
 })
