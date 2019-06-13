@@ -3,7 +3,8 @@
   "version": "independent",
   "command": {
     "publish": {
-      "conventionalCommits": true
+      "conventionalCommits": true,
+      "message": "chore: publish packages to npm"
     }
   }
 }
