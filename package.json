@@ -2,6 +2,8 @@
   "name": "syncot",
   "private": true,
   "devDependencies": {
+    "@commitlint/cli": "^8.0.0",
+    "@commitlint/config-conventional": "^8.0.0",
     "@types/ioredis": "^4.0.11",
     "@types/jest": "^24.0.12",
     "@types/lolex": "^3.1.1",
@@ -45,8 +47,14 @@
   },
   "husky": {
     "hooks": {
+      "commit-msg": "commitlint --edit $HUSKY_GIT_PARAMS",
       "pre-commit": "npm run build"
     }
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
   },
   "dependencies": {
     "@syncot/anonymous-auth-service": "file:packages/anonymous-auth-service",
