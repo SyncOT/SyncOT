@@ -1,6 +1,73 @@
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { randomInteger } from '.'
-import { assert, delay, generateId, noop, whenNextTick } from '.'
+import {
+    assert,
+    assertUnreachable,
+    createInvalidEntityError,
+    delay,
+    generateId,
+    noop,
+    throwError,
+    validate,
+    Validator,
+    whenNextTick,
+} from '.'
+
+describe('throwError', () => {
+    const error = createInvalidEntityError('test error', null)
+
+    test('throws the specified error', () => {
+        expect(() => throwError(error)).toThrowError(error)
+    })
+    test('does not throw an error, if undefined', () => {
+        expect(() => throwError(undefined)).not.toThrowError()
+    })
+})
+
+describe('validate', () => {
+    const numberError = createInvalidEntityError('number error', null)
+    const positiveError = createInvalidEntityError('positive error', null)
+
+    const numberValidator: Validator<any> = (target: any) =>
+        typeof target === 'number' ? undefined : numberError
+    const positiveValidator: Validator<any> = (target: any) =>
+        target > 0 ? undefined : positiveError
+
+    test('success', () => {
+        expect(validate([numberValidator, positiveValidator])(5)).toBe(
+            undefined,
+        )
+    })
+    test('first validator fails', () => {
+        expect(validate([numberValidator, positiveValidator])('5')).toBe(
+            numberError,
+        )
+    })
+    test('second validator fails', () => {
+        expect(validate([numberValidator, positiveValidator])(-5)).toBe(
+            positiveError,
+        )
+    })
+})
+
+describe('assertUnreachable', () => {
+    test('throws an error (with a param)', () => {
+        expect(() => assertUnreachable({} as never)).toThrow(
+            expect.objectContaining({
+                message: 'This should never happen!',
+                name: 'SyncOtError Assert',
+            }),
+        )
+    })
+    test('throws an error (without a param)', () => {
+        expect(() => assertUnreachable()).toThrow(
+            expect.objectContaining({
+                message: 'This should never happen!',
+                name: 'SyncOtError Assert',
+            }),
+        )
+    })
+})
 
 test('noop', () => {
     expect(noop).toBeFunction()
