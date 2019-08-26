@@ -210,7 +210,7 @@ describe('sync', () => {
         [
             (presenceClient: PresenceClient, id: string) => PresenceSync,
             keyof PresenceClient,
-            string
+            string,
         ]
     >([
         [syncPresenceByLocationId, 'streamPresenceByLocationId', locationId],

@@ -824,9 +824,7 @@ describe('no service', () => {
                 ...message,
                 data: errorMatcher(
                     'SyncOtError NoService',
-                    `No service to handle the request for "${serviceName}.${
-                        message.name
-                    }".`,
+                    `No service to handle the request for "${serviceName}.${message.name}".`,
                 ),
                 name: null,
                 service: serviceName,

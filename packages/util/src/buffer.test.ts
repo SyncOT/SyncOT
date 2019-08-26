@@ -31,7 +31,7 @@ describe('toBuffer', () => {
                 arrayBuffer: ArrayBuffer,
                 offset: number,
                 length: number,
-            ) => ArrayBufferView
+            ) => ArrayBufferView,
         ]
     >([
         [DataView],
