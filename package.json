@@ -62,6 +62,7 @@
     "@syncot/auth-client": "file:packages/auth-client",
     "@syncot/client-storage": "file:packages/client-storage",
     "@syncot/connection": "file:packages/connection",
+    "@syncot/ioredis-client-tracker": "file:packages/ioredis-client-tracker",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
     "@syncot/memory-client-storage": "file:packages/memory-client-storage",
     "@syncot/presence": "file:packages/presence",

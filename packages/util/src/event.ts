@@ -89,11 +89,15 @@ type TypedEventEmitterInterface<ListenEvents, EmitEvents> = ListenerMethods<
  * }
  * ```
  */
-// tslint:disable-next-line:variable-name
-export const TypedEventEmitter: new <
+const _TypedEventEmitter: new <
     ListenEvents,
     EmitEvents = ListenEvents
 >() => TypedEventEmitterInterface<ListenEvents, EmitEvents> = EventEmitter
+
+export class TypedEventEmitter<
+    ListenEvents,
+    EmitEvents = ListenEvents
+> extends _TypedEventEmitter<ListenEvents, EmitEvents> {}
 
 /**
  * A strongly-typed event emitter based on nodejs `EventEmitter`.
