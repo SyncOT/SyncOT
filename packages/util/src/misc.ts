@@ -70,6 +70,25 @@ export function delay(minDelayMilliseconds: number = 0) {
     return new Promise(resolve => setTimeout(resolve, minDelayMilliseconds))
 }
 
+/**
+ * Returns a promise which resolves when `emitter` emits `event`.
+ */
+export const whenEvent = (event: string) => (emitter: {
+    once: (event: string, callback: () => any) => any
+}) => new Promise(resolve => emitter.once(event, resolve))
+/**
+ * Returns a promise which resolves when `emitter` emits `"data"`.
+ */
+export const whenData = whenEvent('data')
+/**
+ * Returns a promise which resolves when `emitter` emits `"close"`.
+ */
+export const whenClose = whenEvent('close')
+/**
+ * Returns a promise which resolves when `emitter` emits `"error"`.
+ */
+export const whenError = whenEvent('error')
+
 export function randomInteger(
     minInclusive: number,
     maxExclusive: number,

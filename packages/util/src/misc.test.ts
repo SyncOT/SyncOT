@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { randomInteger } from '.'
 import {
@@ -10,6 +11,10 @@ import {
     throwError,
     validate,
     Validator,
+    whenClose,
+    whenData,
+    whenError,
+    whenEvent,
     whenNextTick,
 } from '.'
 
@@ -104,6 +109,30 @@ describe('delay', () => {
         expect(clock.now).toBe(timeout || 0)
         await expect(promise).resolves.toBeUndefined()
     })
+})
+
+test('whenEvent', async () => {
+    const emitter = new EventEmitter()
+    process.nextTick(() => emitter.emit('custom'))
+    await whenEvent('custom')(emitter)
+})
+
+test('whenData', async () => {
+    const emitter = new EventEmitter()
+    process.nextTick(() => emitter.emit('data'))
+    await whenData(emitter)
+})
+
+test('whenClose', async () => {
+    const emitter = new EventEmitter()
+    process.nextTick(() => emitter.emit('close'))
+    await whenClose(emitter)
+})
+
+test('whenError', async () => {
+    const emitter = new EventEmitter()
+    process.nextTick(() => emitter.emit('error'))
+    await whenError(emitter)
 })
 
 describe('randomInteger', () => {
