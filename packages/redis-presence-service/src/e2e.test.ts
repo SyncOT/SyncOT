@@ -2,34 +2,17 @@ import { AuthClient, AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
-import {
-    delay,
-    invertedStreams,
-    randomInteger,
-    SyncOtEmitter,
-} from '@syncot/util'
-import { EventEmitter } from 'events'
+import { invertedStreams, randomInteger, SyncOtEmitter } from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
 import { createPresenceService } from '.'
-
-const whenRedisCommandExecuted = (commandName: string) =>
-    new Promise(resolve => {
-        const listener = (_: any, args: any[]) => {
-            if (args[0].toLowerCase() === commandName.toLowerCase()) {
-                monitor.off('monitor', listener)
-                resolve(commandName)
-            }
-        }
-        monitor.on('monitor', listener)
-    })
+import { whenClose, whenData } from './util'
 
 let port: number
 let redisOptions: Redis.RedisOptions
 let redisServer: RedisServer
 let redis: Redis.Redis
-let monitor: EventEmitter
 let session1: Session
 let session2: Session
 
@@ -143,6 +126,15 @@ class Session {
     }
 }
 
+const whenSaved = async (sessionId: string) => {
+    const stream = await session1.presenceClient.streamPresenceBySessionId(
+        sessionId,
+    )
+    await whenData(stream)
+    stream.destroy()
+    await whenClose(stream)
+}
+
 beforeAll(async () => {
     let attempt = 1
     while (true) {
@@ -152,6 +144,7 @@ beforeAll(async () => {
             await redisServer.open()
             redisOptions = {
                 autoResubscribe: false,
+                enableOfflineQueue: false,
                 lazyConnect: true,
                 port,
                 showFriendlyErrorStack: true,
@@ -176,7 +169,6 @@ beforeEach(async () => {
     session1 = new Session('1')
     session2 = new Session('2')
     await Promise.all([redis.connect(), session1.init(), session2.init()])
-    monitor = await redis.monitor()
 })
 
 afterEach(async () => {
@@ -184,7 +176,6 @@ afterEach(async () => {
     session2.destroy()
     await redis.flushall()
     redis.disconnect()
-    ;(monitor as any).disconnect()
 })
 
 test('submit 2 presence objects which share nothing', async () => {
@@ -207,12 +198,12 @@ test('submit 2 presence objects which share nothing', async () => {
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session1.sessionId)
 
     // Add presence 2.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session2.sessionId)
 
     await expect(
         session1.presenceClient.getPresenceBySessionId(session1.sessionId),
@@ -256,10 +247,15 @@ test('submit 2 presence objects which share nothing', async () => {
         true,
         session2.presenceMatcher,
     ])
+
     presenceStream.destroy()
     userStream.destroy()
     locationStream.destroy()
-    await delay()
+    await Promise.all([
+        whenClose(presenceStream),
+        whenClose(userStream),
+        whenClose(locationStream),
+    ])
 })
 
 test('submit 2 presence objects which share the same location', async () => {
@@ -282,12 +278,12 @@ test('submit 2 presence objects which share the same location', async () => {
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session1.sessionId)
 
     // Add presence 2.
     session2.presenceClient.locationId = session1.locationId
     session2.presenceClient.data = session2.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session2.sessionId)
 
     const presence2Matcher = {
         ...session2.presenceMatcher,
@@ -349,7 +345,11 @@ test('submit 2 presence objects which share the same location', async () => {
     presenceStream.destroy()
     userStream.destroy()
     locationStream.destroy()
-    await delay()
+    await Promise.all([
+        whenClose(presenceStream),
+        whenClose(userStream),
+        whenClose(locationStream),
+    ])
 })
 
 test('remove one presence object', async () => {
@@ -372,16 +372,16 @@ test('remove one presence object', async () => {
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session1.sessionId)
 
     // Add presence 2.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
-    await whenRedisCommandExecuted('EXPIRE')
+    await whenSaved(session2.sessionId)
 
     // Remove presence 2.
     session2.presenceClient.locationId = undefined
-    await whenRedisCommandExecuted('DEL')
+    await whenSaved(session2.sessionId)
 
     await expect(
         session1.presenceClient.getPresenceBySessionId(session1.sessionId),
@@ -420,5 +420,9 @@ test('remove one presence object', async () => {
     presenceStream.destroy()
     userStream.destroy()
     locationStream.destroy()
-    await delay()
+    await Promise.all([
+        whenClose(presenceStream),
+        whenClose(userStream),
+        whenClose(locationStream),
+    ])
 })

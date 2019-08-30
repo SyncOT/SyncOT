@@ -1,2 +1,2 @@
-export { createPresenceService } from './presenceService'
-export { PresenceServiceConfig, PresenceServiceOptions } from './types'
+export { createPresenceService, CreatePresenceServiceOptions } from './service'
+export { RedisConnectionManager, getRedisConnectionManager } from './connection'

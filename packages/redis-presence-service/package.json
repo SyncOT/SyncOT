@@ -39,7 +39,7 @@
     "tslib": "^1.9.3"
   },
   "peerDependencies": {
-    "@types/ioredis": "^4.0.10",
-    "ioredis": "^4.9.0"
+    "@types/ioredis": "^4.0.15",
+    "ioredis": "^4.14.1"
   }
 }

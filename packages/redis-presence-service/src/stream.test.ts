@@ -1,6 +1,6 @@
 import { Presence } from '@syncot/presence'
 import { whenNextTick } from '@syncot/util'
-import { PresenceStream } from './presenceStream'
+import { PresenceStream } from './stream'
 
 let presenceStream: PresenceStream
 
