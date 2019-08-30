@@ -20,11 +20,13 @@ import { Duplex } from 'readable-stream'
 import {
     defineRedisCommands,
     EncodedPresence,
+    locationPrefix,
     PresenceCommands,
+    sessionPrefix,
+    userPrefix,
 } from './commands'
 import { getRedisConnectionManager, RedisConnectionManager } from './connection'
 import { PresenceStream } from './stream'
-import { locationPrefix, notNull, sessionPrefix, userPrefix } from './util'
 
 export interface CreatePresenceServiceOptions {
     connection: Connection
@@ -498,4 +500,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         return presence
     }
+}
+
+function notNull(value: any): boolean {
+    return value !== null
 }

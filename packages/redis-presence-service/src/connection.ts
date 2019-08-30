@@ -5,8 +5,11 @@ import {
     TypedEventEmitter,
 } from '@syncot/util'
 import Redis from 'ioredis'
-import { defineRedisCommands, PresenceCommands } from './commands'
-import { connectionsKey, extractConnectionIds } from './util'
+import {
+    connectionsKey,
+    defineRedisCommands,
+    PresenceCommands,
+} from './commands'
 
 /**
  * Manages a Redis connection and removes dangling Presence data.
@@ -48,6 +51,21 @@ export function getRedisConnectionManager(
     }
 
     return collector
+}
+
+/**
+ * Returns a Set of connection IDs
+ * obtained by parsing the string returned by the `CLIENT LIST` Redis command.
+ */
+export function extractConnectionIds(clientList: string): number[] {
+    const connectionIds: number[] = []
+    clientList.split('\n').forEach(line => {
+        const match = /(?:^| )id=(\d+)(?: |$)/.exec(line)
+        if (match) {
+            connectionIds.push(parseInt(match[1], 10))
+        }
+    })
+    return connectionIds
 }
 
 interface RedisConnectionManagerEvents {

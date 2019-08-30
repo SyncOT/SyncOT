@@ -7,23 +7,23 @@ import {
     invertedStreams,
     randomInteger,
     SyncOtEmitter,
+    whenClose,
+    whenData,
+    whenError,
+    whenEvent,
 } from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
 import { createPresenceService } from '.'
-import { getRedisConnectionManager } from './connection'
-import { requestNames } from './service'
 import {
     connectionPrefix,
     locationPrefix,
     sessionPrefix,
     userPrefix,
-    whenClose,
-    whenData,
-    whenError,
-    whenEvent,
-} from './util'
+} from './commands'
+import { getRedisConnectionManager } from './connection'
+import { requestNames } from './service'
 
 const now = 12345
 

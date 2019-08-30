@@ -1,11 +1,10 @@
 import Redis from 'ioredis'
-import {
-    connectionPrefix,
-    connectionsKey,
-    locationPrefix,
-    sessionPrefix,
-    userPrefix,
-} from './util'
+
+export const sessionPrefix = 'presence:sessionId='
+export const userPrefix = 'presence:userId='
+export const locationPrefix = 'presence:locationId='
+export const connectionPrefix = 'presence:connectionId='
+export const connectionsKey = 'connections'
 
 /**
  * The fields in order are: sessionId, userId, locationId, data, lastModified.
@@ -31,6 +30,54 @@ export interface PresenceCommands {
     presenceGetByLocationIdBuffer(
         locationId: string,
     ): Promise<EncodedPresence[]>
+}
+
+export function defineRedisCommands(
+    redis: Redis.Redis,
+): Redis.Redis & PresenceCommands {
+    if (!(redis as any).presenceUpdate) {
+        redis.defineCommand('presenceUpdate', {
+            lua: presenceUpdate,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceDelete) {
+        redis.defineCommand('presenceDelete', {
+            lua: presenceDelete,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceDeleteByConnectionId) {
+        redis.defineCommand('presenceDeleteByConnectionId', {
+            lua: presenceDeleteByConnectionId,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceGetBySessionId) {
+        redis.defineCommand('presenceGetBySessionId', {
+            lua: presenceGetBySessionId,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceGetByUserId) {
+        redis.defineCommand('presenceGetByUserId', {
+            lua: presenceGetByUserId,
+            numberOfKeys: 0,
+        })
+    }
+
+    if (!(redis as any).presenceGetByLocationId) {
+        redis.defineCommand('presenceGetByLocationId', {
+            lua: presenceGetByLocationId,
+            numberOfKeys: 0,
+        })
+    }
+
+    return redis as any
 }
 
 const presenceUpdate = `
@@ -196,51 +243,3 @@ end
 
 return list
 `
-
-export function defineRedisCommands(
-    redis: Redis.Redis,
-): Redis.Redis & PresenceCommands {
-    if (!(redis as any).presenceUpdate) {
-        redis.defineCommand('presenceUpdate', {
-            lua: presenceUpdate,
-            numberOfKeys: 0,
-        })
-    }
-
-    if (!(redis as any).presenceDelete) {
-        redis.defineCommand('presenceDelete', {
-            lua: presenceDelete,
-            numberOfKeys: 0,
-        })
-    }
-
-    if (!(redis as any).presenceDeleteByConnectionId) {
-        redis.defineCommand('presenceDeleteByConnectionId', {
-            lua: presenceDeleteByConnectionId,
-            numberOfKeys: 0,
-        })
-    }
-
-    if (!(redis as any).presenceGetBySessionId) {
-        redis.defineCommand('presenceGetBySessionId', {
-            lua: presenceGetBySessionId,
-            numberOfKeys: 0,
-        })
-    }
-
-    if (!(redis as any).presenceGetByUserId) {
-        redis.defineCommand('presenceGetByUserId', {
-            lua: presenceGetByUserId,
-            numberOfKeys: 0,
-        })
-    }
-
-    if (!(redis as any).presenceGetByLocationId) {
-        redis.defineCommand('presenceGetByLocationId', {
-            lua: presenceGetByLocationId,
-            numberOfKeys: 0,
-        })
-    }
-
-    return redis as any
-}
