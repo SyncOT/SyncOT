@@ -433,27 +433,17 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             return null
         }
 
-        let presence: Presence
-
-        try {
-            presence = {
-                data: JSON.parse(presenceResult[3]),
-                lastModified: Number(presenceResult[4]),
-                locationId: presenceResult[2],
-                sessionId: presenceResult[0],
-                userId: presenceResult[1],
-            }
-
-            throwError(validatePresence(presence))
-        } catch (error) {
-            throw createPresenceError('Invalid presence.', error)
+        const presence: Presence = {
+            data: JSON.parse(presenceResult[3]),
+            lastModified: Number(presenceResult[4]),
+            locationId: presenceResult[2],
+            sessionId: presenceResult[0],
+            userId: presenceResult[1],
         }
 
-        if (!this.authService.mayReadPresence(presence)) {
-            return null
-        }
+        throwError(validatePresence(presence))
 
-        return presence
+        return this.authService.mayReadPresence(presence) ? presence : null
     }
 }
 

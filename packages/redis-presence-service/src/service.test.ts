@@ -998,7 +998,6 @@ describe('getPresenceBySessionId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by sessionId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
@@ -1018,7 +1017,6 @@ describe('getPresenceBySessionId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by sessionId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
@@ -1224,7 +1222,6 @@ describe('getPresenceByUserId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by userId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
@@ -1243,7 +1240,6 @@ describe('getPresenceByUserId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by userId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
@@ -1449,7 +1445,6 @@ describe('getPresenceByLocationId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by locationId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
@@ -1470,7 +1465,6 @@ describe('getPresenceByLocationId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by locationId. => ' +
-                    'SyncOtError Presence: Invalid presence. => ' +
                     'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
                 name: 'SyncOtError Presence',
             }),
