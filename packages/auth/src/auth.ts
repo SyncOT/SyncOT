@@ -67,9 +67,9 @@ export interface AuthService
     /**
      * Determines if the user may read/load the specified presence object.
      */
-    mayReadPresence(presence: Presence): boolean | Promise<boolean>
+    mayReadPresence(presence: Presence): boolean
     /**
      * Determines if the user may write/store the specified presence object.
      */
-    mayWritePresence(presence: Presence): boolean | Promise<boolean>
+    mayWritePresence(presence: Presence): boolean
 }

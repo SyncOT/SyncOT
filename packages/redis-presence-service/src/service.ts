@@ -176,7 +176,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        if (!(await this.authService.mayWritePresence(presence))) {
+        if (!this.authService.mayWritePresence(presence)) {
             throw createAuthError(
                 'Not authorized to submit this presence object.',
             )
@@ -420,9 +420,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.destroy()
     }
 
-    private processPresenceResult = async (
+    private processPresenceResult = (
         presenceResult: PresenceResult,
-    ): Promise<Presence | null> => {
+    ): Presence | null => {
         if (
             presenceResult[0] === null ||
             presenceResult[1] === null ||
@@ -449,7 +449,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('Invalid presence.', error)
         }
 
-        if (!(await this.authService.mayReadPresence(presence))) {
+        if (!this.authService.mayReadPresence(presence)) {
             return null
         }
 

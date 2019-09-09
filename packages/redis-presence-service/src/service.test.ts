@@ -35,6 +35,9 @@ const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
     name: 'SyncOtError Assert',
 })
+const throwTestError = () => {
+    throw testError
+}
 
 const sessionId = 'test-session-id'
 const sessionId2 = 'test-session-id-2'
@@ -98,8 +101,8 @@ class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
     public userId: string | undefined = userId
     public mayReadDocument = jest.fn().mockResolvedValue(true)
     public mayWriteDocument = jest.fn().mockResolvedValue(true)
-    public mayReadPresence = jest.fn().mockResolvedValue(true)
-    public mayWritePresence = jest.fn().mockResolvedValue(true)
+    public mayReadPresence = jest.fn().mockReturnValue(true)
+    public mayWritePresence = jest.fn().mockReturnValue(true)
 }
 
 const whenMessage = (expectedTopic: string, expectedMessage: string) =>
@@ -576,7 +579,7 @@ describe('submitPresence', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayWritePresence.mockResolvedValue(false)
+        authService.mayWritePresence.mockReturnValue(false)
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'Not authorized to submit this presence object.',
@@ -908,7 +911,7 @@ describe('getPresenceBySessionId', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayReadPresence.mockResolvedValue(false)
+        authService.mayReadPresence.mockReturnValue(false)
         await redis.hmset(sessionKey, {
             data: dataString,
             lastModified,
@@ -1107,7 +1110,7 @@ describe('getPresenceByUserId', () => {
         await redis.sadd(userKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
-            async loadedPresence => loadedPresence.sessionId === sessionId,
+            loadedPresence => loadedPresence.sessionId === sessionId,
         )
         expect(await presenceProxy.getPresenceByUserId(userId)).toEqual([
             presence,
@@ -1330,7 +1333,7 @@ describe('getPresenceByLocationId', () => {
         await redis.sadd(locationKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
-            async loadedPresence => loadedPresence.sessionId === sessionId,
+            loadedPresence => loadedPresence.sessionId === sessionId,
         )
         expect(await presenceProxy.getPresenceByLocationId(locationId)).toEqual(
             [presence],
@@ -1679,7 +1682,7 @@ describe('streamPresenceBySessionId', () => {
 
         redisSubscriber.disconnect()
         await whenClose(redisSubscriber)
-        authService.mayReadPresence.mockRejectedValue(testError)
+        authService.mayReadPresence.mockImplementation(throwTestError)
         await redisSubscriber.connect()
 
         await Promise.all([
@@ -1759,7 +1762,7 @@ describe('streamPresenceBySessionId', () => {
         presenceService.on('error', onError)
         presenceStream.on('data', onData)
 
-        authService.mayReadPresence.mockRejectedValue(testError)
+        authService.mayReadPresence.mockImplementation(throwTestError)
         redis.publish(sessionKey, sessionId)
         await Promise.all([
             whenError(presenceService),
