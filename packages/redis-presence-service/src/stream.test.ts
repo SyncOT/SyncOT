@@ -99,8 +99,19 @@ test('addPresence and removePresence', async () => {
     onData.mockClear()
     presenceStream.addPresence(presenceList[0])
     await whenNextTick()
+    expect(onData).toHaveBeenCalledTimes(0)
+
+    onData.mockClear()
+    presenceStream.addPresence({
+        ...presenceList[0],
+        lastModified: lastModified + 1,
+    })
+    await whenNextTick()
     expect(onData).toHaveBeenCalledTimes(1)
-    expect(onData).toHaveBeenCalledWith([true, presenceList[0]])
+    expect(onData).toHaveBeenCalledWith([
+        true,
+        { ...presenceList[0], lastModified: lastModified + 1 },
+    ])
 
     onData.mockClear()
     presenceStream.addPresence(presenceList[1])

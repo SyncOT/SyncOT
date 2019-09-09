@@ -1827,7 +1827,7 @@ describe('streamPresenceByUserId', () => {
 
         await redis.hmset(sessionKey2, {
             data: dataString2,
-            lastModified: lastModified2,
+            lastModified: lastModified2 + 1,
             locationId,
             userId,
         })
@@ -1836,7 +1836,12 @@ describe('streamPresenceByUserId', () => {
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
             true,
-            { ...presence2, locationId, userId },
+            {
+                ...presence2,
+                lastModified: lastModified2 + 1,
+                locationId,
+                userId,
+            },
         ])
     })
 
@@ -1945,7 +1950,7 @@ describe('streamPresenceByLocationId', () => {
 
         await redis.hmset(sessionKey2, {
             data: dataString2,
-            lastModified: lastModified2,
+            lastModified: lastModified2 + 1,
             locationId,
             userId,
         })
@@ -1954,7 +1959,12 @@ describe('streamPresenceByLocationId', () => {
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
             true,
-            { ...presence2, locationId, userId },
+            {
+                ...presence2,
+                lastModified: lastModified2 + 1,
+                locationId,
+                userId,
+            },
         ])
     })
 

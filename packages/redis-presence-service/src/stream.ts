@@ -37,8 +37,15 @@ export class PresenceStream extends Duplex {
      * emits a corresponding `data` event.
      */
     public addPresence(presence: Presence): void {
-        this.presenceMap.set(presence.sessionId, presence)
-        this.push([true, presence])
+        const sessionId = presence.sessionId
+        const currentPresence = this.presenceMap.get(sessionId)
+        if (
+            !currentPresence ||
+            currentPresence.lastModified !== presence.lastModified
+        ) {
+            this.presenceMap.set(sessionId, presence)
+            this.push([true, presence])
+        }
     }
 
     /**
@@ -52,8 +59,8 @@ export class PresenceStream extends Duplex {
     }
 
     /**
-     * Add or replaces the presence objects from the specified list and
-     * remove the presence objects which are not in that list.
+     * Adds or replaces the presence objects from the specified list and
+     * removes the presence objects which are not in that list.
      * Emits `data` events only when presence objects are actually added,
      * replaced or deleted. Existing presence objects are compared based
      * on the `sessionId` and `lastModified` properties only.
