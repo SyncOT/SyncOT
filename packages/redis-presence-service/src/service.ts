@@ -296,7 +296,11 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         const resetPresence = async () => {
             try {
-                stream.resetPresence(await getPresence())
+                stream.resetPresence(
+                    this.connectionManager.connectionId !== undefined
+                        ? await getPresence()
+                        : [],
+                )
             } catch (error) {
                 stream.resetPresence([])
                 this.emitAsync('error', error)
@@ -317,20 +321,14 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
         }
 
-        const onClose = () => {
-            stream.resetPresence([])
-        }
-
         resetPresence()
-        this.redis.on('ready', resetPresence)
-        this.redis.on('close', onClose)
+        this.connectionManager.on('connectionId', resetPresence)
         this.redisSubscriber.on('ready', resetPresence)
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
 
         stream.once('close', () => {
-            this.redis.off('ready', resetPresence)
-            this.redis.off('close', onClose)
+            this.connectionManager.off('connectionId', resetPresence)
             this.redisSubscriber.off('ready', resetPresence)
             this.subscriber.offChannel(channel, onMessage)
             this.presenceStreams.delete(stream)
