@@ -9,27 +9,30 @@ export const connectionsKey = 'connections'
 /**
  * The fields in order are: sessionId, userId, locationId, data, lastModified.
  */
-export type EncodedPresence = [Buffer, Buffer, Buffer, Buffer, Buffer]
+export type PresenceResult = [
+    string | null,
+    string | null,
+    string | null,
+    string | null,
+    string | null,
+]
 
 export interface PresenceCommands {
     presenceUpdate(
-        sessionId: Buffer,
-        userId: Buffer,
-        locationId: Buffer,
-        data: Buffer,
-        lastModified: Buffer,
+        sessionId: string,
+        userId: string,
+        locationId: string,
+        data: string,
         connectionId: number,
     ): Promise<void>
-    presenceDelete(sessionId: Buffer): Promise<void>
+    presenceDelete(sessionId: string): Promise<void>
     presenceDeleteByConnectionId(
         connectionId: number,
         lock?: number,
     ): Promise<number>
-    presenceGetBySessionIdBuffer(sessionId: string): Promise<EncodedPresence>
-    presenceGetByUserIdBuffer(userId: string): Promise<EncodedPresence[]>
-    presenceGetByLocationIdBuffer(
-        locationId: string,
-    ): Promise<EncodedPresence[]>
+    presenceGetBySessionId(sessionId: string): Promise<PresenceResult>
+    presenceGetByUserId(userId: string): Promise<PresenceResult[]>
+    presenceGetByLocationId(locationId: string): Promise<PresenceResult[]>
 }
 
 export function defineRedisCommands(
@@ -85,8 +88,9 @@ local sessionId = ARGV[1]
 local userId = ARGV[2]
 local locationId = ARGV[3]
 local data = ARGV[4]
-local lastModified = ARGV[5]
-local connectionId = ARGV[6]
+local connectionId = ARGV[5]
+local time = redis.call('time')
+local lastModified = math.floor(time[1] * 1000 + time[2] * 0.001)
 
 local sessionKey = '${sessionPrefix}'..sessionId
 local userKey = '${userPrefix}'..userId
@@ -94,10 +98,11 @@ local locationKey = '${locationPrefix}'..locationId
 local connectionKey = '${connectionPrefix}'..connectionId
 
 -- Remove old indexes.
-local oldPresence = redis.call('hmget', sessionKey, 'userId', 'locationId', 'connectionId')
+local oldPresence = redis.call('hmget', sessionKey, 'userId', 'locationId', 'connectionId', 'lastModified')
 local oldUserId = oldPresence[1]
 local oldLocationId = oldPresence[2]
 local oldConnectionId = oldPresence[3]
+local oldLastModified = oldPresence[4]
 
 if (oldConnectionId and oldConnectionId ~= connectionId)
 then
@@ -116,6 +121,11 @@ then
     local oldLocationKey = '${locationPrefix}'..oldLocationId
     redis.call('srem', oldLocationKey, sessionId)
     redis.call('publish', oldLocationKey, sessionId)
+end
+
+if (oldLastModified and lastModified - oldLastModified <= 0)
+then
+    lastModified = oldLastModified + 1
 end
 
 -- Store the data.

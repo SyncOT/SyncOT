@@ -7,7 +7,6 @@ import {
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { decode, encode } from '@syncot/tson'
 import {
     assert,
     createAuthError,
@@ -19,9 +18,9 @@ import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import {
     defineRedisCommands,
-    EncodedPresence,
     locationPrefix,
     PresenceCommands,
+    PresenceResult,
     sessionPrefix,
     userPrefix,
 } from './commands'
@@ -33,11 +32,6 @@ export interface CreatePresenceServiceOptions {
     authService: AuthService
     redis: Redis.Redis
     redisSubscriber: Redis.Redis
-    /**
-     * The maximum size of the `tson` encoded presence data in bytes.
-     * Defaults to 1024. Min value is 9 - the size of the smallest valid presence object.
-     */
-    presenceSizeLimit?: number
 }
 
 /**
@@ -53,7 +47,6 @@ export interface CreatePresenceServiceOptions {
  * - connected to the same single Redis server
  * - configured with the following options:
  *   - `autoResubscribe: false`
- *   - `dropBufferSupport: false`
  *   - `enableOfflineQueue: false`
  *   - `enableReadyCheck: true`
  *
@@ -70,14 +63,12 @@ export function createPresenceService({
     authService,
     redis,
     redisSubscriber,
-    presenceSizeLimit,
 }: CreatePresenceServiceOptions): PresenceService {
     return new RedisPresenceService(
         connection,
         authService,
         redis,
         redisSubscriber,
-        presenceSizeLimit,
     )
 }
 
@@ -97,7 +88,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     private readonly redis: Redis.Redis & PresenceCommands
     private readonly connectionManager: RedisConnectionManager
     private readonly subscriber: Subscriber
-    private encodedPresence: EncodedPresence | undefined = undefined
+    private presence: Presence | undefined = undefined
     private presenceStreams: Set<Duplex> = new Set()
 
     public constructor(
@@ -105,17 +96,12 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly authService: AuthService,
         redis: Redis.Redis,
         private readonly redisSubscriber: Redis.Redis,
-        private readonly presenceSizeLimit: number = 1024,
     ) {
         super()
 
         assert(
             (redis as any).options.autoResubscribe === false,
             'Redis must be configured with autoResubscribe=false.',
-        )
-        assert(
-            (redis as any).options.dropBufferSupport === false,
-            'Redis must be configured with dropBufferSupport=false.',
         )
         assert(
             (redis as any).options.enableOfflineQueue === false,
@@ -128,10 +114,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         assert(
             (redisSubscriber as any).options.autoResubscribe === false,
             'Redis subscriber must be configured with autoResubscribe=false.',
-        )
-        assert(
-            (redisSubscriber as any).options.dropBufferSupport === false,
-            'Redis subscriber must be configured with dropBufferSupport=false.',
         )
         assert(
             (redisSubscriber as any).options.enableOfflineQueue === false,
@@ -149,11 +131,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         assert(
             this.authService && !this.authService.destroyed,
             'Argument "authService" must be a non-destroyed AuthService.',
-        )
-        assert(
-            Number.isSafeInteger(this.presenceSizeLimit) &&
-                this.presenceSizeLimit >= 3,
-            'Argument "presenceSizeLimit" must be undefined or a safe integer >= 3.',
         )
 
         this.connection.registerService({
@@ -199,30 +176,13 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             throw createPresenceError('User ID mismatch.')
         }
 
-        const encodedPresence: EncodedPresence = [
-            Buffer.from(presence.sessionId),
-            Buffer.from(presence.userId),
-            Buffer.from(presence.locationId),
-            encode(presence.data),
-            encode(Date.now()),
-        ]
-        const presenceSize =
-            encodedPresence[0].length +
-            encodedPresence[1].length +
-            encodedPresence[2].length +
-            encodedPresence[3].length +
-            encodedPresence[4].length
-        if (presenceSize > this.presenceSizeLimit) {
-            throw createPresenceError('Presence size limit exceeded.')
-        }
-
         if (!(await this.authService.mayWritePresence(presence))) {
             throw createAuthError(
                 'Not authorized to submit this presence object.',
             )
         }
 
-        this.encodedPresence = encodedPresence
+        this.presence = presence
         this.storeInRedis()
         return
     }
@@ -242,10 +202,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
 
         try {
-            const encodedPresence = await this.redis.presenceGetBySessionIdBuffer(
+            const presenceResult = await this.redis.presenceGetBySessionId(
                 sessionId,
             )
-            return await this.decodePresence(encodedPresence)
+            return await this.processPresenceResult(presenceResult)
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by sessionId.',
@@ -258,11 +218,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
 
         try {
-            const encodedPresenceArray = await this.redis.presenceGetByUserIdBuffer(
-                userId,
-            )
+            const presenceResults = await this.redis.presenceGetByUserId(userId)
             return (await Promise.all(
-                encodedPresenceArray.map(this.decodePresence),
+                presenceResults.map(this.processPresenceResult),
             )).filter(notNull) as Presence[]
         } catch (error) {
             throw createPresenceError(
@@ -278,11 +236,11 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.assertOk()
 
         try {
-            const encodedPresenceArray = await this.redis.presenceGetByLocationIdBuffer(
+            const presenceResults = await this.redis.presenceGetByLocationId(
                 locationId,
             )
             return (await Promise.all(
-                encodedPresenceArray.map(this.decodePresence),
+                presenceResults.map(this.processPresenceResult),
             )).filter(notNull) as Presence[]
         } catch (error) {
             throw createPresenceError(
@@ -393,8 +351,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private async storeInRedis(): Promise<void> {
-        const encodedPresence = this.encodedPresence
-        if (encodedPresence === undefined) {
+        const presence = this.presence
+        if (presence === undefined) {
             return
         }
 
@@ -405,11 +363,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         try {
             await this.redis.presenceUpdate(
-                encodedPresence[0],
-                encodedPresence[1],
-                encodedPresence[2],
-                encodedPresence[3],
-                encodedPresence[4],
+                presence.sessionId,
+                presence.userId,
+                presence.locationId,
+                JSON.stringify(presence.data),
                 connectionId,
             )
         } catch (error) {
@@ -424,13 +381,13 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     }
 
     private async deleteFromRedis(): Promise<void> {
-        const encodedPresence = this.encodedPresence
-        if (encodedPresence === undefined) {
+        const presence = this.presence
+        if (presence === undefined) {
             return
         }
 
-        const sessionId = encodedPresence[0]
-        this.encodedPresence = undefined
+        const sessionId = presence.sessionId
+        this.presence = undefined
 
         const connectionId = this.connectionManager.connectionId
         if (connectionId === undefined) {
@@ -465,15 +422,15 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.destroy()
     }
 
-    private decodePresence = async (
-        encodedPresence: EncodedPresence,
+    private processPresenceResult = async (
+        presenceResult: PresenceResult,
     ): Promise<Presence | null> => {
         if (
-            encodedPresence[0] === null ||
-            encodedPresence[1] === null ||
-            encodedPresence[2] === null ||
-            encodedPresence[3] === null ||
-            encodedPresence[4] === null
+            presenceResult[0] === null ||
+            presenceResult[1] === null ||
+            presenceResult[2] === null ||
+            presenceResult[3] === null ||
+            presenceResult[4] === null
         ) {
             return null
         }
@@ -482,11 +439,11 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         try {
             presence = {
-                data: decode(encodedPresence[3]),
-                lastModified: decode(encodedPresence[4]) as number,
-                locationId: encodedPresence[2].toString() as string,
-                sessionId: encodedPresence[0].toString() as string,
-                userId: encodedPresence[1].toString() as string,
+                data: JSON.parse(presenceResult[3]),
+                lastModified: Number(presenceResult[4]),
+                locationId: presenceResult[2],
+                sessionId: presenceResult[0],
+                userId: presenceResult[1],
             }
 
             throwError(validatePresence(presence))

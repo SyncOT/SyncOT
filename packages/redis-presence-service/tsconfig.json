@@ -9,7 +9,6 @@
     { "path": "../connection" },
     { "path": "../ioredis-subscriber" },
     { "path": "../presence" },
-    { "path": "../tson" },
     { "path": "../util" }
   ]
 }

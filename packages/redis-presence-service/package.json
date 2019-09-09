@@ -32,7 +32,6 @@
     "@syncot/connection": "file:../connection",
     "@syncot/ioredis-subscriber": "file:../ioredis-subscriber",
     "@syncot/presence": "file:../presence",
-    "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",

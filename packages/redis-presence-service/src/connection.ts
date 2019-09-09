@@ -62,7 +62,7 @@ export function extractConnectionIds(clientList: string): number[] {
     clientList.split('\n').forEach(line => {
         const match = /(?:^| )id=(\d+)(?: |$)/.exec(line)
         if (match) {
-            connectionIds.push(parseInt(match[1], 10))
+            connectionIds.push(Number(match[1]))
         }
     })
     return connectionIds

@@ -1,7 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceService } from '@syncot/presence'
-import { encode } from '@syncot/tson'
 import {
     delay,
     invertedStreams,
@@ -45,14 +44,11 @@ const locationId = 'test-location-id'
 const locationId2 = 'test-location-id-2'
 const data = Object.freeze({ key: 'value' })
 const data2 = Object.freeze({ key: 'value-2' })
+const dataString = JSON.stringify(data)
+const dataString2 = JSON.stringify(data2)
 const lastModified = now
 const lastModified2 = now
 const connectionId = async (): Promise<number> => redis.client('id')
-
-const dataBuffer = encode(data)
-const dataBuffer2 = encode(data2)
-const lastModifiedBuffer = encode(lastModified)
-const lastModifiedBuffer2 = encode(lastModified2)
 
 const sessionKey = sessionPrefix + sessionId
 const sessionKey2 = sessionPrefix + sessionId2
@@ -212,25 +208,6 @@ test('throw on redis autoResubscribe=true', () => {
     )
 })
 
-test('throw on redis dropBufferSupport=true', () => {
-    expect(() =>
-        createPresenceService({
-            authService,
-            connection: connection1,
-            redis: new Redis({
-                ...redisOptions,
-                dropBufferSupport: true,
-            }),
-            redisSubscriber,
-        }),
-    ).toThrow(
-        expect.objectContaining({
-            message: 'Redis must be configured with dropBufferSupport=false.',
-            name: 'SyncOtError Assert',
-        }),
-    )
-})
-
 test('throw on redis enableOfflineQueue=true', () => {
     expect(() =>
         createPresenceService({
@@ -284,26 +261,6 @@ test('throw on redisSubscriber autoResubscribe=true', () => {
         expect.objectContaining({
             message:
                 'Redis subscriber must be configured with autoResubscribe=false.',
-            name: 'SyncOtError Assert',
-        }),
-    )
-})
-
-test('throw on redisSubscriber dropBufferSupport=true', () => {
-    expect(() =>
-        createPresenceService({
-            authService,
-            connection: connection1,
-            redis,
-            redisSubscriber: new Redis({
-                ...redisOptions,
-                dropBufferSupport: true,
-            }),
-        }),
-    ).toThrow(
-        expect.objectContaining({
-            message:
-                'Redis subscriber must be configured with dropBufferSupport=false.',
             name: 'SyncOtError Assert',
         }),
     )
@@ -430,30 +387,6 @@ test('destroy on authService destroy', async () => {
     authService.destroy()
     await new Promise(resolve => presenceService.once('destroy', resolve))
 })
-
-test.each<any>(['123', 2])(
-    'invalid presenceSizeLimit: %p',
-    presenceSizeLimit => {
-        connection1.disconnect()
-        connection2.disconnect()
-        connection1 = createConnection()
-        expect(() =>
-            createPresenceService({
-                authService,
-                connection: connection1,
-                presenceSizeLimit,
-                redis,
-                redisSubscriber,
-            }),
-        ).toThrow(
-            expect.objectContaining({
-                message:
-                    'Argument "presenceSizeLimit" must be undefined or a safe integer >= 3.',
-                name: 'SyncOtError Assert',
-            }),
-        )
-    },
-)
 
 test('create twice on the same connection', () => {
     expect(() =>
@@ -653,57 +586,6 @@ describe('submitPresence', () => {
         expect(authService.mayWritePresence).toHaveBeenCalledTimes(1)
         expect(authService.mayWritePresence).toHaveBeenCalledWith(presence)
     })
-
-    test.each([undefined, 3, 20])(
-        'presence size limit exceeded (%p)',
-        async presenceSizeLimit => {
-            connection1 = createConnection()
-            connection2 = createConnection()
-            ;[stream1, stream2] = invertedStreams({
-                allowHalfOpen: false,
-                objectMode: true,
-            })
-            connection1.connect(stream1)
-            connection2.connect(stream2)
-
-            presenceService = createPresenceService({
-                authService,
-                connection: connection1,
-                presenceSizeLimit,
-                redis,
-                redisSubscriber,
-            })
-            connection2.registerProxy({
-                name: 'presence',
-                requestNames: new Set([
-                    'submitPresence',
-                    'removePresence',
-                    'getPresenceBySessionId',
-                    'getPresenceByUserId',
-                    'getPresenceByLocationId',
-                ]),
-            })
-            presenceProxy = connection2.getProxy('presence') as PresenceService
-
-            const effectiveLimit = presenceSizeLimit || 1024
-            authService.userId = ''
-            authService.sessionId = ''
-            await expect(
-                presenceProxy.submitPresence({
-                    data: Buffer.allocUnsafe(effectiveLimit - 3), // (type + int8 or int16 length + binary data)
-                    lastModified: Date.now(), // 3 bytes (type + int16)
-                    locationId: '', // 0 bytes
-                    sessionId: '', // 0 bytes
-                    userId: '', // 0 bytes
-                }),
-            ).rejects.toEqual(
-                expect.objectContaining({
-                    message: 'Presence size limit exceeded.',
-                    name: 'SyncOtError Presence',
-                }),
-            )
-        },
-    )
 
     test('store', async () => {
         const onMessage = jest.fn()
@@ -1015,8 +897,8 @@ describe('removePresence', () => {
 describe('getPresenceBySessionId', () => {
     test('get existing presence', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1028,8 +910,8 @@ describe('getPresenceBySessionId', () => {
     test('not authorized', async () => {
         authService.mayReadPresence.mockResolvedValue(false)
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1042,8 +924,8 @@ describe('getPresenceBySessionId', () => {
 
     test('get non-existant presence', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1054,8 +936,8 @@ describe('getPresenceBySessionId', () => {
 
     test('get presence with missing userId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             // userId,
         })
@@ -1066,8 +948,8 @@ describe('getPresenceBySessionId', () => {
 
     test('get presence with missing locationId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             // locationId,
             userId,
         })
@@ -1078,8 +960,8 @@ describe('getPresenceBySessionId', () => {
 
     test('get presence with missing data', async () => {
         await redis.hmset(sessionKey, {
-            // data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            // data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1090,8 +972,8 @@ describe('getPresenceBySessionId', () => {
 
     test('get presence with missing lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            // lastModified: lastModifiedBuffer,
+            data: dataString,
+            // lastModified: lastModified,
             locationId,
             userId,
         })
@@ -1100,9 +982,9 @@ describe('getPresenceBySessionId', () => {
         ).resolves.toBeNull()
     })
 
-    test('get not encoded presence', async () => {
+    test('invalid data', async () => {
         await redis.hmset(sessionKey, {
-            data,
+            data: 'not-json',
             lastModified,
             locationId,
             userId,
@@ -1114,16 +996,16 @@ describe('getPresenceBySessionId', () => {
                 message:
                     'Failed to load presence by sessionId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError TSON: Unknown type.',
+                    'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
         )
     })
 
-    test('get invalid presence', async () => {
+    test('invalid lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: encode(true),
+            data: dataString,
+            lastModified: 'not-a-number',
             locationId,
             userId,
         })
@@ -1177,8 +1059,8 @@ describe('getPresenceByUserId', () => {
 
     test('get one presence object', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1190,14 +1072,14 @@ describe('getPresenceByUserId', () => {
 
     test('get two presence objects', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1211,14 +1093,14 @@ describe('getPresenceByUserId', () => {
 
     test('not authorized to get one of 2 presence objects', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1240,14 +1122,14 @@ describe('getPresenceByUserId', () => {
 
     test('get presence with missing userId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             // userId,
         })
@@ -1259,14 +1141,14 @@ describe('getPresenceByUserId', () => {
 
     test('get presence with missing locationId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             // locationId: locationId2,
             userId,
         })
@@ -1278,14 +1160,14 @@ describe('getPresenceByUserId', () => {
 
     test('get presence with missing data', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            // data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            // data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1297,14 +1179,14 @@ describe('getPresenceByUserId', () => {
 
     test('get presence with missing lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            // lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            // lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1316,8 +1198,8 @@ describe('getPresenceByUserId', () => {
 
     test('get presence which is missing', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1327,9 +1209,9 @@ describe('getPresenceByUserId', () => {
         ).resolves.toEqual([presence])
     })
 
-    test('get not encoded presence', async () => {
+    test('invalid data', async () => {
         await redis.hmset(sessionKey, {
-            data,
+            data: 'not-json',
             lastModified,
             locationId,
             userId,
@@ -1340,16 +1222,16 @@ describe('getPresenceByUserId', () => {
                 message:
                     'Failed to load presence by userId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError TSON: Unknown type.',
+                    'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
         )
     })
 
-    test('get invalid presence', async () => {
+    test('invalid lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: encode(true),
+            data: dataString,
+            lastModified: 'not-a-number',
             locationId,
             userId,
         })
@@ -1398,8 +1280,8 @@ describe('getPresenceByLocationId', () => {
 
     test('get one presence object', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1411,14 +1293,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get two presence objects', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -1434,14 +1316,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get two presence objects', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -1463,14 +1345,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get presence with missing userId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             // userId: userId2,
         })
@@ -1482,14 +1364,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get presence with missing locationId', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             // locationId,
             userId: userId2,
         })
@@ -1501,14 +1383,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get presence with missing data', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            // data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            // data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -1520,14 +1402,14 @@ describe('getPresenceByLocationId', () => {
 
     test('get presence with missing lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            // lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            // lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -1539,8 +1421,8 @@ describe('getPresenceByLocationId', () => {
 
     test('get presence which is missing', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1550,9 +1432,9 @@ describe('getPresenceByLocationId', () => {
         ).resolves.toEqual([presence])
     })
 
-    test('get not encoded presence', async () => {
+    test('invalid data', async () => {
         await redis.hmset(sessionKey, {
-            data,
+            data: 'not-json',
             lastModified,
             locationId,
             userId,
@@ -1565,16 +1447,16 @@ describe('getPresenceByLocationId', () => {
                 message:
                     'Failed to load presence by locationId. => ' +
                     'SyncOtError Presence: Invalid presence. => ' +
-                    'SyncOtError TSON: Unknown type.',
+                    'SyntaxError: Unexpected token o in JSON at position 1',
                 name: 'SyncOtError Presence',
             }),
         )
     })
 
-    test('get invalid presence', async () => {
+    test('invalid lastModified', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: encode(true),
+            data: dataString,
+            lastModified: 'not-a-number',
             locationId,
             userId,
         })
@@ -1702,8 +1584,8 @@ describe('streamPresenceBySessionId', () => {
 
     test('remove presence on redis disconnect', async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1732,8 +1614,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.ping()
         await redis.ping()
         await redis2.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1758,8 +1640,8 @@ describe('streamPresenceBySessionId', () => {
         await redis.ping()
         await redis.ping()
         await redis2.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
@@ -1906,14 +1788,14 @@ describe('streamPresenceByUserId', () => {
 
     beforeEach(async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1944,8 +1826,8 @@ describe('streamPresenceByUserId', () => {
         presenceStream.on('data', onData)
 
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId,
         })
@@ -1971,8 +1853,8 @@ describe('streamPresenceByUserId', () => {
 
         onData.mockClear()
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -1988,8 +1870,8 @@ describe('streamPresenceByUserId', () => {
         presenceStream.on('data', onData)
 
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId: userId2,
         })
@@ -2000,8 +1882,8 @@ describe('streamPresenceByUserId', () => {
 
         onData.mockClear()
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId,
         })
@@ -2019,14 +1901,14 @@ describe('streamPresenceByLocationId', () => {
 
     beforeEach(async () => {
         await redis.hmset(sessionKey, {
-            data: dataBuffer,
-            lastModified: lastModifiedBuffer,
+            data: dataString,
+            lastModified,
             locationId,
             userId,
         })
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -2062,8 +1944,8 @@ describe('streamPresenceByLocationId', () => {
         presenceStream.on('data', onData)
 
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId,
         })
@@ -2089,8 +1971,8 @@ describe('streamPresenceByLocationId', () => {
 
         onData.mockClear()
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })
@@ -2109,8 +1991,8 @@ describe('streamPresenceByLocationId', () => {
         presenceStream.on('data', onData)
 
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId: locationId2,
             userId: userId2,
         })
@@ -2121,8 +2003,8 @@ describe('streamPresenceByLocationId', () => {
 
         onData.mockClear()
         await redis.hmset(sessionKey2, {
-            data: dataBuffer2,
-            lastModified: lastModifiedBuffer2,
+            data: dataString2,
+            lastModified: lastModified2,
             locationId,
             userId: userId2,
         })

@@ -1,5 +1,4 @@
 import { Presence } from '@syncot/presence'
-import { encode } from '@syncot/tson'
 import { delay, randomInteger, whenClose, whenError } from '@syncot/util'
 import Redis from 'ioredis'
 import RedisServer from 'redis-server'
@@ -50,11 +49,10 @@ async function updatePresence(
     connectionId: number,
 ): Promise<void> {
     await redis2.presenceUpdate(
-        Buffer.from(presence.sessionId),
-        Buffer.from(presence.userId),
-        Buffer.from(presence.locationId),
-        encode(presence.data),
-        encode(Date.now()),
+        presence.sessionId,
+        presence.userId,
+        presence.locationId,
+        JSON.stringify(presence.data),
         connectionId,
     )
 }
@@ -81,7 +79,6 @@ beforeAll(async () => {
             await redisServer.open()
             redisOptions = {
                 autoResubscribe: false,
-                dropBufferSupport: false,
                 enableOfflineQueue: false,
                 enableReadyCheck: true,
                 lazyConnect: true,
