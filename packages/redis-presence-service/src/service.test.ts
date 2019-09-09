@@ -1776,6 +1776,29 @@ describe('streamPresenceBySessionId', () => {
         presenceStream.destroy()
         await whenClose(presenceStream)
     })
+
+    test('remove presence on message - no connection', async () => {
+        await presenceProxy.submitPresence(presence)
+        await whenMessage(sessionKey, sessionId)
+
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        await whenData(presenceStream)
+
+        redis.disconnect()
+        await whenData(presenceStream)
+
+        authService.mayReadPresence.mockClear()
+        await redis2.publish(sessionKey, sessionId)
+        await redis2.ping()
+        await redis2.ping()
+        expect(authService.mayReadPresence).toHaveBeenCalledTimes(0)
+
+        presenceStream.destroy()
+        await whenClose(presenceStream)
+        await redis.connect()
+    })
 })
 
 // Most of the streamPresenceByUserId implementation is shared with streamPresenceBySessionId,

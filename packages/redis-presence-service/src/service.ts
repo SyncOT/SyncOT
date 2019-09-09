@@ -309,7 +309,10 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         const onMessage = async (_topic: string, id: string) => {
             try {
-                const presence = await this.getPresenceBySessionId(id)
+                const presence =
+                    this.connectionManager.connectionId !== undefined
+                        ? await this.getPresenceBySessionId(id)
+                        : null
                 if (shouldAdd(presence)) {
                     stream.addPresence(presence)
                 } else {
