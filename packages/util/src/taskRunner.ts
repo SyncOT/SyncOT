@@ -20,8 +20,7 @@ export interface TaskRunnerEvents<Result> {
 export interface TaskRunner<Result>
     extends EmitterInterface<SyncOtEmitter<TaskRunnerEvents<Result>>> {
     /**
-     * If a task is already scheduled or running, it is canceled first.
-     * Runs the task now.
+     * Runs the task now, unless it is already running or scheduled.
      * If it fails, emits an `error` event and schedules a retry.
      * If it succeeds, emits a `done` event.
      */
@@ -106,12 +105,13 @@ class Runner<Result> extends SyncOtEmitter<TaskRunnerEvents<Result>>
 
     public run(): void {
         this.assertNotDestroyed()
-        this.cancel()
-        this.runNow()
+        if (this.timeout === undefined && this.promise === undefined) {
+            this.runNow()
+        }
     }
 
     public cancel(): void {
-        if (this.timeout) {
+        if (this.timeout !== undefined) {
             clearTimeout(this.timeout)
             this.timeout = undefined
         }
