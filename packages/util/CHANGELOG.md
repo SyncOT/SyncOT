@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.13](https://github.com/SyncOT/SyncOT/compare/@syncot/util@0.0.12...@syncot/util@0.0.13) (2019-09-12)
+
+
+### Bug Fixes
+
+* the return type of whenEvent ([73b88a8](https://github.com/SyncOT/SyncOT/commit/73b88a8))
+
+
+
+
+
 ## [0.0.12](https://github.com/SyncOT/SyncOT/compare/@syncot/util@0.0.11...@syncot/util@0.0.12) (2019-09-11)
 
 
