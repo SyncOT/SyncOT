@@ -74,8 +74,8 @@ export function delay(minDelayMilliseconds: number = 0) {
  * Returns a promise which resolves when `emitter` emits `event`.
  */
 export const whenEvent = (event: string) => (emitter: {
-    once: (event: string, callback: () => any) => any
-}) => new Promise(resolve => emitter.once(event, resolve))
+    once: (event: string, callback: () => void) => void
+}) => new Promise<void>(resolve => emitter.once(event, resolve))
 /**
  * Returns a promise which resolves when `emitter` emits `"data"`.
  */
