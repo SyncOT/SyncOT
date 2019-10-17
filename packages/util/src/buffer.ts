@@ -72,6 +72,8 @@ export function isSharedArrayBuffer(value: any): value is ArrayBuffer {
 }
 
 export interface BufferWriter {
+    readonly offset: number
+    readonly length: number
     toBuffer(): Buffer
     writeBuffer(value: Buffer): void
     writeString(value: string, encoding?: BufferEncoding): void
@@ -90,7 +92,10 @@ export function createBufferWriter(initialSize: number = 1024): BufferWriter {
 }
 
 class Writer implements BufferWriter {
-    private offset: number = 0
+    public offset: number = 0
+    public get length(): number {
+        return this.offset
+    }
     private buffer: Buffer
     public constructor(initialSize: number) {
         this.buffer = Buffer.allocUnsafe(initialSize)
@@ -169,6 +174,8 @@ class Writer implements BufferWriter {
 }
 
 export interface BufferReader {
+    readonly offset: number
+    readonly length: number
     readBuffer(size: number): Buffer
     readString(size: number, encoding?: BufferEncoding): string
     readUInt8(): number
@@ -186,7 +193,10 @@ export function createBufferReader(buffer: Buffer): BufferReader {
 }
 
 class Reader implements BufferReader {
-    private offset: number = 0
+    public offset: number = 0
+    public get length(): number {
+        return this.buffer.length
+    }
     private buffer: Buffer
     public constructor(buffer: Buffer) {
         this.buffer = buffer
