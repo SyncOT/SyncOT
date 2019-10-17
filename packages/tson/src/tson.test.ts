@@ -1,5 +1,4 @@
-import { Binary } from '@syncot/util'
-import { SmartBuffer } from 'smart-buffer'
+import { Binary, createBufferReader } from '@syncot/util'
 import { decode, encode } from '.'
 import { Type } from './tson'
 
@@ -9,10 +8,8 @@ const errorMatcher = (message: string) =>
         name: 'SyncOtError TSON',
     })
 
-const encodeToSmartBuffer = (data: any) => {
-    const buffer = encode(data)
-    expect(Buffer.isBuffer(buffer)).toBeTrue()
-    return SmartBuffer.fromBuffer(buffer)
+const encodeToBufferReader = (data: any) => {
+    return createBufferReader(encode(data))
 }
 
 const stringFFLong = Array.from(Array(0xff), (_v, k) => k % 10).join('')
@@ -79,17 +76,17 @@ initBinaryTestData(testSharedArrayBuffer)
 describe('encode', () => {
     describe('unsupported type', () => {
         test('undefined', () => {
-            const buffer = encodeToSmartBuffer(undefined)
+            const buffer = encodeToBufferReader(undefined)
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
         test('function', () => {
-            const buffer = encodeToSmartBuffer(() => 5)
+            const buffer = encodeToBufferReader(() => 5)
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
         test('symbol', () => {
-            const buffer = encodeToSmartBuffer(Symbol())
+            const buffer = encodeToBufferReader(Symbol())
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
@@ -185,7 +182,7 @@ describe('encode', () => {
 
     describe('null', () => {
         test('null', () => {
-            const buffer = encodeToSmartBuffer(null)
+            const buffer = encodeToBufferReader(null)
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
@@ -193,12 +190,12 @@ describe('encode', () => {
 
     describe('boolean', () => {
         test('true', () => {
-            const buffer = encodeToSmartBuffer(true)
+            const buffer = encodeToBufferReader(true)
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.TRUE)
         })
         test('false', () => {
-            const buffer = encodeToSmartBuffer(false)
+            const buffer = encodeToBufferReader(false)
             expect(buffer.length).toBe(1)
             expect(buffer.readUInt8()).toBe(Type.FALSE)
         })
@@ -206,19 +203,19 @@ describe('encode', () => {
 
     describe('INT8', () => {
         test('0x00', () => {
-            const buffer = encodeToSmartBuffer(0)
+            const buffer = encodeToBufferReader(0)
             expect(buffer.length).toBe(2)
             expect(buffer.readUInt8()).toBe(Type.INT8)
             expect(buffer.readInt8()).toBe(0)
         })
         test('0x7F', () => {
-            const buffer = encodeToSmartBuffer(0x7f)
+            const buffer = encodeToBufferReader(0x7f)
             expect(buffer.length).toBe(2)
             expect(buffer.readUInt8()).toBe(Type.INT8)
             expect(buffer.readInt8()).toBe(0x7f)
         })
         test('-0x80', () => {
-            const buffer = encodeToSmartBuffer(-0x80)
+            const buffer = encodeToBufferReader(-0x80)
             expect(buffer.length).toBe(2)
             expect(buffer.readUInt8()).toBe(Type.INT8)
             expect(buffer.readInt8()).toBe(-0x80)
@@ -227,25 +224,25 @@ describe('encode', () => {
 
     describe('INT16', () => {
         test('0x80', () => {
-            const buffer = encodeToSmartBuffer(0x80)
+            const buffer = encodeToBufferReader(0x80)
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(0x80)
         })
         test('-0x81', () => {
-            const buffer = encodeToSmartBuffer(-0x81)
+            const buffer = encodeToBufferReader(-0x81)
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(-0x81)
         })
         test('0x7FFF', () => {
-            const buffer = encodeToSmartBuffer(0x7fff)
+            const buffer = encodeToBufferReader(0x7fff)
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(0x7fff)
         })
         test('-0x8000', () => {
-            const buffer = encodeToSmartBuffer(-0x8000)
+            const buffer = encodeToBufferReader(-0x8000)
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(-0x8000)
@@ -254,25 +251,25 @@ describe('encode', () => {
 
     describe('INT32', () => {
         test('0x8000', () => {
-            const buffer = encodeToSmartBuffer(0x8000)
+            const buffer = encodeToBufferReader(0x8000)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.INT32)
             expect(buffer.readInt32LE()).toBe(0x8000)
         })
         test('-0x8001', () => {
-            const buffer = encodeToSmartBuffer(-0x8001)
+            const buffer = encodeToBufferReader(-0x8001)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.INT32)
             expect(buffer.readInt32LE()).toBe(-0x8001)
         })
         test('0x7FFFFFFF', () => {
-            const buffer = encodeToSmartBuffer(0x7fffffff)
+            const buffer = encodeToBufferReader(0x7fffffff)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.INT32)
             expect(buffer.readInt32LE()).toBe(0x7fffffff)
         })
         test('-0x80000000', () => {
-            const buffer = encodeToSmartBuffer(-0x80000000)
+            const buffer = encodeToBufferReader(-0x80000000)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.INT32)
             expect(buffer.readInt32LE()).toBe(-0x80000000)
@@ -281,45 +278,45 @@ describe('encode', () => {
 
     describe('FLOAT32', () => {
         test('1.5', () => {
-            const buffer = encodeToSmartBuffer(1.5)
+            const buffer = encodeToBufferReader(1.5)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(1.5)
         })
         test('-1.5', () => {
-            const buffer = encodeToSmartBuffer(-1.5)
+            const buffer = encodeToBufferReader(-1.5)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(-1.5)
         })
         test('NaN', () => {
-            const buffer = encodeToSmartBuffer(NaN)
+            const buffer = encodeToBufferReader(NaN)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(NaN)
         })
         test('Infinity', () => {
-            const buffer = encodeToSmartBuffer(Infinity)
+            const buffer = encodeToBufferReader(Infinity)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(Infinity)
         })
         test('-Infinity', () => {
-            const buffer = encodeToSmartBuffer(-Infinity)
+            const buffer = encodeToBufferReader(-Infinity)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(-Infinity)
         })
         test('0x90000000', () => {
             // Too big for INT32.
-            const buffer = encodeToSmartBuffer(0x90000000)
+            const buffer = encodeToBufferReader(0x90000000)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(0x90000000)
         })
         test('-0x90000000', () => {
             // Too big for INT32.
-            const buffer = encodeToSmartBuffer(-0x90000000)
+            const buffer = encodeToBufferReader(-0x90000000)
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(-0x90000000)
@@ -328,27 +325,27 @@ describe('encode', () => {
 
     describe('FLOAT64', () => {
         test('1.3', () => {
-            const buffer = encodeToSmartBuffer(1.3)
+            const buffer = encodeToBufferReader(1.3)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
             expect(buffer.readDoubleLE()).toBe(1.3)
         })
         test('-1.3', () => {
-            const buffer = encodeToSmartBuffer(-1.3)
+            const buffer = encodeToBufferReader(-1.3)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
             expect(buffer.readDoubleLE()).toBe(-1.3)
         })
         test('0x80000001', () => {
             // Too big for INT32 and FLOAT32.
-            const buffer = encodeToSmartBuffer(0x80000001)
+            const buffer = encodeToBufferReader(0x80000001)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
             expect(buffer.readDoubleLE()).toBe(0x80000001)
         })
         test('-0x80000001', () => {
             // Too big for INT32 and FLOAT32.
-            const buffer = encodeToSmartBuffer(-0x80000001)
+            const buffer = encodeToBufferReader(-0x80000001)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
             expect(buffer.readDoubleLE()).toBe(-0x80000001)
@@ -357,125 +354,125 @@ describe('encode', () => {
 
     describe('STRING', () => {
         test('(empty)', () => {
-            const buffer = encodeToSmartBuffer('')
+            const buffer = encodeToBufferReader('')
             expect(buffer.length).toBe(2)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(0)
         })
         test('\\u{0} - min code point', () => {
-            const buffer = encodeToSmartBuffer('\u{0}')
+            const buffer = encodeToBufferReader('\u{0}')
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(1)
             expect(buffer.readString(1)).toBe('\u{0}')
         })
         test('\\u{7F} - max 1 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{7F}')
+            const buffer = encodeToBufferReader('\u{7F}')
             expect(buffer.length).toBe(3)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(1)
             expect(buffer.readString(1)).toBe('\u{7F}')
         })
         test('\\u{80} - min 2 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{80}')
+            const buffer = encodeToBufferReader('\u{80}')
             expect(buffer.length).toBe(4)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(2)
             expect(buffer.readString(2)).toBe('\u{80}')
         })
         test('\\u{7FF} - max 2 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{7FF}')
+            const buffer = encodeToBufferReader('\u{7FF}')
             expect(buffer.length).toBe(4)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(2)
             expect(buffer.readString(2)).toBe('\u{7FF}')
         })
         test('\\u{800} - min 3 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{800}')
+            const buffer = encodeToBufferReader('\u{800}')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\u{800}')
         })
         test('\\u{FFFF} - max 3 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{FFFF}')
+            const buffer = encodeToBufferReader('\u{FFFF}')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\u{FFFF}')
         })
         test('\\u{10000} - min 4 byte code point', () => {
-            const buffer = encodeToSmartBuffer('\u{10000}')
+            const buffer = encodeToBufferReader('\u{10000}')
             expect(buffer.length).toBe(6)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(4)
             expect(buffer.readString(4)).toBe('\u{10000}')
         })
         test('\\u{10FFFF} - max code point', () => {
-            const buffer = encodeToSmartBuffer('\u{10FFFF}')
+            const buffer = encodeToBufferReader('\u{10FFFF}')
             expect(buffer.length).toBe(6)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(4)
             expect(buffer.readString(4)).toBe('\u{10FFFF}')
         })
         test('\\uD800 - min high surrogate (unmatched)', () => {
-            const buffer = encodeToSmartBuffer('\uD800')
+            const buffer = encodeToBufferReader('\uD800')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\uFFFD') // REPLACEMENT CHARACTER
         })
         test('\\uDBFF - max high surrogate (unmatched)', () => {
-            const buffer = encodeToSmartBuffer('\uDBFF')
+            const buffer = encodeToBufferReader('\uDBFF')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\uFFFD') // REPLACEMENT CHARACTER
         })
         test('\\uDC00 - min low surrogate (unmatched)', () => {
-            const buffer = encodeToSmartBuffer('\uDC00')
+            const buffer = encodeToBufferReader('\uDC00')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\uFFFD') // REPLACEMENT CHARACTER
         })
         test('\\uDFFF - max low surrogate (unmatched)', () => {
-            const buffer = encodeToSmartBuffer('\uDFFF')
+            const buffer = encodeToBufferReader('\uDFFF')
             expect(buffer.length).toBe(5)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(3)
             expect(buffer.readString(3)).toBe('\uFFFD') // REPLACEMENT CHARACTER
         })
         test('0xFF characters (1 byte length)', () => {
-            const buffer = encodeToSmartBuffer(stringFFLong)
+            const buffer = encodeToBufferReader(stringFFLong)
             expect(buffer.length).toBe(0xff + 2)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
             expect(buffer.readUInt8()).toBe(0xff)
             expect(buffer.readString(0xff)).toBe(stringFFLong)
         })
         test('0x100 characters (2 byte length)', () => {
-            const buffer = encodeToSmartBuffer(string100Long)
+            const buffer = encodeToBufferReader(string100Long)
             expect(buffer.length).toBe(0x100 + 3)
             expect(buffer.readUInt8()).toBe(Type.STRING16)
             expect(buffer.readUInt16LE()).toBe(0x100)
             expect(buffer.readString(0x100)).toBe(string100Long)
         })
         test('0xFFFF characters (2 byte length)', () => {
-            const buffer = encodeToSmartBuffer(stringFFFFLong)
+            const buffer = encodeToBufferReader(stringFFFFLong)
             expect(buffer.length).toBe(0xffff + 3)
             expect(buffer.readUInt8()).toBe(Type.STRING16)
             expect(buffer.readUInt16LE()).toBe(0xffff)
             expect(buffer.readString(0xffff)).toBe(stringFFFFLong)
         })
         test('0x10000 characters (4 byte length)', () => {
-            const buffer = encodeToSmartBuffer(string10000Long)
+            const buffer = encodeToBufferReader(string10000Long)
             expect(buffer.length).toBe(0x10000 + 5)
             expect(buffer.readUInt8()).toBe(Type.STRING32)
             expect(buffer.readUInt32LE()).toBe(0x10000)
             expect(buffer.readString(0x10000)).toBe(string10000Long)
         })
         test('mixed characters', () => {
-            const buffer = encodeToSmartBuffer(longString)
+            const buffer = encodeToBufferReader(longString)
             expect(buffer.length).toBe(longStringUtf8Length + 3)
             expect(buffer.readUInt8()).toBe(Type.STRING16)
             expect(buffer.readUInt16LE()).toBe(longStringUtf8Length)
@@ -499,7 +496,7 @@ describe('encode', () => {
                 ),
             ),
         )('type: %s', (_message, data) => {
-            const buffer = encodeToSmartBuffer(data)
+            const buffer = encodeToBufferReader(data)
             expect(buffer.length).toBe(26)
             expect(buffer.readUInt8()).toBe(Type.BINARY8)
             expect(buffer.readUInt8()).toBe(24)
@@ -510,7 +507,7 @@ describe('encode', () => {
             'length: %d',
             length => {
                 const data = Buffer.allocUnsafe(length).fill(0x57)
-                const buffer = encodeToSmartBuffer(data)
+                const buffer = encodeToBufferReader(data)
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
                 expect(buffer.length).toBe(1 + lengthSize + length)
                 expect(buffer.readUInt8()).toBe(
@@ -546,7 +543,7 @@ describe('encode', () => {
                 const array = Array.from(Array(length), (_, i) =>
                     Math.max(-0x80, 0x7f - i),
                 )
-                const buffer = encodeToSmartBuffer(array)
+                const buffer = encodeToBufferReader(array)
                 expect(buffer.length).toBe(1 + lengthSize + length * 2)
                 expect(buffer.readUInt8()).toBe(arrayType)
                 expect(
@@ -579,7 +576,7 @@ describe('encode', () => {
                 [1, 2, 3, [false]],
                 'abc',
             ]
-            const buffer = encodeToSmartBuffer(array)
+            const buffer = encodeToBufferReader(array)
             expect(buffer.readUInt8()).toBe(Type.ARRAY8)
             expect(buffer.readUInt8()).toBe(array.length)
             expect(buffer.readUInt8()).toBe(Type.INT8)
@@ -622,7 +619,7 @@ describe('encode', () => {
                 for (let i = 0; i < length; ++i) {
                     object['' + (1000000000 + i)] = Math.max(-0x80, 0x7f - i)
                 }
-                const buffer = encodeToSmartBuffer(object)
+                const buffer = encodeToBufferReader(object)
                 expect(buffer.length).toBe(
                     typeSize + lengthSize + propertySize * length,
                 )
@@ -668,7 +665,7 @@ describe('encode', () => {
                 const key = Array.from(Array(length), (_, i) => i % 10).join('')
                 object[key] = 10 // 1 + lengthSize + length (key) + 2 (value)
                 object[':'] = 20 // 3 (key) + 2 (value) bytes
-                const buffer = encodeToSmartBuffer(object)
+                const buffer = encodeToBufferReader(object)
                 expect(buffer.length).toBe(
                     2 + (1 + lengthSize + length + 2) + 5,
                 )
@@ -712,7 +709,7 @@ describe('encode', () => {
             }
             object.g = 'abc'
             object.h = undefined
-            const buffer = encodeToSmartBuffer(object)
+            const buffer = encodeToBufferReader(object)
             expect(buffer.length).toBe(
                 1 + // object type
                 1 + // object size
@@ -884,7 +881,7 @@ describe('encode', () => {
             }
 
             // root.toJSON() => object9.toJSON() => object8.toJSON()
-            const buffer = encodeToSmartBuffer(root)
+            const buffer = encodeToBufferReader(root)
             expect(buffer.readUInt8()).toBe(Type.OBJECT8)
             expect(buffer.readInt8()).toBe(7)
 
@@ -977,7 +974,7 @@ describe('encode', () => {
             expect(buffer.readString(6)).toBe('toJSON')
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(999)
-            expect(buffer.remaining()).toBe(0)
+            expect(buffer.offset).toBe(buffer.length)
         })
     })
 
@@ -986,7 +983,7 @@ describe('encode', () => {
             const name = 'Error'
             const message = 'test error'
             const error = new Error(message)
-            const buffer = encodeToSmartBuffer(error)
+            const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
                 7 + // name
@@ -1006,7 +1003,7 @@ describe('encode', () => {
             const name = 'TypeError'
             const message = 'test error'
             const error = new TypeError(message)
-            const buffer = encodeToSmartBuffer(error)
+            const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
                 11 + // name
@@ -1025,14 +1022,14 @@ describe('encode', () => {
         test('name not a string', () => {
             const error = new Error('test')
             error.name = 5 as any
-            expect(() => encodeToSmartBuffer(error)).toThrow(
+            expect(() => encodeToBufferReader(error)).toThrow(
                 errorMatcher('Error name is not a string.'),
             )
         })
         test('message not a string', () => {
             const error = new Error('test')
             error.message = 5 as any
-            expect(() => encodeToSmartBuffer(error)).toThrow(
+            expect(() => encodeToBufferReader(error)).toThrow(
                 errorMatcher('Error message is not a string.'),
             )
         })
@@ -1054,7 +1051,7 @@ describe('encode', () => {
                 const value = (values[i] = (i % 0x100) - 0x80)
                 ;(error as any)[key] = value
             }
-            const buffer = encodeToSmartBuffer(error)
+            const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
                 7 + // name
@@ -1112,7 +1109,7 @@ describe('encode', () => {
             ;(error as any).a = true
             ;(error as any).b = [1, { key: new Error('') }, 2]
             ;(error as any).c = undefined
-            const buffer = encodeToSmartBuffer(error)
+            const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
                 7 + // name
@@ -1170,7 +1167,7 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.NULL)
         })
         test('no name', () => {
-            const buffer = encodeToSmartBuffer(new Error())
+            const buffer = encodeToBufferReader(new Error())
             expect(buffer.length).toBe(11)
             expect(buffer.readUInt8()).toBe(Type.ERROR)
             expect(buffer.readUInt8()).toBe(Type.STRING8)
@@ -1182,27 +1179,27 @@ describe('encode', () => {
         })
         test('enumerable name', () => {
             const error = new Error('test')
-            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            const expectedBuffer = encode(error)
             Object.defineProperty(error, 'name', {
                 enumerable: true,
                 value: error.name,
             })
-            const buffer = encodeToSmartBuffer(error).toBuffer()
+            const buffer = encode(error)
             expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable message', () => {
             const error = new Error('test')
-            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            const expectedBuffer = encode(error)
             Object.defineProperty(error, 'message', {
                 enumerable: true,
                 value: error.message,
             })
-            const buffer = encodeToSmartBuffer(error).toBuffer()
+            const buffer = encode(error)
             expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable name and message', () => {
             const error = new Error('test')
-            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            const expectedBuffer = encode(error)
             Object.defineProperty(error, 'name', {
                 enumerable: true,
                 value: error.name,
@@ -1211,14 +1208,14 @@ describe('encode', () => {
                 enumerable: true,
                 value: error.message,
             })
-            const buffer = encodeToSmartBuffer(error).toBuffer()
+            const buffer = encode(error)
             expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
         test('enumerable name, message and details', () => {
             const error = new Error('test')
             ;(error as any).a = 5
             ;(error as any).b = 'abc'
-            const expectedBuffer = encodeToSmartBuffer(error).toBuffer()
+            const expectedBuffer = encode(error)
             Object.defineProperty(error, 'name', {
                 enumerable: true,
                 value: error.name,
@@ -1227,7 +1224,7 @@ describe('encode', () => {
                 enumerable: true,
                 value: error.message,
             })
-            const buffer = encodeToSmartBuffer(error).toBuffer()
+            const buffer = encode(error)
             expect(buffer.equals(expectedBuffer)).toBeTrue()
         })
     })
@@ -1489,7 +1486,7 @@ describe('decode', () => {
     })
 
     test('toJSON', () => {
-        const buffer = encodeToSmartBuffer({
+        const buffer = encode({
             ignored: 123,
             toJSON() {
                 return {
@@ -1500,7 +1497,7 @@ describe('decode', () => {
                     },
                 }
             },
-        }).toBuffer()
+        })
         expect(decode(buffer)).toBe('hello')
     })
 
