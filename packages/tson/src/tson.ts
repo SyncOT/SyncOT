@@ -1,5 +1,12 @@
-import { Binary, createTsonError, toBuffer } from '@syncot/util'
-import { SmartBuffer } from 'smart-buffer'
+import {
+    Binary,
+    BufferReader,
+    BufferWriter,
+    createBufferReader,
+    createBufferWriter,
+    createTsonError,
+    toBuffer,
+} from '@syncot/util'
 
 /**
  * A list of types supported by TSON.
@@ -145,13 +152,6 @@ function detectCircularReference(path: Path, object: object): void {
     }
 }
 
-// Working memory which should be sufficient for encoding most objects.
-const workingMemory = Buffer.allocUnsafe(8192)
-
-// Used to prevent uncontrolled recursion when encoding because it could
-// easily corrupt the **shared** `workingMemory`.
-let encoding = false
-
 type Path = object[]
 
 /**
@@ -160,142 +160,113 @@ type Path = object[]
  * @returns The encoded `data`.
  */
 export function encode(data: any): Buffer {
-    /* istanbul ignore if */
-    if (encoding) {
-        throw createTsonError('`encode` must not be called recursively.')
-    }
-
-    try {
-        // `smartBuffer` and `workingMemory` share the same data, so that we can minimize
-        // allocations, especially when encoding objects that fit in the `workingMemory`.
-        // `smartBuffer` will still grow automatically when encoding larger objects.
-        const smartBuffer = SmartBuffer.fromBuffer(workingMemory)
-        smartBuffer.clear()
-
-        // Used for detecting circular references.
-        const path: Path = []
-
-        // Encode the `data` into the `buffer`.
-        encodeAny(smartBuffer, data, path)
-
-        // Slice out a nodejs buffer from the smart buffer.
-        // Both `buffer` and `smartBuffer` reference the same data.
-        const buffer = smartBuffer.toBuffer()
-        // Copy the encoded data into a new Buffer and return it.
-        // It protects the `workingMemory` from corruption and helps to avoid unnecessary retention of
-        // large amounts of memory in case a small encoded value is not GCed for a long time.
-        return Buffer.from(buffer)
-    } finally {
-        encoding = false
-    }
+    const writer = createBufferWriter()
+    encodeAny(writer, data, [])
+    return writer.toBuffer()
 }
 
-function encodeAny(buffer: SmartBuffer, item: any, path: Path): void {
+function encodeAny(writer: BufferWriter, item: any, path: Path): void {
     switch (typeof item) {
         case 'boolean':
-            return encodeBoolean(buffer, item)
+            return encodeBoolean(writer, item)
         case 'number':
-            return encodeNumber(buffer, item)
+            return encodeNumber(writer, item)
         case 'string':
-            return encodeString(buffer, item)
+            return encodeString(writer, item)
         case 'object':
-            return encodeObject(buffer, item, path)
+            return encodeObject(writer, item, path)
         default:
-            return encodeObject(buffer, null, path)
+            return encodeObject(writer, null, path)
     }
 }
 
-function encodeBoolean(buffer: SmartBuffer, item: boolean): void {
-    buffer.writeUInt8(item ? Type.TRUE : Type.FALSE)
+function encodeBoolean(writer: BufferWriter, item: boolean): void {
+    writer.writeUInt8(item ? Type.TRUE : Type.FALSE)
 }
 
-function encodeNumber(buffer: SmartBuffer, item: number): void {
-    if (Number.isInteger(item)) {
+function encodeNumber(writer: BufferWriter, item: number): void {
+    // tslint:disable-next-line:no-bitwise
+    if (item === (item | 0)) {
         if (item <= 0x7f && item >= -0x80) {
-            buffer.writeUInt8(Type.INT8)
-            buffer.writeInt8(item)
+            writer.writeUInt8(Type.INT8)
+            writer.writeInt8(item)
         } else if (item <= 0x7fff && item >= -0x8000) {
-            buffer.writeUInt8(Type.INT16)
-            buffer.writeInt16LE(item)
-        } else if (item <= 0x7fffffff && item >= -0x80000000) {
-            buffer.writeUInt8(Type.INT32)
-            buffer.writeInt32LE(item)
+            writer.writeUInt8(Type.INT16)
+            writer.writeInt16LE(item)
         } else {
-            // Until JavaScript can handle 64-bit integers,
-            // we'll save big numbers as float64.
-            buffer.writeUInt8(Type.FLOAT64)
-            buffer.writeDoubleLE(item)
+            writer.writeUInt8(Type.INT32)
+            writer.writeInt32LE(item)
         }
     } else if (canSaveWithSinglePrecision(item)) {
-        buffer.writeUInt8(Type.FLOAT32)
-        buffer.writeFloatLE(item)
+        writer.writeUInt8(Type.FLOAT32)
+        writer.writeFloatLE(item)
     } else {
-        buffer.writeUInt8(Type.FLOAT64)
-        buffer.writeDoubleLE(item)
+        writer.writeUInt8(Type.FLOAT64)
+        writer.writeDoubleLE(item)
     }
 }
 
-function encodeString(buffer: SmartBuffer, item: string): void {
+function encodeString(writer: BufferWriter, item: string): void {
     const length = Buffer.byteLength(item)
 
     /* istanbul ignore if */
     if (length > 0xffffffff) {
         throw createTsonError('Max string utf8 size is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
-        buffer.writeUInt8(Type.STRING8)
-        buffer.writeUInt8(length)
+        writer.writeUInt8(Type.STRING8)
+        writer.writeUInt8(length)
     } else if (length <= 0xffff) {
-        buffer.writeUInt8(Type.STRING16)
-        buffer.writeUInt16LE(length)
+        writer.writeUInt8(Type.STRING16)
+        writer.writeUInt16LE(length)
     } else {
-        buffer.writeUInt8(Type.STRING32)
-        buffer.writeUInt32LE(length)
+        writer.writeUInt8(Type.STRING32)
+        writer.writeUInt32LE(length)
     }
-    buffer.writeString(item)
+    writer.writeString(item, 'utf8')
 }
 
 function encodeObject(
-    buffer: SmartBuffer,
+    writer: BufferWriter,
     object: object | null,
     path: Path,
 ): void {
     const objectBuffer = toBuffer(object)
     if (objectBuffer) {
-        encodeBuffer(buffer, objectBuffer)
+        encodeBuffer(writer, objectBuffer)
     } else if (object === null) {
-        encodeNull(buffer)
+        encodeNull(writer)
     } else if (Array.isArray(object)) {
-        encodeArray(buffer, object, path)
+        encodeArray(writer, object, path)
     } else if (object instanceof Error) {
-        encodeError(buffer, object, path)
+        encodeError(writer, object, path)
     } else {
-        encodePlainObject(buffer, object, path)
+        encodePlainObject(writer, object, path)
     }
 }
 
-function encodeNull(buffer: SmartBuffer): void {
-    buffer.writeUInt8(Type.NULL)
+function encodeNull(writer: BufferWriter): void {
+    writer.writeUInt8(Type.NULL)
 }
 
-function encodeBuffer(buffer: SmartBuffer, inputBuffer: Buffer): void {
+function encodeBuffer(writer: BufferWriter, inputBuffer: Buffer): void {
     const length = inputBuffer.length
     /* istanbul ignore if */
     if (length > 0xffffffff) {
         throw createTsonError('Max binary data size is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
-        buffer.writeUInt8(Type.BINARY8)
-        buffer.writeUInt8(length)
+        writer.writeUInt8(Type.BINARY8)
+        writer.writeUInt8(length)
     } else if (length <= 0xffff) {
-        buffer.writeUInt8(Type.BINARY16)
-        buffer.writeUInt16LE(length)
+        writer.writeUInt8(Type.BINARY16)
+        writer.writeUInt16LE(length)
     } else {
-        buffer.writeUInt8(Type.BINARY32)
-        buffer.writeUInt32LE(length)
+        writer.writeUInt8(Type.BINARY32)
+        writer.writeUInt32LE(length)
     }
-    buffer.writeBuffer(inputBuffer)
+    writer.writeBuffer(inputBuffer)
 }
 
-function encodeArray(buffer: SmartBuffer, array: any[], path: Path): void {
+function encodeArray(writer: BufferWriter, array: any[], path: Path): void {
     detectCircularReference(path, array)
     path.push(array)
 
@@ -304,25 +275,25 @@ function encodeArray(buffer: SmartBuffer, array: any[], path: Path): void {
     if (length > 0xffffffff) {
         throw createTsonError('Max array length is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
-        buffer.writeUInt8(Type.ARRAY8)
-        buffer.writeUInt8(length)
+        writer.writeUInt8(Type.ARRAY8)
+        writer.writeUInt8(length)
     } else if (length <= 0xffff) {
-        buffer.writeUInt8(Type.ARRAY16)
-        buffer.writeUInt16LE(length)
+        writer.writeUInt8(Type.ARRAY16)
+        writer.writeUInt16LE(length)
     } else {
-        buffer.writeUInt8(Type.ARRAY32)
-        buffer.writeUInt32LE(length)
+        writer.writeUInt8(Type.ARRAY32)
+        writer.writeUInt32LE(length)
     }
     for (let i = 0; i < length; ++i) {
-        encodeAny(buffer, array[i], path)
+        encodeAny(writer, array[i], path)
     }
 
     path.pop()
 }
 
-function encodeError(buffer: SmartBuffer, error: Error, path: Path): void {
+function encodeError(writer: BufferWriter, error: Error, path: Path): void {
     if (typeof (error as any).toJSON === 'function') {
-        return encodeAny(buffer, (error as any).toJSON(''), path)
+        return encodeAny(writer, (error as any).toJSON(''), path)
     }
 
     if (typeof error.name !== 'string') {
@@ -344,24 +315,24 @@ function encodeError(buffer: SmartBuffer, error: Error, path: Path): void {
         keys.splice(messageIndex, 1)
     }
 
-    buffer.writeUInt8(Type.ERROR)
-    encodeString(buffer, error.name)
-    encodeString(buffer, error.message)
+    writer.writeUInt8(Type.ERROR)
+    encodeString(writer, error.name)
+    encodeString(writer, error.message)
     if (keys.length === 0) {
-        encodeNull(buffer)
+        encodeNull(writer)
     } else {
-        encodePlainObject(buffer, error, path, keys)
+        encodePlainObject(writer, error, path, keys)
     }
 }
 
 function encodePlainObject(
-    buffer: SmartBuffer,
+    writer: BufferWriter,
     object: object,
     path: Path,
     keys: string[] = Object.keys(object),
 ): void {
     if (typeof (object as any).toJSON === 'function') {
-        return encodeAny(buffer, (object as any).toJSON(''), path)
+        return encodeAny(writer, (object as any).toJSON(''), path)
     }
 
     detectCircularReference(path, object)
@@ -372,20 +343,20 @@ function encodePlainObject(
     if (length > 0xffffffff) {
         throw createTsonError('Max number of object properties is 0xFFFFFFFF.')
     } else if (length <= 0xff) {
-        buffer.writeUInt8(Type.OBJECT8)
-        buffer.writeUInt8(length)
+        writer.writeUInt8(Type.OBJECT8)
+        writer.writeUInt8(length)
     } else if (length <= 0xffff) {
-        buffer.writeUInt8(Type.OBJECT16)
-        buffer.writeUInt16LE(length)
+        writer.writeUInt8(Type.OBJECT16)
+        writer.writeUInt16LE(length)
     } else {
-        buffer.writeUInt8(Type.OBJECT32)
-        buffer.writeUInt32LE(length)
+        writer.writeUInt8(Type.OBJECT32)
+        writer.writeUInt32LE(length)
     }
     for (let i = 0; i < length; ++i) {
         const key = keys[i]
         const value = (object as any)[key]
-        encodeAny(buffer, key, path)
-        encodeAny(buffer, value, path)
+        encodeAny(writer, key, path)
+        encodeAny(writer, value, path)
     }
 
     path.pop()
@@ -405,20 +376,13 @@ export function decode(
         throw createTsonError('Expected binary data to decode.')
     }
 
-    return decodeAny(SmartBuffer.fromBuffer(buffer))
-}
-
-function assertBytes(buffer: SmartBuffer, count: number, what: string): void {
-    if (buffer.readOffset + count > buffer.length) {
-        throw createTsonError(`${what} expected.`)
-    }
+    return decodeAny(createBufferReader(buffer))
 }
 
 function decodeAny(
-    buffer: SmartBuffer,
+    reader: BufferReader,
 ): boolean | number | string | object | null {
-    assertBytes(buffer, 1, 'Type code')
-    const type: Type = buffer.readUInt8()
+    const type: Type = reader.readUInt8()
 
     switch (type) {
         case Type.NULL:
@@ -428,156 +392,120 @@ function decodeAny(
         case Type.FALSE:
             return false
         case Type.INT8:
-            assertBytes(buffer, 1, 'INT8')
-            return buffer.readInt8()
+            return reader.readInt8()
         case Type.INT16:
-            assertBytes(buffer, 2, 'INT16')
-            return buffer.readInt16LE()
+            return reader.readInt16LE()
         case Type.INT32:
-            assertBytes(buffer, 4, 'INT32')
-            return buffer.readInt32LE()
+            return reader.readInt32LE()
         case Type.INT64:
             throw createTsonError('Cannot decode a 64-bit integer.')
         case Type.FLOAT32:
-            assertBytes(buffer, 4, 'FLOAT32')
-            return buffer.readFloatLE()
+            return reader.readFloatLE()
         case Type.FLOAT64:
-            assertBytes(buffer, 8, 'FLOAT64')
-            return buffer.readDoubleLE()
+            return reader.readDoubleLE()
         case Type.STRING8: {
-            assertBytes(buffer, 1, 'STRING8 length')
-            const length = buffer.readUInt8()
-            assertBytes(buffer, length, 'STRING8 data')
-            return buffer.readString(length)
+            const length = reader.readUInt8()
+            return reader.readString(length, 'utf8')
         }
         case Type.STRING16: {
-            assertBytes(buffer, 2, 'STRING16 length')
-            const length = buffer.readUInt16LE()
-            assertBytes(buffer, length, 'STRING16 data')
-            return buffer.readString(length)
+            const length = reader.readUInt16LE()
+            return reader.readString(length, 'utf8')
         }
         case Type.STRING32: {
-            assertBytes(buffer, 4, 'STRING32 length')
-            const length = buffer.readUInt32LE()
-            assertBytes(buffer, length, 'STRING32 data')
-            return buffer.readString(length)
+            const length = reader.readUInt32LE()
+            return reader.readString(length, 'utf8')
         }
         case Type.BINARY8: {
-            assertBytes(buffer, 1, 'BINARY8 length')
-            const length = buffer.readUInt8()
-            assertBytes(buffer, length, 'BINARY8 data')
-            return Buffer.from(buffer.readBuffer(length))
+            const length = reader.readUInt8()
+            return Buffer.from(reader.readBuffer(length))
         }
         case Type.BINARY16: {
-            assertBytes(buffer, 2, 'BINARY16 length')
-            const length = buffer.readUInt16LE()
-            assertBytes(buffer, length, 'BINARY16 data')
-            return Buffer.from(buffer.readBuffer(length))
+            const length = reader.readUInt16LE()
+            return Buffer.from(reader.readBuffer(length))
         }
         case Type.BINARY32: {
-            assertBytes(buffer, 4, 'BINARY32 length')
-            const length = buffer.readUInt32LE()
-            assertBytes(buffer, length, 'BINARY32 data')
-            return Buffer.from(buffer.readBuffer(length))
+            const length = reader.readUInt32LE()
+            return Buffer.from(reader.readBuffer(length))
         }
         case Type.ARRAY8: {
-            assertBytes(buffer, 1, 'ARRAY8 length')
-            const length = buffer.readUInt8()
-            const array = []
+            const length = reader.readUInt8()
+            const array = new Array(length)
             for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(buffer)
+                array[i] = decodeAny(reader)
             }
             return array
         }
         case Type.ARRAY16: {
-            assertBytes(buffer, 2, 'ARRAY16 length')
-            const length = buffer.readUInt16LE()
-            const array = []
+            const length = reader.readUInt16LE()
+            const array = new Array(length)
             for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(buffer)
+                array[i] = decodeAny(reader)
             }
             return array
         }
         case Type.ARRAY32: {
-            assertBytes(buffer, 4, 'ARRAY32 length')
-            const length = buffer.readUInt32LE()
-            const array = []
+            const length = reader.readUInt32LE()
+            const array = new Array(length)
             for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(buffer)
+                array[i] = decodeAny(reader)
             }
             return array
         }
         case Type.OBJECT8: {
-            assertBytes(buffer, 1, 'OBJECT8 size')
-            const length = buffer.readUInt8()
+            const length = reader.readUInt8()
             const object = {}
             for (let i = 0; i < length; ++i) {
-                const key = decodeAny(buffer)
+                const key = decodeAny(reader)
                 if (typeof key !== 'string') {
                     throw createTsonError('Object key not a string.')
                 }
-                const value = decodeAny(buffer)
+                const value = decodeAny(reader)
                 ;(object as any)[key] = value
             }
             return object
         }
         case Type.OBJECT16: {
-            assertBytes(buffer, 2, 'OBJECT16 size')
-            const length = buffer.readUInt16LE()
+            const length = reader.readUInt16LE()
             const object = {}
             for (let i = 0; i < length; ++i) {
-                const key = decodeAny(buffer)
+                const key = decodeAny(reader)
                 if (typeof key !== 'string') {
                     throw createTsonError('Object key not a string.')
                 }
-                const value = decodeAny(buffer)
+                const value = decodeAny(reader)
                 ;(object as any)[key] = value
             }
             return object
         }
         case Type.OBJECT32: {
-            assertBytes(buffer, 4, 'OBJECT32 size')
-            const length = buffer.readUInt32LE()
+            const length = reader.readUInt32LE()
             const object = {}
             for (let i = 0; i < length; ++i) {
-                const key = decodeAny(buffer)
+                const key = decodeAny(reader)
                 if (typeof key !== 'string') {
                     throw createTsonError('Object key not a string.')
                 }
-                const value = decodeAny(buffer)
+                const value = decodeAny(reader)
                 ;(object as any)[key] = value
             }
             return object
         }
         case Type.ERROR: {
-            const name = decodeAny(buffer)
+            const name = decodeAny(reader)
             if (typeof name !== 'string') {
                 throw createTsonError('Error name not a string.')
             }
 
-            const message = decodeAny(buffer)
+            const message = decodeAny(reader)
             if (typeof message !== 'string') {
                 throw createTsonError('Error message not a string.')
             }
 
-            // Read the type of the details without advancing the readOffset managed by the SmartBuffer.
-            const detailsType = buffer.readUInt8(buffer.readOffset)
-            if (
-                detailsType !== Type.NULL &&
-                detailsType !== Type.OBJECT8 &&
-                detailsType !== Type.OBJECT16 &&
-                detailsType !== Type.OBJECT32
-            ) {
-                throw createTsonError(
-                    'Error details not a plain object nor null.',
-                )
+            const details = decodeAny(reader)
+            if (typeof details !== 'object') {
+                throw createTsonError('Error details not an object.')
             }
 
-            const details = decodeAny(buffer)
-            /* istanbul ignore if */
-            if (typeof details !== 'object') {
-                throw createTsonError('This should never happen.')
-            }
             if (details) {
                 if (details.hasOwnProperty('name')) {
                     throw createTsonError(

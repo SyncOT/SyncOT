@@ -297,8 +297,8 @@ describe.each<[string, () => void]>([
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    message: 'Type code expected.',
-                    name: 'SyncOtError TSON',
+                    message: 'Insufficient data to read.',
+                    name: 'RangeError',
                 }),
             )
         })

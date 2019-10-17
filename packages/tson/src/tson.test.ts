@@ -310,6 +310,20 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.FLOAT32)
             expect(buffer.readFloatLE()).toBe(-Infinity)
         })
+        test('0x90000000', () => {
+            // Too big for INT32.
+            const buffer = encodeToSmartBuffer(0x90000000)
+            expect(buffer.length).toBe(5)
+            expect(buffer.readUInt8()).toBe(Type.FLOAT32)
+            expect(buffer.readFloatLE()).toBe(0x90000000)
+        })
+        test('-0x90000000', () => {
+            // Too big for INT32.
+            const buffer = encodeToSmartBuffer(-0x90000000)
+            expect(buffer.length).toBe(5)
+            expect(buffer.readUInt8()).toBe(Type.FLOAT32)
+            expect(buffer.readFloatLE()).toBe(-0x90000000)
+        })
     })
 
     describe('FLOAT64', () => {
@@ -325,15 +339,15 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
             expect(buffer.readDoubleLE()).toBe(-1.3)
         })
-        test('0x80000000', () => {
-            // Must be FLOAT64 because JS does not support INT64.
-            const buffer = encodeToSmartBuffer(0x80000000)
+        test('0x80000001', () => {
+            // Too big for INT32 and FLOAT32.
+            const buffer = encodeToSmartBuffer(0x80000001)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
-            expect(buffer.readDoubleLE()).toBe(0x80000000)
+            expect(buffer.readDoubleLE()).toBe(0x80000001)
         })
         test('-0x80000001', () => {
-            // Must be FLOAT64 because JS does not support INT64.
+            // Too big for INT32 and FLOAT32.
             const buffer = encodeToSmartBuffer(-0x80000001)
             expect(buffer.length).toBe(9)
             expect(buffer.readUInt8()).toBe(Type.FLOAT64)
@@ -1432,11 +1446,7 @@ describe('decode', () => {
     )
 
     test('INT64', () => {
-        const smartBuffer = SmartBuffer.fromSize(9)
-        smartBuffer.writeUInt8(Type.INT64)
-        smartBuffer.writeInt32LE(0)
-        smartBuffer.writeInt32LE(0)
-        const buffer = smartBuffer.toBuffer()
+        const buffer = Buffer.from([Type.INT64, 0, 0, 0, 0, 0, 0, 0, 0])
         expect(() => decode(buffer)).toThrow(
             errorMatcher('Cannot decode a 64-bit integer.'),
         )
@@ -1519,9 +1529,12 @@ describe('decode', () => {
         ['OBJECT8 size', [Type.OBJECT8]],
         ['OBJECT16 size', [Type.OBJECT16, 0]],
         ['OBJECT32 size', [Type.OBJECT32, 0, 0, 0]],
-    ])('Error: %s expected', (what, data) => {
+    ])('Error: %s expected', (_, data) => {
         expect(() => decode(Buffer.from(data))).toThrow(
-            errorMatcher(`${what} expected.`),
+            expect.objectContaining({
+                message: 'Insufficient data to read.',
+                name: 'RangeError',
+            }),
         )
     })
 
@@ -1545,7 +1558,7 @@ describe('decode', () => {
             [Type.ERROR, Type.STRING8, 0, Type.INT8, 1],
         ],
         [
-            'Error details not a plain object nor null.',
+            'Error details not an object.',
             [Type.ERROR, Type.STRING8, 0, Type.STRING8, 0, Type.FALSE],
         ],
         [

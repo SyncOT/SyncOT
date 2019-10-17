@@ -1,4 +1,6 @@
 import {
+    createBufferReader,
+    createBufferWriter,
     isArrayBuffer,
     isBinary,
     isSharedArrayBuffer,
@@ -192,5 +194,155 @@ describe('isSharedArrayBuffer', () => {
         [new Uint8Array(0), false],
     ])('%s', (value, result) => {
         expect(isSharedArrayBuffer(value)).toBe(result)
+    })
+})
+
+describe('BufferWriter & BufferReader', () => {
+    test.each<[string, number, number]>([
+        ['UInt8', 0x00, 0xff],
+        ['Int8', -0x80, 0x7f],
+        ['UInt16LE', 0x0000, 0xffff],
+        ['Int16LE', -0x8000, 0x7fff],
+        ['UInt32LE', 0x0000, 0xffff],
+        ['Int32LE', -0x80000000, 0x7fffffff],
+    ])('%s', (name, min, max) => {
+        const count = 100
+        const originalValues = new Array(count)
+        const writer = createBufferWriter(4)
+
+        for (let i = 0; i < count; ++i) {
+            const value = Math.floor(Math.random() * (max - min) + min)
+            originalValues[i] = value
+            ;(writer as any)['write' + name](value)
+        }
+
+        const reader = createBufferReader(writer.toBuffer())
+
+        for (let i = 0; i < count; ++i) {
+            const value = (reader as any)['read' + name]()
+            expect(value).toBe(originalValues[i])
+        }
+
+        expect(() => (reader as any)['read' + name]()).toThrow(
+            'Insufficient data to read.',
+        )
+    })
+    test.each(['FloatLE'])('%s', (name: string) => {
+        const count = 100
+        const originalValues = new Array(count)
+        const writer = createBufferWriter(4)
+
+        for (let i = 0; i < count; ++i) {
+            const value = (Math.random() - 0.5) * 1000
+            originalValues[i] = value
+            ;(writer as any)['write' + name](value)
+        }
+
+        const reader = createBufferReader(writer.toBuffer())
+
+        for (let i = 0; i < count; ++i) {
+            const value = (reader as any)['read' + name]()
+            expect(value).toBeCloseTo(originalValues[i])
+        }
+
+        expect(() => (reader as any)['read' + name]()).toThrow(
+            'Insufficient data to read.',
+        )
+    })
+    test.each(['DoubleLE'])('%s', (name: string) => {
+        const count = 100
+        const originalValues = new Array(count)
+        const writer = createBufferWriter(4)
+
+        for (let i = 0; i < count; ++i) {
+            const value = (Math.random() - 0.5) * 1000
+            originalValues[i] = value
+            ;(writer as any)['write' + name](value)
+        }
+
+        const reader = createBufferReader(writer.toBuffer())
+
+        for (let i = 0; i < count; ++i) {
+            const value = (reader as any)['read' + name]()
+            expect(value).toBe(originalValues[i])
+        }
+
+        expect(() => (reader as any)['read' + name]()).toThrow(
+            'Insufficient data to read.',
+        )
+    })
+    test('Buffer', () => {
+        const count = 100
+        const originalValues = new Array(count)
+        const writer = createBufferWriter(4)
+
+        for (let i = 0; i < count; ++i) {
+            const value = Buffer.from(
+                Math.random()
+                    .toString()
+                    .substring(0, 4),
+            )
+            originalValues[i] = value
+            writer.writeBuffer(value)
+        }
+
+        const reader = createBufferReader(writer.toBuffer())
+
+        for (let i = 0; i < count; ++i) {
+            const value = reader.readBuffer(4)
+            expect(value).toEqual(originalValues[i])
+        }
+
+        expect(() => reader.readBuffer(4)).toThrow('Insufficient data to read.')
+    })
+    test('String', () => {
+        const count = 100
+        const originalValues = new Array(count)
+        const writer = createBufferWriter(4)
+
+        for (let i = 0; i < count; ++i) {
+            const value = Math.random()
+                .toString()
+                .substring(0, 4)
+            originalValues[i] = value
+            writer.writeString(value, 'utf8')
+        }
+
+        const reader = createBufferReader(writer.toBuffer())
+
+        for (let i = 0; i < count; ++i) {
+            const value = reader.readString(4, 'utf8')
+            expect(value).toBe(originalValues[i])
+        }
+
+        expect(() => reader.readString(4, 'utf8')).toThrow(
+            'Insufficient data to read.',
+        )
+    })
+    test('createBufferWriter with default size', () => {
+        const writer = createBufferWriter()
+        writer.writeString('hello', 'utf8')
+        writer.writeString('world', 'utf8')
+        const reader = createBufferReader(writer.toBuffer())
+        expect(reader.readString(5, 'utf8')).toBe('hello')
+        expect(reader.readString(5, 'utf8')).toBe('world')
+    })
+    test('hex strings', () => {
+        const hello = Buffer.from('hello').toString('hex')
+        const world = Buffer.from('world').toString('hex')
+        const writer = createBufferWriter()
+        writer.writeString(hello, 'hex')
+        writer.writeString(world, 'hex')
+
+        const buffer = writer.toBuffer()
+        expect(buffer).toEqual(Buffer.from(hello + world, 'hex'))
+
+        const reader = createBufferReader(buffer)
+        expect(reader.readString(buffer.length / 2, 'hex')).toBe(hello)
+        expect(reader.readString(buffer.length / 2, 'hex')).toBe(world)
+
+        const reader2 = createBufferReader(buffer)
+        expect(reader2.readString(buffer.length / 2, 'utf8')).toBe('hello')
+        expect(reader2.readString(buffer.length / 2, 'utf8')).toBe('world')
     })
 })
