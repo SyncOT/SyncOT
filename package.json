@@ -15,7 +15,7 @@
     "jest": "^24.9.0",
     "jest-extended": "^0.11.2",
     "lerna": "^3.16.4",
-    "lolex": "^4.2.0",
+    "lolex": "^5.1.0",
     "prettier": "^1.18.2",
     "readable-stream": "^3.4.0",
     "redis-server": "^1.2.2",
