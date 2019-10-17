@@ -305,19 +305,17 @@ describe('BufferWriter & BufferReader', () => {
                 .toString()
                 .substring(0, 4)
             originalValues[i] = value
-            writer.writeString(value, 'utf8')
+            writer.writeString(value)
         }
 
         const reader = createBufferReader(writer.toBuffer())
 
         for (let i = 0; i < count; ++i) {
-            const value = reader.readString(4, 'utf8')
+            const value = reader.readString(4)
             expect(value).toBe(originalValues[i])
         }
 
-        expect(() => reader.readString(4, 'utf8')).toThrow(
-            'Insufficient data to read.',
-        )
+        expect(() => reader.readString(4)).toThrow('Insufficient data to read.')
     })
     test('createBufferWriter with default size', () => {
         const writer = createBufferWriter()

@@ -74,7 +74,7 @@ export function isSharedArrayBuffer(value: any): value is ArrayBuffer {
 export interface BufferWriter {
     toBuffer(): Buffer
     writeBuffer(value: Buffer): void
-    writeString(value: string, encoding: BufferEncoding): void
+    writeString(value: string, encoding?: BufferEncoding): void
     writeUInt8(value: number): void
     writeInt8(value: number): void
     writeUInt16LE(value: number): void
@@ -106,7 +106,7 @@ class Writer implements BufferWriter {
         value.copy(this.buffer, this.offset)
         this.offset += size
     }
-    public writeString(value: string, encoding: BufferEncoding): void {
+    public writeString(value: string, encoding?: BufferEncoding): void {
         const size = Buffer.byteLength(value, encoding)
         this.ensure(size)
         this.buffer.write(value, this.offset, size, encoding)
@@ -170,7 +170,7 @@ class Writer implements BufferWriter {
 
 export interface BufferReader {
     readBuffer(size: number): Buffer
-    readString(size: number, encoding: string): string
+    readString(size: number, encoding?: BufferEncoding): string
     readUInt8(): number
     readInt8(): number
     readUInt16LE(): number
@@ -199,7 +199,7 @@ class Reader implements BufferReader {
         return result
     }
 
-    public readString(size: number, encoding: string): string {
+    public readString(size: number, encoding?: BufferEncoding): string {
         this.check(size)
         const result = this.buffer
             .slice(this.offset, this.offset + size)
