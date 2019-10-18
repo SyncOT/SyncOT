@@ -12,6 +12,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
+import { globalTracer } from 'opentracing'
 import { Duplex } from 'readable-stream'
 
 type RequestId = number
@@ -514,11 +515,24 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             case MessageType.REQUEST: {
                 const stream = this.stream
                 const { id, name, service } = message
+                const span = globalTracer().startSpan(
+                    'syncot.connection.request',
+                )
+                span.setTag('component', '@syncot/connection')
+                span.setTag('request.name', name)
+                span.setTag('request.service', service)
+                span.setTag('span.kind', 'server')
 
                 Promise.resolve()
-                    .then(() => (instance as any)[name](...message.data))
+                    .then(() =>
+                        (instance as any)[name](
+                            ...message.data,
+                            span.context(),
+                        ),
+                    )
                     .then(
                         reply => {
+                            span.finish()
                             if (this.stream !== stream) {
                                 if (isStream(reply)) {
                                     reply.destroy()
@@ -637,6 +651,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                             }
                         },
                         error => {
+                            span.setTag('error', true)
+                            span.setTag('error.name', error.name)
+                            span.setTag('error.message', error.message)
+                            span.finish()
                             if (this.stream === stream) {
                                 this.send({
                                     data: error,

@@ -32,5 +32,8 @@
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",
     "tslib": "^1.9.3"
+  },
+  "peerDependencies": {
+    "opentracing": "^0.14.4"
   }
 }

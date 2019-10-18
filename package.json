@@ -16,6 +16,7 @@
     "jest-extended": "^0.11.2",
     "lerna": "^3.16.4",
     "lolex": "^5.1.0",
+    "opentracing": "^0.14.4",
     "prettier": "^1.18.2",
     "readable-stream": "^3.4.0",
     "redis-server": "^1.2.2",
