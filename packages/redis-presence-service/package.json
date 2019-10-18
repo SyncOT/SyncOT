@@ -39,6 +39,7 @@
   },
   "peerDependencies": {
     "@types/ioredis": "^4.0.15",
-    "ioredis": "^4.14.1"
+    "ioredis": "^4.14.1",
+    "opentracing": "^0.14.4"
   }
 }

@@ -12,6 +12,7 @@ import {
     whenEvent,
 } from '@syncot/util'
 import Redis from 'ioredis'
+import { initGlobalTracer, MockTracer } from 'opentracing'
 import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
 import { createPresenceService } from '.'
@@ -23,6 +24,9 @@ import {
 } from './commands'
 import { getRedisConnectionManager } from './connection'
 import { requestNames } from './service'
+
+const tracer = new MockTracer()
+initGlobalTracer(tracer)
 
 const now = 12345
 
@@ -190,6 +194,7 @@ afterEach(async () => {
     redis2.disconnect()
     redisSubscriber.disconnect()
     testSubscriber.disconnect()
+    tracer.clear()
 })
 
 test('throw on redis autoResubscribe=true', () => {
@@ -908,6 +913,18 @@ describe('getPresenceBySessionId', () => {
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toEqual(presence)
+
+        const span = tracer
+            .report()
+            .firstSpanWithTagValue('query.id', sessionId)!
+        expect(span.operationName()).toBe(
+            'syncot.presence.getPresenceBySessionId',
+        )
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            'query.id': sessionId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('not authorized', async () => {
@@ -986,6 +1003,10 @@ describe('getPresenceBySessionId', () => {
     })
 
     test('invalid data', async () => {
+        const message =
+            'Failed to load presence by sessionId. => ' +
+            'SyntaxError: Unexpected token o in JSON at position 1'
+        const name = 'SyncOtError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -994,14 +1015,22 @@ describe('getPresenceBySessionId', () => {
         })
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
-        ).rejects.toEqual(
-            expect.objectContaining({
-                message:
-                    'Failed to load presence by sessionId. => ' +
-                    'SyntaxError: Unexpected token o in JSON at position 1',
-                name: 'SyncOtError Presence',
-            }),
+        ).rejects.toEqual(expect.objectContaining({ message, name }))
+
+        const span = tracer
+            .report()
+            .firstSpanWithTagValue('query.id', sessionId)!
+        expect(span.operationName()).toBe(
+            'syncot.presence.getPresenceBySessionId',
         )
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            error: true,
+            'error.message': message,
+            'error.name': name,
+            'query.id': sessionId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('invalid lastModified', async () => {
@@ -1056,6 +1085,14 @@ describe('getPresenceByUserId', () => {
         await expect(
             presenceProxy.getPresenceByUserId(userId),
         ).resolves.toEqual([])
+
+        const span = tracer.report().firstSpanWithTagValue('query.id', userId)!
+        expect(span.operationName()).toBe('syncot.presence.getPresenceByUserId')
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            'query.id': userId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('get one presence object', async () => {
@@ -1211,6 +1248,10 @@ describe('getPresenceByUserId', () => {
     })
 
     test('invalid data', async () => {
+        const message =
+            'Failed to load presence by userId. => ' +
+            'SyntaxError: Unexpected token o in JSON at position 1'
+        const name = 'SyncOtError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -1219,13 +1260,19 @@ describe('getPresenceByUserId', () => {
         })
         await redis.sadd(userKey, sessionId)
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
-            expect.objectContaining({
-                message:
-                    'Failed to load presence by userId. => ' +
-                    'SyntaxError: Unexpected token o in JSON at position 1',
-                name: 'SyncOtError Presence',
-            }),
+            expect.objectContaining({ message, name }),
         )
+
+        const span = tracer.report().firstSpanWithTagValue('query.id', userId)!
+        expect(span.operationName()).toBe('syncot.presence.getPresenceByUserId')
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            error: true,
+            'error.message': message,
+            'error.name': name,
+            'query.id': userId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('invalid lastModified', async () => {
@@ -1275,6 +1322,18 @@ describe('getPresenceByLocationId', () => {
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).resolves.toEqual([])
+
+        const span = tracer
+            .report()
+            .firstSpanWithTagValue('query.id', locationId)!
+        expect(span.operationName()).toBe(
+            'syncot.presence.getPresenceByLocationId',
+        )
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            'query.id': locationId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('get one presence object', async () => {
@@ -1432,6 +1491,10 @@ describe('getPresenceByLocationId', () => {
     })
 
     test('invalid data', async () => {
+        const message =
+            'Failed to load presence by locationId. => ' +
+            'SyntaxError: Unexpected token o in JSON at position 1'
+        const name = 'SyncOtError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -1443,12 +1506,25 @@ describe('getPresenceByLocationId', () => {
             presenceProxy.getPresenceByLocationId(locationId),
         ).rejects.toEqual(
             expect.objectContaining({
-                message:
-                    'Failed to load presence by locationId. => ' +
-                    'SyntaxError: Unexpected token o in JSON at position 1',
-                name: 'SyncOtError Presence',
+                message,
+                name,
             }),
         )
+
+        const span = tracer
+            .report()
+            .firstSpanWithTagValue('query.id', locationId)!
+        expect(span.operationName()).toBe(
+            'syncot.presence.getPresenceByLocationId',
+        )
+        expect(span.tags()).toEqual({
+            component: '@syncot/redis-presence-service',
+            error: true,
+            'error.message': message,
+            'error.name': name,
+            'query.id': locationId,
+        })
+        expect(span.durationMs()).toBeGreaterThanOrEqual(0)
     })
 
     test('invalid lastModified', async () => {

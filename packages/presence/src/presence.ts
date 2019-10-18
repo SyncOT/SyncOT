@@ -5,6 +5,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
+import { SpanContext } from 'opentracing'
 import { Duplex } from 'readable-stream'
 
 export interface Presence {
@@ -114,20 +115,38 @@ export interface PresenceService
     /**
      * Submits a new presence object for the current session.
      */
-    submitPresence(presence: Presence): Promise<void>
+    submitPresence(presence: Presence, context?: SpanContext): Promise<void>
 
     /**
      * Removes the presence object from the current session.
      */
-    removePresence(): Promise<void>
+    removePresence(context?: SpanContext): Promise<void>
 
-    getPresenceBySessionId(sessionId: string): Promise<Presence | null>
-    getPresenceByUserId(userId: string): Promise<Presence[]>
-    getPresenceByLocationId(locationId: string): Promise<Presence[]>
+    getPresenceBySessionId(
+        sessionId: string,
+        context?: SpanContext,
+    ): Promise<Presence | null>
+    getPresenceByUserId(
+        userId: string,
+        context?: SpanContext,
+    ): Promise<Presence[]>
+    getPresenceByLocationId(
+        locationId: string,
+        context?: SpanContext,
+    ): Promise<Presence[]>
 
-    streamPresenceBySessionId(sessionId: string): Promise<Duplex>
-    streamPresenceByUserId(userId: string): Promise<Duplex>
-    streamPresenceByLocationId(locationId: string): Promise<Duplex>
+    streamPresenceBySessionId(
+        sessionId: string,
+        context?: SpanContext,
+    ): Promise<Duplex>
+    streamPresenceByUserId(
+        userId: string,
+        context?: SpanContext,
+    ): Promise<Duplex>
+    streamPresenceByLocationId(
+        locationId: string,
+        context?: SpanContext,
+    ): Promise<Duplex>
 }
 
 /**

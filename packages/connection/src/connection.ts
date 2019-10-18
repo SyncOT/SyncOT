@@ -15,6 +15,8 @@ import {
 import { globalTracer } from 'opentracing'
 import { Duplex } from 'readable-stream'
 
+const component = '@syncot/connection'
+
 type RequestId = number
 type ServiceName = string
 type ProxyName = string
@@ -518,7 +520,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 const span = globalTracer().startSpan(
                     'syncot.connection.request',
                 )
-                span.setTag('component', '@syncot/connection')
+                span.setTag('component', component)
                 span.setTag('request.name', name)
                 span.setTag('request.service', service)
                 span.setTag('span.kind', 'server')

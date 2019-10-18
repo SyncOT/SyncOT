@@ -14,7 +14,9 @@ import {
     SyncOtEmitter,
     throwError,
 } from '@syncot/util'
+
 import Redis from 'ioredis'
+import { globalTracer, SpanContext } from 'opentracing'
 import { Duplex } from 'readable-stream'
 import {
     defineRedisCommands,
@@ -82,6 +84,33 @@ export const requestNames = new Set([
     'streamPresenceByLocationId',
     'streamPresenceByUserId',
 ])
+
+const component = '@syncot/redis-presence-service'
+
+const traceGetPresence = (
+    _target: RedisPresenceService,
+    key: string,
+    descriptor: PropertyDescriptor,
+): void => {
+    const getPresence = descriptor.value
+    descriptor.value = async function(id: string, context?: SpanContext) {
+        const span = globalTracer().startSpan(`syncot.presence.${key}`, {
+            childOf: context,
+        })
+        span.setTag('component', component)
+        span.setTag('query.id', id)
+        try {
+            return await getPresence.call(this, id, span.context())
+        } catch (error) {
+            span.setTag('error', true)
+            span.setTag('error.name', error.name)
+            span.setTag('error.message', error.message)
+            throw error
+        } finally {
+            span.finish()
+        }
+    }
+}
 
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
@@ -196,16 +225,16 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.deleteFromRedis()
     }
 
+    @traceGetPresence
     public async getPresenceBySessionId(
         sessionId: string,
+        _context?: SpanContext,
     ): Promise<Presence | null> {
         this.assertOk()
-
         try {
-            const presenceResult = await this.redis.presenceGetBySessionId(
-                sessionId,
+            return this.processPresenceResult(
+                await this.redis.presenceGetBySessionId(sessionId),
             )
-            return await this.processPresenceResult(presenceResult)
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by sessionId.',
@@ -214,14 +243,16 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    public async getPresenceByUserId(userId: string): Promise<Presence[]> {
+    @traceGetPresence
+    public async getPresenceByUserId(
+        userId: string,
+        _context?: SpanContext,
+    ): Promise<Presence[]> {
         this.assertOk()
-
         try {
-            const presenceResults = await this.redis.presenceGetByUserId(userId)
-            return (await Promise.all(
-                presenceResults.map(this.processPresenceResult),
-            )).filter(notNull) as Presence[]
+            return this.processPresenceResults(
+                await this.redis.presenceGetByUserId(userId),
+            )
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by userId.',
@@ -230,18 +261,16 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
+    @traceGetPresence
     public async getPresenceByLocationId(
         locationId: string,
+        _context?: SpanContext,
     ): Promise<Presence[]> {
         this.assertOk()
-
         try {
-            const presenceResults = await this.redis.presenceGetByLocationId(
-                locationId,
+            return this.processPresenceResults(
+                await this.redis.presenceGetByLocationId(locationId),
             )
-            return (await Promise.all(
-                presenceResults.map(this.processPresenceResult),
-            )).filter(notNull) as Presence[]
         } catch (error) {
             throw createPresenceError(
                 'Failed to load presence by locationId.',
@@ -423,9 +452,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.destroy()
     }
 
-    private processPresenceResult = (
+    private processPresenceResult(
         presenceResult: PresenceResult,
-    ): Presence | null => {
+    ): Presence | null {
         if (
             presenceResult[0] === null ||
             presenceResult[1] === null ||
@@ -448,8 +477,17 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         return this.authService.mayReadPresence(presence) ? presence : null
     }
-}
 
-function notNull(value: any): boolean {
-    return value !== null
+    private processPresenceResults(
+        presenceResults: PresenceResult[],
+    ): Presence[] {
+        const presenceList: Presence[] = []
+        for (let i = 0, l = presenceResults.length; i < l; ++i) {
+            const presence = this.processPresenceResult(presenceResults[i])
+            if (presence) {
+                presenceList.push(presence)
+            }
+        }
+        return presenceList
+    }
 }

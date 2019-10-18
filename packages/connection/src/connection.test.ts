@@ -1696,7 +1696,6 @@ describe('service and proxy', () => {
             const span = tracer
                 .report()
                 .firstSpanWithTagValue('request.name', 'returnMethod')!
-            expect(span).toBeDefined()
             expect(span.operationName()).toBe('syncot.connection.request')
             expect(span.tags()).toEqual({
                 component: '@syncot/connection',
@@ -1721,7 +1720,6 @@ describe('service and proxy', () => {
             const span = tracer
                 .report()
                 .firstSpanWithTagValue('request.name', 'returnMethod')!
-            expect(span).toBeDefined()
             expect(span.operationName()).toBe('syncot.connection.request')
             expect(span.tags()).toEqual({
                 component: '@syncot/connection',
@@ -1754,7 +1752,6 @@ describe('service and proxy', () => {
                         'request.name',
                         'returnStreamMethod',
                     )!
-                expect(span).toBeDefined()
                 expect(span.operationName()).toBe('syncot.connection.request')
                 expect(span.tags()).toEqual({
                     component: '@syncot/connection',
