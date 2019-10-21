@@ -1,6 +1,9 @@
+import { globalEventLoop } from '@syncot/event-loop'
 import { decode, encode } from '@syncot/tson'
 import { Binary, createSocketError, isArrayBuffer } from '@syncot/util'
 import { Duplex } from 'readable-stream'
+
+const eventLoop = globalEventLoop()
 
 export const enum ReadyState {
     CONNECTING,
@@ -130,21 +133,29 @@ export class TsonSocketStream extends Duplex {
     }
 
     private onMessage = ({ data }: { data: ArrayBuffer }): void => {
-        try {
-            if (!isArrayBuffer(data)) {
-                throw new TypeError('Received data must be an ArrayBuffer.')
+        eventLoop.execute(() => {
+            /* istanbul ignore if */
+            if (this.destroyed || this.socket.readyState !== ReadyState.OPEN) {
+                return
             }
+            try {
+                if (!isArrayBuffer(data)) {
+                    throw new TypeError('Received data must be an ArrayBuffer.')
+                }
 
-            const decodedData = decode(data)
+                const decodedData = decode(data)
 
-            if (decodedData === null) {
-                throw new TypeError('Received data must not decode to `null`.')
+                if (decodedData === null) {
+                    throw new TypeError(
+                        'Received data must not decode to `null`.',
+                    )
+                }
+
+                this.push(decodedData)
+            } catch (error) {
+                this.destroy(error)
             }
-
-            this.push(decodedData)
-        } catch (error) {
-            this.destroy(error)
-        }
+        })
     }
 
     private onError = (event: { error?: Error }): void => {
