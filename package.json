@@ -10,12 +10,15 @@
     "@types/sockjs": "^0.3.31",
     "@types/sockjs-client": "^1.1.1",
     "@types/ws": "^6.0.3",
+    "benchmark": "^2.1.4",
+    "esm": "^3.2.25",
     "husky": "^3.0.4",
     "ioredis": "^4.14.1",
     "jest": "^24.9.0",
     "jest-extended": "^0.11.2",
     "lerna": "^3.16.4",
     "lolex": "^5.1.0",
+    "microtime": "^3.0.0",
     "opentracing": "^0.14.4",
     "prettier": "^1.18.2",
     "readable-stream": "^3.4.0",
@@ -44,7 +47,8 @@
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
     "test": "jest",
-    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc && npm test"
+    "build": "npm run clean && npm run prettier && npm run tslint && npm run tsc && npm test",
+    "benchmark": "lerna run benchmark"
   },
   "husky": {
     "hooks": {

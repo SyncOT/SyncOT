@@ -30,5 +30,8 @@
     "@syncot/util": "file:../util",
     "@types/node": "^12.0.4",
     "tslib": "^1.9.3"
+  },
+  "scripts": {
+    "benchmark": "ESM_DISABLE_CACHE=true node -r esm --unhandled-rejections strict benchmark"
   }
 }
