@@ -11,7 +11,10 @@ import { Duplex } from 'readable-stream'
  * are added or removed.
  */
 export class PresenceStream extends Duplex {
-    private presenceMap: Map<string, Presence> = new Map()
+    /**
+     * Maps presence `sessionId` to `lastModified`.
+     */
+    private presenceMap: Map<string, number> = new Map()
 
     public constructor() {
         super(presenceStreamOptions)
@@ -37,13 +40,11 @@ export class PresenceStream extends Duplex {
      * emits a corresponding `data` event.
      */
     public addPresence(presence: Presence): void {
-        const sessionId = presence.sessionId
-        const currentPresence = this.presenceMap.get(sessionId)
-        if (
-            !currentPresence ||
-            currentPresence.lastModified !== presence.lastModified
-        ) {
-            this.presenceMap.set(sessionId, presence)
+        const { sessionId, lastModified } = presence
+        const oldLastModified = this.presenceMap.get(sessionId)
+
+        if (oldLastModified !== lastModified) {
+            this.presenceMap.set(sessionId, lastModified)
             this.push([true, presence])
         }
     }
@@ -72,15 +73,12 @@ export class PresenceStream extends Duplex {
         // Add or replace presence.
         for (let i = 0, l = presenceList.length; i < l; ++i) {
             const presence = presenceList[i]
-            const sessionId = presence.sessionId
-            const currentPresence = this.presenceMap.get(sessionId)
+            const { sessionId, lastModified } = presence
+            const oldLastModified = this.presenceMap.get(sessionId)
 
-            if (
-                !currentPresence ||
-                currentPresence.lastModified !== presence.lastModified
-            ) {
+            if (oldLastModified !== lastModified) {
                 presenceAddedMessage.push(presence)
-                this.presenceMap.set(sessionId, presence)
+                this.presenceMap.set(sessionId, lastModified)
             }
         }
 
