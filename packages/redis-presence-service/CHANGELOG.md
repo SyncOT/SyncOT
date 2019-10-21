@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.30](https://github.com/SyncOT/SyncOT/compare/@syncot/redis-presence-service@0.0.29...@syncot/redis-presence-service@0.0.30) (2019-10-21)
+
+**Note:** Version bump only for package @syncot/redis-presence-service
+
+
+
+
+
 ## [0.0.29](https://github.com/SyncOT/SyncOT/compare/@syncot/redis-presence-service@0.0.28...@syncot/redis-presence-service@0.0.29) (2019-09-12)
 
 **Note:** Version bump only for package @syncot/redis-presence-service

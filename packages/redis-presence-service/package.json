@@ -1,6 +1,6 @@
 {
   "name": "@syncot/redis-presence-service",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "description": "A presence service based on Redis.",
   "keywords": [
     "redis",
