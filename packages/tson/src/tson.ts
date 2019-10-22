@@ -1,9 +1,8 @@
+// tslint:disable:no-bitwise
 import {
     Binary,
     BufferReader,
-    BufferWriter,
     createBufferReader,
-    createBufferWriter,
     createTsonError,
     toBuffer,
 } from '@syncot/util'
@@ -130,236 +129,13 @@ export const enum Type {
     ERROR,
 }
 
-const floatPrecisionTestingMemory = Buffer.allocUnsafe(4)
-
-/**
- * Returns true, if float32 provides enough precision to save a number.
- */
-function canSaveWithSinglePrecision(item: number): boolean {
-    if (!isFinite(item)) {
-        return true
-    }
-
-    floatPrecisionTestingMemory.writeFloatLE(item, 0)
-    return floatPrecisionTestingMemory.readFloatLE(0) === item
-}
-
-function detectCircularReference(path: Path, object: object): void {
-    for (let i = 0, l = path.length; i < l; ++i) {
-        if (path[i] === object) {
-            throw createTsonError('Circular reference detected.')
-        }
-    }
-}
-
-type Path = object[]
-
 /**
  * Returns the encoded `data` as a `Buffer`.
  * @param data The data to encode.
  * @returns The encoded `data`.
  */
 export function encode(data: any): Buffer {
-    const writer = createBufferWriter()
-    encodeAny(writer, data, [])
-    return writer.toBuffer()
-}
-
-function encodeAny(writer: BufferWriter, item: any, path: Path): void {
-    switch (typeof item) {
-        case 'boolean':
-            return encodeBoolean(writer, item)
-        case 'number':
-            return encodeNumber(writer, item)
-        case 'string':
-            return encodeString(writer, item)
-        case 'object':
-            return encodeObject(writer, item, path)
-        default:
-            return encodeObject(writer, null, path)
-    }
-}
-
-function encodeBoolean(writer: BufferWriter, item: boolean): void {
-    writer.writeUInt8(item ? Type.TRUE : Type.FALSE)
-}
-
-function encodeNumber(writer: BufferWriter, item: number): void {
-    // tslint:disable-next-line:no-bitwise
-    if (item === (item | 0)) {
-        if (item <= 0x7f && item >= -0x80) {
-            writer.writeUInt8(Type.INT8)
-            writer.writeInt8(item)
-        } else if (item <= 0x7fff && item >= -0x8000) {
-            writer.writeUInt8(Type.INT16)
-            writer.writeInt16LE(item)
-        } else {
-            writer.writeUInt8(Type.INT32)
-            writer.writeInt32LE(item)
-        }
-    } else if (canSaveWithSinglePrecision(item)) {
-        writer.writeUInt8(Type.FLOAT32)
-        writer.writeFloatLE(item)
-    } else {
-        writer.writeUInt8(Type.FLOAT64)
-        writer.writeDoubleLE(item)
-    }
-}
-
-function encodeString(writer: BufferWriter, item: string): void {
-    const length = Buffer.byteLength(item)
-
-    /* istanbul ignore if */
-    if (length > 0xffffffff) {
-        throw createTsonError('Max string utf8 size is 0xFFFFFFFF.')
-    } else if (length <= 0xff) {
-        writer.writeUInt8(Type.STRING8)
-        writer.writeUInt8(length)
-    } else if (length <= 0xffff) {
-        writer.writeUInt8(Type.STRING16)
-        writer.writeUInt16LE(length)
-    } else {
-        writer.writeUInt8(Type.STRING32)
-        writer.writeUInt32LE(length)
-    }
-    writer.writeString(item, 'utf8')
-}
-
-function encodeObject(
-    writer: BufferWriter,
-    object: object | null,
-    path: Path,
-): void {
-    const objectBuffer = toBuffer(object)
-    if (objectBuffer) {
-        encodeBuffer(writer, objectBuffer)
-    } else if (object === null) {
-        encodeNull(writer)
-    } else if (Array.isArray(object)) {
-        encodeArray(writer, object, path)
-    } else if (object instanceof Error) {
-        encodeError(writer, object, path)
-    } else {
-        encodePlainObject(writer, object, path)
-    }
-}
-
-function encodeNull(writer: BufferWriter): void {
-    writer.writeUInt8(Type.NULL)
-}
-
-function encodeBuffer(writer: BufferWriter, inputBuffer: Buffer): void {
-    const length = inputBuffer.length
-    /* istanbul ignore if */
-    if (length > 0xffffffff) {
-        throw createTsonError('Max binary data size is 0xFFFFFFFF.')
-    } else if (length <= 0xff) {
-        writer.writeUInt8(Type.BINARY8)
-        writer.writeUInt8(length)
-    } else if (length <= 0xffff) {
-        writer.writeUInt8(Type.BINARY16)
-        writer.writeUInt16LE(length)
-    } else {
-        writer.writeUInt8(Type.BINARY32)
-        writer.writeUInt32LE(length)
-    }
-    writer.writeBuffer(inputBuffer)
-}
-
-function encodeArray(writer: BufferWriter, array: any[], path: Path): void {
-    detectCircularReference(path, array)
-    path.push(array)
-
-    const length = array.length
-    /* istanbul ignore if */
-    if (length > 0xffffffff) {
-        throw createTsonError('Max array length is 0xFFFFFFFF.')
-    } else if (length <= 0xff) {
-        writer.writeUInt8(Type.ARRAY8)
-        writer.writeUInt8(length)
-    } else if (length <= 0xffff) {
-        writer.writeUInt8(Type.ARRAY16)
-        writer.writeUInt16LE(length)
-    } else {
-        writer.writeUInt8(Type.ARRAY32)
-        writer.writeUInt32LE(length)
-    }
-    for (let i = 0; i < length; ++i) {
-        encodeAny(writer, array[i], path)
-    }
-
-    path.pop()
-}
-
-function encodeError(writer: BufferWriter, error: Error, path: Path): void {
-    if (typeof (error as any).toJSON === 'function') {
-        return encodeAny(writer, (error as any).toJSON(''), path)
-    }
-
-    if (typeof error.name !== 'string') {
-        throw createTsonError('Error name is not a string.')
-    }
-    if (typeof error.message !== 'string') {
-        throw createTsonError('Error message is not a string.')
-    }
-
-    // `name` and `message` should not be enumerable but remove them in case
-    // they appear in keys for any reason.
-    const keys = Object.keys(error)
-    const nameIndex = keys.indexOf('name')
-    if (nameIndex >= 0) {
-        keys.splice(nameIndex, 1)
-    }
-    const messageIndex = keys.indexOf('message')
-    if (messageIndex >= 0) {
-        keys.splice(messageIndex, 1)
-    }
-
-    writer.writeUInt8(Type.ERROR)
-    encodeString(writer, error.name)
-    encodeString(writer, error.message)
-    if (keys.length === 0) {
-        encodeNull(writer)
-    } else {
-        encodePlainObject(writer, error, path, keys)
-    }
-}
-
-function encodePlainObject(
-    writer: BufferWriter,
-    object: object,
-    path: Path,
-    keys: string[] = Object.keys(object),
-): void {
-    if (typeof (object as any).toJSON === 'function') {
-        return encodeAny(writer, (object as any).toJSON(''), path)
-    }
-
-    detectCircularReference(path, object)
-    path.push(object)
-
-    const length = keys.length
-    /* istanbul ignore if */
-    if (length > 0xffffffff) {
-        throw createTsonError('Max number of object properties is 0xFFFFFFFF.')
-    } else if (length <= 0xff) {
-        writer.writeUInt8(Type.OBJECT8)
-        writer.writeUInt8(length)
-    } else if (length <= 0xffff) {
-        writer.writeUInt8(Type.OBJECT16)
-        writer.writeUInt16LE(length)
-    } else {
-        writer.writeUInt8(Type.OBJECT32)
-        writer.writeUInt32LE(length)
-    }
-    for (let i = 0; i < length; ++i) {
-        const key = keys[i]
-        const value = (object as any)[key]
-        encodeAny(writer, key, path)
-        encodeAny(writer, value, path)
-    }
-
-    path.pop()
+    return new Encoder(data).toBuffer()
 }
 
 /**
@@ -507,12 +283,12 @@ function decodeAny(
             }
 
             if (details) {
-                if (details.hasOwnProperty('name')) {
+                if (hasOwnProperty.call(details, 'name')) {
                     throw createTsonError(
                         '"name" property present in Error details.',
                     )
                 }
-                if (details.hasOwnProperty('message')) {
+                if (hasOwnProperty.call(details, 'message')) {
                     throw createTsonError(
                         '"message" property present in Error details.',
                     )
@@ -529,5 +305,429 @@ function decodeAny(
         }
         default:
             throw createTsonError(`Unknown type.`)
+    }
+}
+
+type Path = object[]
+const hasOwnProperty = Object.prototype.hasOwnProperty
+const propertyIsEnumerable = Object.prototype.propertyIsEnumerable
+const floatArrayBuffer = new ArrayBuffer(8)
+const floatDataView = new DataView(floatArrayBuffer)
+const floatUInt8Array = new Uint8Array(floatArrayBuffer)
+
+class Encoder {
+    private path: Path = []
+    private buffer: Uint8Array = new Uint8Array(1024)
+    private offset: number = 0
+
+    public constructor(value: any) {
+        this.encode(value)
+    }
+
+    public toBuffer(): Buffer {
+        return Buffer.from(this.buffer.buffer, 0, this.offset)
+    }
+
+    private encode(value: any): void {
+        switch (typeof value) {
+            case 'boolean':
+                return this.encodeBoolean(value)
+            case 'number':
+                return this.encodeNumber(value)
+            case 'string':
+                return this.encodeString(value)
+            case 'object':
+                return this.encodeObject(value)
+            default:
+                return this.encodeObject(null)
+        }
+    }
+
+    private encodeObject(object: object | null): void {
+        const objectBuffer = toBuffer(object)
+        if (objectBuffer) {
+            this.encodeBuffer(objectBuffer)
+        } else if (object === null) {
+            this.encodeNull()
+        } else if (Array.isArray(object)) {
+            this.encodeArray(object)
+        } else if (object instanceof Error) {
+            this.encodeError(object)
+        } else {
+            this.encodePlainObject(object)
+        }
+    }
+
+    private encodeNull(): void {
+        this.ensure(1)
+        this.buffer[this.offset++] = Type.NULL
+    }
+
+    private encodeBoolean(value: boolean): void {
+        this.ensure(1)
+        this.buffer[this.offset++] = value ? Type.TRUE : Type.FALSE
+    }
+
+    private encodeNumber(value: number): void {
+        if (value === (value | 0)) {
+            if (value <= 0x7f && value >= -0x80) {
+                this.ensure(2)
+                this.buffer[this.offset++] = Type.INT8
+                this.buffer[this.offset++] = value
+            } else if (value <= 0x7fff && value >= -0x8000) {
+                this.ensure(3)
+                this.buffer[this.offset++] = Type.INT16
+                this.buffer[this.offset++] = value
+                this.buffer[this.offset++] = value >>> 8
+            } else {
+                this.ensure(5)
+                this.buffer[this.offset++] = Type.INT32
+                this.buffer[this.offset++] = value
+                this.buffer[this.offset++] = value >>> 8
+                this.buffer[this.offset++] = value >>> 16
+                this.buffer[this.offset++] = value >>> 24
+            }
+        } else {
+            floatDataView.setFloat32(0, value, true)
+            const storedValue = floatDataView.getFloat32(0, true)
+            if (storedValue === value || isNaN(value)) {
+                this.ensure(5)
+                this.buffer[this.offset++] = Type.FLOAT32
+                this.buffer[this.offset++] = floatUInt8Array[0]
+                this.buffer[this.offset++] = floatUInt8Array[1]
+                this.buffer[this.offset++] = floatUInt8Array[2]
+                this.buffer[this.offset++] = floatUInt8Array[3]
+            } else {
+                floatDataView.setFloat64(0, value, true)
+                this.ensure(9)
+                this.buffer[this.offset++] = Type.FLOAT64
+                this.buffer[this.offset++] = floatUInt8Array[0]
+                this.buffer[this.offset++] = floatUInt8Array[1]
+                this.buffer[this.offset++] = floatUInt8Array[2]
+                this.buffer[this.offset++] = floatUInt8Array[3]
+                this.buffer[this.offset++] = floatUInt8Array[4]
+                this.buffer[this.offset++] = floatUInt8Array[5]
+                this.buffer[this.offset++] = floatUInt8Array[6]
+                this.buffer[this.offset++] = floatUInt8Array[7]
+            }
+        }
+    }
+
+    private encodeString(value: string): void {
+        const valueLength = value.length
+
+        // Allocate enough space for the worst case.
+        const typeSize = 1
+        const maxLengthSize = 4
+        const maxLength = valueLength * 3
+        this.ensure(typeSize + maxLengthSize + maxLength)
+
+        // Try to write the data in the correct place and shift it later, if needed.
+        const estimatedLengthSize =
+            valueLength <= 0xff ? 1 : valueLength <= 0xffff ? 2 : 4
+        const typeOffset = this.offset
+        const lengthOffset = typeOffset + typeSize
+        const estimatedDataOffset = lengthOffset + estimatedLengthSize
+        this.offset = estimatedDataOffset
+
+        // See http://unicode.org/faq/utf_bom.html#utf8-4
+        for (let i = 0; i < valueLength; ++i) {
+            const charcode = value.charCodeAt(i)
+            if (charcode < 0x80) {
+                this.buffer[this.offset++] = charcode
+            } else if (charcode < 0x800) {
+                this.buffer[this.offset++] = 0xc0 | (charcode >> 6)
+                this.buffer[this.offset++] = 0x80 | (charcode & 0x3f)
+            } else if (charcode < 0xd800 || charcode >= 0xe000) {
+                this.buffer[this.offset++] = 0xe0 | (charcode >> 12)
+                this.buffer[this.offset++] = 0x80 | ((charcode >> 6) & 0x3f)
+                this.buffer[this.offset++] = 0x80 | (charcode & 0x3f)
+            } else {
+                if (charcode >= 0xd800 && charcode < 0xdc00) {
+                    // `charcode` is a high surrogate.
+                    if (i + 1 < valueLength) {
+                        const charcode2 = value.charCodeAt(i + 1)
+                        if (charcode2 >= 0xdc00 && charcode2 < 0xe000) {
+                            // `charcode2` is a low surrogate.
+                            i++
+                            const surrogateOffset =
+                                0x10000 - (0xd800 << 10) - 0xdc00
+                            const codepoint =
+                                (charcode << 10) + charcode2 + surrogateOffset
+                            this.buffer[this.offset++] =
+                                0xf0 | (codepoint >> 18)
+                            this.buffer[this.offset++] =
+                                0x80 | ((codepoint >> 12) & 0x3f)
+                            this.buffer[this.offset++] =
+                                0x80 | ((codepoint >> 6) & 0x3f)
+                            this.buffer[this.offset++] =
+                                0x80 | (codepoint & 0x3f)
+                        } else {
+                            // `charcode` is an unmatched high surrogate.
+                            this.buffer[this.offset++] = 0xef
+                            this.buffer[this.offset++] = 0xbf
+                            this.buffer[this.offset++] = 0xbd
+                        }
+                    } else {
+                        // `charcode` is an unmatched high surrogate.
+                        this.buffer[this.offset++] = 0xef
+                        this.buffer[this.offset++] = 0xbf
+                        this.buffer[this.offset++] = 0xbd
+                    }
+                } else {
+                    // `charcode` is an unmatched low surrogate.
+                    this.buffer[this.offset++] = 0xef
+                    this.buffer[this.offset++] = 0xbf
+                    this.buffer[this.offset++] = 0xbd
+                }
+            }
+        }
+
+        const length = this.offset - estimatedDataOffset
+
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw createTsonError('Max string utf8 size is 0xFFFFFFFF.')
+        }
+
+        const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+        const dataOffset = lengthOffset + lengthSize
+
+        // Shift the data, if needed, to make space for encoding the length.
+        if (dataOffset !== estimatedDataOffset) {
+            this.buffer.set(
+                new Uint8Array(this.buffer.buffer, estimatedDataOffset, length),
+                dataOffset,
+            )
+            this.offset += dataOffset - estimatedDataOffset
+        }
+
+        if (lengthSize === 1) {
+            this.buffer[typeOffset] = Type.STRING8
+            this.buffer[lengthOffset] = length
+        } else if (lengthSize === 2) {
+            this.buffer[typeOffset] = Type.STRING16
+            this.buffer[lengthOffset] = length
+            this.buffer[lengthOffset + 1] = length >>> 8
+        } else {
+            this.buffer[typeOffset] = Type.STRING32
+            this.buffer[lengthOffset] = length
+            this.buffer[lengthOffset + 1] = length >>> 8
+            this.buffer[lengthOffset + 2] = length >>> 16
+            this.buffer[lengthOffset + 3] = length >>> 24
+        }
+    }
+
+    private encodeBuffer(value: Buffer): void {
+        const length = value.length
+
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw createTsonError('Max binary data size is 0xFFFFFFFF.')
+        }
+
+        const typeSize = 1
+        const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+        this.ensure(typeSize + lengthSize + length)
+
+        if (length <= 0xff) {
+            this.buffer[this.offset++] = Type.BINARY8
+            this.buffer[this.offset++] = length
+        } else if (length <= 0xffff) {
+            this.buffer[this.offset++] = Type.BINARY16
+            this.buffer[this.offset++] = length
+            this.buffer[this.offset++] = length >>> 8
+        } else {
+            this.buffer[this.offset++] = Type.BINARY32
+            this.buffer[this.offset++] = length
+            this.buffer[this.offset++] = length >>> 8
+            this.buffer[this.offset++] = length >>> 16
+            this.buffer[this.offset++] = length >>> 24
+        }
+        this.buffer.set(value, this.offset)
+        this.offset += length
+    }
+
+    private encodeArray(array: any[]): void {
+        this.detectCircularReference(array)
+        this.path.push(array)
+
+        const length = array.length
+
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw createTsonError('Max array length is 0xFFFFFFFF.')
+        }
+
+        const typeSize = 1
+        const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+        this.ensure(typeSize + lengthSize + length)
+
+        if (length <= 0xff) {
+            this.buffer[this.offset++] = Type.ARRAY8
+            this.buffer[this.offset++] = length
+        } else if (length <= 0xffff) {
+            this.buffer[this.offset++] = Type.ARRAY16
+            this.buffer[this.offset++] = length
+            this.buffer[this.offset++] = length >>> 8
+        } else {
+            this.buffer[this.offset++] = Type.ARRAY32
+            this.buffer[this.offset++] = length
+            this.buffer[this.offset++] = length >>> 8
+            this.buffer[this.offset++] = length >>> 16
+            this.buffer[this.offset++] = length >>> 24
+        }
+        for (let i = 0; i < length; ++i) {
+            this.encode(array[i])
+        }
+
+        this.path.pop()
+    }
+
+    private encodePlainObject(object: object): void {
+        if (typeof (object as any).toJSON === 'function') {
+            return this.encode((object as any).toJSON(''))
+        }
+
+        this.detectCircularReference(object)
+        this.path.push(object)
+
+        const typeSize = 1
+        const estimatedLengthSize = 1
+        this.ensure(typeSize + estimatedLengthSize)
+
+        const typeOffset = this.offset
+        const lengthOffset = typeOffset + typeSize
+        const estimatedDataOffset = lengthOffset + estimatedLengthSize
+        this.offset = estimatedDataOffset
+
+        let length = 0
+        for (const key in object) {
+            if (hasOwnProperty.call(object, key)) {
+                length++
+                this.encodeString(key)
+                this.encode((object as any)[key])
+            }
+        }
+
+        /* istanbul ignore if */
+        if (length > 0xffffffff) {
+            throw createTsonError(
+                'Max number of object properties is 0xFFFFFFFF.',
+            )
+        }
+
+        const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
+        const dataOffset = lengthOffset + lengthSize
+
+        // Shift the data, if needed, to make space for encoding the length.
+        if (dataOffset !== estimatedDataOffset) {
+            this.buffer.set(
+                new Uint8Array(
+                    this.buffer.buffer,
+                    estimatedDataOffset,
+                    this.offset - estimatedDataOffset,
+                ),
+                dataOffset,
+            )
+            this.offset += dataOffset - estimatedDataOffset
+        }
+
+        if (length <= 0xff) {
+            this.buffer[typeOffset] = Type.OBJECT8
+            this.buffer[lengthOffset] = length
+        } else if (length <= 0xffff) {
+            this.buffer[typeOffset] = Type.OBJECT16
+            this.buffer[lengthOffset] = length
+            this.buffer[lengthOffset + 1] = length >>> 8
+        } else {
+            this.buffer[typeOffset] = Type.OBJECT32
+            this.buffer[lengthOffset] = length
+            this.buffer[lengthOffset + 1] = length >>> 8
+            this.buffer[lengthOffset + 2] = length >>> 16
+            this.buffer[lengthOffset + 3] = length >>> 24
+        }
+
+        this.path.pop()
+    }
+
+    private encodeError(error: Error): void {
+        if (typeof (error as any).toJSON === 'function') {
+            return this.encode((error as any).toJSON(''))
+        }
+
+        if (typeof error.name !== 'string') {
+            throw createTsonError('Error name is not a string.')
+        }
+        if (typeof error.message !== 'string') {
+            throw createTsonError('Error message is not a string.')
+        }
+
+        this.ensure(1)
+        this.buffer[this.offset++] = Type.ERROR
+        this.encodeString(error.name)
+        this.encodeString(error.message)
+
+        let hasDetails = false
+        for (const key in error) {
+            if (
+                hasOwnProperty.call(error, key) &&
+                key !== 'name' &&
+                key !== 'message'
+            ) {
+                hasDetails = true
+                break
+            }
+        }
+
+        if (hasDetails) {
+            if (
+                propertyIsEnumerable.call(error, 'name') ||
+                propertyIsEnumerable.call(error, 'message')
+            ) {
+                // Copying the object is not great for performance, however,
+                // it should be very rare in practice and even if it happens,
+                // the number of properties would be small, so it likely is not worth optimizing.
+                const details = Object.create(null)
+                for (const key in error) {
+                    if (
+                        hasOwnProperty.call(error, key) &&
+                        key !== 'name' &&
+                        key !== 'message'
+                    ) {
+                        details[key] = (error as any)[key]
+                    }
+                }
+                this.encodePlainObject(details)
+            } else {
+                this.encodePlainObject(error)
+            }
+        } else {
+            this.encodeNull()
+        }
+    }
+
+    private ensure(size: number): void {
+        const minLength = this.offset + size
+        const oldLength = this.buffer.length
+
+        if (minLength > oldLength) {
+            let newLength = Math.floor((oldLength * 3) / 2 + 1)
+            if (newLength < minLength) {
+                newLength = minLength
+            }
+            const oldBuffer = new Uint8Array(this.buffer.buffer, 0, this.offset)
+            this.buffer = new Uint8Array(newLength)
+            this.buffer.set(oldBuffer)
+        }
+    }
+
+    private detectCircularReference(object: object): void {
+        const path = this.path
+        for (let i = 0, l = path.length; i < l; ++i) {
+            if (path[i] === object) {
+                throw createTsonError('Circular reference detected.')
+            }
+        }
     }
 }

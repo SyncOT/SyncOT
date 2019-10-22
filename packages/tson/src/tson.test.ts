@@ -12,11 +12,16 @@ const encodeToBufferReader = (data: any) => {
     return createBufferReader(encode(data))
 }
 
+const stringFFLongHighCodePoints = Array.from(Array(0xff), (_v, k) =>
+    String.fromCharCode(0xffff - (k % 10)),
+).join('')
+const stringFFFFLongHighCodePoints = Array.from(Array(0xffff), (_v, k) =>
+    String.fromCharCode(0xffff - (k % 10)),
+).join('')
 const stringFFLong = Array.from(Array(0xff), (_v, k) => k % 10).join('')
 const string100Long = Array.from(Array(0x100), (_v, k) => k % 10).join('')
 const stringFFFFLong = Array.from(Array(0xffff), (_v, k) => k % 10).join('')
 const string10000Long = Array.from(Array(0x10000), (_v, k) => k % 10).join('')
-
 const longString = Array.from(
     Array(100),
     () =>
@@ -450,6 +455,13 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(0xff)
             expect(buffer.readString(0xff)).toBe(stringFFLong)
         })
+        test('0xFF characters (2 byte length)', () => {
+            const buffer = encodeToBufferReader(stringFFLongHighCodePoints)
+            expect(buffer.length).toBe(0xff * 3 + 3)
+            expect(buffer.readUInt8()).toBe(Type.STRING16)
+            expect(buffer.readUInt16LE()).toBe(0xff * 3)
+            expect(buffer.readString(0xff * 3)).toBe(stringFFLongHighCodePoints)
+        })
         test('0x100 characters (2 byte length)', () => {
             const buffer = encodeToBufferReader(string100Long)
             expect(buffer.length).toBe(0x100 + 3)
@@ -463,6 +475,15 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.STRING16)
             expect(buffer.readUInt16LE()).toBe(0xffff)
             expect(buffer.readString(0xffff)).toBe(stringFFFFLong)
+        })
+        test('0xFFFF characters (4 byte length)', () => {
+            const buffer = encodeToBufferReader(stringFFFFLongHighCodePoints)
+            expect(buffer.length).toBe(0xffff * 3 + 5)
+            expect(buffer.readUInt8()).toBe(Type.STRING32)
+            expect(buffer.readUInt32LE()).toBe(0xffff * 3)
+            expect(buffer.readString(0xffff * 3)).toBe(
+                stringFFFFLongHighCodePoints,
+            )
         })
         test('0x10000 characters (4 byte length)', () => {
             const buffer = encodeToBufferReader(string10000Long)
@@ -608,7 +629,7 @@ describe('encode', () => {
             length => {
                 const typeSize = 1
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
-                const arrayType =
+                const objectType =
                     length <= 0xff
                         ? Type.OBJECT8
                         : length <= 0xffff
@@ -623,7 +644,7 @@ describe('encode', () => {
                 expect(buffer.length).toBe(
                     typeSize + lengthSize + propertySize * length,
                 )
-                expect(buffer.readUInt8()).toBe(arrayType)
+                expect(buffer.readUInt8()).toBe(objectType)
                 expect(
                     length <= 0xff
                         ? buffer.readUInt8()
@@ -975,6 +996,22 @@ describe('encode', () => {
             expect(buffer.readUInt8()).toBe(Type.INT16)
             expect(buffer.readInt16LE()).toBe(999)
             expect(buffer.offset).toBe(buffer.length)
+        })
+
+        test('enumerable properties in the prototype', () => {
+            const prototype = Object.create(null)
+            prototype.one = 1
+            const object = Object.create(prototype)
+            object.two = 2
+            const buffer = encodeToBufferReader(object)
+            expect(buffer.length).toBe(9)
+            expect(buffer.readUInt8()).toBe(Type.OBJECT8)
+            expect(buffer.readUInt8()).toBe(1)
+            expect(buffer.readUInt8()).toBe(Type.STRING8)
+            expect(buffer.readUInt8()).toBe(3)
+            expect(buffer.readString(3)).toBe('two')
+            expect(buffer.readUInt8()).toBe(Type.INT8)
+            expect(buffer.readInt8()).toBe(2)
         })
     })
 
