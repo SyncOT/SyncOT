@@ -2,6 +2,7 @@ import { Binary, createBufferReader } from '@syncot/util'
 import { decode, encode } from '.'
 import { Type } from './tson'
 
+const bits = (strings: TemplateStringsArray) => parseInt(strings[0], 2)
 const errorMatcher = (message: string) =>
     expect.objectContaining({
         message,
@@ -1488,6 +1489,105 @@ describe('decode', () => {
 
     test('STRING with mixed characters', () => {
         expect(decode(encode(longString))).toBe(fixedLongString)
+    })
+
+    test.each<number[]>([
+        // 0 bit.
+        [],
+
+        // 8 bit.
+        // Valid code point.
+        [bits`00101011`],
+        // Min code point.
+        [bits`00000000`],
+        // Max code point.
+        [bits`01111111`],
+        // Invalid - min dangling continuation byte.
+        [bits`10000000`],
+        // Invalid - max dangling continuation byte.
+        [bits`10111111`],
+        // Invalid - min above valid range.
+        [bits`11111000`],
+        // Invalid - max above valid range.
+        [bits`11111111`],
+
+        // 16 bit.
+        // Valid code point.
+        [bits`11000110`, bits`10101010`],
+        // Min code point.
+        [bits`11000010`, bits`10000000`],
+        // Max code point.
+        [bits`11011111`, bits`10111111`],
+        // Invalid - no continuation byte.
+        [bits`11011111`],
+        // Invalid - wrong continuation byte.
+        [bits`11011111`, bits`01111111`],
+        // Invalid - min code point out of range.
+        [bits`11000000`, bits`10000000`],
+        // Invalid - max code point out of range.
+        [bits`11000001`, bits`10111111`],
+
+        // 24 bit.
+        // Valid code point.
+        [bits`11100001`, bits`10101100`, bits`10001001`],
+        // Min code point.
+        [bits`11100000`, bits`10100000`, bits`10000000`],
+        // Max code point.
+        [bits`11101111`, bits`10111111`, bits`10111111`],
+        // Max below surrogate.
+        [bits`11101101`, bits`10011111`, bits`10111111`],
+        // Min above surrogate.
+        [bits`11101110`, bits`10000000`, bits`10000000`],
+        // Invalid - no first continuation byte.
+        [bits`11100001`],
+        // Invalid - no second continuation byte.
+        [bits`11100001`, bits`10100000`],
+        // Invalid - wrong first continuation byte.
+        [bits`11100001`, bits`01111111`],
+        // Invalid - wrong second continuation byte.
+        [bits`11100001`, bits`10100000`, bits`01111111`],
+        // Invalid - min code point out of range.
+        [bits`11100000`, bits`10000000`, bits`10000000`],
+        // Invalid - max code point out of range.
+        [bits`11100000`, bits`10011111`, bits`10111111`],
+        // Invalid - min surrogate.
+        [bits`11101101`, bits`10100000`, bits`10000000`],
+        // Invalid - max surrogate.
+        [bits`11101101`, bits`10111111`, bits`10111111`],
+
+        // 32 bit.
+        // Valid code point.
+        [bits`11110001`, bits`10010000`, bits`10111000`, bits`10010001`],
+        // Min code point.
+        [bits`11110000`, bits`10010000`, bits`10000000`, bits`10000000`],
+        // Max code point.
+        [bits`11110100`, bits`10001111`, bits`10111111`, bits`10111111`],
+        // Invalid - min code below valid range.
+        [bits`11110000`, bits`10000000`, bits`10000000`, bits`10000000`],
+        // Invalid - max code below valid range.
+        [bits`11110000`, bits`10001111`, bits`10111111`, bits`10111111`],
+        // Invalid - min code above valid range.
+        [bits`11110100`, bits`10010000`, bits`10000000`, bits`10000000`],
+        // Invalid - max code above valid range.
+        [bits`11110111`, bits`10111111`, bits`10111111`, bits`10111111`],
+        // Invalid - no first continuation byte.
+        [bits`11110001`],
+        // Invalid - no second continuation byte.
+        [bits`11110001`, bits`10000000`],
+        // Invalid - no second continuation byte.
+        [bits`11110001`, bits`10000000`, bits`10000000`],
+        // Invalid - wrong first continuation byte.
+        [bits`11110001`, bits`01111111`],
+        // Invalid - wrong second continuation byte.
+        [bits`11110001`, bits`10000000`, bits`01111111`],
+        // Invalid - wrong second continuation byte.
+        [bits`11110001`, bits`10000000`, bits`10000000`, bits`01111111`],
+    ])('STRING utf8 %#', (...input) => {
+        const actual = decode(
+            Buffer.from([Type.STRING8, input.length].concat(input)),
+        )
+        const expected = Buffer.from(input).toString()
+        expect(actual).toBe(expected)
     })
 
     test('unknown type', () => {

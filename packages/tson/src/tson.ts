@@ -1,9 +1,9 @@
 // tslint:disable:no-bitwise
 import {
     Binary,
-    BufferReader,
-    createBufferReader,
     createTsonError,
+    isArrayBuffer,
+    isSharedArrayBuffer,
     toBuffer,
 } from '@syncot/util'
 
@@ -135,7 +135,7 @@ export const enum Type {
  * @returns The encoded `data`.
  */
 export function encode(data: any): Buffer {
-    return new Encoder(data).toBuffer()
+    return Encoder.encoder.encode(data)
 }
 
 /**
@@ -143,192 +143,43 @@ export function encode(data: any): Buffer {
  * @param binaryData The binary data to decode.
  * @returns The decoded data.
  */
-export function decode(
-    binaryData: Binary,
-): boolean | number | string | object | null {
-    const buffer = toBuffer(binaryData)
-
-    if (!buffer) {
-        throw createTsonError('Expected binary data to decode.')
-    }
-
-    return decodeAny(createBufferReader(buffer))
-}
-
-function decodeAny(
-    reader: BufferReader,
-): boolean | number | string | object | null {
-    const type: Type = reader.readUInt8()
-
-    switch (type) {
-        case Type.NULL:
-            return null
-        case Type.TRUE:
-            return true
-        case Type.FALSE:
-            return false
-        case Type.INT8:
-            return reader.readInt8()
-        case Type.INT16:
-            return reader.readInt16LE()
-        case Type.INT32:
-            return reader.readInt32LE()
-        case Type.INT64:
-            throw createTsonError('Cannot decode a 64-bit integer.')
-        case Type.FLOAT32:
-            return reader.readFloatLE()
-        case Type.FLOAT64:
-            return reader.readDoubleLE()
-        case Type.STRING8: {
-            const length = reader.readUInt8()
-            return reader.readString(length, 'utf8')
-        }
-        case Type.STRING16: {
-            const length = reader.readUInt16LE()
-            return reader.readString(length, 'utf8')
-        }
-        case Type.STRING32: {
-            const length = reader.readUInt32LE()
-            return reader.readString(length, 'utf8')
-        }
-        case Type.BINARY8: {
-            const length = reader.readUInt8()
-            return Buffer.from(reader.readBuffer(length))
-        }
-        case Type.BINARY16: {
-            const length = reader.readUInt16LE()
-            return Buffer.from(reader.readBuffer(length))
-        }
-        case Type.BINARY32: {
-            const length = reader.readUInt32LE()
-            return Buffer.from(reader.readBuffer(length))
-        }
-        case Type.ARRAY8: {
-            const length = reader.readUInt8()
-            const array = new Array(length)
-            for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(reader)
-            }
-            return array
-        }
-        case Type.ARRAY16: {
-            const length = reader.readUInt16LE()
-            const array = new Array(length)
-            for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(reader)
-            }
-            return array
-        }
-        case Type.ARRAY32: {
-            const length = reader.readUInt32LE()
-            const array = new Array(length)
-            for (let i = 0; i < length; ++i) {
-                array[i] = decodeAny(reader)
-            }
-            return array
-        }
-        case Type.OBJECT8: {
-            const length = reader.readUInt8()
-            const object = {}
-            for (let i = 0; i < length; ++i) {
-                const key = decodeAny(reader)
-                if (typeof key !== 'string') {
-                    throw createTsonError('Object key not a string.')
-                }
-                const value = decodeAny(reader)
-                ;(object as any)[key] = value
-            }
-            return object
-        }
-        case Type.OBJECT16: {
-            const length = reader.readUInt16LE()
-            const object = {}
-            for (let i = 0; i < length; ++i) {
-                const key = decodeAny(reader)
-                if (typeof key !== 'string') {
-                    throw createTsonError('Object key not a string.')
-                }
-                const value = decodeAny(reader)
-                ;(object as any)[key] = value
-            }
-            return object
-        }
-        case Type.OBJECT32: {
-            const length = reader.readUInt32LE()
-            const object = {}
-            for (let i = 0; i < length; ++i) {
-                const key = decodeAny(reader)
-                if (typeof key !== 'string') {
-                    throw createTsonError('Object key not a string.')
-                }
-                const value = decodeAny(reader)
-                ;(object as any)[key] = value
-            }
-            return object
-        }
-        case Type.ERROR: {
-            const name = decodeAny(reader)
-            if (typeof name !== 'string') {
-                throw createTsonError('Error name not a string.')
-            }
-
-            const message = decodeAny(reader)
-            if (typeof message !== 'string') {
-                throw createTsonError('Error message not a string.')
-            }
-
-            const details = decodeAny(reader)
-            if (typeof details !== 'object') {
-                throw createTsonError('Error details not an object.')
-            }
-
-            if (details) {
-                if (hasOwnProperty.call(details, 'name')) {
-                    throw createTsonError(
-                        '"name" property present in Error details.',
-                    )
-                }
-                if (hasOwnProperty.call(details, 'message')) {
-                    throw createTsonError(
-                        '"message" property present in Error details.',
-                    )
-                }
-            }
-
-            const error = new Error(message)
-            Object.defineProperty(error, 'name', {
-                configurable: true,
-                value: name,
-                writable: true,
-            })
-            return Object.assign(error, details)
-        }
-        default:
-            throw createTsonError(`Unknown type.`)
-    }
+export function decode(binaryData: Binary): Value {
+    return Decoder.decoder.decode(binaryData)
 }
 
 type Path = object[]
+type Value = boolean | number | string | object | null
 const hasOwnProperty = Object.prototype.hasOwnProperty
 const propertyIsEnumerable = Object.prototype.propertyIsEnumerable
 const floatArrayBuffer = new ArrayBuffer(8)
 const floatDataView = new DataView(floatArrayBuffer)
 const floatUInt8Array = new Uint8Array(floatArrayBuffer)
+const emptyUInt8Array = new Uint8Array(0)
+const emptyPath: Path = []
 
 class Encoder {
+    public static encoder: Encoder = new Encoder()
     private path: Path = []
-    private buffer: Uint8Array = new Uint8Array(1024)
+    private buffer: Uint8Array = emptyUInt8Array
     private offset: number = 0
 
-    public constructor(value: any) {
-        this.encode(value)
+    public encode(value: any): Buffer {
+        this.path = []
+        this.buffer = new Uint8Array(1024)
+        this.offset = 0
+        this.encodeAny(value)
+        const buffer = Buffer.from(
+            this.buffer.buffer,
+            this.buffer.byteOffset,
+            this.offset,
+        )
+        this.path = emptyPath
+        this.buffer = emptyUInt8Array
+        this.offset = 0
+        return buffer
     }
 
-    public toBuffer(): Buffer {
-        return Buffer.from(this.buffer.buffer, 0, this.offset)
-    }
-
-    private encode(value: any): void {
+    private encodeAny(value: any): void {
         switch (typeof value) {
             case 'boolean':
                 return this.encodeBoolean(value)
@@ -578,7 +429,7 @@ class Encoder {
             this.buffer[this.offset++] = length >>> 24
         }
         for (let i = 0; i < length; ++i) {
-            this.encode(array[i])
+            this.encodeAny(array[i])
         }
 
         this.path.pop()
@@ -586,7 +437,7 @@ class Encoder {
 
     private encodePlainObject(object: object): void {
         if (typeof (object as any).toJSON === 'function') {
-            return this.encode((object as any).toJSON(''))
+            return this.encodeAny((object as any).toJSON(''))
         }
 
         this.detectCircularReference(object)
@@ -606,7 +457,7 @@ class Encoder {
             if (hasOwnProperty.call(object, key)) {
                 length++
                 this.encodeString(key)
-                this.encode((object as any)[key])
+                this.encodeAny((object as any)[key])
             }
         }
 
@@ -653,7 +504,7 @@ class Encoder {
 
     private encodeError(error: Error): void {
         if (typeof (error as any).toJSON === 'function') {
-            return this.encode((error as any).toJSON(''))
+            return this.encodeAny((error as any).toJSON(''))
         }
 
         if (typeof error.name !== 'string') {
@@ -688,14 +539,14 @@ class Encoder {
                 // Copying the object is not great for performance, however,
                 // it should be very rare in practice and even if it happens,
                 // the number of properties would be small, so it likely is not worth optimizing.
-                const details = Object.create(null)
+                const details = {}
                 for (const key in error) {
                     if (
                         hasOwnProperty.call(error, key) &&
                         key !== 'name' &&
                         key !== 'message'
                     ) {
-                        details[key] = (error as any)[key]
+                        ;(details as any)[key] = (error as any)[key]
                     }
                 }
                 this.encodePlainObject(details)
@@ -728,6 +579,329 @@ class Encoder {
             if (path[i] === object) {
                 throw createTsonError('Circular reference detected.')
             }
+        }
+    }
+}
+
+class Decoder {
+    public static readonly decoder: Decoder = new Decoder()
+    private buffer: Uint8Array = emptyUInt8Array
+    private offset: number = 0
+
+    public decode(binaryData: Binary): Value {
+        if (ArrayBuffer.isView(binaryData)) {
+            this.buffer = new Uint8Array(
+                binaryData.buffer,
+                binaryData.byteOffset,
+                binaryData.byteLength,
+            )
+        } else if (
+            isArrayBuffer(binaryData) ||
+            isSharedArrayBuffer(binaryData)
+        ) {
+            this.buffer = new Uint8Array(binaryData)
+        } else {
+            throw createTsonError('Expected binary data to decode.')
+        }
+        this.offset = 0
+        const value = this.decodeAny()
+        this.buffer = emptyUInt8Array
+        this.offset = 0
+        return value
+    }
+
+    private decodeAny(): Value {
+        switch (this.decodeUint8()) {
+            case Type.NULL:
+                return null
+            case Type.TRUE:
+                return true
+            case Type.FALSE:
+                return false
+            case Type.INT8:
+                return this.decodeInt8()
+            case Type.INT16:
+                return this.decodeInt16()
+            case Type.INT32:
+                return this.decodeInt32()
+            case Type.INT64:
+                throw createTsonError('Cannot decode a 64-bit integer.')
+            case Type.FLOAT32:
+                return this.decodeFloat32()
+            case Type.FLOAT64:
+                return this.decodeFloat64()
+            case Type.BINARY8:
+                return this.decodeBuffer(this.decodeUint8())
+            case Type.BINARY16:
+                return this.decodeBuffer(this.decodeUint16())
+            case Type.BINARY32:
+                return this.decodeBuffer(this.decodeUint32())
+            case Type.STRING8:
+                return this.decodeString(this.decodeUint8())
+            case Type.STRING16:
+                return this.decodeString(this.decodeUint16())
+            case Type.STRING32:
+                return this.decodeString(this.decodeUint32())
+            case Type.ARRAY8:
+                return this.decodeArray(this.decodeUint8())
+            case Type.ARRAY16:
+                return this.decodeArray(this.decodeUint16())
+            case Type.ARRAY32:
+                return this.decodeArray(this.decodeUint32())
+            case Type.OBJECT8:
+                return this.decodeObject(this.decodeUint8())
+            case Type.OBJECT16:
+                return this.decodeObject(this.decodeUint16())
+            case Type.OBJECT32:
+                return this.decodeObject(this.decodeUint32())
+            case Type.ERROR:
+                return this.decodeError()
+            default:
+                throw createTsonError(`Unknown type.`)
+        }
+    }
+
+    private decodeFloat32(): number {
+        this.ensure(4)
+        floatUInt8Array[0] = this.buffer[this.offset++]
+        floatUInt8Array[1] = this.buffer[this.offset++]
+        floatUInt8Array[2] = this.buffer[this.offset++]
+        floatUInt8Array[3] = this.buffer[this.offset++]
+        return floatDataView.getFloat32(0, true)
+    }
+
+    private decodeFloat64(): number {
+        this.ensure(8)
+        floatUInt8Array[0] = this.buffer[this.offset++]
+        floatUInt8Array[1] = this.buffer[this.offset++]
+        floatUInt8Array[2] = this.buffer[this.offset++]
+        floatUInt8Array[3] = this.buffer[this.offset++]
+        floatUInt8Array[4] = this.buffer[this.offset++]
+        floatUInt8Array[5] = this.buffer[this.offset++]
+        floatUInt8Array[6] = this.buffer[this.offset++]
+        floatUInt8Array[7] = this.buffer[this.offset++]
+        return floatDataView.getFloat64(0, true)
+    }
+
+    private decodeInt8(): number {
+        this.ensure(1)
+        return (this.buffer[this.offset++] << 24) >> 24
+    }
+
+    private decodeInt16(): number {
+        this.ensure(2)
+        return (
+            this.buffer[this.offset++] +
+            ((this.buffer[this.offset++] << 24) >> 16)
+        )
+    }
+
+    private decodeInt32(): number {
+        this.ensure(4)
+        return (
+            this.buffer[this.offset++] +
+            (this.buffer[this.offset++] << 8) +
+            (this.buffer[this.offset++] << 16) +
+            (this.buffer[this.offset++] << 24)
+        )
+    }
+
+    private decodeUint8(): number {
+        this.ensure(1)
+        return this.buffer[this.offset++]
+    }
+
+    private decodeUint16(): number {
+        this.ensure(2)
+        return this.buffer[this.offset++] + (this.buffer[this.offset++] << 8)
+    }
+
+    private decodeUint32(): number {
+        this.ensure(4)
+        return (
+            this.buffer[this.offset++] +
+            (this.buffer[this.offset++] << 8) +
+            (this.buffer[this.offset++] << 16) +
+            ((this.buffer[this.offset++] << 24) >>> 0)
+        )
+    }
+
+    private decodeString(length: number): string {
+        this.ensure(length)
+        let string = ''
+        const endOffset = this.offset + length
+
+        while (this.offset < endOffset) {
+            const byte = this.buffer[this.offset++]
+
+            if (byte <= 0x7f) {
+                string += String.fromCharCode(byte)
+            } else if (byte <= 0xbf) {
+                // A dangling continuation byte.
+                string += '\ufffd'
+            } else if (byte <= 0xdf) {
+                const byte2 = this.buffer[this.offset]
+                const byte2Valid = (byte2 & 0xc0) === 0x80
+                if (byte2Valid) {
+                    const codepoint = ((byte & 0x1f) << 6) | (byte2 & 0x3f)
+                    if (codepoint >= 0x80) {
+                        string += String.fromCharCode(codepoint)
+                        this.offset += 1
+                    } else {
+                        // Codepoint out of range.
+                        string += '\ufffd'
+                    }
+                } else {
+                    // Invalid continuation byte.
+                    string += '\ufffd'
+                }
+            } else if (byte <= 0xef) {
+                const byte2 = this.buffer[this.offset]
+                const byte3 = this.buffer[this.offset + 1]
+                const byte2Valid = (byte2 & 0xc0) === 0x80
+                const byte3Valid = (byte3 & 0xc0) === 0x80
+                if (byte2Valid && byte3Valid) {
+                    const codepoint =
+                        ((byte & 0x0f) << 12) |
+                        ((byte2 & 0x3f) << 6) |
+                        (byte3 & 0x3f)
+                    if (
+                        (codepoint >= 0x0800 && codepoint <= 0xd7ff) ||
+                        codepoint >= 0xe000
+                    ) {
+                        string += String.fromCharCode(codepoint)
+                        this.offset += 2
+                    } else {
+                        // Codepoint out of range.
+                        string += '\ufffd'
+                    }
+                } else {
+                    // Invalid continuation byte.
+                    string += '\ufffd'
+
+                    // Necessary for compatibility with the native algorithm.
+                    if (byte2Valid) {
+                        this.offset += 1
+                    }
+                }
+            } else if (byte <= 0xf7) {
+                const byte2 = this.buffer[this.offset]
+                const byte3 = this.buffer[this.offset + 1]
+                const byte4 = this.buffer[this.offset + 2]
+                const byte2Valid = (byte2 & 0xc0) === 0x80
+                const byte3Valid = (byte3 & 0xc0) === 0x80
+                const byte4Valid = (byte4 & 0xc0) === 0x80
+                if (byte2Valid && byte3Valid && byte4Valid) {
+                    const codepoint =
+                        ((byte & 0x07) << 18) |
+                        ((byte2 & 0x3f) << 12) |
+                        ((byte3 & 0x3f) << 6) |
+                        (byte4 & 0x3f)
+                    if (codepoint >= 0x10000 && codepoint <= 0x10ffff) {
+                        string += String.fromCharCode(
+                            ((codepoint - 0x10000) >> 10) | 0xd800,
+                            ((codepoint - 0x10000) & 0x03ff) | 0xdc00,
+                        )
+                        this.offset += 3
+                    } else {
+                        // Codepoint out of range.
+                        string += '\ufffd'
+                    }
+                } else {
+                    // Invalid continuation byte.
+                    string += '\ufffd'
+
+                    // Necessary for compatibility with the native algorithm.
+                    if (byte2Valid) {
+                        this.offset += 1
+                        if (byte3Valid) {
+                            this.offset += 1
+                        }
+                    }
+                }
+            } else {
+                // Invalid byte.
+                string += '\ufffd'
+            }
+        }
+
+        return string
+    }
+
+    private decodeBuffer(length: number): Buffer {
+        this.ensure(length)
+        const slice = this.buffer.slice(this.offset, this.offset + length)
+        const buffer = Buffer.from(
+            slice.buffer,
+            slice.byteOffset,
+            slice.byteLength,
+        )
+        this.offset += length
+        return buffer
+    }
+
+    private decodeArray(length: number): Value[] {
+        const array: Value[] = new Array(length)
+        for (let i = 0; i < length; ++i) {
+            array[i] = this.decodeAny()
+        }
+        return array
+    }
+
+    private decodeObject(length: number): object {
+        const object = {}
+        for (let i = 0; i < length; ++i) {
+            const key = this.decodeAny()
+            if (typeof key !== 'string') {
+                throw createTsonError('Object key not a string.')
+            }
+            const value = this.decodeAny()
+            ;(object as any)[key] = value
+        }
+        return object
+    }
+
+    private decodeError(): Error {
+        const name = this.decodeAny()
+        if (typeof name !== 'string') {
+            throw createTsonError('Error name not a string.')
+        }
+
+        const message = this.decodeAny()
+        if (typeof message !== 'string') {
+            throw createTsonError('Error message not a string.')
+        }
+
+        const details = this.decodeAny()
+        if (typeof details !== 'object') {
+            throw createTsonError('Error details not an object.')
+        }
+
+        if (details) {
+            if (hasOwnProperty.call(details, 'name')) {
+                throw createTsonError(
+                    '"name" property present in Error details.',
+                )
+            }
+            if (hasOwnProperty.call(details, 'message')) {
+                throw createTsonError(
+                    '"message" property present in Error details.',
+                )
+            }
+        }
+
+        const error = new Error(message)
+        Object.defineProperty(error, 'name', {
+            configurable: true,
+            value: name,
+            writable: true,
+        })
+        return Object.assign(error, details)
+    }
+
+    private ensure(size: number): void {
+        if (this.offset + size > this.buffer.length) {
+            throw new RangeError('Insufficient data to read.')
         }
     }
 }
