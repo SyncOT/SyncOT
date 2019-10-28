@@ -92,3 +92,8 @@ test('run 2 scheduled tasks - reschedule the second task', async () => {
     expect(task1).toHaveBeenCalledTimes(1)
     expect(task2).toHaveBeenCalledTimes(1)
 })
+
+test('nothing scheduled', async () => {
+    blockEventLoop()
+    await delay(0)
+})

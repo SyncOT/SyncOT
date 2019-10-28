@@ -101,10 +101,14 @@ class Loop implements EventLoop {
 
     private startCycle(): void {
         this.cycleStartTime = Date.now()
-        const tasks = this.tasks
-        this.tasks = []
-        for (let i = 0, l = tasks.length; i < l; ++i) {
-            this.execute(tasks[i])
+        const tasksLength = this.tasks.length
+
+        if (tasksLength > 0) {
+            const tasks = this.tasks
+            this.tasks = []
+            for (let i = 0; i < tasksLength; ++i) {
+                this.execute(tasks[i])
+            }
         }
     }
 
