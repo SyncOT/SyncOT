@@ -32,7 +32,7 @@
     "tslib": "^1.9.3"
   },
   "peerDependencies": {
-    "@syncot/event-loop": "^0.1.1",
+    "@syncot/event-loop": "^0.1.0",
     "@types/ioredis": "^4.0.15",
     "ioredis": "^4.14.1"
   }
