@@ -10,7 +10,7 @@ export interface EventLoop {
     /**
      * The target cycle duration in milliseconds.
      * The schduler will aim to process IO at least once per `cycleTargetDuration` milliseconds.
-     * The default value is 100.
+     * The default value is 50.
      * The min value is 10.
      */
     cycleTargetDuration: number
@@ -42,7 +42,7 @@ class Loop implements EventLoop {
         return Date.now() - this.cycleStartTime
     }
 
-    private _cycleTargetDuration: number = 100
+    private _cycleTargetDuration: number = 50
     public get cycleTargetDuration(): number {
         return this._cycleTargetDuration
     }
