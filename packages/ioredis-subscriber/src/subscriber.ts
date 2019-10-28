@@ -1,6 +1,9 @@
+import { globalEventLoop } from '@syncot/event-loop'
 import { assert, Interface } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
+
+const eventLoop = globalEventLoop()
 
 /**
  * A utility for managing multiple Redis subscriptions that is simple and efficient.
@@ -63,29 +66,33 @@ class RedisSubscriber extends EventEmitter {
         )
 
         this.redis.on('message', (channel: Channel, message: any) => {
-            const listeners = this.channelSubscribers.get(channel)
-
-            if (listeners) {
-                const listenersCopy = listeners.slice()
-
-                for (let i = 0, l = listenersCopy.length; i < l; ++i) {
-                    listenersCopy[i](channel, message)
-                }
-            }
-        })
-
-        this.redis.on(
-            'pmessage',
-            (pattern: Pattern, channel: Channel, message: any) => {
-                const listeners = this.patternSubscribers.get(pattern)
+            eventLoop.execute(() => {
+                const listeners = this.channelSubscribers.get(channel)
 
                 if (listeners) {
                     const listenersCopy = listeners.slice()
 
                     for (let i = 0, l = listenersCopy.length; i < l; ++i) {
-                        listenersCopy[i](pattern, channel, message)
+                        listenersCopy[i](channel, message)
                     }
                 }
+            })
+        })
+
+        this.redis.on(
+            'pmessage',
+            (pattern: Pattern, channel: Channel, message: any) => {
+                eventLoop.execute(() => {
+                    const listeners = this.patternSubscribers.get(pattern)
+
+                    if (listeners) {
+                        const listenersCopy = listeners.slice()
+
+                        for (let i = 0, l = listenersCopy.length; i < l; ++i) {
+                            listenersCopy[i](pattern, channel, message)
+                        }
+                    }
+                })
             },
         )
 
