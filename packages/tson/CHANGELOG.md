@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.20](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.19...@syncot/tson@0.0.20) (2019-10-28)
+
+
+### Performance Improvements
+
+* optimize decoding ([624ff0c](https://github.com/SyncOT/SyncOT/commit/624ff0c0bec424940ab0db3b5a06ebdcdc485a34))
+* optimize encoding ([6f4c8cc](https://github.com/SyncOT/SyncOT/commit/6f4c8cc4a8f6e94b64b3c5ea9047bd813d68d927))
+
+
+
+
+
 ## [0.0.19](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.18...@syncot/tson@0.0.19) (2019-10-21)
 
 

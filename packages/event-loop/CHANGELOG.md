@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.1](https://github.com/SyncOT/SyncOT/compare/@syncot/event-loop@0.1.0...@syncot/event-loop@0.1.1) (2019-10-28)
+
+
+### Bug Fixes
+
+* reduce target cycle duration to 50 ([cfbb5d3](https://github.com/SyncOT/SyncOT/commit/cfbb5d30deb58e7cd7305a3e4d713ec6ac29bd76))
+
+
+
+
+
 # 0.1.0 (2019-10-21)
 
 
