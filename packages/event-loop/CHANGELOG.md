@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.2](https://github.com/SyncOT/SyncOT/compare/@syncot/event-loop@0.1.1...@syncot/event-loop@0.1.2) (2019-10-28)
+
+
+### Performance Improvements
+
+* avoid array creation on every loop cycle ([32fd2ee](https://github.com/SyncOT/SyncOT/commit/32fd2ee755963eca76ba156300ebea5cb4f949cd))
+
+
+
+
+
 ## [0.1.1](https://github.com/SyncOT/SyncOT/compare/@syncot/event-loop@0.1.0...@syncot/event-loop@0.1.1) (2019-10-28)
 
 
