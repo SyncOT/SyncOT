@@ -323,7 +323,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
 
-        stream.once('close', () => {
+        stream.on('close', () => {
             this.connectionManager.off('connectionId', resetPresence)
             this.redisSubscriber.off('ready', resetPresence)
             this.subscriber.offChannel(channel, onMessage)

@@ -790,7 +790,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
                     proxyStreams.set(id, proxyStream)
 
-                    proxyStream.once('close', () => {
+                    proxyStream.on('close', () => {
                         proxyStreams.delete(id)
 
                         if (this.stream === stream) {
