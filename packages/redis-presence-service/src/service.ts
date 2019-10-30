@@ -15,6 +15,7 @@ import {
     throwError,
 } from '@syncot/util'
 
+import { globalEventLoop } from '@syncot/event-loop'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import {
@@ -83,6 +84,8 @@ export const requestNames = new Set([
     'streamPresenceByLocationId',
     'streamPresenceByUserId',
 ])
+
+const eventLoop = globalEventLoop()
 
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
@@ -324,10 +327,12 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.presenceStreams.add(stream)
 
         stream.on('close', () => {
-            this.connectionManager.off('connectionId', resetPresence)
-            this.redisSubscriber.off('ready', resetPresence)
-            this.subscriber.offChannel(channel, onMessage)
-            this.presenceStreams.delete(stream)
+            eventLoop.execute(() => {
+                this.connectionManager.off('connectionId', resetPresence)
+                this.redisSubscriber.off('ready', resetPresence)
+                this.subscriber.offChannel(channel, onMessage)
+                this.presenceStreams.delete(stream)
+            })
         })
 
         return stream
