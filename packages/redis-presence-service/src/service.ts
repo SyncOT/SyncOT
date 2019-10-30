@@ -16,7 +16,6 @@ import {
 } from '@syncot/util'
 
 import Redis from 'ioredis'
-import { globalTracer, SpanContext } from 'opentracing'
 import { Duplex } from 'readable-stream'
 import {
     defineRedisCommands,
@@ -84,33 +83,6 @@ export const requestNames = new Set([
     'streamPresenceByLocationId',
     'streamPresenceByUserId',
 ])
-
-const component = '@syncot/redis-presence-service'
-
-const traceGetPresence = (
-    _target: RedisPresenceService,
-    key: string,
-    descriptor: PropertyDescriptor,
-): void => {
-    const getPresence = descriptor.value
-    descriptor.value = async function(id: string, context?: SpanContext) {
-        const span = globalTracer().startSpan(`syncot.presence.${key}`, {
-            childOf: context,
-        })
-        span.setTag('component', component)
-        span.setTag('query.id', id)
-        try {
-            return await getPresence.call(this, id, span.context())
-        } catch (error) {
-            span.setTag('error', true)
-            span.setTag('error.name', error.name)
-            span.setTag('error.message', error.message)
-            throw error
-        } finally {
-            span.finish()
-        }
-    }
-}
 
 class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
@@ -225,10 +197,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.deleteFromRedis()
     }
 
-    @traceGetPresence
     public async getPresenceBySessionId(
         sessionId: string,
-        _context?: SpanContext,
     ): Promise<Presence | null> {
         this.assertOk()
         try {
@@ -243,11 +213,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    @traceGetPresence
-    public async getPresenceByUserId(
-        userId: string,
-        _context?: SpanContext,
-    ): Promise<Presence[]> {
+    public async getPresenceByUserId(userId: string): Promise<Presence[]> {
         this.assertOk()
         try {
             return this.processPresenceResults(
@@ -261,10 +227,8 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         }
     }
 
-    @traceGetPresence
     public async getPresenceByLocationId(
         locationId: string,
-        _context?: SpanContext,
     ): Promise<Presence[]> {
         this.assertOk()
         try {
