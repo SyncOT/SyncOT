@@ -2,7 +2,7 @@ import { AuthClient, AuthService } from '@syncot/auth'
 import { createAuthClient } from '@syncot/auth-client'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence } from '@syncot/presence'
-import { delay, invertedStreams } from '@syncot/util'
+import { delay, invertedStreams, whenEvent } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { createAuthService } from '.'
 
@@ -17,12 +17,9 @@ const invalidConnectionMatcher = expect.objectContaining({
     name: 'SyncOtError Assert',
 })
 
-const whenActive = () =>
-    new Promise(resolve => authService.once('active', resolve))
-const whenInactive = () =>
-    new Promise(resolve => authService.once('inactive', resolve))
-const whenDestroy = () =>
-    new Promise(resolve => authService.once('destroy', resolve))
+const whenActive = whenEvent('active')
+const whenInactive = whenEvent('inactive')
+const whenDestroy = whenEvent('destroy')
 
 const presence: Presence = {
     data: null,
@@ -77,7 +74,7 @@ test('invalid connection (destroyed)', () => {
 test('destroy on connection destroy', async () => {
     authService = createAuthService({ connection: serverConnection })
     serverConnection.destroy()
-    await whenDestroy()
+    await whenDestroy(authService)
 })
 
 test('logIn with the default serviceName', async () => {
@@ -87,11 +84,12 @@ test('logIn with the default serviceName', async () => {
     expect(authService.sessionId).toBeUndefined()
     expect(authService.userId).toBeUndefined()
     checkAccess(false)
-    await whenActive()
+    await whenActive(authService)
     expect(authService.active).toBeTrue()
     expect(authService.sessionId).toBeString()
     expect(authService.userId).toBe('')
     checkAccess(true)
+    await whenActive(authClient)
     expect(authClient.active).toBeTrue()
     expect(authClient.sessionId).toBeString()
     expect(authClient.userId).toBe('')
@@ -110,11 +108,12 @@ test('logIn with a custom serviceName', async () => {
     expect(authService.sessionId).toBeUndefined()
     expect(authService.userId).toBeUndefined()
     checkAccess(false)
-    await whenActive()
+    await whenActive(authService)
     expect(authService.active).toBeTrue()
     expect(authService.sessionId).toBeString()
     expect(authService.userId).toBe('')
     checkAccess(true)
+    await whenActive(authClient)
     expect(authClient.active).toBeTrue()
     expect(authClient.sessionId).toBeString()
     expect(authClient.userId).toBe('')
@@ -139,9 +138,9 @@ test('handle disconnect when inactive', async () => {
 test('handle disconnect when active', async () => {
     authService = createAuthService({ connection: serverConnection })
     authClient = createAuthClient({ connection: clientConnection })
-    await whenActive()
+    await whenActive(authService)
     serverConnection.disconnect()
-    await whenInactive()
+    await whenInactive(authService)
     expect(authService.active).toBeFalse()
     expect(authService.sessionId).toBeUndefined()
     expect(authService.userId).toBeUndefined()
@@ -151,13 +150,13 @@ test('handle disconnect when active', async () => {
 test('destroy when active', async () => {
     authService = createAuthService({ connection: serverConnection })
     authClient = createAuthClient({ connection: clientConnection })
-    await whenActive()
+    await whenActive(authService)
     authService.destroy()
     expect(authService.active).toBeFalse()
     expect(authService.sessionId).toBeUndefined()
     expect(authService.userId).toBeUndefined()
     checkAccess(false)
-    await whenDestroy()
+    await whenDestroy(authService)
     // Safe to call repeatedly.
     authService.destroy()
     authService.destroy()
@@ -168,7 +167,8 @@ test('logIn multiple times', async () => {
     authService = createAuthService({ connection: serverConnection })
     authService.on('active', onActive)
     authClient = createAuthClient({ connection: clientConnection })
-    await whenActive()
+    await whenActive(authService)
+    await whenActive(authClient)
     // Just call the internal API directly.
     expect((authService as any).logIn(null)).toEqual({
         sessionId: authClient.sessionId,

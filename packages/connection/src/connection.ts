@@ -81,60 +81,71 @@ export const enum MessageType {
  * Defines the format of messages exchanged over the stream by `Connection` instances.
  */
 export type Message =
-    | {
-          type: MessageType.EVENT
-          service: ServiceName | ProxyName
-          name: EventName | RequestName
-          id: RequestId
-          data: any
-      }
-    | {
-          type: MessageType.REQUEST
-          service: ServiceName | ProxyName
-          name: EventName | RequestName
-          id: RequestId
-          data: any[]
-      }
-    | {
-          type: MessageType.REPLY_ERROR
-          service: ServiceName | ProxyName
-          name: null
-          id: RequestId
-          data: Error
-      }
-    | {
-          type: MessageType.REPLY_STREAM
-          service: ServiceName | ProxyName
-          name: null
-          id: RequestId
-          data: null
-      }
-    | {
-          type: MessageType.STREAM_INPUT_END | MessageType.STREAM_OUTPUT_END
-          service: ServiceName | ProxyName
-          name: null
-          id: RequestId
-          data: null
-      }
-    | {
-          type:
-              | MessageType.STREAM_INPUT_DESTROY
-              | MessageType.STREAM_OUTPUT_DESTROY
-          service: ServiceName | ProxyName
-          name: null
-          id: RequestId
-          data: null
-      }
-    | {
-          type:
-              | MessageType.REPLY_VALUE
-              | MessageType.STREAM_INPUT_DATA
-              | MessageType.STREAM_OUTPUT_DATA
-          service: ServiceName | ProxyName
-          name: null
-          id: RequestId
-          data: any
-      }
+    | EventMessage
+    | RequestMessage
+    | ReplyValueMessage
+    | ReplyErrorMessage
+    | ReplyStreamMessage
+    | StreamEndMessage
+    | StreamDestroyMessage
+    | StreamDataMessage
+
+interface EventMessage {
+    type: MessageType.EVENT
+    service: ServiceName | ProxyName
+    name: EventName | RequestName
+    id: RequestId
+    data: any
+}
+interface RequestMessage {
+    type: MessageType.REQUEST
+    service: ServiceName | ProxyName
+    name: EventName | RequestName
+    id: RequestId
+    data: any[]
+}
+interface ReplyValueMessage {
+    type: MessageType.REPLY_VALUE
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: any
+}
+interface ReplyErrorMessage {
+    type: MessageType.REPLY_ERROR
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: Error
+}
+interface ReplyStreamMessage {
+    type: MessageType.REPLY_STREAM
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: null
+}
+interface StreamEndMessage {
+    type: MessageType.STREAM_INPUT_END | MessageType.STREAM_OUTPUT_END
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: null
+}
+interface StreamDestroyMessage {
+    type: MessageType.STREAM_INPUT_DESTROY | MessageType.STREAM_OUTPUT_DESTROY
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: null
+}
+interface StreamDataMessage {
+    type: MessageType.STREAM_INPUT_DATA | MessageType.STREAM_OUTPUT_DATA
+    service: ServiceName | ProxyName
+    name: null
+    id: RequestId
+    data: any
+}
 
 const validateMessage: Validator<Message> = validate([
     message =>
@@ -510,192 +521,199 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     }
 
     private onServiceMessage(
-        { instance, streams: serviceStreams }: RegisteredServiceDescriptor,
+        descriptor: RegisteredServiceDescriptor,
         message: Message,
     ): void {
         switch (message.type) {
-            case MessageType.REQUEST: {
-                const stream = this.stream
-                const { id, name, service } = message
-                const span = globalTracer().startSpan(
-                    'syncot.connection.request',
-                )
-                span.setTag('component', component)
-                span.setTag('request.name', name)
-                span.setTag('request.service', service)
-                span.setTag('span.kind', 'server')
-
-                Promise.resolve()
-                    .then(() =>
-                        (instance as any)[name](
-                            ...message.data,
-                            span.context(),
-                        ),
-                    )
-                    .then(
-                        reply => {
-                            span.finish()
-                            if (this.stream !== stream) {
-                                if (isStream(reply)) {
-                                    reply.destroy()
-                                }
-                            } else if (isOpenDuplexStream(reply)) {
-                                const serviceStream = reply
-
-                                if (serviceStreams.has(id)) {
-                                    this.send({
-                                        data: createDuplicateIdError(
-                                            'Duplicate request ID.',
-                                        ),
-                                        id,
-                                        name: null,
-                                        service,
-                                        type: MessageType.REPLY_ERROR,
-                                    })
-                                    serviceStream.destroy()
-                                    return
-                                }
-
-                                const onData = (data: any) => {
-                                    /* istanbul ignore else */
-                                    if (
-                                        this.stream === stream &&
-                                        data != null
-                                    ) {
-                                        this.send({
-                                            data,
-                                            id,
-                                            name: null,
-                                            service,
-                                            type:
-                                                MessageType.STREAM_OUTPUT_DATA,
-                                        })
-                                    }
-                                }
-
-                                const onEnd = () => {
-                                    /* istanbul ignore else */
-                                    if (this.stream === stream) {
-                                        this.send({
-                                            data: null,
-                                            id,
-                                            name: null,
-                                            service,
-                                            type: MessageType.STREAM_OUTPUT_END,
-                                        })
-                                    }
-                                }
-
-                                const onClose = () => {
-                                    removeListeners()
-                                    serviceStreams.delete(id)
-
-                                    if (this.stream === stream) {
-                                        this.send({
-                                            data: null,
-                                            id,
-                                            name: null,
-                                            service,
-                                            type:
-                                                MessageType.STREAM_OUTPUT_DESTROY,
-                                        })
-                                    }
-                                }
-
-                                serviceStream.on('close', onClose)
-                                serviceStream.on('data', onData)
-                                serviceStream.on('end', onEnd)
-
-                                const removeListeners = () => {
-                                    serviceStream.off('close', onClose)
-                                    serviceStream.off('data', onData)
-                                    serviceStream.off('end', onEnd)
-                                }
-
-                                serviceStreams.set(message.id, serviceStream)
-
-                                this.send({
-                                    data: null,
-                                    id,
-                                    name: null,
-                                    service,
-                                    type: MessageType.REPLY_STREAM,
-                                })
-                            } else if (isStream(reply)) {
-                                const error = createInvalidStreamError(
-                                    'Service returned an invalid stream.',
-                                )
-                                this.emitAsync('error', error)
-                                this.send({
-                                    data: error,
-                                    id,
-                                    name: null,
-                                    service,
-                                    type: MessageType.REPLY_ERROR,
-                                })
-                                reply.destroy()
-                            } else {
-                                const typeOfReply = typeof reply
-                                const data =
-                                    typeOfReply === 'object' ||
-                                    typeOfReply === 'number' ||
-                                    typeOfReply === 'string' ||
-                                    typeOfReply === 'boolean'
-                                        ? reply
-                                        : null
-                                this.send({
-                                    data,
-                                    id,
-                                    name: null,
-                                    service,
-                                    type: MessageType.REPLY_VALUE,
-                                })
-                            }
-                        },
-                        error => {
-                            span.setTag('error', true)
-                            span.setTag('error.name', error.name)
-                            span.setTag('error.message', error.message)
-                            span.finish()
-                            if (this.stream === stream) {
-                                this.send({
-                                    data: error,
-                                    id,
-                                    name: null,
-                                    service,
-                                    type: MessageType.REPLY_ERROR,
-                                })
-                            }
-                        },
-                    )
+            case MessageType.REQUEST:
+                this.onServiceRequest(descriptor, message)
                 break
-            }
+            case MessageType.STREAM_INPUT_DATA:
+                this.onServiceStreamInputData(descriptor, message)
+                break
+            case MessageType.STREAM_INPUT_END:
+                this.onServiceStreamInputEnd(descriptor, message)
+                break
+            case MessageType.STREAM_INPUT_DESTROY:
+                this.onServiceStreamInputDestroy(descriptor, message)
+                break
+        }
+    }
 
-            case MessageType.STREAM_INPUT_DATA: {
-                const serviceStream = serviceStreams.get(message.id)
-                /* istanbul ignore else */
-                if (serviceStream) {
-                    serviceStream.write(message.data)
+    private async onServiceRequest(
+        { instance, streams: serviceStreams }: RegisteredServiceDescriptor,
+        message: RequestMessage,
+    ): Promise<void> {
+        const stream = this.stream
+        const { id, name, service } = message
+        const span = globalTracer().startSpan('syncot.connection.request')
+        span.setTag('component', component)
+        span.setTag('request.name', name)
+        span.setTag('request.service', service)
+        span.setTag('span.kind', 'server')
+
+        try {
+            const reply = await (instance as any)[name](
+                ...message.data,
+                span.context(),
+            )
+
+            span.finish()
+            if (this.stream !== stream) {
+                if (isStream(reply)) {
+                    reply.destroy()
                 }
-                break
-            }
+            } else if (isOpenDuplexStream(reply)) {
+                const serviceStream = reply
 
-            case MessageType.STREAM_INPUT_END: {
-                const serviceStream = serviceStreams.get(message.id)
-                /* istanbul ignore else */
-                if (serviceStream) {
-                    serviceStream.end()
-                }
-                break
-            }
-
-            case MessageType.STREAM_INPUT_DESTROY: {
-                const serviceStream = serviceStreams.get(message.id)
-                if (serviceStream) {
+                if (serviceStreams.has(id)) {
+                    this.send({
+                        data: createDuplicateIdError('Duplicate request ID.'),
+                        id,
+                        name: null,
+                        service,
+                        type: MessageType.REPLY_ERROR,
+                    })
                     serviceStream.destroy()
+                    return
                 }
-                break
+
+                const onData = (data: any) => {
+                    /* istanbul ignore else */
+                    if (this.stream === stream && data != null) {
+                        this.send({
+                            data,
+                            id,
+                            name: null,
+                            service,
+                            type: MessageType.STREAM_OUTPUT_DATA,
+                        })
+                    }
+                }
+
+                const onEnd = () => {
+                    /* istanbul ignore else */
+                    if (this.stream === stream) {
+                        this.send({
+                            data: null,
+                            id,
+                            name: null,
+                            service,
+                            type: MessageType.STREAM_OUTPUT_END,
+                        })
+                    }
+                }
+
+                const onClose = () => {
+                    removeListeners()
+                    serviceStreams.delete(id)
+
+                    if (this.stream === stream) {
+                        this.send({
+                            data: null,
+                            id,
+                            name: null,
+                            service,
+                            type: MessageType.STREAM_OUTPUT_DESTROY,
+                        })
+                    }
+                }
+
+                serviceStream.on('close', onClose)
+                serviceStream.on('data', onData)
+                serviceStream.on('end', onEnd)
+
+                const removeListeners = () => {
+                    serviceStream.off('close', onClose)
+                    serviceStream.off('data', onData)
+                    serviceStream.off('end', onEnd)
+                }
+
+                serviceStreams.set(message.id, serviceStream)
+
+                this.send({
+                    data: null,
+                    id,
+                    name: null,
+                    service,
+                    type: MessageType.REPLY_STREAM,
+                })
+            } else if (isStream(reply)) {
+                const error = createInvalidStreamError(
+                    'Service returned an invalid stream.',
+                )
+                this.emitAsync('error', error)
+                this.send({
+                    data: error,
+                    id,
+                    name: null,
+                    service,
+                    type: MessageType.REPLY_ERROR,
+                })
+                reply.destroy()
+            } else {
+                const typeOfReply = typeof reply
+                const data =
+                    typeOfReply === 'object' ||
+                    typeOfReply === 'number' ||
+                    typeOfReply === 'string' ||
+                    typeOfReply === 'boolean'
+                        ? reply
+                        : null
+                this.send({
+                    data,
+                    id,
+                    name: null,
+                    service,
+                    type: MessageType.REPLY_VALUE,
+                })
             }
+        } catch (error) {
+            span.setTag('error', true)
+            span.setTag('error.name', error.name)
+            span.setTag('error.message', error.message)
+            span.finish()
+            if (this.stream === stream) {
+                this.send({
+                    data: error,
+                    id,
+                    name: null,
+                    service,
+                    type: MessageType.REPLY_ERROR,
+                })
+            }
+        }
+    }
+
+    private onServiceStreamInputData(
+        { streams: serviceStreams }: RegisteredServiceDescriptor,
+        message: StreamDataMessage,
+    ): void {
+        const serviceStream = serviceStreams.get(message.id)
+        /* istanbul ignore else */
+        if (serviceStream) {
+            serviceStream.write(message.data)
+        }
+    }
+
+    private onServiceStreamInputEnd(
+        { streams: serviceStreams }: RegisteredServiceDescriptor,
+        message: StreamEndMessage,
+    ): void {
+        const serviceStream = serviceStreams.get(message.id)
+        /* istanbul ignore else */
+        if (serviceStream) {
+            serviceStream.end()
+        }
+    }
+
+    private onServiceStreamInputDestroy(
+        { streams: serviceStreams }: RegisteredServiceDescriptor,
+        message: StreamDestroyMessage,
+    ): void {
+        const serviceStream = serviceStreams.get(message.id)
+        if (serviceStream) {
+            serviceStream.destroy()
         }
     }
 
