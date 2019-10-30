@@ -129,7 +129,9 @@ export class TsonSocketStream extends Duplex {
     }
 
     private onClose = (): void => {
-        this.destroy()
+        eventLoop.execute(() => {
+            this.destroy()
+        })
     }
 
     private onMessage = ({ data }: { data: ArrayBuffer }): void => {
