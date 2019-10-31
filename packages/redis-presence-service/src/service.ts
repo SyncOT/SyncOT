@@ -337,7 +337,6 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
         }
 
-        // TODO Profile server closing after opening and closing lots of connections.
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
         stream.on('close', () => {
