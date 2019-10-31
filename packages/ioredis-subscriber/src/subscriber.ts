@@ -36,26 +36,22 @@ export function getRedisSubscriber(redis: Redis.Redis): Subscriber {
     return subscriber
 }
 
-type Channel = string
-type Pattern = string
-type ChannelListener = (channel: Channel, message: any) => void
-type PatternListener = (
-    pattern: Pattern,
+export type EventType = 'active' | 'inactive' | 'message'
+export type Channel = string
+export type Pattern = string
+export type ChannelListener = (
+    type: EventType,
     channel: Channel,
-    message: any,
+    message?: any,
+) => void
+export type PatternListener = (
+    type: EventType,
+    pattern: Pattern,
+    channel?: Channel,
+    message?: any,
 ) => void
 
 const subscriberCache = new WeakMap<Redis.Redis, Subscriber>()
-
-function ignoreNotConnectedError(error: Error): void {
-    if (
-        error.message !==
-            `Stream isn't writeable and enableOfflineQueue options is false` &&
-        error.message !== 'Connection is closed.'
-    ) {
-        throw error
-    }
-}
 
 // See https://github.com/nodejs/node/blob/ed8fc7e11d688cbcdf33d0d149830064758bdcd2/lib/events.js#L472
 function copyArray<T>(array: T[], length: number): T[] {
@@ -75,9 +71,44 @@ function spliceOne<T>(array: T[], index: number): void {
     array.pop()
 }
 
+function removeLast<T>(array: T[], item: T): void {
+    const index = array.lastIndexOf(item)
+
+    if (index >= 0) {
+        spliceOne(array, index)
+    }
+}
+
+const setActive = (
+    map: Map<
+        Channel | Pattern,
+        { active: boolean; listeners: Array<ChannelListener | PatternListener> }
+    >,
+    key: Channel | Pattern,
+    active: boolean,
+) => {
+    const value = map.get(key)
+    if (value && value.active !== active) {
+        value.active = active
+        const type = active ? 'active' : 'inactive'
+        const listeners = value.listeners
+        const length = listeners.length
+        const listenersCopy = copyArray(listeners, length)
+        for (let i = 0; i < length; i++) {
+            listenersCopy[i](type, key)
+        }
+    }
+}
+
 class RedisSubscriber extends EventEmitter {
-    private channelSubscribers: Map<Channel, ChannelListener[]> = new Map()
-    private patternSubscribers: Map<Pattern, PatternListener[]> = new Map()
+    private channels: Map<
+        Channel,
+        { active: boolean; listeners: ChannelListener[] }
+    > = new Map()
+    private patterns: Map<
+        Pattern,
+        { active: boolean; listeners: PatternListener[] }
+    > = new Map()
 
     public constructor(private redis: Redis.Redis) {
         super()
@@ -96,14 +127,15 @@ class RedisSubscriber extends EventEmitter {
         )
 
         this.redis.on('message', (channel: Channel, message: any) => {
-            const listeners = this.channelSubscribers.get(channel)
+            const value = this.channels.get(channel)
 
-            if (listeners) {
+            if (value && value.active) {
+                const listeners = value.listeners
                 const length = listeners.length
                 const listenersCopy = copyArray(listeners, length)
 
                 for (let i = 0; i < length; ++i) {
-                    listenersCopy[i](channel, message)
+                    listenersCopy[i]('message', channel, message)
                 }
             }
         })
@@ -111,125 +143,140 @@ class RedisSubscriber extends EventEmitter {
         this.redis.on(
             'pmessage',
             (pattern: Pattern, channel: Channel, message: any) => {
-                const listeners = this.patternSubscribers.get(pattern)
+                const value = this.patterns.get(pattern)
 
-                if (listeners) {
+                if (value && value.active) {
+                    const listeners = value.listeners
                     const length = listeners.length
                     const listenersCopy = copyArray(listeners, length)
 
                     for (let i = 0; i < length; ++i) {
-                        listenersCopy[i](pattern, channel, message)
+                        listenersCopy[i]('message', pattern, channel, message)
                     }
                 }
             },
         )
 
         this.redis.on('ready', this.onReady)
+        this.redis.on('close', this.onClose)
     }
 
     public onChannel(channel: Channel, listener: ChannelListener): void {
-        let subscribers = this.channelSubscribers.get(channel)
+        let value = this.channels.get(channel)
 
-        if (!subscribers) {
-            subscribers = [listener]
-            this.channelSubscribers.set(channel, subscribers)
+        if (!value) {
+            value = { active: false, listeners: [listener] }
+            this.channels.set(channel, value)
             this.redis
                 .subscribe(channel)
-                .catch(ignoreNotConnectedError)
-                .catch(this.onError)
+                .then(
+                    () => setActive(this.channels, channel, true),
+                    this.onError,
+                )
         } else {
-            subscribers.push(listener)
+            value.listeners.push(listener)
+            if (value.active) {
+                process.nextTick(listener, 'active', channel)
+            }
         }
     }
 
     public offChannel(channel: Channel, listener: ChannelListener): void {
-        const subscribers = this.channelSubscribers.get(channel)
+        const value = this.channels.get(channel)
 
-        if (!subscribers) {
-            return
-        }
-
-        const index = subscribers.lastIndexOf(listener)
-
-        if (index < 0) {
-            return
-        }
-
-        spliceOne(subscribers, index)
-
-        if (subscribers.length === 0) {
-            this.channelSubscribers.delete(channel)
-            this.redis
-                .unsubscribe(channel)
-                .catch(ignoreNotConnectedError)
-                .catch(this.onError)
+        if (value) {
+            removeLast(value.listeners, listener)
+            if (value.listeners.length === 0) {
+                this.channels.delete(channel)
+                this.redis.unsubscribe(channel).catch(this.onError)
+            }
         }
     }
 
-    public onPattern(pattern: Pattern, listener: PatternListener): void {
-        let subscribers = this.patternSubscribers.get(pattern)
+    public isChannelActive(channel: Channel): boolean {
+        const value = this.channels.get(channel)
+        return !!value && value.active
+    }
 
-        if (!subscribers) {
-            subscribers = [listener]
-            this.patternSubscribers.set(pattern, subscribers)
+    public onPattern(pattern: Pattern, listener: PatternListener): void {
+        let value = this.patterns.get(pattern)
+        if (!value) {
+            value = { active: false, listeners: [listener] }
+            this.patterns.set(pattern, value)
             this.redis
                 .psubscribe(pattern)
-                .catch(ignoreNotConnectedError)
-                .catch(this.onError)
+                .then(
+                    () => setActive(this.patterns, pattern, true),
+                    this.onError,
+                )
         } else {
-            subscribers.push(listener)
+            value.listeners.push(listener)
+            if (value.active) {
+                process.nextTick(listener, 'active', pattern)
+            }
         }
     }
 
     public offPattern(pattern: Pattern, listener: PatternListener): void {
-        const subscribers = this.patternSubscribers.get(pattern)
-
-        if (!subscribers) {
-            return
+        const value = this.patterns.get(pattern)
+        if (value) {
+            removeLast(value.listeners, listener)
+            if (value.listeners.length === 0) {
+                this.patterns.delete(pattern)
+                this.redis.punsubscribe(pattern).catch(this.onError)
+            }
         }
+    }
 
-        const index = subscribers.lastIndexOf(listener)
-
-        if (index < 0) {
-            return
-        }
-
-        spliceOne(subscribers, index)
-
-        if (subscribers.length === 0) {
-            this.patternSubscribers.delete(pattern)
-            this.redis
-                .punsubscribe(pattern)
-                .catch(ignoreNotConnectedError)
-                .catch(this.onError)
-        }
+    public isPatternActive(pattern: Pattern): boolean {
+        const value = this.patterns.get(pattern)
+        return !!value && value.active
     }
 
     private onReady = () => {
-        let index: number
-        const channelCount = this.channelSubscribers.size
-
-        if (channelCount > 0) {
-            index = 0
-            const channels = new Array(channelCount)
-            this.channelSubscribers.forEach((_, channel: Channel) => {
-                channels[index++] = channel
-            })
-            this.redis.subscribe(...channels).catch(this.onError)
+        if (this.channels.size > 0) {
+            const channels = Array.from(this.channels.keys())
+            this.redis
+                .subscribe(...channels)
+                .then(
+                    () =>
+                        channels.forEach(channel =>
+                            setActive(this.channels, channel, true),
+                        ),
+                    this.onError,
+                )
         }
 
-        const patternCount = this.patternSubscribers.size
-        if (patternCount > 0) {
-            index = 0
-            const patterns = new Array(patternCount)
-            this.patternSubscribers.forEach((_, pattern: Pattern) => {
-                patterns[index++] = pattern
-            })
-            this.redis.psubscribe(...patterns).catch(this.onError)
+        if (this.patterns.size > 0) {
+            const patterns = Array.from(this.patterns.keys())
+            this.redis
+                .psubscribe(...patterns)
+                .then(
+                    () =>
+                        patterns.forEach(pattern =>
+                            setActive(this.patterns, pattern, true),
+                        ),
+                    this.onError,
+                )
         }
     }
 
+    private onClose = () => {
+        Array.from(this.patterns.keys()).forEach(pattern =>
+            setActive(this.patterns, pattern, false),
+        )
+        Array.from(this.channels.keys()).forEach(channel =>
+            setActive(this.channels, channel, false),
+        )
+    }
+
     private onError = (error: Error): void => {
-        this.emit('error', error)
+        if (
+            error.message !==
+                `Stream isn't writeable and enableOfflineQueue options is false` &&
+            error.message !== 'Connection is closed.'
+        ) {
+            this.emit('error', error)
+        }
     }
 }
