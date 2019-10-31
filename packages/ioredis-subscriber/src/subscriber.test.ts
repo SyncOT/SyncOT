@@ -1,4 +1,4 @@
-import { noop, randomInteger } from '@syncot/util'
+import { noop, randomInteger, whenClose } from '@syncot/util'
 import { EventEmitter } from 'events'
 import Redis from 'ioredis'
 import RedisServer from 'redis-server'
@@ -78,6 +78,7 @@ afterAll(async () => {
 beforeEach(async () => {
     const options = {
         autoResubscribe: false,
+        enableOfflineQueue: false,
         lazyConnect: true,
         port,
         showFriendlyErrorStack: true,
@@ -114,6 +115,7 @@ test('throw on autoResubscribe=true', () => {
         getRedisSubscriber(
             new Redis({
                 autoResubscribe: true,
+                enableOfflineQueue: false,
                 enableReadyCheck: true,
                 lazyConnect: true,
             }),
@@ -126,11 +128,30 @@ test('throw on autoResubscribe=true', () => {
     )
 })
 
+test('throw on enableOfflineQueue=true', () => {
+    expect(() =>
+        getRedisSubscriber(
+            new Redis({
+                autoResubscribe: false,
+                enableOfflineQueue: true,
+                enableReadyCheck: true,
+                lazyConnect: true,
+            }),
+        ),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Redis must be configured with enableOfflineQueue=false.',
+            name: 'SyncOtError Assert',
+        }),
+    )
+})
+
 test('throw on enableReadyCheck=false', () => {
     expect(() =>
         getRedisSubscriber(
             new Redis({
                 autoResubscribe: false,
+                enableOfflineQueue: false,
                 enableReadyCheck: false,
                 lazyConnect: true,
             }),
@@ -223,7 +244,7 @@ describe('channel', () => {
 
     test('disconnect, subscribe', async () => {
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         const onChannel1 = jest.fn()
         const onChannel2 = jest.fn()
         subscriber.onChannel(channel1, onChannel1)
@@ -247,7 +268,7 @@ describe('channel', () => {
         subscriber.onChannel(channel2, onChannel2)
         await whenRedisCommandExecuted('SUBSCRIBE')
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         subscriber.offChannel(channel1, onChannel1)
         subscriber.offChannel(channel2, onChannel2)
         await redisSubscriber.connect()
@@ -259,7 +280,7 @@ describe('channel', () => {
         subscriber.onChannel(channel1, onChannel1)
         subscriber.onChannel(channel2, onChannel2)
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('SUBSCRIBE')
         redis.publish(channel1, message1)
@@ -284,7 +305,7 @@ describe('channel', () => {
         subscriber.offChannel(channel1, noop)
         subscriber.onChannel(channel1, noop)
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop)
+        await whenClose(redisSubscriber)
         await redisSubscriber.connect()
         expect(onError).toHaveBeenCalledTimes(3)
         expect(onError).toHaveBeenNthCalledWith(1, testErrorMatcher)
@@ -409,7 +430,7 @@ describe('pattern', () => {
 
     test('disconnect, subscribe', async () => {
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         const onPattern1 = jest.fn()
         const onPattern2 = jest.fn()
         subscriber.onPattern(pattern1, onPattern1)
@@ -433,7 +454,7 @@ describe('pattern', () => {
         subscriber.onPattern(pattern2, onPattern2)
         await whenRedisCommandExecuted('PSUBSCRIBE')
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         subscriber.offPattern(pattern1, onPattern1)
         subscriber.offPattern(pattern2, onPattern2)
         await redisSubscriber.connect()
@@ -445,7 +466,7 @@ describe('pattern', () => {
         subscriber.onPattern(pattern1, onPattern1)
         subscriber.onPattern(pattern2, onPattern2)
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop) // wait until disconnected
+        await whenClose(redisSubscriber)
         await redisSubscriber.connect()
         await whenRedisCommandExecuted('PSUBSCRIBE')
         redis.publish(channel1, message1)
@@ -470,7 +491,7 @@ describe('pattern', () => {
         subscriber.offPattern(pattern1, noop)
         subscriber.onPattern(pattern1, noop)
         redisSubscriber.disconnect()
-        await redisSubscriber.ping().catch(noop)
+        await whenClose(redisSubscriber)
         await redisSubscriber.connect()
         expect(onError).toHaveBeenCalledTimes(3)
         expect(onError).toHaveBeenNthCalledWith(1, testErrorMatcher)

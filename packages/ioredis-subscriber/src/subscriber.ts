@@ -19,6 +19,7 @@ export interface Subscriber extends Interface<RedisSubscriber> {}
  * @param redis An ioredis client used for interacting with a Redis server.
  *   It must be be configured with:
  *   - `autoResubscribe: false`
+ *   - `enableOfflineQueue: false`
  *   - `enableReadyCheck: true`
  *   It is used for subscribing to messages, so it cannot be used for sending ordinary commands.
  *   No subscriptions should be added nor removed directly using the passed in `redis`, as doing
@@ -46,6 +47,16 @@ type PatternListener = (
 
 const subscriberCache = new WeakMap<Redis.Redis, Subscriber>()
 
+function ignoreNotConnectedError(error: Error): void {
+    if (
+        error.message !==
+            `Stream isn't writeable and enableOfflineQueue options is false` &&
+        error.message !== 'Connection is closed.'
+    ) {
+        throw error
+    }
+}
+
 class RedisSubscriber extends EventEmitter {
     private channelSubscribers: Map<Channel, ChannelListener[]> = new Map()
     private patternSubscribers: Map<Pattern, PatternListener[]> = new Map()
@@ -56,6 +67,10 @@ class RedisSubscriber extends EventEmitter {
         assert(
             (redis as any).options.autoResubscribe === false,
             'Redis must be configured with autoResubscribe=false.',
+        )
+        assert(
+            (redis as any).options.enableOfflineQueue === false,
+            'Redis must be configured with enableOfflineQueue=false.',
         )
         assert(
             (redis as any).options.enableReadyCheck === true,
@@ -98,9 +113,10 @@ class RedisSubscriber extends EventEmitter {
         if (!subscribers) {
             subscribers = [listener]
             this.channelSubscribers.set(channel, subscribers)
-            if (this.redis.status === 'ready') {
-                this.redis.subscribe(channel).catch(this.onError)
-            }
+            this.redis
+                .subscribe(channel)
+                .catch(ignoreNotConnectedError)
+                .catch(this.onError)
         } else {
             subscribers.push(listener)
         }
@@ -123,9 +139,10 @@ class RedisSubscriber extends EventEmitter {
 
         if (subscribers.length === 0) {
             this.channelSubscribers.delete(channel)
-            if (this.redis.status === 'ready') {
-                this.redis.unsubscribe(channel).catch(this.onError)
-            }
+            this.redis
+                .unsubscribe(channel)
+                .catch(ignoreNotConnectedError)
+                .catch(this.onError)
         }
     }
 
@@ -135,9 +152,10 @@ class RedisSubscriber extends EventEmitter {
         if (!subscribers) {
             subscribers = [listener]
             this.patternSubscribers.set(pattern, subscribers)
-            if (this.redis.status === 'ready') {
-                this.redis.psubscribe(pattern).catch(this.onError)
-            }
+            this.redis
+                .psubscribe(pattern)
+                .catch(ignoreNotConnectedError)
+                .catch(this.onError)
         } else {
             subscribers.push(listener)
         }
@@ -160,9 +178,10 @@ class RedisSubscriber extends EventEmitter {
 
         if (subscribers.length === 0) {
             this.patternSubscribers.delete(pattern)
-            if (this.redis.status === 'ready') {
-                this.redis.punsubscribe(pattern).catch(this.onError)
-            }
+            this.redis
+                .punsubscribe(pattern)
+                .catch(ignoreNotConnectedError)
+                .catch(this.onError)
         }
     }
 
