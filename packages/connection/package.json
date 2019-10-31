@@ -1,6 +1,6 @@
 {
   "name": "@syncot/connection",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An RPC library for communication over Duplex object streams.",
   "keywords": [
     "RPC",

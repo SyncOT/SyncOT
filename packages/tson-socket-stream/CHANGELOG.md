@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.22](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.21...@syncot/tson-socket-stream@0.0.22) (2019-10-31)
+
+
+### Performance Improvements
+
+* avoid blocking when lots of streams are closed at once ([a568710](https://github.com/SyncOT/SyncOT/commit/a568710fda12ca8e9b11cd20757f5945cd02a51d))
+* improve task scheduling ([68f7b16](https://github.com/SyncOT/SyncOT/commit/68f7b1684f3a08776ef355ca4b765216b0479dff))
+
+
+
+
+
 ## [0.0.21](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.20...@syncot/tson-socket-stream@0.0.21) (2019-10-28)
 
 **Note:** Version bump only for package @syncot/tson-socket-stream

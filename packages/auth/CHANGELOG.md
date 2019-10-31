@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.20](https://github.com/SyncOT/SyncOT/compare/@syncot/auth@0.0.19...@syncot/auth@0.0.20) (2019-10-31)
+
+**Note:** Version bump only for package @syncot/auth
+
+
+
+
+
 ## [0.0.19](https://github.com/SyncOT/SyncOT/compare/@syncot/auth@0.0.18...@syncot/auth@0.0.19) (2019-10-21)
 
 **Note:** Version bump only for package @syncot/auth

@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.1](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.1.0...@syncot/connection@0.1.1) (2019-10-31)
+
+
+### Bug Fixes
+
+* scheduling of request processing ([a962339](https://github.com/SyncOT/SyncOT/commit/a962339f7c8f13367b9e2c23a09f9fad7616dffd))
+
+
+### Performance Improvements
+
+* avoid unnecessary cleanup ([473262f](https://github.com/SyncOT/SyncOT/commit/473262fea8fa290c5a108b3c3521997703797189))
+
+
+
+
+
 # [0.1.0](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.0.18...@syncot/connection@0.1.0) (2019-10-21)
 
 
