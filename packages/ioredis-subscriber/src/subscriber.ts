@@ -57,6 +57,24 @@ function ignoreNotConnectedError(error: Error): void {
     }
 }
 
+// See https://github.com/nodejs/node/blob/ed8fc7e11d688cbcdf33d0d149830064758bdcd2/lib/events.js#L472
+function copyArray<T>(array: T[], length: number): T[] {
+    const copy = new Array(length)
+    for (let i = 0; i < length; ++i) {
+        copy[i] = array[i]
+    }
+    return copy
+}
+
+// See https://github.com/nodejs/node/blob/ed8fc7e11d688cbcdf33d0d149830064758bdcd2/lib/internal/util.js#L330
+function spliceOne<T>(array: T[], index: number): void {
+    // tslint:disable:no-parameter-reassignment
+    for (; index + 1 < array.length; ++index) {
+        array[index] = array[index + 1]
+    }
+    array.pop()
+}
+
 class RedisSubscriber extends EventEmitter {
     private channelSubscribers: Map<Channel, ChannelListener[]> = new Map()
     private patternSubscribers: Map<Pattern, PatternListener[]> = new Map()
@@ -81,9 +99,10 @@ class RedisSubscriber extends EventEmitter {
             const listeners = this.channelSubscribers.get(channel)
 
             if (listeners) {
-                const listenersCopy = listeners.slice()
+                const length = listeners.length
+                const listenersCopy = copyArray(listeners, length)
 
-                for (let i = 0, l = listenersCopy.length; i < l; ++i) {
+                for (let i = 0; i < length; ++i) {
                     listenersCopy[i](channel, message)
                 }
             }
@@ -95,9 +114,10 @@ class RedisSubscriber extends EventEmitter {
                 const listeners = this.patternSubscribers.get(pattern)
 
                 if (listeners) {
-                    const listenersCopy = listeners.slice()
+                    const length = listeners.length
+                    const listenersCopy = copyArray(listeners, length)
 
-                    for (let i = 0, l = listenersCopy.length; i < l; ++i) {
+                    for (let i = 0; i < length; ++i) {
                         listenersCopy[i](pattern, channel, message)
                     }
                 }
@@ -135,7 +155,7 @@ class RedisSubscriber extends EventEmitter {
             return
         }
 
-        subscribers.splice(index, 1)
+        spliceOne(subscribers, index)
 
         if (subscribers.length === 0) {
             this.channelSubscribers.delete(channel)
@@ -174,7 +194,7 @@ class RedisSubscriber extends EventEmitter {
             return
         }
 
-        subscribers.splice(index, 1)
+        spliceOne(subscribers, index)
 
         if (subscribers.length === 0) {
             this.patternSubscribers.delete(pattern)
