@@ -17,7 +17,6 @@ import { createPresenceService } from '.'
 let port: number
 let redisOptions: Redis.RedisOptions
 let redisServer: RedisServer
-let redis: Redis.Redis
 let session1: Session
 let session2: Session
 
@@ -131,16 +130,7 @@ class Session {
     }
 }
 
-const whenSaved = async (sessionId: string) => {
-    const stream = await session1.presenceClient.streamPresenceBySessionId(
-        sessionId,
-    )
-    await whenData(stream)
-    stream.destroy()
-    await whenClose(stream)
-}
-
-beforeAll(async () => {
+beforeEach(async () => {
     let attempt = 1
     while (true) {
         try {
@@ -154,40 +144,36 @@ beforeAll(async () => {
                 port,
                 showFriendlyErrorStack: true,
             }
-            return
+            break
         } catch (error) {
             if (attempt++ > 10) {
                 throw error
             }
         }
     }
-})
 
-afterAll(async () => {
-    if (redisServer) {
-        await redisServer.close()
-    }
-})
-
-beforeEach(async () => {
-    redis = new Redis(redisOptions)
     session1 = new Session('1')
     session2 = new Session('2')
-    await Promise.all([redis.connect(), session1.init(), session2.init()])
+    await Promise.all([session1.init(), session2.init()])
 })
 
 afterEach(async () => {
     session1.destroy()
     session2.destroy()
-    await redis.flushall()
-    redis.disconnect()
+    if (redisServer) {
+        await redisServer.close()
+    }
 })
 
 test('submit 2 presence objects which share nothing', async () => {
-    const onPresenceData = jest.fn()
+    const onSession1Data = jest.fn()
+    const onSession2Data = jest.fn()
     const onUserData = jest.fn()
     const onLocationData = jest.fn()
-    const presenceStream = await session1.presenceClient.streamPresenceBySessionId(
+    const session1Stream = await session1.presenceClient.streamPresenceBySessionId(
+        session1.sessionId,
+    )
+    const session2Stream = await session1.presenceClient.streamPresenceBySessionId(
         session2.sessionId,
     )
     const userStream = await session1.presenceClient.streamPresenceByUserId(
@@ -196,19 +182,24 @@ test('submit 2 presence objects which share nothing', async () => {
     const locationStream = await session1.presenceClient.streamPresenceByLocationId(
         session2.locationId,
     )
-    presenceStream.on('data', onPresenceData)
+    session1Stream.on('data', onSession1Data)
+    session2Stream.on('data', onSession2Data)
     userStream.on('data', onUserData)
     locationStream.on('data', onLocationData)
 
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenSaved(session1.sessionId)
+    await whenData(session1Stream)
 
     // Add presence 2.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
-    await whenSaved(session2.sessionId)
+    await Promise.all([
+        whenData(session2Stream),
+        whenData(userStream),
+        whenData(locationStream),
+    ])
 
     await expect(
         session1.presenceClient.getPresenceBySessionId(session1.sessionId),
@@ -240,8 +231,13 @@ test('submit 2 presence objects which share nothing', async () => {
         session1.presenceClient.getPresenceByLocationId('does-not-exist'),
     ).resolves.toEqual([])
 
-    expect(onPresenceData).toHaveBeenCalledTimes(1)
-    expect(onPresenceData).toHaveBeenCalledWith([
+    expect(onSession1Data).toHaveBeenCalledTimes(1)
+    expect(onSession1Data).toHaveBeenCalledWith([
+        true,
+        session1.presenceMatcher,
+    ])
+    expect(onSession2Data).toHaveBeenCalledTimes(1)
+    expect(onSession2Data).toHaveBeenCalledWith([
         true,
         session2.presenceMatcher,
     ])
@@ -253,21 +249,27 @@ test('submit 2 presence objects which share nothing', async () => {
         session2.presenceMatcher,
     ])
 
-    presenceStream.destroy()
+    session1Stream.destroy()
+    session2Stream.destroy()
     userStream.destroy()
     locationStream.destroy()
     await Promise.all([
-        whenClose(presenceStream),
+        whenClose(session1Stream),
+        whenClose(session2Stream),
         whenClose(userStream),
         whenClose(locationStream),
     ])
 })
 
 test('submit 2 presence objects which share the same location', async () => {
-    const onPresenceData = jest.fn()
+    const onSession1Data = jest.fn()
+    const onSession2Data = jest.fn()
     const onUserData = jest.fn()
     const onLocationData = jest.fn()
-    const presenceStream = await session1.presenceClient.streamPresenceBySessionId(
+    const session1Stream = await session1.presenceClient.streamPresenceBySessionId(
+        session1.sessionId,
+    )
+    const session2Stream = await session1.presenceClient.streamPresenceBySessionId(
         session2.sessionId,
     )
     const userStream = await session1.presenceClient.streamPresenceByUserId(
@@ -276,19 +278,24 @@ test('submit 2 presence objects which share the same location', async () => {
     const locationStream = await session1.presenceClient.streamPresenceByLocationId(
         session1.locationId,
     )
-    presenceStream.on('data', onPresenceData)
+    session1Stream.on('data', onSession1Data)
+    session2Stream.on('data', onSession2Data)
     userStream.on('data', onUserData)
     locationStream.on('data', onLocationData)
 
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenSaved(session1.sessionId)
+    await Promise.all([whenData(session1Stream), whenData(locationStream)])
 
     // Add presence 2.
     session2.presenceClient.locationId = session1.locationId
     session2.presenceClient.data = session2.data
-    await whenSaved(session2.sessionId)
+    await Promise.all([
+        whenData(session2Stream),
+        whenData(locationStream),
+        whenData(userStream),
+    ])
 
     const presence2Matcher = {
         ...session2.presenceMatcher,
@@ -328,16 +335,24 @@ test('submit 2 presence objects which share the same location', async () => {
         session1.presenceClient.getPresenceByLocationId('does-not-exist'),
     ).resolves.toEqual([])
 
-    expect(onPresenceData).toHaveBeenCalledTimes(1)
-    expect(onPresenceData).toHaveBeenCalledWith([
+    expect(onSession1Data).toHaveBeenCalledTimes(1)
+    expect(onSession1Data).toHaveBeenCalledWith([
+        true,
+        session1.presenceMatcher,
+    ])
+
+    expect(onSession2Data).toHaveBeenCalledTimes(1)
+    expect(onSession2Data).toHaveBeenCalledWith([
         true,
         { ...session2.presenceMatcher, locationId: session1.locationId },
     ])
+
     expect(onUserData).toHaveBeenCalledTimes(1)
     expect(onUserData).toHaveBeenCalledWith([
         true,
         { ...session2.presenceMatcher, locationId: session1.locationId },
     ])
+
     expect(onLocationData).toHaveBeenCalledTimes(2)
     expect(onLocationData).toHaveBeenNthCalledWith(1, [
         true,
@@ -347,21 +362,28 @@ test('submit 2 presence objects which share the same location', async () => {
         true,
         { ...session2.presenceMatcher, locationId: session1.locationId },
     ])
-    presenceStream.destroy()
+
+    session1Stream.destroy()
+    session2Stream.destroy()
     userStream.destroy()
     locationStream.destroy()
     await Promise.all([
-        whenClose(presenceStream),
+        whenClose(session1Stream),
+        whenClose(session2Stream),
         whenClose(userStream),
         whenClose(locationStream),
     ])
 })
 
 test('remove one presence object', async () => {
-    const onPresenceData = jest.fn()
+    const onSession1Data = jest.fn()
+    const onSession2Data = jest.fn()
     const onUserData = jest.fn()
     const onLocationData = jest.fn()
-    const presenceStream = await session1.presenceClient.streamPresenceBySessionId(
+    const session1Stream = await session1.presenceClient.streamPresenceBySessionId(
+        session1.sessionId,
+    )
+    const session2Stream = await session1.presenceClient.streamPresenceBySessionId(
         session2.sessionId,
     )
     const userStream = await session1.presenceClient.streamPresenceByUserId(
@@ -370,23 +392,32 @@ test('remove one presence object', async () => {
     const locationStream = await session1.presenceClient.streamPresenceByLocationId(
         session2.locationId,
     )
-    presenceStream.on('data', onPresenceData)
+    session1Stream.on('data', onSession1Data)
+    session2Stream.on('data', onSession2Data)
     userStream.on('data', onUserData)
     locationStream.on('data', onLocationData)
 
     // Add presence 1.
     session1.presenceClient.locationId = session1.locationId
     session1.presenceClient.data = session1.data
-    await whenSaved(session1.sessionId)
+    await whenData(session1Stream)
 
     // Add presence 2.
     session2.presenceClient.locationId = session2.locationId
     session2.presenceClient.data = session2.data
-    await whenSaved(session2.sessionId)
+    await Promise.all([
+        whenData(session2Stream),
+        whenData(locationStream),
+        whenData(userStream),
+    ])
 
     // Remove presence 2.
     session2.presenceClient.locationId = undefined
-    await whenSaved(session2.sessionId)
+    await Promise.all([
+        whenData(session2Stream),
+        whenData(locationStream),
+        whenData(userStream),
+    ])
 
     await expect(
         session1.presenceClient.getPresenceBySessionId(session1.sessionId),
@@ -398,21 +429,29 @@ test('remove one presence object', async () => {
         session1.presenceClient.getPresenceBySessionId('does-not-exist'),
     ).resolves.toBeNull()
 
-    expect(onPresenceData).toHaveBeenCalledTimes(2)
-    expect(onPresenceData).toHaveBeenNthCalledWith(1, [
+    expect(onSession1Data).toHaveBeenCalledTimes(1)
+    expect(onSession1Data).toHaveBeenNthCalledWith(1, [
+        true,
+        session1.presenceMatcher,
+    ])
+
+    expect(onSession2Data).toHaveBeenCalledTimes(2)
+    expect(onSession2Data).toHaveBeenNthCalledWith(1, [
         true,
         session2.presenceMatcher,
     ])
-    expect(onPresenceData).toHaveBeenNthCalledWith(2, [
+    expect(onSession2Data).toHaveBeenNthCalledWith(2, [
         false,
         session2.sessionId,
     ])
+
     expect(onUserData).toHaveBeenCalledTimes(2)
     expect(onUserData).toHaveBeenNthCalledWith(1, [
         true,
         session2.presenceMatcher,
     ])
     expect(onUserData).toHaveBeenNthCalledWith(2, [false, session2.sessionId])
+
     expect(onLocationData).toHaveBeenCalledTimes(2)
     expect(onLocationData).toHaveBeenNthCalledWith(1, [
         true,
@@ -422,11 +461,14 @@ test('remove one presence object', async () => {
         false,
         session2.sessionId,
     ])
-    presenceStream.destroy()
+
+    session1Stream.destroy()
+    session2Stream.destroy()
     userStream.destroy()
     locationStream.destroy()
     await Promise.all([
-        whenClose(presenceStream),
+        whenClose(session1Stream),
+        whenClose(session2Stream),
         whenClose(userStream),
         whenClose(locationStream),
     ])
