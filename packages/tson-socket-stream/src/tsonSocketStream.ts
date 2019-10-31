@@ -129,17 +129,13 @@ export class TsonSocketStream extends Duplex {
     }
 
     private onClose = (): void => {
-        eventLoop.execute(() => {
-            this.destroy()
-        })
+        this.destroy()
     }
 
     private onMessage = ({ data }: { data: ArrayBuffer }): void => {
+        // Avoid blocking the event loop in case lots of messages are received at the same time,
+        // as each message might be time-consuming to process.
         eventLoop.execute(() => {
-            /* istanbul ignore if */
-            if (this.destroyed || this.socket.readyState !== ReadyState.OPEN) {
-                return
-            }
             try {
                 if (!isArrayBuffer(data)) {
                     throw new TypeError('Received data must be an ArrayBuffer.')

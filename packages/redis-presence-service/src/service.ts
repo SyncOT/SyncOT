@@ -290,7 +290,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         const stream = new PresenceStream()
 
-        const resetPresence = async () => {
+        const loadAll = async () => {
             try {
                 stream.resetPresence(
                     this.connectionManager.connectionId !== undefined
@@ -303,7 +303,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
         }
 
-        const onMessage = async (_topic: string, id: string) => {
+        const loadOne = async (id: string) => {
             try {
                 const presence =
                     this.connectionManager.connectionId !== undefined
@@ -320,16 +320,28 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             }
         }
 
-        resetPresence()
-        this.connectionManager.on('connectionId', resetPresence)
-        this.redisSubscriber.on('ready', resetPresence)
+        const onConnectionChange = () => {
+            eventLoop.execute(loadAll)
+        }
+
+        const onMessage = (_topic: string, id: string) => {
+            eventLoop.execute(() => loadOne(id))
+        }
+
+        loadAll()
+        this.connectionManager.on('connectionId', onConnectionChange)
+        this.redisSubscriber.on('ready', onConnectionChange)
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
 
         stream.on('close', () => {
+            // The cleanup below looks fast and simple, however, it is not fast enough,
+            // when it has to be executed thousends of times at once, for example when a load
+            // balancer stops and drops lots of connections at once, I observed the event loop
+            // being blocked processing this cleanup for almost 20 seconds when closing 50K streams.
             eventLoop.execute(() => {
-                this.connectionManager.off('connectionId', resetPresence)
-                this.redisSubscriber.off('ready', resetPresence)
+                this.connectionManager.off('connectionId', onConnectionChange)
+                this.redisSubscriber.off('ready', onConnectionChange)
                 this.subscriber.offChannel(channel, onMessage)
                 this.presenceStreams.delete(stream)
             })
