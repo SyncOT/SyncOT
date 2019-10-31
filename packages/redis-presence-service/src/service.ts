@@ -93,7 +93,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     private readonly connectionManager: RedisConnectionManager
     private readonly subscriber: Subscriber
     private presence: Presence | undefined = undefined
-    private presenceStreams: Set<Duplex> = new Set()
+    private presenceStreams: Set<PresenceStream> = new Set()
 
     public constructor(
         private readonly connection: Connection,
@@ -290,47 +290,46 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         const stream = new PresenceStream()
 
-        const loadAll = async () => {
-            try {
-                stream.resetPresence(
-                    this.connectionManager.connectionId !== undefined
-                        ? await getPresence()
-                        : [],
-                )
-            } catch (error) {
-                stream.resetPresence([])
-                this.emitAsync('error', error)
-            }
-        }
-
-        const loadOne = async (id: string) => {
-            try {
-                const presence =
-                    this.connectionManager.connectionId !== undefined
-                        ? await this.getPresenceBySessionId(id)
-                        : null
-                if (shouldAdd(presence)) {
-                    stream.addPresence(presence)
-                } else {
-                    stream.removePresence(id)
+        stream.loadAll = () =>
+            eventLoop.execute(async () => {
+                try {
+                    stream.resetPresence(
+                        this.connectionManager.connectionId !== undefined
+                            ? await getPresence()
+                            : [],
+                    )
+                } catch (error) {
+                    stream.resetPresence([])
+                    this.emitAsync('error', error)
                 }
-            } catch (error) {
-                stream.removePresence(id)
-                this.emitAsync('error', error)
-            }
-        }
+            })
 
-        const onConnectionChange = () => {
-            eventLoop.execute(loadAll)
-        }
+        stream.loadOne = (id: string) =>
+            eventLoop.execute(async () => {
+                try {
+                    const presence =
+                        this.connectionManager.connectionId !== undefined
+                            ? await this.getPresenceBySessionId(id)
+                            : null
+                    if (shouldAdd(presence)) {
+                        stream.addPresence(presence)
+                    } else {
+                        stream.removePresence(id)
+                    }
+                } catch (error) {
+                    stream.removePresence(id)
+                    this.emitAsync('error', error)
+                }
+            })
 
         const onMessage = (_topic: string, id: string) => {
-            eventLoop.execute(() => loadOne(id))
+            stream.loadOne(id)
         }
 
-        loadAll()
-        this.connectionManager.on('connectionId', onConnectionChange)
-        this.redisSubscriber.on('ready', onConnectionChange)
+        // TODO Profile server closing after opening and closing lots of connections.
+        // TODO Improve this to avoid race conditions.
+        stream.loadAll()
+        this.redisSubscriber.on('ready', stream.loadAll)
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
 
@@ -340,8 +339,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             // balancer stops and drops lots of connections at once, I observed the event loop
             // being blocked processing this cleanup for almost 20 seconds when closing 50K streams.
             eventLoop.execute(() => {
-                this.connectionManager.off('connectionId', onConnectionChange)
-                this.redisSubscriber.off('ready', onConnectionChange)
+                this.redisSubscriber.off('ready', stream.loadAll)
                 this.subscriber.offChannel(channel, onMessage)
                 this.presenceStreams.delete(stream)
             })
@@ -422,6 +420,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
     private onConnectionId = (): void => {
         if (this.connectionManager.connectionId !== undefined) {
             this.storeInRedis()
+        }
+        for (const stream of this.presenceStreams) {
+            stream.loadAll()
         }
     }
 

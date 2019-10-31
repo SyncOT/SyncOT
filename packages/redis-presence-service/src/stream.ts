@@ -3,7 +3,7 @@ import {
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { createAssertError } from '@syncot/util'
+import { createAssertError, noop } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -11,6 +11,9 @@ import { Duplex } from 'readable-stream'
  * are added or removed.
  */
 export class PresenceStream extends Duplex {
+    public loadAll: () => void = noop
+    public loadOne: (id: string) => void = noop
+
     /**
      * Maps presence `sessionId` to `lastModified`.
      */
