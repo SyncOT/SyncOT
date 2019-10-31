@@ -1608,6 +1608,8 @@ describe('streamPresenceBySessionId', () => {
         presenceStream.on('data', onData)
         await redis.ping()
         await redis.ping()
+        await redis.ping()
+        await redis.ping()
         await redis2.hmset(sessionKey, {
             data: dataString,
             lastModified,
@@ -1626,12 +1628,42 @@ describe('streamPresenceBySessionId', () => {
         await whenClose(presenceStream)
     })
 
+    test('do not load presence on redis reconnect when redisSubscriber is disconnected', async () => {
+        const onData = jest.fn()
+        const presenceStream = await presenceProxy.streamPresenceBySessionId(
+            sessionId,
+        )
+        presenceStream.on('data', onData)
+        await redis.ping()
+        await redis.ping()
+        await redis.ping()
+        await redis.ping()
+        await redis2.hmset(sessionKey, {
+            data: dataString,
+            lastModified,
+            locationId,
+            userId,
+        })
+        redisSubscriber.disconnect()
+        await whenClose(redisSubscriber)
+        redis.disconnect()
+        await whenClose(redis)
+        redis.connect()
+        await whenEvent('connectionId')(getRedisConnectionManager(redis))
+        await delay(50)
+        expect(onData).toHaveBeenCalledTimes(0)
+        presenceStream.destroy()
+        await whenClose(presenceStream)
+    })
+
     test('load presence on redisSubscriber reconnect', async () => {
         const onData = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(
             sessionId,
         )
         presenceStream.on('data', onData)
+        await redis.ping()
+        await redis.ping()
         await redis.ping()
         await redis.ping()
         await redis2.hmset(sessionKey, {
@@ -1673,16 +1705,18 @@ describe('streamPresenceBySessionId', () => {
         onData.mockClear()
 
         redisSubscriber.disconnect()
-        await whenClose(redisSubscriber)
-        authService.mayReadPresence.mockImplementation(throwTestError)
-        await redisSubscriber.connect()
-
         await Promise.all([
             whenData(presenceStream),
-            whenError(presenceService),
+            whenClose(redisSubscriber),
         ])
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId])
+
+        authService.mayReadPresence.mockImplementation(throwTestError)
+        await Promise.all([
+            redisSubscriber.connect(),
+            whenError(presenceService),
+        ])
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({

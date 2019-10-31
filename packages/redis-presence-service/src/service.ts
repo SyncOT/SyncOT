@@ -1,6 +1,10 @@
 import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { getRedisSubscriber, Subscriber } from '@syncot/ioredis-subscriber'
+import {
+    EventType,
+    getRedisSubscriber,
+    Subscriber,
+} from '@syncot/ioredis-subscriber'
 import {
     Presence,
     PresenceService,
@@ -99,7 +103,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         private readonly connection: Connection,
         private readonly authService: AuthService,
         redis: Redis.Redis,
-        private readonly redisSubscriber: Redis.Redis,
+        redisSubscriber: Redis.Redis,
     ) {
         super()
 
@@ -144,7 +148,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         })
 
         this.redis = defineRedisCommands(redis)
-        this.subscriber = getRedisSubscriber(this.redisSubscriber)
+        this.subscriber = getRedisSubscriber(redisSubscriber)
         this.connectionManager = getRedisConnectionManager(this.redis)
         this.connectionManager.on('connectionId', this.onConnectionId)
         this.connection.on('destroy', this.onDestroy)
@@ -290,6 +294,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 
         const stream = new PresenceStream()
 
+        stream.channel = channel
         stream.loadAll = () =>
             eventLoop.execute(async () => {
                 try {
@@ -322,27 +327,22 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
                 }
             })
 
-        const onMessage = (_topic: string, id: string) => {
-            stream.loadOne(id)
+        const onMessage = (type: EventType, _topic: string, id: string) => {
+            if (type === 'message') {
+                stream.loadOne(id)
+            } else if (type === 'active') {
+                stream.loadAll()
+            } else {
+                stream.resetPresence([])
+            }
         }
 
         // TODO Profile server closing after opening and closing lots of connections.
-        // TODO Improve this to avoid race conditions.
-        stream.loadAll()
-        this.redisSubscriber.on('ready', stream.loadAll)
         this.subscriber.onChannel(channel, onMessage)
         this.presenceStreams.add(stream)
-
         stream.on('close', () => {
-            // The cleanup below looks fast and simple, however, it is not fast enough,
-            // when it has to be executed thousends of times at once, for example when a load
-            // balancer stops and drops lots of connections at once, I observed the event loop
-            // being blocked processing this cleanup for almost 20 seconds when closing 50K streams.
-            eventLoop.execute(() => {
-                this.redisSubscriber.off('ready', stream.loadAll)
-                this.subscriber.offChannel(channel, onMessage)
-                this.presenceStreams.delete(stream)
-            })
+            this.subscriber.offChannel(channel, onMessage)
+            this.presenceStreams.delete(stream)
         })
 
         return stream
@@ -422,7 +422,9 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
             this.storeInRedis()
         }
         for (const stream of this.presenceStreams) {
-            stream.loadAll()
+            if (this.subscriber.isChannelActive(stream.channel)) {
+                stream.loadAll()
+            }
         }
     }
 

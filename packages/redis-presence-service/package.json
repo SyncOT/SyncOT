@@ -30,7 +30,6 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
-    "@syncot/ioredis-subscriber": "file:../ioredis-subscriber",
     "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
@@ -39,6 +38,7 @@
   },
   "peerDependencies": {
     "@syncot/event-loop": "^0.1.0",
+    "@syncot/ioredis-subscriber": "^0.2.0",
     "@types/ioredis": "^4.0.15",
     "ioredis": "^4.14.1"
   }

@@ -11,8 +11,10 @@ import { Duplex } from 'readable-stream'
  * are added or removed.
  */
 export class PresenceStream extends Duplex {
+    // These properties are for use by the Presence service.
     public loadAll: () => void = noop
     public loadOne: (id: string) => void = noop
+    public channel: string = ''
 
     /**
      * Maps presence `sessionId` to `lastModified`.
