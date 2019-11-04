@@ -23,8 +23,14 @@ export interface EventLoop {
      */
     readonly cycleStartTime: number
     /**
-     * Executes the `task` synchronously, if `cycleDuration <= cycleTargetDuration`.
+     * `true`, if the event loop is free to execute another task, otherwise `false`.
+     */
+    readonly isFree: boolean
+
+    /**
+     * Executes the `task` synchronously, if the event loop is free.
      * Otherwise schedules the `task` to execute when the event loop becomes idle.
+     * The tasks are guaranteed to execute in the order in which they were passed to `execute`.
      * @param task The task to execute.
      * @returns `true`, if the task has been executed synchronously, or `false`, if it has been scheduled for later.
      */
@@ -58,7 +64,7 @@ class Loop implements EventLoop {
 
         // Process the scheduled tasks at the new interval.
         clearInterval(this.interval)
-        this.interval = setInterval(this.onInterval, this.cycleTargetDuration)
+        this.interval = setInterval(this.startCycle, this.cycleTargetDuration)
         /* istanbul ignore else */
         if (typeof this.interval.unref === 'function') {
             // Allow nodejs to exit regardless of this timer.
@@ -66,22 +72,21 @@ class Loop implements EventLoop {
         }
 
         // Process the scheduled tasks once ASAP.
-        if (!this.timeout) {
-            this.timeout = setTimeout(this.onTimeout, 0)
-            /* istanbul ignore else */
-            if (typeof this.timeout.unref === 'function') {
-                // Allow nodejs to exit regardless of this timer.
-                this.timeout.unref()
-            }
-        }
+        process.nextTick(this.startCycle)
+    }
+
+    public get isFree(): boolean {
+        return (
+            this.tasks.length === 0 &&
+            this.cycleDuration <= this.cycleTargetDuration
+        )
     }
 
     private tasks: Task[] = []
     private interval: NodeJS.Timeout
-    private timeout: NodeJS.Timeout | undefined = undefined
 
     public constructor() {
-        this.interval = setInterval(this.onInterval, this.cycleTargetDuration)
+        this.interval = setInterval(this.startCycle, this.cycleTargetDuration)
         /* istanbul ignore else */
         if (typeof this.interval.unref === 'function') {
             // Allow nodejs to exit regardless of this timer.
@@ -90,7 +95,7 @@ class Loop implements EventLoop {
     }
 
     public execute(task: Task): boolean {
-        if (this.cycleDuration <= this.cycleTargetDuration) {
+        if (this.isFree) {
             task()
             return true
         } else {
@@ -99,26 +104,16 @@ class Loop implements EventLoop {
         }
     }
 
-    private startCycle(): void {
+    private startCycle = (): void => {
         this.cycleStartTime = Date.now()
-        const tasksLength = this.tasks.length
-
-        if (tasksLength > 0) {
-            const tasks = this.tasks
-            this.tasks = []
-            for (let i = 0; i < tasksLength; ++i) {
-                this.execute(tasks[i])
-            }
+        let i = 0
+        while (
+            i < this.tasks.length &&
+            this.cycleDuration <= this.cycleTargetDuration
+        ) {
+            this.tasks[i++]()
         }
-    }
-
-    private onInterval = (): void => {
-        this.startCycle()
-    }
-
-    private onTimeout = (): void => {
-        this.timeout = undefined
-        this.startCycle()
+        this.tasks.splice(0, i)
     }
 }
 
