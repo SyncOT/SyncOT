@@ -116,6 +116,9 @@ const whenMessage = (expectedTopic: string, expectedMessage: string) =>
         testSubscriber.on('pmessage', listener)
     })
 
+const whenCalled = (fn: jest.Mock) =>
+    new Promise(resolve => fn.mockImplementationOnce(resolve))
+
 beforeAll(async () => {
     let attempt = 1
     while (true) {
@@ -1558,7 +1561,7 @@ describe('streamPresenceBySessionId', () => {
     })
 
     test('start with some presence', async () => {
-        await presenceProxy.submitPresence(presence)
+        presenceProxy.submitPresence(presence)
         await whenMessage(sessionKey, sessionId)
 
         const onData = jest.fn()
@@ -1566,8 +1569,7 @@ describe('streamPresenceBySessionId', () => {
             sessionId,
         )
         presenceStream.on('data', onData)
-        await redis.ping()
-        await redis.ping()
+        await whenCalled(onData)
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([
             true,
