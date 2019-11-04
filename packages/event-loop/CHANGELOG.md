@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.3](https://github.com/SyncOT/SyncOT/compare/@syncot/event-loop@0.1.2...@syncot/event-loop@0.1.3) (2019-11-04)
+
+
+### Bug Fixes
+
+* execute tasks in order ([6ac99ff](https://github.com/SyncOT/SyncOT/commit/6ac99ffe711320987d992beb52414accb5117304))
+
+
+
+
+
 ## [0.1.2](https://github.com/SyncOT/SyncOT/compare/@syncot/event-loop@0.1.1...@syncot/event-loop@0.1.2) (2019-10-28)
 
 

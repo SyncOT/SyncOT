@@ -1,6 +1,6 @@
 {
   "name": "@syncot/tson-websocket-stream",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "A factory for TSON-encoded client WebSocket streams.",
   "keywords": [
     "tson",

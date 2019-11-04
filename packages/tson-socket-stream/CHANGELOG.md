@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.23](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.22...@syncot/tson-socket-stream@0.0.23) (2019-11-04)
+
+
+### Performance Improvements
+
+* avoid blocking when sending lots of messages ([f920968](https://github.com/SyncOT/SyncOT/commit/f920968278a999c90d1d3f49ee9b47370f30552f))
+
+
+
+
+
 ## [0.0.22](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.21...@syncot/tson-socket-stream@0.0.22) (2019-10-31)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@syncot/event-loop",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A utility for IO-friendly task scheduling.",
   "keywords": [
     "util"
