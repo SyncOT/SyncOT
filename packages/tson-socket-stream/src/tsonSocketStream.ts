@@ -87,13 +87,22 @@ export class TsonSocketStream extends Duplex {
         // execution when we know that a stream has been closed or is about to be closed.
 
         if (this.socket.readyState === ReadyState.OPEN) {
-            try {
-                this.socket.send(encode(data))
-            } catch (error) {
-                this.destroy(error)
-                return
-            }
-            callback(null)
+            // Avoid blocking the event loop in case lots of messages are sent at the same time.
+            eventLoop.execute(() => {
+                /* istanbul ignore else */
+                if (this.socket.readyState === ReadyState.OPEN) {
+                    try {
+                        this.socket.send(encode(data))
+                    } catch (error) {
+                        /* istanbul ignore else */
+                        if (!this.destroyed) {
+                            this.destroy(error)
+                        }
+                        return
+                    }
+                    callback(null)
+                }
+            })
         } else if (this.socket.readyState === ReadyState.CONNECTING) {
             const send = () => {
                 this.socket.removeEventListener('open', send)
@@ -129,29 +138,36 @@ export class TsonSocketStream extends Duplex {
     }
 
     private onClose = (): void => {
-        this.destroy()
+        /* istanbul ignore else */
+        if (!this.destroyed) {
+            this.destroy()
+        }
     }
 
     private onMessage = ({ data }: { data: ArrayBuffer }): void => {
-        // Avoid blocking the event loop in case lots of messages are received at the same time,
-        // as each message might be time-consuming to process.
+        // Avoid blocking the event loop in case lots of messages are received at the same time.
         eventLoop.execute(() => {
-            try {
-                if (!isArrayBuffer(data)) {
-                    throw new TypeError('Received data must be an ArrayBuffer.')
+            /* istanbul ignore else */
+            if (!this.destroyed) {
+                try {
+                    if (!isArrayBuffer(data)) {
+                        throw new TypeError(
+                            'Received data must be an ArrayBuffer.',
+                        )
+                    }
+
+                    const decodedData = decode(data)
+
+                    if (decodedData === null) {
+                        throw new TypeError(
+                            'Received data must not decode to `null`.',
+                        )
+                    }
+
+                    this.push(decodedData)
+                } catch (error) {
+                    this.destroy(error)
                 }
-
-                const decodedData = decode(data)
-
-                if (decodedData === null) {
-                    throw new TypeError(
-                        'Received data must not decode to `null`.',
-                    )
-                }
-
-                this.push(decodedData)
-            } catch (error) {
-                this.destroy(error)
             }
         })
     }
