@@ -1,0 +1,31 @@
+{
+  "name": "@syncot/error",
+  "version": "0.0.6",
+  "description": "Utilities for managing errors.",
+  "keywords": [
+    "error"
+  ],
+  "sideEffects": false,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "tslib": "^1.9.3"
+  }
+}
