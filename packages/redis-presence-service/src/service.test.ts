@@ -1,11 +1,11 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
+import { SyncOtEmitter } from '@syncot/events'
 import { Presence, PresenceService } from '@syncot/presence'
+import { invertedStreams } from '@syncot/stream'
 import {
     delay,
-    invertedStreams,
     randomInteger,
-    SyncOtEmitter,
     whenClose,
     whenData,
     whenError,
@@ -1330,9 +1330,9 @@ describe('getPresenceByLocationId', () => {
         authService.mayReadPresence.mockImplementation(
             loadedPresence => loadedPresence.sessionId === sessionId,
         )
-        expect(await presenceProxy.getPresenceByLocationId(locationId)).toEqual(
-            [presence],
-        )
+        expect(
+            await presenceProxy.getPresenceByLocationId(locationId),
+        ).toEqual([presence])
         expect(authService.mayReadPresence).toHaveBeenCalledTimes(2)
         expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
         expect(authService.mayReadPresence).toHaveBeenCalledWith({

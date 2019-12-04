@@ -1,7 +1,8 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { assert, generateId, SyncOtEmitter } from '@syncot/util'
-
+import { SyncOtEmitter } from '@syncot/events'
+import { generateId } from '@syncot/id'
+import { assert } from '@syncot/util'
 /**
  * The options expected by `createAuthService`.
  */

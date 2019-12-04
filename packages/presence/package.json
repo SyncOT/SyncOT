@@ -27,6 +27,8 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/error": "file:../error",
+    "@syncot/events": "file:../events",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",

@@ -1,4 +1,5 @@
-import { assert, createTypeNotFoundError, Interface } from '@syncot/util'
+import { createTypeNotFoundError } from '@syncot/error'
+import { assert, Interface } from '@syncot/util'
 import { Operation, Snapshot, Type } from './type'
 
 function typeNotFound(name: string): never {
@@ -126,10 +127,7 @@ class TypeManagerImpl {
         const type = this._getType(operation.documentType)
 
         return typeof type.compose === 'function'
-            ? type.compose(
-                  operation,
-                  anotherOperation,
-              )
+            ? type.compose(operation, anotherOperation)
             : undefined
     }
 

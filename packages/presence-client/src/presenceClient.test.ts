@@ -1,12 +1,14 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
+import { SyncOtEmitter } from '@syncot/events'
 import {
     Presence,
     PresenceClient,
     PresenceService,
     PresenceServiceEvents,
 } from '@syncot/presence'
-import { invertedStreams, SyncOtEmitter, whenNextTick } from '@syncot/util'
+import { invertedStreams } from '@syncot/stream'
+import { whenNextTick } from '@syncot/util'
 import { Clock, install as installClock, InstalledClock } from 'lolex'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'

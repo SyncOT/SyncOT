@@ -1,5 +1,5 @@
+import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
 import { Presence } from '@syncot/presence'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `AuthService` and `AuthClient`.

@@ -1,5 +1,6 @@
+import { createSocketError } from '@syncot/error'
 import { TsonSocketStream } from '@syncot/tson-socket-stream'
-import { assert, createSocketError } from '@syncot/util'
+import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 type Factory = () => Promise<Duplex>

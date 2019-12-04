@@ -29,6 +29,8 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
+    "@syncot/error": "file:../error",
+    "@syncot/events": "file:../events",
     "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",

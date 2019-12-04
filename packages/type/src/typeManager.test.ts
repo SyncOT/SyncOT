@@ -290,32 +290,19 @@ describe('diff', () => {
 describe('compose', () => {
     test('fails, if type not found', () => {
         expect(() =>
-            typeManager.compose(
-                unknownOperation,
-                unknownOperation,
-            ),
+            typeManager.compose(unknownOperation, unknownOperation),
         ).toThrow(errorMatcher)
     })
     test('calls Type#compose', () => {
         ;(type.compose as any).mockReturnValue(operation3)
-        expect(
-            typeManager.compose(
-                operation1,
-                operation2,
-            ),
-        ).toBe(operation3)
+        expect(typeManager.compose(operation1, operation2)).toBe(operation3)
         expect(type.compose).toHaveBeenCalledTimes(1)
         expect((type.compose as any).mock.instances[0]).toBe(type)
         expect(type.compose).toHaveBeenCalledWith(operation1, operation2)
     })
     test('returns undefined, if Type#compose is not implemented', () => {
         type.compose = undefined
-        expect(
-            typeManager.compose(
-                operation1,
-                operation2,
-            ),
-        ).toBe(undefined)
+        expect(typeManager.compose(operation1, operation2)).toBe(undefined)
     })
 })
 

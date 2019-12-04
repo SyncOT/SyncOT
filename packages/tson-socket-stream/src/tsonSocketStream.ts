@@ -1,6 +1,7 @@
+import { Binary, isArrayBuffer } from '@syncot/buffer'
+import { createSocketError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
 import { decode, encode } from '@syncot/tson'
-import { Binary, createSocketError, isArrayBuffer } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 const eventLoop = globalEventLoop()

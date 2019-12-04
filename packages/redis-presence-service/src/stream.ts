@@ -1,9 +1,10 @@
+import { createAssertError } from '@syncot/error'
 import {
     Presence,
     PresenceAddedMessage,
     PresenceRemovedMessage,
 } from '@syncot/presence'
-import { createAssertError, noop } from '@syncot/util'
+import { noop } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**

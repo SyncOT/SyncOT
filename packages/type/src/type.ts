@@ -1,9 +1,5 @@
-import {
-    createInvalidEntityError,
-    throwError,
-    validate,
-    Validator,
-} from '@syncot/util'
+import { createInvalidEntityError } from '@syncot/error'
+import { throwError, validate, Validator } from '@syncot/util'
 
 /**
  * Represents the actions which turn one snapshot into another.

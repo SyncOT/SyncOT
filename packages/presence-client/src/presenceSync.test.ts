@@ -1,9 +1,11 @@
+import { SyncOtEmitter } from '@syncot/events'
 import {
     Presence,
     PresenceClient,
     PresenceClientEvents,
 } from '@syncot/presence'
-import { invertedStreams, SyncOtEmitter, whenNextTick } from '@syncot/util'
+import { invertedStreams } from '@syncot/stream'
+import { whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     PresenceSync,

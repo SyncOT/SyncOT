@@ -1,11 +1,11 @@
 // tslint:disable:no-bitwise
 import {
     Binary,
-    createTsonError,
     isArrayBuffer,
     isSharedArrayBuffer,
     toBuffer,
-} from '@syncot/util'
+} from '@syncot/buffer'
+import { createTsonError } from '@syncot/error'
 
 /**
  * A list of types supported by TSON.

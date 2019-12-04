@@ -29,7 +29,8 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
-    "@syncot/presence": "file:../presence",
+    "@syncot/events": "file:../events",
+    "@syncot/task-runner": "file:../task-runner",
     "@syncot/util": "file:../util",
     "tslib": "^1.9.3"
   }

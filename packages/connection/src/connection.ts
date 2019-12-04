@@ -1,17 +1,13 @@
 import {
-    assert,
     createDisconnectedError,
     createDuplicateIdError,
     createInvalidEntityError,
     createInvalidStreamError,
     createNoServiceError,
-    EmitterInterface,
-    isOpenDuplexStream,
-    isStream,
-    SyncOtEmitter,
-    validate,
-    Validator,
-} from '@syncot/util'
+} from '@syncot/error'
+import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { isOpenDuplexStream, isStream } from '@syncot/stream'
+import { assert, validate, Validator } from '@syncot/util'
 import { globalTracer } from 'opentracing'
 import { Duplex } from 'readable-stream'
 

@@ -1,9 +1,6 @@
-import {
-    assert,
-    createPresenceError,
-    EmitterInterface,
-    TypedEventEmitter,
-} from '@syncot/util'
+import { createPresenceError } from '@syncot/error'
+import { EmitterInterface, TypedEventEmitter } from '@syncot/events'
+import { assert } from '@syncot/util'
 import Redis from 'ioredis'
 import {
     connectionsKey,

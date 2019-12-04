@@ -1,8 +1,9 @@
+import { createSocketError } from '@syncot/error'
 import {
     sockJsClientConnectionToTsonSocket as toTsonSocket,
     TsonSocketStream,
 } from '@syncot/tson-socket-stream'
-import { assert, createSocketError } from '@syncot/util'
+import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import SockJS from 'sockjs-client'
 

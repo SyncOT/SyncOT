@@ -30,6 +30,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/error": "file:../error",
     "@syncot/tson-socket-stream": "file:../tson-socket-stream",
     "@syncot/util": "file:../util",
     "@types/node": "^12.0.4",

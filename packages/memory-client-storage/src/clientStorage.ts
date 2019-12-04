@@ -1,18 +1,18 @@
 import { ClientStorage, ClientStorageStatus } from '@syncot/client-storage'
 import {
+    createAlreadyInitializedError,
+    createNotInitializedError,
+    createUnexpectedSequenceNumberError,
+    createUnexpectedSessionIdError,
+    createUnexpectedVersionNumberError,
+} from '@syncot/error'
+import {
     assertOperation,
     assertSnapshot,
     Operation,
     Snapshot,
     TypeManager,
 } from '@syncot/type'
-import {
-    createAlreadyInitializedError,
-    createNotInitializedError,
-    createUnexpectedSequenceNumberError,
-    createUnexpectedSessionIdError,
-    createUnexpectedVersionNumberError,
-} from '@syncot/util'
 
 interface Context {
     lastRemoteVersion: number

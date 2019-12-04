@@ -1,4 +1,5 @@
-import { assert, Binary, toArrayBuffer, toBuffer } from '@syncot/util'
+import { Binary, toArrayBuffer, toBuffer } from '@syncot/buffer'
+import { assert } from '@syncot/util'
 import { EventEmitter } from 'events'
 import { TsonSocket } from './tsonSocketStream'
 

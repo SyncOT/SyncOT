@@ -4,5 +4,10 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../util" }]
+  "references": [
+    { "path": "../error" },
+    { "path": "../events" },
+    { "path": "../stream" },
+    { "path": "../util" }
+  ]
 }

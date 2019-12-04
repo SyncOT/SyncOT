@@ -1,4 +1,5 @@
-import { delay, invertedStreams, noop, whenNextTick } from '@syncot/util'
+import { invertedStreams } from '@syncot/stream'
+import { delay, noop, whenNextTick } from '@syncot/util'
 import { initGlobalTracer, MockTracer } from 'opentracing'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
@@ -9,7 +10,6 @@ import {
     Proxy,
     Service,
 } from '.'
-
 const tracer = new MockTracer()
 initGlobalTracer(tracer)
 

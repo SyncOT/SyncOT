@@ -1,4 +1,4 @@
-import { Binary, createBufferReader } from '@syncot/util'
+import { Binary, createBufferReader } from '@syncot/buffer'
 import { decode, encode } from '.'
 import { Type } from './tson'
 
