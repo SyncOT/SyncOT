@@ -1,0 +1,11 @@
+# Change Log
+
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
+# 0.1.0 (2019-12-04)
+
+
+### Features
+
+* add @syncot/task-runner ([5f49e6b](https://github.com/SyncOT/SyncOT/commit/5f49e6b896070016694f061045e1f3694c387be0))

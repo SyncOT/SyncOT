@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.22](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.21...@syncot/tson@0.0.22) (2019-12-04)
+
+**Note:** Version bump only for package @syncot/tson
+
+
+
+
+
 ## [0.0.21](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.20...@syncot/tson@0.0.21) (2019-11-29)
 
 **Note:** Version bump only for package @syncot/tson

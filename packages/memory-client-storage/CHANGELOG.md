@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.19](https://github.com/SyncOT/SyncOT/compare/@syncot/memory-client-storage@0.0.18...@syncot/memory-client-storage@0.0.19) (2019-12-04)
+
+**Note:** Version bump only for package @syncot/memory-client-storage
+
+
+
+
+
 ## [0.0.18](https://github.com/SyncOT/SyncOT/compare/@syncot/memory-client-storage@0.0.17...@syncot/memory-client-storage@0.0.18) (2019-11-29)
 
 **Note:** Version bump only for package @syncot/memory-client-storage

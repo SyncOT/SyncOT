@@ -1,6 +1,6 @@
 {
   "name": "@syncot/client-storage",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "Interfaces and types related to storing document data in the client.",
   "keywords": [
     "client",

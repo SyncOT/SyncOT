@@ -1,6 +1,6 @@
 {
   "name": "@syncot/util",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "A collection of simple utilities.",
   "keywords": [
     "util"

@@ -1,6 +1,6 @@
 {
   "name": "@syncot/stream",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Some utilities for working with streams.",
   "keywords": [
     "stream"

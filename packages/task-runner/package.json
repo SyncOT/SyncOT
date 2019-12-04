@@ -1,6 +1,6 @@
 {
   "name": "@syncot/task-runner",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A service for executing tasks with a configurable retry strategy.",
   "keywords": [
     "task-runner"

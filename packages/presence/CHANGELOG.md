@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.20](https://github.com/SyncOT/SyncOT/compare/@syncot/presence@0.0.19...@syncot/presence@0.0.20) (2019-12-04)
+
+**Note:** Version bump only for package @syncot/presence
+
+
+
+
+
 ## [0.0.19](https://github.com/SyncOT/SyncOT/compare/@syncot/presence@0.0.18...@syncot/presence@0.0.19) (2019-11-29)
 
 **Note:** Version bump only for package @syncot/presence
