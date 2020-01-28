@@ -74,6 +74,7 @@
     "@syncot/id": "file:packages/id",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
     "@syncot/memory-client-storage": "file:packages/memory-client-storage",
+    "@syncot/ping": "file:packages/ping",
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
     "@syncot/redis-presence-service": "file:packages/redis-presence-service",
