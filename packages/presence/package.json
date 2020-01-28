@@ -1,6 +1,6 @@
 {
   "name": "@syncot/presence",
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "Interfaces and type definitions related to global presence management.",
   "keywords": [
     "interface",

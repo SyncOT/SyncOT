@@ -1,6 +1,6 @@
 {
   "name": "@syncot/buffer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Some utilities for working with buffers.",
   "keywords": [
     "buffer"

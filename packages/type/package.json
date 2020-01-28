@@ -1,6 +1,6 @@
 {
   "name": "@syncot/type",
-  "version": "0.0.19",
+  "version": "0.0.20",
   "description": "Interfaces and utilities for working with OT and CRDT types.",
   "keywords": [
     "ot",
