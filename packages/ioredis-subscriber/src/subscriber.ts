@@ -82,7 +82,7 @@ function removeLast<T>(array: T[], item: T): void {
 const setActive = (
     map: Map<
         Channel | Pattern,
-        { active: boolean; listeners: Array<ChannelListener | PatternListener> }
+        { active: boolean; listeners: (ChannelListener | PatternListener)[] }
     >,
     key: Channel | Pattern,
     active: boolean,

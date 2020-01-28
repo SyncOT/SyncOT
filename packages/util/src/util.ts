@@ -41,7 +41,7 @@ export function throwError(error: Error | undefined): void {
  * Validates `target` using the specified `validators` and
  * returns the first encountered `Error`, or `undefined`.
  */
-export const validate = <T>(validators: Array<Validator<T>>) => (
+export const validate = <T>(validators: Validator<T>[]) => (
     target: T,
 ): ValidationResult => {
     for (let i = 0, l = validators.length; i < l; ++i) {

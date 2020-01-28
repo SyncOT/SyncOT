@@ -60,7 +60,7 @@ interface OtherMethods<ListenerEvents, EmitEvents> {
     ): boolean
     emit(event: symbol, ...args: any[]): boolean
 
-    eventNames(): Array<string | symbol>
+    eventNames(): (string | symbol)[]
 
     listenerCount<E extends keyof ListenerEvents>(event: E): number
     listenerCount(event: symbol): number

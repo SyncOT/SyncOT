@@ -28,7 +28,7 @@ export interface PresenceCommands {
     presenceDelete(sessionId: string): Promise<void>
     presenceDeleteByConnectionId(
         connectionId: number,
-        lock?: number,
+        lock?: string,
     ): Promise<number>
     presenceGetBySessionId(sessionId: string): Promise<PresenceResult>
     presenceGetByUserId(userId: string): Promise<PresenceResult[]>
@@ -38,49 +38,50 @@ export interface PresenceCommands {
 export function defineRedisCommands(
     redis: Redis.Redis,
 ): Redis.Redis & PresenceCommands {
-    if (!(redis as any).presenceUpdate) {
+    const extendedRedis = redis as Redis.Redis & PresenceCommands
+    if (!extendedRedis.presenceUpdate) {
         redis.defineCommand('presenceUpdate', {
             lua: presenceUpdate,
             numberOfKeys: 0,
         })
     }
 
-    if (!(redis as any).presenceDelete) {
+    if (!extendedRedis.presenceDelete) {
         redis.defineCommand('presenceDelete', {
             lua: presenceDelete,
             numberOfKeys: 0,
         })
     }
 
-    if (!(redis as any).presenceDeleteByConnectionId) {
+    if (!extendedRedis.presenceDeleteByConnectionId) {
         redis.defineCommand('presenceDeleteByConnectionId', {
             lua: presenceDeleteByConnectionId,
             numberOfKeys: 0,
         })
     }
 
-    if (!(redis as any).presenceGetBySessionId) {
+    if (!extendedRedis.presenceGetBySessionId) {
         redis.defineCommand('presenceGetBySessionId', {
             lua: presenceGetBySessionId,
             numberOfKeys: 0,
         })
     }
 
-    if (!(redis as any).presenceGetByUserId) {
+    if (!extendedRedis.presenceGetByUserId) {
         redis.defineCommand('presenceGetByUserId', {
             lua: presenceGetByUserId,
             numberOfKeys: 0,
         })
     }
 
-    if (!(redis as any).presenceGetByLocationId) {
+    if (!extendedRedis.presenceGetByLocationId) {
         redis.defineCommand('presenceGetByLocationId', {
             lua: presenceGetByLocationId,
             numberOfKeys: 0,
         })
     }
 
-    return redis as any
+    return extendedRedis
 }
 
 const presenceUpdate = `

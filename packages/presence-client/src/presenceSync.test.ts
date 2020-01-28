@@ -27,7 +27,7 @@ const presenceList: Presence[] = Array.from({ length: 5 }, (_, index) => ({
     userId: `${sessionId}-${index}`,
 }))
 const sessionIdList: string[] = presenceList.map(presence => presence.sessionId)
-const pairList: Array<[string, Presence]> = presenceList.map(presence => [
+const pairList: [string, Presence][] = presenceList.map(presence => [
     presence.sessionId,
     presence,
 ])

@@ -511,7 +511,7 @@ describe('encode', () => {
                 ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
                 ['DataView', testDataView],
                 ['Buffer', testBuffer],
-            ] as Array<[string, Binary]>).concat(
+            ] as [string, Binary][]).concat(
                 testTypedArrays.map(
                     array =>
                         [array.constructor.name, array] as [string, Binary],
@@ -1275,7 +1275,7 @@ describe('decode', () => {
             ['SharedArrayBuffer', testSharedArrayBuffer.slice(8, 32)],
             ['DataView', testDataView],
             ['Buffer', testBuffer],
-        ] as Array<[string, Binary]>).concat(
+        ] as [string, Binary][]).concat(
             testTypedArrays.map(
                 array => [array.constructor.name, array] as [string, Binary],
             ),

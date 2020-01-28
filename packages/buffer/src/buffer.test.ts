@@ -146,7 +146,7 @@ describe('isBinary', () => {
             ['ArrayBuffer', new ArrayBuffer(0), true],
             ['SharedArrayBuffer', new SharedArrayBuffer(0), true],
             ['Buffer', Buffer.allocUnsafe(0), true],
-        ] as Array<[string, any, boolean]>).concat(
+        ] as [string, any, boolean][]).concat(
             [
                 DataView,
                 Int8Array,
@@ -162,7 +162,7 @@ describe('isBinary', () => {
                 constructor.name,
                 new constructor(new ArrayBuffer(8)),
                 true,
-            ]) as Array<[string, any, boolean]>,
+            ]) as [string, any, boolean][],
         ),
     )('%s', (_, value, expectedResult) => {
         expect(isBinary(value)).toBe(expectedResult)
