@@ -402,3 +402,18 @@ export function createAssertError(message?: string): AssertError {
 export function isAssertError(error: any): error is AssertError {
     return error instanceof Error && error.name === 'SyncOtError Assert'
 }
+
+export interface PingError extends Error {
+    cause?: Error
+    name: 'SyncOtError Ping'
+}
+export function createPingError(message?: string, cause?: Error): PingError {
+    return createError({
+        cause,
+        message,
+        name: 'SyncOtError Ping',
+    }) as PingError
+}
+export function isPingError(error: any): error is PingError {
+    return error instanceof Error && error.name === 'SyncOtError Ping'
+}

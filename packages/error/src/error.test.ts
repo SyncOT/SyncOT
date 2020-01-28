@@ -10,6 +10,7 @@ import {
     createInvalidStreamError,
     createNoServiceError,
     createNotInitializedError,
+    createPingError,
     createPresenceError,
     createSessionError,
     createSocketError,
@@ -28,6 +29,7 @@ import {
     isInvalidStreamError,
     isNoServiceError,
     isNotInitializedError,
+    isPingError,
     isPresenceError,
     isSessionError,
     isSocketError,
@@ -560,5 +562,33 @@ describe('AssertError', () => {
         expect(isAssertError(error)).toBeTrue()
         expect(isAssertError(new Error())).toBeFalse()
         expect(isAssertError({})).toBeFalse()
+    })
+})
+
+describe('PingError', () => {
+    test('createPingError', () => {
+        const error = createPingError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Ping')
+        expect(error.message).toBe('test')
+        expect(error.cause).toBe(undefined)
+    })
+    test('createPingError with cause', () => {
+        const cause = new Error('Test cause!')
+        const error = createPingError('Test message.', cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOtError Ping')
+        expect(error.message).toBe('Test message. => Error: Test cause!')
+        expect(error.toString()).toBe(
+            'SyncOtError Ping: Test message. => Error: Test cause!',
+        )
+        expect(error.cause).toBe(cause)
+    })
+    test('isPingError', () => {
+        const error = createPingError('test')
+        expect(isSyncOtError(error)).toBeTrue()
+        expect(isPingError(error)).toBeTrue()
+        expect(isPingError(new Error())).toBeFalse()
+        expect(isPingError({})).toBeFalse()
     })
 })
