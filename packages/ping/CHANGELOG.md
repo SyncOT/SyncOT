@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.1](https://github.com/SyncOT/SyncOT/compare/@syncot/ping@0.1.0...@syncot/ping@0.1.1) (2020-02-05)
+
+
+### Bug Fixes
+
+* return after reporting "ping failed" ([8300a52](https://github.com/SyncOT/SyncOT/commit/8300a52c3b8c65158b0b8b9dab4ac8eef31e9ef7))
+
+
+
+
+
 # 0.1.0 (2020-01-28)
 
 
