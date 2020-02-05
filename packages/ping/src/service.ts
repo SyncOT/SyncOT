@@ -183,6 +183,7 @@ class SimplePingService extends SyncOtEmitter<PingServiceEvents>
                 this.emitAsync('pong')
             } catch (error) {
                 this.reportPingError('Ping failed', error)
+                return
             }
         } else {
             this.reportPingError('Ping timed out')
