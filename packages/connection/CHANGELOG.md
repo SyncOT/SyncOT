@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.2.0](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.1.4...@syncot/connection@0.2.0) (2020-04-24)
+
+
+### Features
+
+* add counterResetDelay option ([159469a](https://github.com/SyncOT/SyncOT/commit/159469ad2db1835eaffaaa3a50a43e882c662b78))
+
+
+
+
+
 ## [0.1.4](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.1.3...@syncot/connection@0.1.4) (2020-01-28)
 
 **Note:** Version bump only for package @syncot/connection

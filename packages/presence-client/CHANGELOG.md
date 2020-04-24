@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.5](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-client@0.1.4...@syncot/presence-client@0.1.5) (2020-04-24)
+
+**Note:** Version bump only for package @syncot/presence-client
+
+
+
+
+
 ## [0.1.4](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-client@0.1.3...@syncot/presence-client@0.1.4) (2020-01-28)
 
 **Note:** Version bump only for package @syncot/presence-client
