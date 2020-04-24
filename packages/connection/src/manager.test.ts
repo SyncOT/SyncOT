@@ -191,6 +191,36 @@ test('invalid delayFactor===-1', () => {
     )
 })
 
+test('invalid counterResetDelay==="5"', () => {
+    expect(() =>
+        createStreamManager({
+            connection,
+            createStream,
+            counterResetDelay: '5' as any,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Argument "counterResetDelay" must be a valid number.',
+            name: 'SyncOtError Assert',
+        }),
+    )
+})
+
+test('invalid counterResetDelay===NaN', () => {
+    expect(() =>
+        createStreamManager({
+            connection,
+            createStream,
+            counterResetDelay: NaN,
+        }),
+    ).toThrow(
+        expect.objectContaining({
+            message: 'Argument "counterResetDelay" must be a valid number.',
+            name: 'SyncOtError Assert',
+        }),
+    )
+})
+
 test('initially connected', async () => {
     expect(connection.isConnected()).toBe(true)
     expect(clock.countTimers()).toBe(0)
@@ -256,6 +286,65 @@ test('initially disconnected, fail to connect, connect (exponential back-off)', 
     createStream.mockResolvedValueOnce(newStream())
     expectedNow += 1000
     clock.next()
+    await whenConnected()
+})
+
+test('connect, disconnect quickly, connect (exponential back-off)', async () => {
+    connection.destroy()
+    manager.destroy()
+    connection = createConnection()
+    manager = createStreamManager({
+        connection,
+        createStream,
+        delayFactor,
+        maxDelay,
+        minDelay,
+        counterResetDelay: 5000,
+    })
+
+    createStream.mockRejectedValue(testError)
+    let expectedNow = 0
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    expectedNow += 1000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    expectedNow += 2000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenManagerError()
+
+    createStream.mockResolvedValueOnce(newStream())
+    expectedNow += 4000
+    clock.next()
+    await whenConnected()
+
+    // Disconnect before `counterResetDelay`.
+    expectedNow += 4999
+    clock.tick(4999)
+    connection.disconnect()
+    await whenDisconnected()
+
+    createStream.mockResolvedValueOnce(newStream())
+    expectedNow += 8000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
+    await whenConnected()
+
+    // Disconnect after `counterResetDelay`.
+    expectedNow += 5000
+    clock.tick(5000)
+    connection.disconnect()
+    await whenDisconnected()
+
+    createStream.mockResolvedValueOnce(newStream())
+    expectedNow += 1000
+    clock.next()
+    expect(clock.now).toBe(expectedNow)
     await whenConnected()
 })
 

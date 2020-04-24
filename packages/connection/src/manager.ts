@@ -48,6 +48,12 @@ export interface StreamManagerOptions {
      * Default is 1.5.
      */
     delayFactor?: number
+    /**
+     * The number of milliseconds to wait after establishing a connection
+     * before resetting the counter of failed connections.
+     * Default is 0.
+     */
+    counterResetDelay?: number
 }
 
 /**
@@ -59,6 +65,7 @@ export function createStreamManager({
     minDelay,
     maxDelay,
     delayFactor,
+    counterResetDelay,
 }: StreamManagerOptions): StreamManager {
     return new Manager(
         connection,
@@ -66,6 +73,7 @@ export function createStreamManager({
         minDelay,
         maxDelay,
         delayFactor,
+        counterResetDelay,
     )
 }
 
@@ -74,6 +82,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
     private attempt: number = -1
     private scheduledConnect: NodeJS.Timeout | undefined = undefined
     private stream: Duplex | undefined
+    private connectionTime: number = 0
 
     public constructor(
         private readonly connection: Connection,
@@ -81,6 +90,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         private readonly minDelay: number = 1000,
         private readonly maxDelay: number = 10000,
         private readonly delayFactor: number = 1.5,
+        private readonly counterResetDelay: number = 0,
     ) {
         super()
         assert(
@@ -104,6 +114,11 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
             Number.isFinite(this.delayFactor) &&
                 (this.delayFactor >= 1 || this.delayFactor === 0),
             'Argument "delayFactor" must be a finite number >= 1 or == 0.',
+        )
+        assert(
+            typeof this.counterResetDelay === 'number' &&
+                !Number.isNaN(this.counterResetDelay),
+            'Argument "counterResetDelay" must be a valid number.',
         )
 
         this.connection.on('connect', this.onConnect)
@@ -140,6 +155,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         }
 
         this.stream = stream
+        this.connectionTime = Date.now()
         this.connection.connect(stream)
     }
 
@@ -148,7 +164,9 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
     }
 
     private onDisconnect = () => {
-        this.attempt = 0
+        if (this.connectionTime + this.counterResetDelay <= Date.now()) {
+            this.attempt = 0
+        }
         this.scheduleConnect()
     }
 
