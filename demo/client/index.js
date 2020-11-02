@@ -5,6 +5,7 @@ import { decode } from '@syncot/tson'
 import { baseKeymap } from 'prosemirror-commands'
 import { undo, redo, history } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
+import { Schema, Node } from 'prosemirror-model'
 import { schema } from 'prosemirror-schema-basic'
 import { EditorState } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
@@ -30,4 +31,10 @@ const state = EditorState.create({
 })
 const view = new EditorView(document.body, { state })
 
-window.editor = view
+window.proseMirror = {
+    view,
+    EditorState,
+    EditorView,
+    Node,
+    Schema,
+}
