@@ -1,0 +1,8 @@
+body {
+    background: lightgray;
+}
+
+.ProseMirror {
+    background: white;
+    padding: 0.5rem;
+}
