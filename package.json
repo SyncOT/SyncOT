@@ -87,14 +87,12 @@
     "@syncot/auth": "file:packages/auth",
     "@syncot/auth-client": "file:packages/auth-client",
     "@syncot/buffer": "file:packages/buffer",
-    "@syncot/client-storage": "file:packages/client-storage",
     "@syncot/connection": "file:packages/connection",
     "@syncot/error": "file:packages/error",
     "@syncot/event-loop": "file:packages/event-loop",
     "@syncot/events": "file:packages/events",
     "@syncot/id": "file:packages/id",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
-    "@syncot/memory-client-storage": "file:packages/memory-client-storage",
     "@syncot/ping": "file:packages/ping",
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
@@ -105,7 +103,6 @@
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
     "@syncot/tson-sockjs-stream": "file:packages/tson-sockjs-stream",
     "@syncot/tson-websocket-stream": "file:packages/tson-websocket-stream",
-    "@syncot/type": "file:packages/type",
     "@syncot/util": "file:packages/util"
   }
 }
