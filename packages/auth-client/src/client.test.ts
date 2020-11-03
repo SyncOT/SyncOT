@@ -3,12 +3,12 @@ import { Connection, createConnection } from '@syncot/connection'
 import { SyncOtEmitter } from '@syncot/events'
 import { invertedStreams } from '@syncot/stream'
 import { whenNextTick } from '@syncot/util'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex } from 'readable-stream'
 import { createAuthClient } from '.'
 import { LoginResponse, requestNames } from './client'
 
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 let clientStream: Duplex
 let serverStream: Duplex
 let clientConnection: Connection
@@ -42,14 +42,14 @@ class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
 }
 
 const whenActive = () =>
-    new Promise(resolve => authClient.once('active', resolve))
+    new Promise((resolve) => authClient.once('active', resolve))
 const whenInactive = () =>
-    new Promise(resolve => authClient.once('inactive', resolve))
+    new Promise((resolve) => authClient.once('inactive', resolve))
 const whenDestroy = () =>
-    new Promise(resolve => authClient.once('destroy', resolve))
+    new Promise((resolve) => authClient.once('destroy', resolve))
 const whenError = () =>
     new Promise((resolve, reject) =>
-        authClient.once('error', error => {
+        authClient.once('error', (error) => {
             try {
                 expect(error).toBe(testError)
                 resolve()

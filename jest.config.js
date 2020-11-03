@@ -2,7 +2,7 @@ const fs = require('fs')
 
 module.exports = {
     projects: [
-        fs.readdirSync('./packages').map(name => {
+        fs.readdirSync('./packages').map((name) => {
             return {
                 name,
                 displayName: name,
@@ -14,7 +14,7 @@ module.exports = {
                 },
                 globals: {
                     'ts-jest': {
-                        tsConfig: require(`./packages/${name}/tsconfig.json`)
+                        tsconfig: require(`./packages/${name}/tsconfig.json`)
                             .compilerOptions,
                     },
                 },

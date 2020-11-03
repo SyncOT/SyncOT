@@ -9,7 +9,7 @@ import {
 } from '@syncot/presence'
 import { invertedStreams } from '@syncot/stream'
 import { whenNextTick } from '@syncot/util'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
 import { requestNames } from './presenceClient'
@@ -27,7 +27,7 @@ const syncErrorMatcher = expect.objectContaining({
 })
 
 const now = 12345
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 
 const userId = 'test-user-id'
 const sessionId = 'test-session-id'
@@ -55,7 +55,8 @@ class MockAuthClient extends SyncOtEmitter<AuthEvents> implements AuthClient {
     public userId = userId
 }
 
-class MockPresenceService extends SyncOtEmitter<PresenceServiceEvents>
+class MockPresenceService
+    extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     public submitPresence = jest
         .fn<Promise<void>, [Presence]>()
@@ -84,20 +85,20 @@ class MockPresenceService extends SyncOtEmitter<PresenceServiceEvents>
 }
 
 const whenPresence = () =>
-    new Promise(resolve => presenceClient.once('presence', resolve))
+    new Promise((resolve) => presenceClient.once('presence', resolve))
 
 const whenActive = () =>
-    new Promise(resolve => presenceClient.once('active', resolve))
+    new Promise((resolve) => presenceClient.once('active', resolve))
 
 const whenInactive = () =>
-    new Promise(resolve => presenceClient.once('inactive', resolve))
+    new Promise((resolve) => presenceClient.once('inactive', resolve))
 
 const whenDestroy = () =>
-    new Promise(resolve => presenceClient.once('destroy', resolve))
+    new Promise((resolve) => presenceClient.once('destroy', resolve))
 
 const whenSyncError = () =>
     new Promise((resolve, reject) =>
-        presenceClient.once('error', error => {
+        presenceClient.once('error', (error) => {
             try {
                 expect(error).toEqual(syncErrorMatcher)
                 resolve()
@@ -112,7 +113,7 @@ const whenStreamData = (
     expectedData: string | number | boolean,
 ) =>
     new Promise((resolve, reject) =>
-        stream.once('data', streamData => {
+        stream.once('data', (streamData) => {
             try {
                 expect(streamData).toBe(expectedData)
                 resolve()

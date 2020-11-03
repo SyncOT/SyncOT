@@ -9,12 +9,13 @@ import { AddressInfo } from 'net'
 import * as sockJs from 'sockjs'
 import SockJsClient from 'sockjs-client'
 import ws from 'ws'
-import { TsonSocket, TsonSocketStream } from '.'
 import {
+    ReadyState,
     sockJsClientConnectionToTsonSocket,
     sockJsServerConnectionToTsonSocket,
-} from './sockJsAdapters'
-import { ReadyState } from './tsonSocketStream'
+    TsonSocket,
+    TsonSocketStream,
+} from '.'
 
 const error = new Error('test error')
 
@@ -39,19 +40,23 @@ let allOpen: Promise<void>
 let allClosed: Promise<any>
 
 const setUpPromises = () => {
-    allOpen = new Promise(resolve =>
+    allOpen = new Promise((resolve) =>
         clientSocket.addEventListener('open', resolve),
     )
     allClosed = Promise.all([
-        new Promise(resolve => clientSocket.addEventListener('close', resolve)),
-        new Promise(resolve => clientStream.on('close', resolve)),
-        new Promise(resolve => serverSocket.addEventListener('close', resolve)),
-        new Promise(resolve => serverStream.on('close', resolve)),
+        new Promise((resolve) =>
+            clientSocket.addEventListener('close', resolve),
+        ),
+        new Promise((resolve) => clientStream.on('close', resolve)),
+        new Promise((resolve) =>
+            serverSocket.addEventListener('close', resolve),
+        ),
+        new Promise((resolve) => serverStream.on('close', resolve)),
     ])
 }
 
 const setUpWebSocket = (webSocketConstructor: any) => () => {
-    beforeEach(done => {
+    beforeEach((done) => {
         wsServer = new ws.Server({ port: 0 })
         wsServer.once('listening', () => {
             const { port } = wsServer.address() as AddressInfo
@@ -61,7 +66,7 @@ const setUpWebSocket = (webSocketConstructor: any) => () => {
             })
             clientStream = new TsonSocketStream(clientSocket)
         })
-        wsServer.once('connection', newServerSocket => {
+        wsServer.once('connection', (newServerSocket) => {
             serverSocket = newServerSocket
             serverStream = new TsonSocketStream(serverSocket)
             setUpPromises()
@@ -69,13 +74,13 @@ const setUpWebSocket = (webSocketConstructor: any) => () => {
         })
     })
 
-    afterEach(done => {
+    afterEach((done) => {
         wsServer.close(done)
     })
 }
 
 const setUpSockJs = () => {
-    beforeEach(done => {
+    beforeEach((done) => {
         httpServer = http.createServer()
         sockJsServer = sockJs.createServer({ log: () => undefined })
         sockJsServer.installHandlers(httpServer)
@@ -86,7 +91,7 @@ const setUpSockJs = () => {
             )
             clientStream = new TsonSocketStream(clientSocket)
         })
-        sockJsServer.once('connection', sockJsConnection => {
+        sockJsServer.once('connection', (sockJsConnection) => {
             serverSocket = sockJsServerConnectionToTsonSocket(sockJsConnection)
             serverStream = new TsonSocketStream(serverSocket)
             setUpPromises()
@@ -95,7 +100,7 @@ const setUpSockJs = () => {
         httpServer.listen()
     })
 
-    afterEach(done => {
+    afterEach((done) => {
         clientSocket.close()
         serverSocket.close()
         httpServer.close(done)
@@ -215,7 +220,7 @@ describe.each<[string, () => void]>([
         })
     })
 
-    describe.each(['client', 'server'])('%s', side => {
+    describe.each(['client', 'server'])('%s', (side) => {
         beforeEach(async () => {
             if (side === 'server') {
                 // Once fully connected, the sockets and streams should behave in exactly the same
@@ -452,7 +457,7 @@ describe.each<[string, () => void]>([
             const message4 = { key: 'message 4' }
 
             let resolvePromise: undefined | (() => void)
-            const promise = new Promise(resolve => (resolvePromise = resolve))
+            const promise = new Promise((resolve) => (resolvePromise = resolve))
 
             let calls = 0
             const ready = () => {

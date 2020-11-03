@@ -92,7 +92,7 @@ const streams: { [key: string]: any } = {
 
 beforeAll(async () => {
     // Introduce a delay, so that the stream's readable state could be updated.
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
 })
 
 test.each<[string, string, boolean]>([
@@ -290,7 +290,7 @@ describe('invertedStreams', () => {
             invertedStreams().reverse(),
         ])('read and write some data (%#)', async (a, b) => {
             const data = Array.from(Array(10), (_, x) => x.toString())
-            const bufferData = data.map(d => Buffer.from(d))
+            const bufferData = data.map((d) => Buffer.from(d))
 
             const dataA = jest.fn()
             const dataB = jest.fn()

@@ -1,7 +1,7 @@
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { generateId } from '.'
 
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 
 beforeEach(() => {
     clock = installClock()

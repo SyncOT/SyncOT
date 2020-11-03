@@ -31,6 +31,6 @@
     "@syncot/error": "file:../error",
     "@syncot/events": "file:../events",
     "@syncot/util": "file:../util",
-    "tslib": "^1.9.3"
+    "tslib": "^2.0.3"
   }
 }

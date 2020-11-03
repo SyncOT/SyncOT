@@ -106,7 +106,7 @@ class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
 }
 
 const whenMessage = (expectedTopic: string, expectedMessage: string) =>
-    new Promise(resolve => {
+    new Promise((resolve) => {
         const listener = (_pattern: string, topic: string, message: string) => {
             if (topic === expectedTopic && message === expectedMessage) {
                 testSubscriber.off('pmessage', listener)
@@ -117,7 +117,7 @@ const whenMessage = (expectedTopic: string, expectedMessage: string) =>
     })
 
 const whenCalled = (fn: jest.Mock) =>
-    new Promise(resolve => fn.mockImplementationOnce(resolve))
+    new Promise((resolve) => fn.mockImplementationOnce(resolve))
 
 beforeAll(async () => {
     let attempt = 1
@@ -350,7 +350,7 @@ test('invalid connection (destroyed)', () => {
 
 test('destroy on connection destroy', async () => {
     connection1.destroy()
-    await new Promise(resolve => presenceService.once('destroy', resolve))
+    await new Promise((resolve) => presenceService.once('destroy', resolve))
 })
 
 test('invalid authService (missing)', () => {
@@ -391,7 +391,7 @@ test('invalid authService (destroyed)', () => {
 
 test('destroy on authService destroy', async () => {
     authService.destroy()
-    await new Promise(resolve => presenceService.once('destroy', resolve))
+    await new Promise((resolve) => presenceService.once('destroy', resolve))
 })
 
 test('create twice on the same connection', () => {
@@ -414,7 +414,7 @@ test('destroy', async () => {
     const onDestroy = jest.fn()
     presenceService.on('destroy', onDestroy)
     presenceService.destroy()
-    await new Promise(resolve => presenceService.once('destroy', resolve))
+    await new Promise((resolve) => presenceService.once('destroy', resolve))
     expect(onDestroy).toHaveBeenCalledTimes(1)
     await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
         alreadyDestroyedMatcher,
@@ -626,7 +626,7 @@ describe('submitPresence', () => {
         presenceService.once('error', onError)
         await Promise.all([
             presenceProxy.submitPresence(presence),
-            new Promise(resolve => presenceService.once('error', resolve)),
+            new Promise((resolve) => presenceService.once('error', resolve)),
         ])
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -1108,7 +1108,7 @@ describe('getPresenceByUserId', () => {
         await redis.sadd(userKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
-            loadedPresence => loadedPresence.sessionId === sessionId,
+            (loadedPresence) => loadedPresence.sessionId === sessionId,
         )
         expect(await presenceProxy.getPresenceByUserId(userId)).toEqual([
             presence,
@@ -1328,7 +1328,7 @@ describe('getPresenceByLocationId', () => {
         await redis.sadd(locationKey, sessionId, sessionId2)
 
         authService.mayReadPresence.mockImplementation(
-            loadedPresence => loadedPresence.sessionId === sessionId,
+            (loadedPresence) => loadedPresence.sessionId === sessionId,
         )
         expect(
             await presenceProxy.getPresenceByLocationId(locationId),

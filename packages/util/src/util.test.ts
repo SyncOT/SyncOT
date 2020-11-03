@@ -1,6 +1,6 @@
 import { createInvalidEntityError } from '@syncot/error'
 import { EventEmitter } from 'events'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import {
     assert,
     assertUnreachable,
@@ -91,7 +91,7 @@ test('whenNextTick', async () => {
 })
 
 describe('delay', () => {
-    let clock: InstalledClock<Clock>
+    let clock: InstalledClock
 
     beforeEach(() => {
         clock = installClock()
@@ -101,7 +101,7 @@ describe('delay', () => {
         clock.uninstall()
     })
 
-    test.each([undefined, 0, 1, 2, 1000])('timeout=%p', async timeout => {
+    test.each([undefined, 0, 1, 2, 1000])('timeout=%p', async (timeout) => {
         const promise = delay(timeout)
         expect(clock.countTimers()).toBe(1)
         clock.next()
@@ -168,7 +168,7 @@ describe('randomInteger', () => {
         -1,
         113,
         -113,
-    ])('collapsed range (%d)', range => {
+    ])('collapsed range (%d)', (range) => {
         expect(randomInteger(range, range)).toBe(range)
     })
     test.each([
@@ -198,14 +198,14 @@ describe('assert', () => {
 
     test.each([true, 1, {}, noop, [], 'false'])(
         'do not throw on: value === %p',
-        value => {
+        (value) => {
             assert(value, message)
         },
     )
 
     test.each([false, 0, null, undefined, ''])(
         'throw on: value === %p',
-        value => {
+        (value) => {
             expect(() => assert(value, message)).toThrow(
                 expect.objectContaining({
                     message,

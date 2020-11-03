@@ -53,7 +53,8 @@ export const requestNames = new Set([
     'streamPresenceByUserId',
 ])
 
-class Client extends SyncOtEmitter<PresenceClientEvents>
+class Client
+    extends SyncOtEmitter<PresenceClientEvents>
     implements PresenceClient {
     public active: boolean = false
     public sessionId: string | undefined = undefined

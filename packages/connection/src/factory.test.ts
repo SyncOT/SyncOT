@@ -37,9 +37,9 @@ test.each<[string[], string, string[]]>([
     [['fail1', 'fail2', 'fail3', 'ok1', 'ok2', 'ok3'], 'stream1', []],
     [['fail1', 'fail2', 'fail3'], '', ['error1', 'error2', 'error3']],
 ])('factories=%p', async (factoryNames, streamName, errorNames) => {
-    const factoryList = factoryNames.map(name => factories[name])
+    const factoryList = factoryNames.map((name) => factories[name])
     const stream = streams[streamName]
-    const errorList = errorNames.map(name => errors[name])
+    const errorList = errorNames.map((name) => errors[name])
     const promise = createStream(factoryList)()
 
     if (stream) {

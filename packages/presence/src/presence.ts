@@ -12,28 +12,28 @@ export interface Presence {
 }
 
 export const validatePresence: Validator<Presence> = validate([
-    presence =>
+    (presence) =>
         typeof presence === 'object' && presence != null
             ? undefined
             : createInvalidEntityError('Presence', presence, null),
-    presence =>
+    (presence) =>
         typeof presence.sessionId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'sessionId'),
-    presence =>
+    (presence) =>
         typeof presence.userId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'userId'),
-    presence =>
+    (presence) =>
         typeof presence.locationId === 'string'
             ? undefined
             : createInvalidEntityError('Presence', presence, 'locationId'),
-    presence =>
+    (presence) =>
         typeof presence.lastModified === 'number' &&
         Number.isFinite(presence.lastModified)
             ? undefined
             : createInvalidEntityError('Presence', presence, 'lastModified'),
-    presence =>
+    (presence) =>
         presence.hasOwnProperty('data')
             ? undefined
             : createInvalidEntityError('Presence', presence, 'data'),

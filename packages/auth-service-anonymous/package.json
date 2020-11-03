@@ -33,6 +33,6 @@
     "@syncot/events": "file:../events",
     "@syncot/id": "file:../id",
     "@syncot/util": "file:../util",
-    "tslib": "^1.9.3"
+    "tslib": "^2.0.3"
   }
 }

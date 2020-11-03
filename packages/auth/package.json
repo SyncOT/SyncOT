@@ -29,6 +29,6 @@
   "dependencies": {
     "@syncot/events": "file:../events",
     "@syncot/presence": "file:../presence",
-    "tslib": "^1.9.3"
+    "tslib": "^2.0.3"
   }
 }

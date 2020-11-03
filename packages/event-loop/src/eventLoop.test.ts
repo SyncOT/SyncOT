@@ -41,7 +41,7 @@ test('execute a task synchronously', () => {
 
 test('schedule a task for the next cycle', async () => {
     let resolve: jest.Mock
-    const promise = new Promise(r => (resolve = jest.fn(r)))
+    const promise = new Promise((r) => (resolve = jest.fn(r)))
     blockEventLoop()
     expect(eventLoop.execute(resolve!)).toBe(false)
     expect(resolve!).toHaveBeenCalledTimes(0)

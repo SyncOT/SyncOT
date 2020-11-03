@@ -26,8 +26,10 @@ const presenceList: Presence[] = Array.from({ length: 5 }, (_, index) => ({
     sessionId: `${sessionId}-${index}`,
     userId: `${sessionId}-${index}`,
 }))
-const sessionIdList: string[] = presenceList.map(presence => presence.sessionId)
-const pairList: [string, Presence][] = presenceList.map(presence => [
+const sessionIdList: string[] = presenceList.map(
+    (presence) => presence.sessionId,
+)
+const pairList: [string, Presence][] = presenceList.map((presence) => [
     presence.sessionId,
     presence,
 ])
@@ -61,7 +63,8 @@ const testErrorMatcher = expect.objectContaining({
     name: 'Error',
 })
 
-class MockPresenceClient extends SyncOtEmitter<PresenceClientEvents>
+class MockPresenceClient
+    extends SyncOtEmitter<PresenceClientEvents>
     implements PresenceClient {
     public sessionId: string | undefined = sessionId
     public userId: string | undefined = userId
@@ -106,13 +109,13 @@ describe('init', () => {
         test('destroy on presenceClient destroy', async () => {
             const sync = syncPresenceByCurrentLocationId(presenceClient)
             presenceClient.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByCurrentLocationId(presenceClient)
             sync.destroy()
             sync.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
     })
 
@@ -136,13 +139,13 @@ describe('init', () => {
         test('destroy on presenceClient destroy', async () => {
             const sync = syncPresenceByLocationId(presenceClient, '')
             presenceClient.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByLocationId(presenceClient, locationId)
             sync.destroy()
             sync.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
     })
 
@@ -166,13 +169,13 @@ describe('init', () => {
         test('destroy on presenceClient destroy', async () => {
             const sync = syncPresenceBySessionId(presenceClient, '')
             presenceClient.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceBySessionId(presenceClient, sessionId)
             sync.destroy()
             sync.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
     })
 
@@ -196,13 +199,13 @@ describe('init', () => {
         test('destroy on presenceClient destroy', async () => {
             const sync = syncPresenceByUserId(presenceClient, '')
             presenceClient.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByUserId(presenceClient, userId)
             sync.destroy()
             sync.destroy()
-            await new Promise(resolve => sync.once('destroy', resolve))
+            await new Promise((resolve) => sync.once('destroy', resolve))
         })
     })
 })

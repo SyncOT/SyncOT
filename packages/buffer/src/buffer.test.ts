@@ -18,7 +18,7 @@ describe('toBuffer', () => {
     test.each<[ArrayBufferConstructor | SharedArrayBufferConstructor]>([
         [ArrayBuffer],
         [SharedArrayBuffer],
-    ])('%s', arrayBufferConstructor => {
+    ])('%s', (arrayBufferConstructor) => {
         const arrayBuffer = new arrayBufferConstructor(4)
         const buffer = toBuffer(arrayBuffer)
         expect(buffer).toBeInstanceOf(Buffer)
@@ -46,7 +46,7 @@ describe('toBuffer', () => {
         [Uint32Array],
         [Float32Array],
         [Float64Array],
-    ])('%s', viewConstructor => {
+    ])('%s', (viewConstructor) => {
         const arrayBuffer = new ArrayBuffer(128)
         const view = new viewConstructor(arrayBuffer, 8, 2)
         const buffer = toBuffer(view)
@@ -68,7 +68,7 @@ describe('toBuffer', () => {
         ['abc'],
         [true],
         [false],
-    ])('%p', input => {
+    ])('%p', (input) => {
         expect(toBuffer(input)).toBeUndefined()
     })
 })
@@ -87,7 +87,7 @@ describe('toArrayBuffer', () => {
     test.each<[ArrayBufferConstructor | SharedArrayBufferConstructor]>([
         [ArrayBuffer],
         [SharedArrayBuffer],
-    ])('%s', constructor => {
+    ])('%s', (constructor) => {
         const arrayBuffer = new constructor(8)
         expect(toArrayBuffer(arrayBuffer)).toBe(arrayBuffer)
     })
@@ -103,7 +103,7 @@ describe('toArrayBuffer', () => {
         [Uint32Array],
         [Float32Array],
         [Float64Array],
-    ])('%p', viewConstructor => {
+    ])('%p', (viewConstructor) => {
         const data = new ArrayBuffer(16)
         const view = new viewConstructor(data)
         const buffer = Buffer.from(data)
@@ -129,7 +129,7 @@ describe('toArrayBuffer', () => {
         ['abc'],
         [true],
         [false],
-    ])('%p', input => {
+    ])('%p', (input) => {
         expect(toArrayBuffer(input)).toBeUndefined()
     })
 })
@@ -158,7 +158,7 @@ describe('isBinary', () => {
                 Uint32Array,
                 Float32Array,
                 Float64Array,
-            ].map(constructor => [
+            ].map((constructor) => [
                 constructor.name,
                 new constructor(new ArrayBuffer(8)),
                 true,
@@ -279,11 +279,7 @@ describe('BufferWriter & BufferReader', () => {
         const writer = createBufferWriter(4)
 
         for (let i = 0; i < count; ++i) {
-            const value = Buffer.from(
-                Math.random()
-                    .toString()
-                    .substring(0, 4),
-            )
+            const value = Buffer.from(Math.random().toString().substring(0, 4))
             originalValues[i] = value
             writer.writeBuffer(value)
         }
@@ -303,9 +299,7 @@ describe('BufferWriter & BufferReader', () => {
         const writer = createBufferWriter(4)
 
         for (let i = 0; i < count; ++i) {
-            const value = Math.random()
-                .toString()
-                .substring(0, 4)
+            const value = Math.random().toString().substring(0, 4)
             originalValues[i] = value
             writer.writeString(value)
         }

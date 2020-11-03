@@ -2,4 +2,9 @@ export {
     sockJsClientConnectionToTsonSocket,
     sockJsServerConnectionToTsonSocket,
 } from './sockJsAdapters'
-export { TsonSocket, TsonSocketStream } from './tsonSocketStream'
+export {
+    /* istanbul ignore next */
+    ReadyState,
+    TsonSocket,
+    TsonSocketStream,
+} from './tsonSocketStream'

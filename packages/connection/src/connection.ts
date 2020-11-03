@@ -144,32 +144,34 @@ interface StreamDataMessage {
 }
 
 const validateMessage: Validator<Message> = validate([
-    message =>
+    (message) =>
         typeof message === 'object' && message !== null
             ? undefined
             : createInvalidEntityError('Message', message, null),
-    message =>
+    (message) =>
         Number.isSafeInteger(message.type) &&
         message.type >= MessageType.EVENT &&
         message.type <= MessageType.STREAM_OUTPUT_DESTROY
             ? undefined
             : createInvalidEntityError('Message', message, 'type'),
-    message =>
+    (message) =>
         typeof message.service === 'string'
             ? undefined
             : createInvalidEntityError('Message', message, 'service'),
-    message =>
-        (message.type === MessageType.EVENT ||
-        message.type === MessageType.REQUEST
-          ? typeof message.name === 'string'
-          : message.name === null)
+    (message) =>
+        (
+            message.type === MessageType.EVENT ||
+            message.type === MessageType.REQUEST
+                ? typeof message.name === 'string'
+                : message.name === null
+        )
             ? undefined
             : createInvalidEntityError('Message', message, 'name'),
-    message =>
+    (message) =>
         Number.isSafeInteger(message.id)
             ? undefined
             : createInvalidEntityError('Message', message, 'id'),
-    message => {
+    (message) => {
         if (message.type === MessageType.REQUEST) {
             return Array.isArray(message.data)
                 ? undefined
@@ -328,7 +330,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             `Service "${serviceName}" has been already registered.`,
         )
         assert(eventNames.size === 0, 'Connection events not implemented')
-        requestNames.forEach(requestName => {
+        requestNames.forEach((requestName) => {
             assert(
                 typeof (instance as any)[requestName] === 'function',
                 `Service.${requestName} must be a function.`,
@@ -370,7 +372,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
         const proxyRequests: RequestMap = new Map()
         const proxyStreams: StreamMap = new Map()
 
-        requestNames.forEach(requestName => {
+        requestNames.forEach((requestName) => {
             assert(
                 !(requestName in instance),
                 `Proxy.${requestName} already exists.`,

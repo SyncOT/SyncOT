@@ -27,6 +27,6 @@
   },
   "dependencies": {
     "@syncot/error": "file:../error",
-    "tslib": "^1.9.3"
+    "tslib": "^2.0.3"
   }
 }

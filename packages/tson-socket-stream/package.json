@@ -35,10 +35,10 @@
     "@syncot/event-loop": "file:../event-loop",
     "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",
-    "@types/node": "^12.0.4",
+    "@types/node": "^14.14.6",
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",
-    "tslib": "^1.9.3"
+    "tslib": "^2.0.3"
   },
   "peerDependencies": {
     "@syncot/event-loop": "^0.1.0"

@@ -77,7 +77,8 @@ export function createStreamManager({
     )
 }
 
-class Manager extends SyncOtEmitter<StreamManagerEvents>
+class Manager
+    extends SyncOtEmitter<StreamManagerEvents>
     implements StreamManager {
     private attempt: number = -1
     private scheduledConnect: NodeJS.Timeout | undefined = undefined
@@ -147,7 +148,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         }
 
         const stream = await this.createStream()
-        stream.on('error', error => this.emitAsync('error', error))
+        stream.on('error', (error) => this.emitAsync('error', error))
 
         if (!this.shouldConnect()) {
             stream.destroy()
@@ -194,7 +195,7 @@ class Manager extends SyncOtEmitter<StreamManagerEvents>
         this.attempt++
         this.scheduledConnect = setTimeout(() => {
             this.scheduledConnect = undefined
-            this.connect().catch(error => {
+            this.connect().catch((error) => {
                 this.emitAsync('error', error)
                 this.scheduleConnect()
             })

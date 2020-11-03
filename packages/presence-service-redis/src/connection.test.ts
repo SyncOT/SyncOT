@@ -9,11 +9,8 @@ import {
     PresenceCommands,
     sessionPrefix,
 } from './commands'
-import {
-    extractConnectionIds,
-    getRedisConnectionManager,
-    RedisConnectionManager,
-} from './connection'
+import { extractConnectionIds } from './connection'
+import { getRedisConnectionManager, RedisConnectionManager } from '.'
 
 let port: number
 let redisServer: RedisServer
@@ -68,7 +65,7 @@ async function assertPresenceExists(
 }
 
 const whenConnectionId = async (manager: RedisConnectionManager) =>
-    new Promise(resolve => manager.once('connectionId', resolve))
+    new Promise((resolve) => manager.once('connectionId', resolve))
 
 beforeAll(async () => {
     let attempt = 1

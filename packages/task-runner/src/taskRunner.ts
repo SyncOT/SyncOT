@@ -70,7 +70,8 @@ export function createTaskRunner<Result>(
     return new Runner(task, minDelay, maxDelay, delayFactor)
 }
 
-class Runner<Result> extends SyncOtEmitter<TaskRunnerEvents<Result>>
+class Runner<Result>
+    extends SyncOtEmitter<TaskRunnerEvents<Result>>
     implements TaskRunner<Result> {
     private timeout: NodeJS.Timeout | undefined = undefined
     private promise: Promise<Result> | undefined = undefined
@@ -134,14 +135,14 @@ class Runner<Result> extends SyncOtEmitter<TaskRunnerEvents<Result>>
     private runNow(): void {
         const promise = (this.promise = this.runTask())
         promise.then(
-            result => {
+            (result) => {
                 if (this.promise === promise) {
                     this.promise = undefined
                     this.attempt = 0
                     this.emitAsync('done', result)
                 }
             },
-            error => {
+            (error) => {
                 if (this.promise === promise) {
                     this.promise = undefined
                     this.schedule()

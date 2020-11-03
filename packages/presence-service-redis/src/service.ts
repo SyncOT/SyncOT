@@ -86,7 +86,8 @@ export const requestNames = new Set([
 
 const eventLoop = globalEventLoop()
 
-class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
+class RedisPresenceService
+    extends SyncOtEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
     private readonly connectionManager: RedisConnectionManager
@@ -162,7 +163,7 @@ class RedisPresenceService extends SyncOtEmitter<PresenceServiceEvents>
         this.authService.off('inactive', this.onInactive)
 
         this.deleteFromRedis()
-        this.presenceStreams.forEach(stream => stream.destroy())
+        this.presenceStreams.forEach((stream) => stream.destroy())
         this.presenceStreams.clear()
         super.destroy()
     }

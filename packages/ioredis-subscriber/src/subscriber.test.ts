@@ -24,7 +24,7 @@ const message2 = 'message 2'
 const message3 = 'message 3'
 
 const whenRedisCommandExecuted = (commandName: string) =>
-    new Promise(resolve => {
+    new Promise((resolve) => {
         const listener = (_: any, args: any[]) => {
             if (args[0].toLowerCase() === commandName.toLowerCase()) {
                 monitor.off('monitor', listener)
@@ -35,7 +35,7 @@ const whenRedisCommandExecuted = (commandName: string) =>
     })
 
 const whenCalled = (fn: jest.Mock) =>
-    new Promise(resolve => fn.mockImplementationOnce(resolve))
+    new Promise((resolve) => fn.mockImplementationOnce(resolve))
 
 let port: number
 let redisServer: RedisServer

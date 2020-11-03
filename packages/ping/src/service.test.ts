@@ -1,7 +1,7 @@
 import { Connection, createConnection } from '@syncot/connection'
 import { invertedStreams } from '@syncot/stream'
 import { whenEvent, whenNextTick, whenError, noop } from '@syncot/util'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex } from 'readable-stream'
 import { createPingService, PingService } from '.'
 import { InternalPingService } from './service'
@@ -13,7 +13,7 @@ let serverConnection: Connection
 let clientPing: PingService
 let serverPing: PingService
 
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 
 const whenDestroy = whenEvent('destroy')
 const whenPing = whenEvent('ping')

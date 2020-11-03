@@ -1,8 +1,8 @@
 import { whenNextTick } from '@syncot/util'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { createTaskRunner, TaskRunner } from '.'
 
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 type Result = string
 const result = 'test result'
 const testError = new Error('test error')
@@ -35,11 +35,11 @@ const assertionMatcher = (message: string) =>
     })
 
 const whenDestroy = () =>
-    new Promise(resolve => runner.once('destroy', resolve))
+    new Promise((resolve) => runner.once('destroy', resolve))
 
 const whenDone = () =>
     new Promise((resolve, reject) =>
-        runner.once('done', value => {
+        runner.once('done', (value) => {
             try {
                 expect(value).toBe(result)
                 resolve()
@@ -51,7 +51,7 @@ const whenDone = () =>
 
 const whenError = () =>
     new Promise((resolve, reject) =>
-        runner.once('error', error => {
+        runner.once('error', (error) => {
             try {
                 expect(error).toBe(testError)
                 resolve()
@@ -75,7 +75,7 @@ afterEach(() => {
 
 test.each<any>([-1, 5.5, '5', Infinity, NaN])(
     'invalid minDelay === %p',
-    invalidMinDelay => {
+    (invalidMinDelay) => {
         expect(() =>
             createTaskRunner(task, {
                 maxDelay: 1000,
@@ -90,7 +90,7 @@ test.each<any>([-1, 5.5, '5', Infinity, NaN])(
 )
 test.each<any>([-1, 1, 5.5, '5', Infinity, NaN])(
     'invalid maxDelay === %p, minDelay === 2',
-    invalidMaxDelay => {
+    (invalidMaxDelay) => {
         expect(() =>
             createTaskRunner(task, {
                 maxDelay: invalidMaxDelay,
@@ -105,7 +105,7 @@ test.each<any>([-1, 1, 5.5, '5', Infinity, NaN])(
 )
 test.each<any>([-1, 0.5, '5', Infinity, NaN])(
     'invalid delayFactor === %p',
-    invalidDelayFactor => {
+    (invalidDelayFactor) => {
         expect(() =>
             createTaskRunner(task, {
                 delayFactor: invalidDelayFactor,
@@ -119,7 +119,7 @@ test.each<any>([-1, 0.5, '5', Infinity, NaN])(
 )
 test.each<any>([null, undefined, 5, true])(
     'invalid task === %p',
-    invalidTask => {
+    (invalidTask) => {
         expect(() => createTaskRunner(invalidTask)).toThrow(
             assertionMatcher('Argument "task" must be a function.'),
         )

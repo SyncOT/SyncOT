@@ -56,7 +56,7 @@ export function getRedisConnectionManager(
  */
 export function extractConnectionIds(clientList: string): number[] {
     const connectionIds: number[] = []
-    clientList.split('\n').forEach(line => {
+    clientList.split('\n').forEach((line) => {
         const match = /(?:^| )id=(\d+)(?: |$)/.exec(line)
         if (match) {
             connectionIds.push(Number(match[1]))
@@ -72,7 +72,8 @@ interface RedisConnectionManagerEvents {
 
 const cache: WeakMap<Redis.Redis, RedisConnectionManager> = new WeakMap()
 
-class Collector extends TypedEventEmitter<RedisConnectionManagerEvents>
+class Collector
+    extends TypedEventEmitter<RedisConnectionManagerEvents>
     implements RedisConnectionManager {
     public connectionId: number | undefined = undefined
     public pruningInterval: number = 1000

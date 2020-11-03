@@ -13,7 +13,7 @@ let url: string
 
 const whenConnected = (stream: Duplex) =>
     new Promise((resolve, reject) => {
-        stream.once('data', data => {
+        stream.once('data', (data) => {
             try {
                 expect(data).toBe(greeting)
                 stream.once('close', resolve)
@@ -23,9 +23,9 @@ const whenConnected = (stream: Duplex) =>
         })
     })
 
-beforeAll(done => {
+beforeAll((done) => {
     server = new ws.Server({ port: 0 })
-    server.on('connection', socket => {
+    server.on('connection', (socket) => {
         socket.send(encodedGreeting)
         socket.close()
     })
@@ -36,7 +36,7 @@ beforeAll(done => {
     })
 })
 
-afterAll(done => {
+afterAll((done) => {
     server.close(done)
 })
 

@@ -69,14 +69,14 @@ export function noop() {
  * Returns a Promise that resolves on `process.nextTick`.
  */
 export function whenNextTick() {
-    return new Promise(resolve => process.nextTick(resolve))
+    return new Promise((resolve) => process.nextTick(resolve))
 }
 
 /**
  * Returns a Promise that resolves after the specified minimum number of milliseconds.
  */
 export function delay(minDelayMilliseconds: number = 0) {
-    return new Promise(resolve => setTimeout(resolve, minDelayMilliseconds))
+    return new Promise((resolve) => setTimeout(resolve, minDelayMilliseconds))
 }
 
 /**
@@ -84,7 +84,7 @@ export function delay(minDelayMilliseconds: number = 0) {
  */
 export const whenEvent = (event: string) => (emitter: {
     once: (event: string, callback: () => void) => void
-}) => new Promise<void>(resolve => emitter.once(event, resolve))
+}) => new Promise<void>((resolve) => emitter.once(event, resolve))
 /**
  * Returns a promise which resolves when `emitter` emits `"data"`.
  */

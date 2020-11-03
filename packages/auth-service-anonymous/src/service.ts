@@ -35,7 +35,8 @@ export interface LoginResponse {
     userId: string
 }
 
-class AnonymousAuthService extends SyncOtEmitter<AuthEvents>
+class AnonymousAuthService
+    extends SyncOtEmitter<AuthEvents>
     implements AuthService {
     public active: boolean = false
     public sessionId: string | undefined = undefined

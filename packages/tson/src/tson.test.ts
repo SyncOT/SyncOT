@@ -513,7 +513,7 @@ describe('encode', () => {
                 ['Buffer', testBuffer],
             ] as [string, Binary][]).concat(
                 testTypedArrays.map(
-                    array =>
+                    (array) =>
                         [array.constructor.name, array] as [string, Binary],
                 ),
             ),
@@ -527,7 +527,7 @@ describe('encode', () => {
 
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
             'length: %d',
-            length => {
+            (length) => {
                 const data = Buffer.allocUnsafe(length).fill(0x57)
                 const buffer = encodeToBufferReader(data)
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
@@ -554,7 +554,7 @@ describe('encode', () => {
     describe('ARRAY', () => {
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
             'length: %d',
-            length => {
+            (length) => {
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
                 const arrayType =
                     length <= 0xff
@@ -627,7 +627,7 @@ describe('encode', () => {
     describe('OBJECT', () => {
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
             'property count: %d',
-            length => {
+            (length) => {
                 const typeSize = 1
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
                 const objectType =
@@ -681,7 +681,7 @@ describe('encode', () => {
 
         test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10011])(
             'key length: %d',
-            length => {
+            (length) => {
                 const lengthSize = length <= 0xff ? 1 : length <= 0xffff ? 2 : 4
                 const object: { [key: string]: number } = {}
                 const key = Array.from(Array(length), (_, i) => i % 10).join('')
@@ -734,19 +734,19 @@ describe('encode', () => {
             const buffer = encodeToBufferReader(object)
             expect(buffer.length).toBe(
                 1 + // object type
-                1 + // object size
-                4 + // property a
-                4 + // property b
-                12 + // property c
-                8 + // property d
-                6 + // property e
-                5 + // property f
-                8 + // property g
-                4 + // property h
-                8 + // property A
-                5 + // property B
-                2 + // array 0
-                7 + // array 1
+                    1 + // object size
+                    4 + // property a
+                    4 + // property b
+                    12 + // property c
+                    8 + // property d
+                    6 + // property e
+                    5 + // property f
+                    8 + // property g
+                    4 + // property h
+                    8 + // property A
+                    5 + // property B
+                    2 + // array 0
+                    7 + // array 1
                     2, // array 2
             )
             expect(buffer.readUInt8()).toBe(Type.OBJECT8)
@@ -857,7 +857,7 @@ describe('encode', () => {
                 },
             }
             const object5 = new Error('test-error')
-            ;(object5 as any).toJSON = function(key: string) {
+            ;(object5 as any).toJSON = function (key: string) {
                 expect(this).toBe(object5)
                 expect(key).toBe('')
                 return 'converted error'
@@ -1024,8 +1024,8 @@ describe('encode', () => {
             const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
-                7 + // name
-                12 + // message
+                    7 + // name
+                    12 + // message
                     1, // extra properties
             )
             expect(buffer.readUInt8()).toBe(Type.ERROR)
@@ -1044,8 +1044,8 @@ describe('encode', () => {
             const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
-                11 + // name
-                12 + // message
+                    11 + // name
+                    12 + // message
                     1, // extra properties
             )
             expect(buffer.readUInt8()).toBe(Type.ERROR)
@@ -1092,10 +1092,10 @@ describe('encode', () => {
             const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
-                7 + // name
-                6 + // message
-                1 + // details type
-                lengthSize + // details size
+                    7 + // name
+                    6 + // message
+                    1 + // details type
+                    lengthSize + // details size
                     length * (12 + 2), // details properties
             )
             expect(buffer.readUInt8()).toBe(Type.ERROR)
@@ -1150,12 +1150,12 @@ describe('encode', () => {
             const buffer = encodeToBufferReader(error)
             expect(buffer.length).toBe(
                 1 + // type
-                7 + // name
-                6 + // message
-                1 + // details type
-                1 + // details size
-                4 + // property a
-                27 + // property b
+                    7 + // name
+                    6 + // message
+                    1 + // details type
+                    1 + // details size
+                    4 + // property a
+                    27 + // property b
                     4, // property c
             )
             expect(buffer.readUInt8()).toBe(Type.ERROR)
@@ -1277,7 +1277,7 @@ describe('decode', () => {
             ['Buffer', testBuffer],
         ] as [string, Binary][]).concat(
             testTypedArrays.map(
-                array => [array.constructor.name, array] as [string, Binary],
+                (array) => [array.constructor.name, array] as [string, Binary],
             ),
         ),
     )('input type: %s', (_message, data) => {
@@ -1392,7 +1392,7 @@ describe('decode', () => {
         return new Error(message)
     }
     const toCharCodeArray = (text: string): number[] =>
-        text.split('').map(c => c.charCodeAt(0))
+        text.split('').map((c) => c.charCodeAt(0))
 
     test.each<[string, any]>([
         ['NULL', null],
@@ -1474,7 +1474,7 @@ describe('decode', () => {
 
     test.each([0x0, 0x01, 0xff, 0x100, 0xffff, 0x10000, 0x10047])(
         'BINARY %d long',
-        length => {
+        (length) => {
             const data = Buffer.allocUnsafe(length).fill(0x46)
             expect(decode(encode(data))).toEqual(data)
         },
@@ -1728,7 +1728,7 @@ describe('decode', () => {
 
 test.each([0x00, 0x01, 0xff, 0x100, 0xffff, 0x10000])(
     'input, encoded and decoded buffers are independent (size=%d)',
-    size => {
+    (size) => {
         const originalData = Buffer.allocUnsafe(size).fill(0x78)
         const inputData = Buffer.allocUnsafe(size).fill(0x78)
         const encodedData = encode(inputData)

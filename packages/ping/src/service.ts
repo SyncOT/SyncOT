@@ -77,7 +77,8 @@ export interface InternalPingService {
     ping(): Promise<void>
 }
 
-class SimplePingService extends SyncOtEmitter<PingServiceEvents>
+class SimplePingService
+    extends SyncOtEmitter<PingServiceEvents>
     implements PingService {
     private readonly peerService: InternalPingService
     private timeoutHandle: NodeJS.Timeout | undefined = undefined
@@ -156,11 +157,10 @@ class SimplePingService extends SyncOtEmitter<PingServiceEvents>
             // a connection problem `this.timeout` milliseconds from the last successful ping.
             //
             // For some reason the type cast is needed for unit test type checker.
-            this.timeoutHandle = (setInterval as typeof global.setInterval)(
-                this.sendPing,
+            this.timeoutHandle = setInterval(
+                () => this.sendPing(false),
                 // tslint:disable-next-line:no-bitwise
                 this.timeout >> 1,
-                false,
             ) // For some reason this casting is necessary to make tests work.
             this.sendPing(true)
         }

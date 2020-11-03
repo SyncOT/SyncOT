@@ -43,14 +43,14 @@ let instance: {
 }
 
 const whenClose = (stream: Duplex) =>
-    new Promise(resolve => stream.once('close', resolve))
+    new Promise((resolve) => stream.once('close', resolve))
 
 const whenEnd = (stream: Duplex) =>
-    new Promise(resolve => stream.once('end', resolve))
+    new Promise((resolve) => stream.once('end', resolve))
 
 const whenData = (stream: Duplex, expectedData: any) =>
     new Promise((resolve, reject) =>
-        stream.once('data', data => {
+        stream.once('data', (data) => {
             try {
                 expect(data).toEqual(expectedData)
                 resolve()
@@ -1022,7 +1022,7 @@ describe('service and proxy', () => {
         })
         test.each(['returnInvalidStreamMethod', 'resolveInvalidStreamMethod'])(
             '%s',
-            async method => {
+            async (method) => {
                 const onError = jest.fn()
                 const onData = jest.fn()
                 connection.once('error', onError)
@@ -1044,7 +1044,7 @@ describe('service and proxy', () => {
         )
         test.each(['throwNonErrorMethod', 'rejectNonErrorMethod'])(
             '%s',
-            async method => {
+            async (method) => {
                 const onError = jest.fn()
                 const onDisconnect = jest.fn()
                 connection.on('error', onError)
@@ -1095,7 +1095,7 @@ describe('service and proxy', () => {
             [undefined],
             [() => true],
             [Symbol()],
-        ])('service returned value: %p', async value => {
+        ])('service returned value: %p', async (value) => {
             service.returnMethod.mockReturnValue(value)
             const onData = jest.fn()
             stream2.on('data', onData)
@@ -1168,7 +1168,7 @@ describe('service and proxy', () => {
         test('disconnect before returning a stream', async () => {
             let resolvePromise: (stream: Duplex) => void = noop
             const promise = new Promise<Duplex>(
-                resolve => (resolvePromise = resolve),
+                (resolve) => (resolvePromise = resolve),
             )
             service.resolveStreamMethod.mockReturnValue(promise)
             const onData = jest.fn()
@@ -1309,7 +1309,7 @@ describe('service and proxy', () => {
 
     describe('proxy requests', () => {
         test('request, reply', async () => {
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: replyData,
@@ -1329,7 +1329,7 @@ describe('service and proxy', () => {
             ).resolves.toBe(replyData)
         })
         test('request, stream', async () => {
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: null,
@@ -1349,7 +1349,7 @@ describe('service and proxy', () => {
             ).resolves.toBeInstanceOf(Duplex)
         })
         test('request, error', async () => {
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: error,
@@ -1371,7 +1371,7 @@ describe('service and proxy', () => {
         test(`request, invalid reply`, async () => {
             const onError = jest.fn()
             const onDisconnect = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: replyData,
@@ -1397,7 +1397,7 @@ describe('service and proxy', () => {
         })
         test('request, reply, reply', async () => {
             const onDisconnect = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: replyData,
@@ -1425,7 +1425,7 @@ describe('service and proxy', () => {
         })
         test('request, stream, stream', async () => {
             const onDisconnect = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: null,
@@ -1453,7 +1453,7 @@ describe('service and proxy', () => {
         })
         test('request, error, error', async () => {
             const onDisconnect = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: error,
@@ -1498,7 +1498,7 @@ describe('service and proxy', () => {
         test('request, stream, disconnect', async () => {
             const onError = jest.fn()
             const onClose = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: null,
@@ -1530,7 +1530,7 @@ describe('service and proxy', () => {
         test('request, stream, destroy presence stream, disconnect', async () => {
             const onError = jest.fn()
             const onClose = jest.fn()
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: null,
@@ -1589,7 +1589,7 @@ describe('service and proxy', () => {
         test('concurrent requests - 2 proxies', async () => {
             connection.registerProxy({ name: 'proxy-2', requestNames })
             const proxy2 = connection.getProxy('proxy-2') as TestProxy
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
@@ -1610,7 +1610,7 @@ describe('service and proxy', () => {
             await expect(promise2).resolves.toBe(0)
         })
         test('concurrent requests - 1 proxy, 2 different request names', async () => {
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
@@ -1631,7 +1631,7 @@ describe('service and proxy', () => {
             await expect(promise2).resolves.toBe(0)
         })
         test('concurrent requests - 1 proxy, 1 request name', async () => {
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: message.data.length,
@@ -1657,7 +1657,7 @@ describe('service and proxy', () => {
                 Symbol() as any,
                 (() => undefined) as any,
             ]
-            const onData = jest.fn(message => {
+            const onData = jest.fn((message) => {
                 stream2.write({
                     ...message,
                     data: message.data,

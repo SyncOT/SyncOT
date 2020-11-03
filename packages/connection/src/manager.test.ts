@@ -1,5 +1,5 @@
 import { noop, whenNextTick } from '@syncot/util'
-import { Clock, install as installClock, InstalledClock } from 'lolex'
+import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex } from 'readable-stream'
 import {
     Connection,
@@ -8,7 +8,7 @@ import {
     StreamManager,
 } from '.'
 
-let clock: InstalledClock<Clock>
+let clock: InstalledClock
 let connection: Connection
 let initialStream: Duplex
 let createStream: jest.Mock<Promise<Duplex>>
@@ -27,15 +27,15 @@ const testError = new Error('test error')
 const newStream = () => new Duplex({ read, write })
 
 const whenConnected = () =>
-    new Promise(resolve => connection.once('connect', resolve))
+    new Promise((resolve) => connection.once('connect', resolve))
 
 const whenDisconnected = () =>
-    new Promise(resolve => connection.once('disconnect', resolve))
+    new Promise((resolve) => connection.once('disconnect', resolve))
 
 const whenManagerError = () =>
-    new Promise<Error>(resolve => manager.once('error', resolve)).then(error =>
-        expect(error.message).toBe('test error'),
-    )
+    new Promise<Error>((resolve) =>
+        manager.once('error', resolve),
+    ).then((error) => expect(error.message).toBe('test error'))
 
 beforeEach(() => {
     clock = installClock()
@@ -418,14 +418,14 @@ test('destroy with a managed stream', async () => {
 
     manager.destroy()
     expect(stream.destroyed).toBe(true)
-    await new Promise(resolve => manager.on('destroy', resolve))
+    await new Promise((resolve) => manager.on('destroy', resolve))
     expect(connection.destroyed).toBe(false)
 })
 
 test('destroy without a managed stream', async () => {
     manager.destroy()
     expect(initialStream.destroyed).toBe(false)
-    await new Promise(resolve => manager.on('destroy', resolve))
+    await new Promise((resolve) => manager.on('destroy', resolve))
     expect(connection.destroyed).toBe(false)
 })
 
@@ -435,13 +435,13 @@ test('destroy with scheduled connect', async () => {
     expect(clock.countTimers()).toBe(1)
     manager.destroy()
     expect(clock.countTimers()).toBe(0)
-    await new Promise(resolve => manager.on('destroy', resolve))
+    await new Promise((resolve) => manager.on('destroy', resolve))
     expect(connection.destroyed).toBe(false)
 })
 
 test('destroy on connection destroy', async () => {
     connection.destroy()
-    await new Promise(resolve => manager.once('destroy', resolve))
+    await new Promise((resolve) => manager.once('destroy', resolve))
 })
 
 test('connect manually with scheduled connect', async () => {
@@ -548,7 +548,7 @@ test('connected with scheduled connect', async () => {
 
 test('connected while creating a new stream', async () => {
     let resolvePromise: (stream: Duplex) => void
-    const promise = new Promise<Duplex>(resolve => (resolvePromise = resolve))
+    const promise = new Promise<Duplex>((resolve) => (resolvePromise = resolve))
     createStream.mockReturnValueOnce(promise)
     const directStream = newStream()
     const managerStream = newStream()
@@ -559,7 +559,7 @@ test('connected while creating a new stream', async () => {
     connection.connect(directStream)
     const connectionId = connection.connectionId
     resolvePromise!(managerStream)
-    await new Promise(resolve => managerStream.once('close', resolve))
+    await new Promise((resolve) => managerStream.once('close', resolve))
     expect(connection.connectionId).toBe(connectionId)
     expect(directStream.destroyed).toBe(false)
 })

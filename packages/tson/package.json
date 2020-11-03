@@ -29,8 +29,8 @@
   "dependencies": {
     "@syncot/buffer": "file:../buffer",
     "@syncot/error": "file:../error",
-    "@types/node": "^12.0.4",
-    "tslib": "^1.9.3"
+    "@types/node": "^14.14.6",
+    "tslib": "^2.0.3"
   },
   "scripts": {
     "benchmark": "ESM_DISABLE_CACHE=true node -r esm --unhandled-rejections strict benchmark"

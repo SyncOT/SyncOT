@@ -240,7 +240,7 @@ class RedisSubscriber extends EventEmitter {
                 .subscribe(...channels)
                 .then(
                     () =>
-                        channels.forEach(channel =>
+                        channels.forEach((channel) =>
                             setActive(this.channels, channel, true),
                         ),
                     this.onError,
@@ -253,7 +253,7 @@ class RedisSubscriber extends EventEmitter {
                 .psubscribe(...patterns)
                 .then(
                     () =>
-                        patterns.forEach(pattern =>
+                        patterns.forEach((pattern) =>
                             setActive(this.patterns, pattern, true),
                         ),
                     this.onError,
@@ -262,10 +262,10 @@ class RedisSubscriber extends EventEmitter {
     }
 
     private onClose = () => {
-        Array.from(this.patterns.keys()).forEach(pattern =>
+        Array.from(this.patterns.keys()).forEach((pattern) =>
             setActive(this.patterns, pattern, false),
         )
-        Array.from(this.channels.keys()).forEach(channel =>
+        Array.from(this.channels.keys()).forEach((channel) =>
             setActive(this.channels, channel, false),
         )
     }

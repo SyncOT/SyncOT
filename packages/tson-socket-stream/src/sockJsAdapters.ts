@@ -3,7 +3,8 @@ import { assert } from '@syncot/util'
 import { EventEmitter } from 'events'
 import { TsonSocket } from './tsonSocketStream'
 
-class SockJsClientConnectionTsonSocket extends EventEmitter
+class SockJsClientConnectionTsonSocket
+    extends EventEmitter
     implements TsonSocket {
     public get binaryType(): string {
         return 'arraybuffer'
@@ -47,7 +48,8 @@ class SockJsClientConnectionTsonSocket extends EventEmitter
     }
 }
 
-class SockJsServerConnectionTsonSocket extends EventEmitter
+class SockJsServerConnectionTsonSocket
+    extends EventEmitter
     implements TsonSocket {
     public get binaryType(): string {
         return 'arraybuffer'

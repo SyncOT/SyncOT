@@ -4,5 +4,4 @@
 
 A real-time data synchronization system based on [operational transformation].
 
-
 [operational transformation]: https://en.wikipedia.org/wiki/Operational_transformation

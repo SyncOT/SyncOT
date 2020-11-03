@@ -151,7 +151,7 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
         this.stream!.off('close', this.onClose)
         this.stream!.on('error', noop)
         this.stream = undefined
-        this.presence.forEach(presence => {
+        this.presence.forEach((presence) => {
             this.emitAsync('change', presence.sessionId)
         })
         this.presence.clear()
@@ -205,7 +205,7 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
         }
 
         streamPromise.then(
-            stream => {
+            (stream) => {
                 if (this.streamPromise === streamPromise) {
                     this.stream = stream
                     this.stream.on('error', this.onError)
@@ -216,7 +216,7 @@ class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
                     stream.destroy()
                 }
             },
-            error => {
+            (error) => {
                 if (this.streamPromise === streamPromise) {
                     this.onError(error)
                 }
