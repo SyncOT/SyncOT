@@ -63,8 +63,8 @@
     "prettier": "prettier --list-different 'packages/*/src/**/*' 'packages/*/*.json' '*.json' '*.md' '.prettierrc'",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
-    "test": "jest",
-    "build": "run-s clean prettier tslint tsc test",
+    "jest": "jest",
+    "test": "run-s clean prettier tslint tsc jest",
     "benchmark": "lerna run benchmark",
     "start": "run-p start:*",
     "start:demo": "rollup -c -w",
@@ -74,7 +74,7 @@
   "husky": {
     "hooks": {
       "commit-msg": "[ $(git rev-parse --abbrev-ref HEAD) != 'master' ] || commitlint --edit $HUSKY_GIT_PARAMS",
-      "pre-commit": "npm run build"
+      "pre-commit": "npm test"
     }
   },
   "commitlint": {

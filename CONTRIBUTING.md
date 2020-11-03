@@ -9,8 +9,8 @@ The recommended editor is [Visual Studio Code](https://code.visualstudio.com/). 
 First of all, install all dependencies and build the project.
 
 ```bash
-npm i
-npm build
+npm install
+npm test
 ```
 
 You might need to reload VS Code, so that it would recognize the generated files: Ctrl+Shift+P -> "Developer: Reload Window".
@@ -21,7 +21,7 @@ Aim for full test coverage. Use `jest` directly to re-run tests on change or to 
 npx jest --watch --no-coverage packages/<package-name>/...
 ```
 
-If you make a change in one package and then want to start working on a different package, run `npm build` and reload VS Code first to ensure that all generated JavaScript code is in sync with the source TypeScript code.
+If you make a change in one package and then want to start working on a different package, run `npm test` and reload VS Code first to ensure that all generated JavaScript code is in sync with the source TypeScript code.
 
 ## Publishing Packages
 

@@ -11,4 +11,4 @@ jobs:
               directories:
                   - '$HOME/.npm'
           script:
-              - npm run build
+              - npm test
