@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.20](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-sockjs-stream@0.0.19...@syncot/tson-sockjs-stream@0.0.20) (2020-11-03)
+
+**Note:** Version bump only for package @syncot/tson-sockjs-stream
+
+
+
+
+
 ## [0.0.19](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-sockjs-stream@0.0.18...@syncot/tson-sockjs-stream@0.0.19) (2020-01-28)
 
 **Note:** Version bump only for package @syncot/tson-sockjs-stream
