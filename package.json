@@ -96,7 +96,7 @@
     "@syncot/ping": "file:packages/ping",
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
-    "@syncot/redis-presence-service": "file:packages/redis-presence-service",
+    "@syncot/presence-service-redis": "file:packages/presence-service-redis",
     "@syncot/stream": "file:packages/stream",
     "@syncot/task-runner": "file:packages/task-runner",
     "@syncot/tson": "file:packages/tson",

@@ -55,7 +55,7 @@ export interface CreatePresenceServiceOptions {
  * on `redis` with names starting with `presence`.
  *
  * This service uses `getRedisSubscriber` from `@syncot/ioredis-subscriber` and
- * `getRedisConnectionManager` from `@syncot/redis-presence-service`.
+ * `getRedisConnectionManager` from `@syncot/presence-service-redis`.
  * Both of those functions return an object cached per Redis client instance and
  * may occasionally emit errors that should be handled.
  */
