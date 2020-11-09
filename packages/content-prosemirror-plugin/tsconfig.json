@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./lib",
+    "lib": ["ES2020", "dom"]
+  },
+  "references": [{ "path": "../content" }, { "path": "../util" }]
+}
