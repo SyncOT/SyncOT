@@ -4,6 +4,10 @@ import {
     createInvalidEntityError,
     createInvalidStreamError,
     createNoServiceError,
+    CustomError,
+    fromJSON,
+    isCustomError,
+    toJSON,
 } from '@syncot/error'
 import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
 import { isOpenDuplexStream, isStream } from '@syncot/stream'
@@ -112,7 +116,7 @@ interface ReplyErrorMessage {
     service: ServiceName | ProxyName
     name: null
     id: RequestId
-    data: Error
+    data: CustomError
 }
 interface ReplyStreamMessage {
     type: MessageType.REPLY_STREAM
@@ -178,7 +182,7 @@ const validateMessage: Validator<Message> = validate([
                 : createInvalidEntityError('Message', message, 'data')
         }
         if (message.type === MessageType.REPLY_ERROR) {
-            return message.data instanceof Error
+            return isCustomError(message.data)
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
         }
@@ -464,6 +468,8 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
     private send(message: Message): void {
         const error = validateMessage(message)
+        // It should be impossible to send invalid data but check just in case.
+        /* istanbul ignore if */
         if (error) {
             this.emitAsync('error', error)
         } else if (this.stream!.writable && !(this.stream as any).destroyed) {
@@ -498,8 +504,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                     !serviceDescriptor.requestNames.has(name!))
             ) {
                 this.send({
-                    data: createNoServiceError(
-                        `No service to handle the request for "${service}.${name}".`,
+                    data: toJSON(
+                        createNoServiceError(
+                            `No service to handle the request for "${service}.${name}".`,
+                        ),
                     ),
                     id,
                     name: null,
@@ -566,7 +574,9 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
 
                 if (serviceStreams.has(id)) {
                     this.send({
-                        data: createDuplicateIdError('Duplicate request ID.'),
+                        data: toJSON(
+                            createDuplicateIdError('Duplicate request ID.'),
+                        ),
                         id,
                         name: null,
                         service,
@@ -642,7 +652,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 )
                 this.emitAsync('error', error)
                 this.send({
-                    data: error,
+                    data: toJSON(error),
                     id,
                     name: null,
                     service,
@@ -673,7 +683,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
             span.finish()
             if (this.stream === stream) {
                 this.send({
-                    data: error,
+                    data: toJSON(error),
                     id,
                     name: null,
                     service,
@@ -738,7 +748,7 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 const proxyRequest = proxyRequests.get(id)
                 if (proxyRequest) {
                     proxyRequests.delete(id)
-                    proxyRequest.reject(message.data)
+                    proxyRequest.reject(fromJSON(message.data))
                 }
                 break
             }

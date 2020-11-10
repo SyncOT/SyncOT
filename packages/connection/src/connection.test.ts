@@ -25,6 +25,12 @@ const testErrorMatcher = expect.objectContaining({
     message: 'test error',
     name: 'Error',
 })
+const invalidErrorObject = 5
+const invalidErrorMatcher = expect.objectContaining({
+    message: 'Invalid "error" object.',
+    name: 'TypeError',
+    error: invalidErrorObject,
+})
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
     name: 'SyncOtError Assert',
@@ -910,7 +916,7 @@ describe('service and proxy', () => {
                 Promise.reject(error),
             ),
             rejectNonErrorMethod: jest.fn((..._args: any[]) =>
-                Promise.reject(5),
+                Promise.reject(invalidErrorObject),
             ),
             resolveInvalidStreamMethod: jest.fn((..._args: any[]) =>
                 Promise.resolve(resolvedInvalidStream),
@@ -930,7 +936,7 @@ describe('service and proxy', () => {
                 throw error
             }),
             throwNonErrorMethod: jest.fn((..._args: any[]) => {
-                throw 5
+                throw invalidErrorObject
             }),
         }
         connection.connect(stream1)
@@ -1009,6 +1015,24 @@ describe('service and proxy', () => {
                     type: MessageType.REPLY_ERROR,
                 },
             ],
+            [
+                'throwNonErrorMethod',
+                {
+                    ...message,
+                    data: invalidErrorMatcher,
+                    name: null,
+                    type: MessageType.REPLY_ERROR,
+                },
+            ],
+            [
+                'rejectNonErrorMethod',
+                {
+                    ...message,
+                    data: invalidErrorMatcher,
+                    name: null,
+                    type: MessageType.REPLY_ERROR,
+                },
+            ],
         ])('%s', async (method, response) => {
             const onData = jest.fn()
             stream2.on('data', onData)
@@ -1040,28 +1064,6 @@ describe('service and proxy', () => {
                     type: MessageType.REPLY_ERROR,
                 })
                 expect(onError).toHaveBeenCalledWith(invalidStreamMatcher)
-            },
-        )
-        test.each(['throwNonErrorMethod', 'rejectNonErrorMethod'])(
-            '%s',
-            async (method) => {
-                const onError = jest.fn()
-                const onDisconnect = jest.fn()
-                connection.on('error', onError)
-                connection.on('disconnect', onDisconnect)
-                stream2.write({
-                    ...message,
-                    name: method,
-                })
-                await delay()
-                expect(onDisconnect).toHaveBeenCalledTimes(0)
-                expect(onError).toHaveBeenCalledTimes(1)
-                expect(onError).toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        message: 'Invalid "Message.data".',
-                        name: 'SyncOtError InvalidEntity',
-                    }),
-                )
             },
         )
         test('service call with params', async () => {
