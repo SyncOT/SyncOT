@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.1](https://github.com/SyncOT/SyncOT/compare/@syncot/auth-service-anonymous@0.1.0...@syncot/auth-service-anonymous@0.1.1) (2020-11-10)
+
+**Note:** Version bump only for package @syncot/auth-service-anonymous
+
+
+
+
+
 # 0.1.0 (2020-11-03)
 
 

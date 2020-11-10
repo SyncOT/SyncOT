@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.0.28](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.27...@syncot/tson-socket-stream@0.0.28) (2020-11-10)
+
+**Note:** Version bump only for package @syncot/tson-socket-stream
+
+
+
+
+
 ## [0.0.27](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-socket-stream@0.0.26...@syncot/tson-socket-stream@0.0.27) (2020-11-03)
 
 **Note:** Version bump only for package @syncot/tson-socket-stream

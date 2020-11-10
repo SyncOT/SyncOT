@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.3.0](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.2.1...@syncot/connection@0.3.0) (2020-11-10)
+
+
+### Features
+
+* make compatible with JSON streams ([334220d](https://github.com/SyncOT/SyncOT/commit/334220d9e2fdd8af0f801a785230132913c68373))
+
+
+
+
+
 ## [0.2.1](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.2.0...@syncot/connection@0.2.1) (2020-11-03)
 
 **Note:** Version bump only for package @syncot/connection
