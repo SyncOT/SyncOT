@@ -1,0 +1,42 @@
+{
+  "name": "@syncot/stream-socket-websocket",
+  "version": "0.0.0",
+  "description": "A client-side factory of Duplex object streams backed by WebSocket and exchanging JSON encoded messages.",
+  "keywords": [
+    "stream",
+    "socket",
+    "websocket",
+    "json",
+    "client",
+    "factory"
+  ],
+  "sideEffects": false,
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "files": [
+    "/lib",
+    "!/lib/**/*.test.js",
+    "!/lib/**/*.test.d.ts"
+  ],
+  "author": "Greg Kubisa <gkubisa@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SyncOT/SyncOT.git"
+  },
+  "engines": {
+    "node": ">=12.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@syncot/error": "file:../error",
+    "@syncot/stream-socket": "file:../stream-socket",
+    "@syncot/util": "file:../util",
+    "@types/node": "^14.14.6",
+    "@types/readable-stream": "^2.3.1",
+    "readable-stream": "^3.3.0",
+    "tslib": "^2.0.3"
+  }
+}

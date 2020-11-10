@@ -103,6 +103,7 @@
     "@syncot/stream": "file:packages/stream",
     "@syncot/stream-socket": "file:packages/stream-socket",
     "@syncot/stream-socket-sockjs": "file:packages/stream-socket-sockjs",
+    "@syncot/stream-socket-websocket": "file:packages/stream-socket-websocket",
     "@syncot/task-runner": "file:packages/task-runner",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
