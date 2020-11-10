@@ -51,7 +51,7 @@ const whenError = () =>
     new Promise((resolve, reject) =>
         authClient.once('error', (error) => {
             try {
-                expect(error).toBe(testError)
+                expect(error).toEqual(testError)
                 resolve()
             } catch (error) {
                 reject(error)
