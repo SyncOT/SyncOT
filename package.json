@@ -102,6 +102,7 @@
     "@syncot/presence-service-redis": "file:packages/presence-service-redis",
     "@syncot/stream": "file:packages/stream",
     "@syncot/stream-socket": "file:packages/stream-socket",
+    "@syncot/stream-socket-sockjs": "file:packages/stream-socket-sockjs",
     "@syncot/task-runner": "file:packages/task-runner",
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
