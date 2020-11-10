@@ -6,7 +6,7 @@ import { Duplex } from 'readable-stream'
 
 const eventLoop = globalEventLoop()
 
-export const enum ReadyState {
+export enum ReadyState {
     CONNECTING,
     OPEN,
     CLOSING,

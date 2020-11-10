@@ -16,7 +16,7 @@ import { createTsonError } from '@syncot/error'
  * The type codes between 128 and 255 inclusive may be used to encode custom types.
  * Unknown data types are encoded as `NULL`.
  */
-export const enum Type {
+export enum Type {
     /**
      * The type of the `null` value.
      * Encoding: `0x00`.

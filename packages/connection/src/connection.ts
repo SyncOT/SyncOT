@@ -59,7 +59,7 @@ interface Events {
 /**
  * The list of supported `Message` types.
  */
-export const enum MessageType {
+export enum MessageType {
     EVENT,
     REQUEST,
     REPLY_VALUE,

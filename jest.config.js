@@ -6,17 +6,21 @@ module.exports = {
             return {
                 name,
                 displayName: name,
-                preset: 'ts-jest',
                 setupFiles: ['<rootDir>/scripts/jestSetUp'],
                 setupFilesAfterEnv: ['jest-extended'],
+                moduleFileExtensions: [
+                    'ts',
+                    'tsx',
+                    'json',
+                    'js',
+                    'jsx',
+                    'node',
+                ],
                 moduleNameMapper: {
                     '^@syncot/([-\\w]+)$': '<rootDir>/packages/$1/src',
                 },
-                globals: {
-                    'ts-jest': {
-                        tsconfig: require(`./packages/${name}/tsconfig.json`)
-                            .compilerOptions,
-                    },
+                transform: {
+                    '\\.[jt]sx?$': 'babel-jest',
                 },
                 testEnvironment: 'node',
                 testMatch: [`<rootDir>/packages/${name}/src/**/*.test.ts`],
@@ -26,9 +30,7 @@ module.exports = {
     collectCoverage: true,
     collectCoverageFrom: [
         '<rootDir>/packages/*/src/**/*.{ts,tsx,js,jsx}',
-        '!<rootDir>/packages/*/src/**/*.test.{ts,tsx,js,jsx}',
-        '!<rootDir>/packages/*/src/**/*Tests.{ts,tsx,js,jsx}',
-        '!<rootDir>/**/*.d.{ts,tsx,js,jsx}',
-        '!<rootDir>/node_modules/',
+        '!<rootDir>/packages/*/src/**/*.{d,test}.{ts,tsx,js,jsx}',
+        '!<rootDir>/packages/*/src/index.ts',
     ],
 }
