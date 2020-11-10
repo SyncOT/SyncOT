@@ -19,10 +19,13 @@ import {
     createUnexpectedSequenceNumberError,
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
+    CustomError,
+    fromJSON,
     isAlreadyInitializedError,
     isAssertError,
     isAuthError,
     isCompositeError,
+    isCustomError,
     isDisconnectedError,
     isDuplicateIdError,
     isInvalidEntityError,
@@ -39,6 +42,7 @@ import {
     isUnexpectedSequenceNumberError,
     isUnexpectedSessionIdError,
     isUnexpectedVersionNumberError,
+    toJSON,
 } from '.'
 
 describe('CustomError', () => {
@@ -102,7 +106,7 @@ describe('CustomError', () => {
         expect(error.cause).toBeUndefined()
         expect(error.toString()).toBe(`${name}: ${message}`)
     })
-    test('createError with no details', () => {
+    test('createError with no data', () => {
         const error = createError()
         expect(error).toBeInstanceOf(Error)
         expect(error.propertyIsEnumerable('name')).toBeFalse()
@@ -111,48 +115,60 @@ describe('CustomError', () => {
         expect(error.cause).toBeUndefined()
         expect(error.toString()).toBe('Error')
     })
-    test('createError with invalid details', () => {
+    test('createError with invalid data', () => {
         expect(() => createError(5 as any)).toThrow(
             expect.objectContaining({
-                message: 'Argument "details" must be an object.',
+                message: 'Argument "data" must be an object.',
                 name: 'SyncOtError Assert',
             }),
         )
     })
-    test('createError with invalid details.name', () => {
+    test('createError with invalid data.name', () => {
         expect(() => createError({ name: 5 as any })).toThrow(
             expect.objectContaining({
-                message:
-                    'Argument "details.name" must be a string or undefined.',
+                message: 'Argument "data.name" must be a string or undefined.',
                 name: 'SyncOtError Assert',
             }),
         )
     })
-    test('createError with invalid details.message', () => {
+    test('createError with invalid data.message', () => {
         expect(() => createError({ message: 5 as any })).toThrow(
             expect.objectContaining({
                 message:
-                    'Argument "details.message" must be a string or undefined.',
+                    'Argument "data.message" must be a string or undefined.',
                 name: 'SyncOtError Assert',
             }),
         )
     })
-    test('createError with invalid details.cause', () => {
+    test('createError with invalid data.cause', () => {
         expect(() => createError({ cause: 5 as any })).toThrow(
             expect.objectContaining({
-                message:
-                    'Argument "details.cause" must be an Error or undefined.',
+                message: 'Argument "data.cause" must be an Error or undefined.',
                 name: 'SyncOtError Assert',
             }),
         )
     })
-    test('createError with forbidden property: details.stack', () => {
-        expect(() => createError({ stack: '' })).toThrow(
-            expect.objectContaining({
-                message: 'Argument "details.stack" must not be present.',
-                name: 'SyncOtError Assert',
+
+    test('isCustomError', () => {
+        expect(isCustomError(createError())).toBeTrue()
+        expect(isCustomError(createError({ name: 'AnyError' }))).toBeTrue()
+        expect(isCustomError(createError({ name: 'AnyError abc' }))).toBeTrue()
+        expect(isCustomError(createError({ name: 'AnyErrors' }))).toBeTrue()
+        expect(isCustomError({ name, message, cause })).toBeTrue()
+        expect(
+            isCustomError({ name, message, cause: { name, message, cause } }),
+        ).toBeTrue()
+        expect(isCustomError({})).toBeFalse()
+        expect(isCustomError({ name: '' })).toBeFalse()
+        expect(isCustomError({ message: '' })).toBeFalse()
+        expect(isCustomError({ name, message, cause: { name } })).toBeFalse()
+        expect(
+            isCustomError({
+                name,
+                message,
+                cause: { name, message, cause: { name } },
             }),
-        )
+        ).toBeFalse()
     })
 
     test('isSyncOtError', () => {
@@ -160,9 +176,108 @@ describe('CustomError', () => {
         expect(
             isSyncOtError(createError({ name: 'SyncOtError abc' })),
         ).toBeTrue()
+        expect(isSyncOtError({ name: 'SyncOtError', message })).toBeTrue()
+        expect(isSyncOtError({ name: 'SyncOtError abc', message })).toBeTrue()
         expect(isSyncOtError(createError())).toBeFalse()
         expect(isSyncOtError(createError({ name: 'SyncOtErrors' }))).toBeFalse()
         expect(isSyncOtError({})).toBeFalse()
+        expect(isSyncOtError({ name: 'SyncOtErrors', message })).toBeFalse()
+    })
+
+    describe('toJSON', () => {
+        test('valid with valid cause', () => {
+            const error = createError({ name, message, cause })
+            expect(toJSON(error)).toEqual({
+                name: error.name,
+                message: error.message,
+                cause: {
+                    name: cause.name,
+                    message: cause.message,
+                },
+            })
+        })
+
+        test('valid with invalid cause', () => {
+            const error: CustomError = new Error(message)
+            error.cause = 5 as any
+            expect(toJSON(error)).toEqual({
+                name: error.name,
+                message: error.message,
+                cause: {
+                    name: 'TypeError',
+                    message: 'Invalid "error" object.',
+                    error: 5,
+                },
+            })
+        })
+
+        test('valid with no cause', () => {
+            const error = createError({ name, message })
+            expect(toJSON(error)).toEqual({
+                name: error.name,
+                message: error.message,
+            })
+        })
+
+        test('invalid', () => {
+            expect(toJSON(5 as any)).toEqual({
+                name: 'TypeError',
+                message: 'Invalid "error" object.',
+                error: 5,
+            })
+        })
+    })
+
+    describe('fromJSON', () => {
+        test('valid with valid cause', () => {
+            const data = {
+                name,
+                message,
+                cause: { name: causeName, message: causeMessage },
+            }
+            const error = fromJSON(data)
+            expect(toJSON(error)).toEqual(data)
+            expect(error.stack).toBeString()
+            expect(error.cause!.stack).toBeString()
+        })
+
+        test('valid with invalid cause', () => {
+            const data = {
+                name,
+                message,
+                cause: 5 as any,
+            }
+            const error = fromJSON(data)
+            expect(toJSON(error)).toEqual({
+                name,
+                message,
+                cause: {
+                    name: 'TypeError',
+                    message: 'Invalid "error" object.',
+                    error: 5,
+                },
+            })
+            expect(error.stack).toBeString()
+            expect(error.cause!.stack).toBeString()
+        })
+
+        test('valid with no cause', () => {
+            const data = { name, message }
+            const error = fromJSON(data)
+            expect(toJSON(error)).toEqual(data)
+            expect(error.stack).toBeString()
+        })
+
+        test('invalid', () => {
+            const data = 5 as any
+            const error = fromJSON(data)
+            expect(toJSON(error)).toEqual({
+                name: 'TypeError',
+                message: 'Invalid "error" object.',
+                error: 5,
+            })
+            expect(error.stack).toBeString()
+        })
     })
 })
 

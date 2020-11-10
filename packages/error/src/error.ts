@@ -1,53 +1,108 @@
-function assert(value: any, message?: string): void {
-    if (!value) {
-        throw createAssertError(message)
-    }
-}
-
-export interface ErrorDetails {
-    name?: string
-    message?: string
-    cause?: Error
-    [key: string]: any
-}
-
+/**
+ * Extends Error with:
+ * - the optional `cause` property which indicates the cause of this error,
+ * - any additional custom properties to provide more details about the error.
+ */
 export interface CustomError extends Error {
-    cause?: Error
+    cause?: CustomError
     [key: string]: any
+}
+
+/**
+ * Determines if `data` is an Error.
+ */
+export function isError(data: any): data is Error {
+    return (
+        data !== null &&
+        typeof data === 'object' &&
+        typeof data.name === 'string' &&
+        typeof data.message === 'string'
+    )
+}
+
+/**
+ * Determines if `data` is a CustomError.
+ */
+export function isCustomError(data: any): data is CustomError {
+    return (
+        isError(data as any) &&
+        (data.cause == null || isCustomError(data.cause))
+    )
+}
+
+/**
+ * Converts `error` to a JSON object.
+ */
+export function toJSON(error: CustomError): CustomError {
+    if (!isError(error)) {
+        return {
+            name: 'TypeError',
+            message: 'Invalid "error" object.',
+            error,
+        }
+    }
+    const result = {
+        ...error,
+        name: error.name,
+        message: error.message,
+    }
+    if (error.cause != null) {
+        result.cause = toJSON(error.cause)
+    }
+    return result
+}
+
+/**
+ * Converts `error` to a CustomError instance created using the Error constructor.
+ */
+export function fromJSON(error: CustomError): CustomError {
+    if (!isError(error)) {
+        return createError({
+            name: 'TypeError',
+            message: 'Invalid "error" object.',
+            error,
+        })
+    }
+    const result = createError({
+        ...error,
+        name: error.name,
+        message: error.message,
+        cause: undefined,
+    })
+    if (error.cause != null) {
+        result.cause = fromJSON(error.cause)
+    }
+    return result
 }
 
 /**
  * Creates a new Error instance with the specified properties.
  * Additionally, `cause.message` is automatically appended to the new error's `message`.
  */
-export function createError(details: ErrorDetails = {}): CustomError {
+export function createError(data: Partial<CustomError> = {}): CustomError {
     assert(
-        details != null && typeof details === 'object',
-        'Argument "details" must be an object.',
+        data != null && typeof data === 'object',
+        'Argument "data" must be an object.',
     )
     assert(
-        typeof details.name === 'string' || details.name === undefined,
-        'Argument "details.name" must be a string or undefined.',
+        typeof data.name === 'string' || data.name === undefined,
+        'Argument "data.name" must be a string or undefined.',
     )
     assert(
-        typeof details.message === 'string' || details.message === undefined,
-        'Argument "details.message" must be a string or undefined.',
+        typeof data.message === 'string' || data.message === undefined,
+        'Argument "data.message" must be a string or undefined.',
     )
     assert(
-        details.cause instanceof Error || details.cause === undefined,
-        'Argument "details.cause" must be an Error or undefined.',
-    )
-    assert(
-        !('stack' in details),
-        'Argument "details.stack" must not be present.',
+        isError(data.cause) || data.cause === undefined,
+        'Argument "data.cause" must be an Error or undefined.',
     )
 
-    const name = details.name
-    const cause = details.cause
-    const message = details.message
+    const name = data.name
+    const cause = data.cause
+    const message = data.message
         ? cause
-            ? `${details.message} => ${cause}`
-            : details.message
+            ? `${data.message} => ${cause}`
+            : data.message
         : cause
         ? `=> ${cause}`
         : ''
@@ -61,13 +116,9 @@ export function createError(details: ErrorDetails = {}): CustomError {
         })
     }
 
-    for (const key in details) {
-        if (
-            details.hasOwnProperty(key) &&
-            key !== 'name' &&
-            key !== 'message'
-        ) {
-            error[key] = details[key]
+    for (const key in data) {
+        if (data.hasOwnProperty(key) && key !== 'name' && key !== 'message') {
+            error[key] = data[key]
         }
     }
 
@@ -79,7 +130,7 @@ export function createError(details: ErrorDetails = {}): CustomError {
  */
 export type SyncOtError = CustomError
 export function isSyncOtError(error: any): error is SyncOtError {
-    return error instanceof Error && /^SyncOtError($| )/.test(error.name)
+    return isCustomError(error) && /^SyncOtError($| )/.test(error.name)
 }
 
 export interface TsonError extends Error {
@@ -92,7 +143,7 @@ export function createTsonError(message?: string): TsonError {
     }) as TsonError
 }
 export function isTsonError(error: any): error is TsonError {
-    return error instanceof Error && error.name === 'SyncOtError TSON'
+    return isCustomError(error) && error.name === 'SyncOtError TSON'
 }
 
 export interface InvalidEntityError extends Error {
@@ -132,7 +183,7 @@ export function createInvalidEntityError(
     }) as InvalidEntityError
 }
 export function isInvalidEntityError(error: any): error is InvalidEntityError {
-    return error instanceof Error && error.name === 'SyncOtError InvalidEntity'
+    return isCustomError(error) && error.name === 'SyncOtError InvalidEntity'
 }
 
 export interface TypeNotFoundError extends Error {
@@ -151,7 +202,7 @@ export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
     }) as TypeNotFoundError
 }
 export function isTypeNotFoundError(error: any): error is TypeNotFoundError {
-    return error instanceof Error && error.name === 'SyncOtError TypeNotFound'
+    return isCustomError(error) && error.name === 'SyncOtError TypeNotFound'
 }
 
 export interface NoServiceError extends Error {
@@ -164,7 +215,7 @@ export function createNoServiceError(message?: string): NoServiceError {
     }) as NoServiceError
 }
 export function isNoServiceError(error: any): error is NoServiceError {
-    return error instanceof Error && error.name === 'SyncOtError NoService'
+    return isCustomError(error) && error.name === 'SyncOtError NoService'
 }
 
 export interface DisconnectedError extends Error {
@@ -177,7 +228,7 @@ export function createDisconnectedError(message?: string): DisconnectedError {
     }) as DisconnectedError
 }
 export function isDisconnectedError(error: any): error is DisconnectedError {
-    return error instanceof Error && error.name === 'SyncOtError Disconnected'
+    return isCustomError(error) && error.name === 'SyncOtError Disconnected'
 }
 
 export interface NotInitializedError extends Error {
@@ -194,7 +245,7 @@ export function createNotInitializedError(
 export function isNotInitializedError(
     error: any,
 ): error is NotInitializedError {
-    return error instanceof Error && error.name === 'SyncOtError NotInitialized'
+    return isCustomError(error) && error.name === 'SyncOtError NotInitialized'
 }
 
 export interface AlreadyInitializedError extends Error {
@@ -212,8 +263,7 @@ export function isAlreadyInitializedError(
     error: any,
 ): error is AlreadyInitializedError {
     return (
-        error instanceof Error &&
-        error.name === 'SyncOtError AlreadyInitialized'
+        isCustomError(error) && error.name === 'SyncOtError AlreadyInitialized'
     )
 }
 
@@ -232,8 +282,7 @@ export function isUnexpectedSessionIdError(
     error: any,
 ): error is UnexpectedSessionIdError {
     return (
-        error instanceof Error &&
-        error.name === 'SyncOtError UnexpectedSessionId'
+        isCustomError(error) && error.name === 'SyncOtError UnexpectedSessionId'
     )
 }
 
@@ -252,7 +301,7 @@ export function isUnexpectedVersionNumberError(
     error: any,
 ): error is UnexpectedVersionNumberError {
     return (
-        error instanceof Error &&
+        isCustomError(error) &&
         error.name === 'SyncOtError UnexpectedVersionNumber'
     )
 }
@@ -272,7 +321,7 @@ export function isUnexpectedSequenceNumberError(
     error: any,
 ): error is UnexpectedSequenceNumberError {
     return (
-        error instanceof Error &&
+        isCustomError(error) &&
         error.name === 'SyncOtError UnexpectedSequenceNumber'
     )
 }
@@ -292,7 +341,7 @@ export function createSessionError(
     }) as SessionError
 }
 export function isSessionError(error: any): error is SessionError {
-    return error instanceof Error && error.name === 'SyncOtError Session'
+    return isCustomError(error) && error.name === 'SyncOtError Session'
 }
 
 export interface PresenceError extends Error {
@@ -310,7 +359,7 @@ export function createPresenceError(
     }) as PresenceError
 }
 export function isPresenceError(error: any): error is PresenceError {
-    return error instanceof Error && error.name === 'SyncOtError Presence'
+    return isCustomError(error) && error.name === 'SyncOtError Presence'
 }
 
 export interface AuthError extends Error {
@@ -325,7 +374,7 @@ export function createAuthError(message?: string, cause?: Error): AuthError {
     }) as AuthError
 }
 export function isAuthError(error: any): error is AuthError {
-    return error instanceof Error && error.name === 'SyncOtError Auth'
+    return isCustomError(error) && error.name === 'SyncOtError Auth'
 }
 
 export interface DuplicateIdError extends Error {
@@ -338,7 +387,7 @@ export function createDuplicateIdError(message?: string): DuplicateIdError {
     }) as DuplicateIdError
 }
 export function isDuplicateIdError(error: any): error is DuplicateIdError {
-    return error instanceof Error && error.name === 'SyncOtError DuplicateId'
+    return isCustomError(error) && error.name === 'SyncOtError DuplicateId'
 }
 
 export interface InvalidStreamError extends Error {
@@ -351,7 +400,7 @@ export function createInvalidStreamError(message?: string): InvalidStreamError {
     }) as InvalidStreamError
 }
 export function isInvalidStreamError(error: any): error is InvalidStreamError {
-    return error instanceof Error && error.name === 'SyncOtError InvalidStream'
+    return isCustomError(error) && error.name === 'SyncOtError InvalidStream'
 }
 
 export interface SocketError extends Error {
@@ -369,7 +418,7 @@ export function createSocketError(
     }) as SocketError
 }
 export function isSocketError(error: any): error is SocketError {
-    return error instanceof Error && error.name === 'SyncOtError Socket'
+    return isCustomError(error) && error.name === 'SyncOtError Socket'
 }
 
 export interface CompositeError extends Error {
@@ -387,7 +436,7 @@ export function createCompositeError(
     }) as CompositeError
 }
 export function isCompositeError(error: any): error is CompositeError {
-    return error instanceof Error && error.name === 'SyncOtError Composite'
+    return isCustomError(error) && error.name === 'SyncOtError Composite'
 }
 
 export interface AssertError extends Error {
@@ -400,7 +449,7 @@ export function createAssertError(message?: string): AssertError {
     }) as AssertError
 }
 export function isAssertError(error: any): error is AssertError {
-    return error instanceof Error && error.name === 'SyncOtError Assert'
+    return isCustomError(error) && error.name === 'SyncOtError Assert'
 }
 
 export interface PingError extends Error {
@@ -415,5 +464,11 @@ export function createPingError(message?: string, cause?: Error): PingError {
     }) as PingError
 }
 export function isPingError(error: any): error is PingError {
-    return error instanceof Error && error.name === 'SyncOtError Ping'
+    return isCustomError(error) && error.name === 'SyncOtError Ping'
+}
+
+function assert(value: any, message?: string): void {
+    if (!value) {
+        throw createAssertError(message)
+    }
 }
