@@ -19,10 +19,13 @@ export default {
     },
     plugins: [
         commonjs(),
-        nodeResolve({ preferBuiltins: false }),
+        nodeResolve({ browser: true, preferBuiltins: false }),
         postcss({ extract: true }),
         html({ title: 'SyncOT demo' }),
         isWatchMode && liveReload({ watch: dst }),
         isWatchMode && serve(dst),
     ],
+    watch: {
+        clearScreen: false,
+    },
 }

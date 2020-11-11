@@ -63,7 +63,7 @@
   },
   "scripts": {
     "clean": "rimraf packages/*/lib **/*.tsbuildinfo && jest --clearCache",
-    "prettier": "prettier --list-different 'packages/*/src/**/*' '*.json' '*.md' '.prettierrc'",
+    "prettier": "prettier --list-different .",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
     "jest": "jest",
@@ -71,8 +71,8 @@
     "benchmark": "lerna run benchmark",
     "start": "run-p start:*",
     "start:demo": "rollup -c -w",
-    "start:server": "nodemon -x 'ESM_DISABLE_CACHE=true node --unhandled-rejections strict -r esm' -e 'js' demo/server/index.js",
-    "start:tsc": "tsc -b -w packages/*"
+    "start:server": "nodemon -x 'ESM_DISABLE_CACHE=true node --unhandled-rejections strict -r esm' -w packages -w demo/server -e 'js' demo/server/index.js",
+    "start:tsc": "tsc -b -w packages/* --preserveWatchOutput"
   },
   "husky": {
     "hooks": {

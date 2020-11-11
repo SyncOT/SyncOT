@@ -1,0 +1,5 @@
+/coverage/
+/demo/client-dist/
+**/node_modules/
+/packages/*/lib/
+CHANGELOG.md

@@ -20,7 +20,7 @@ global.output
 new Benchmark.Suite()
     .add('TSON', {
         setup() {},
-        fn: function() {
+        fn: function () {
             output = decode(encode(input))
         },
         teardown() {
@@ -48,7 +48,7 @@ new Benchmark.Suite()
     })
     .add('JSON', {
         setup() {},
-        fn: function() {
+        fn: function () {
             output = JSON.parse(JSON.stringify(input))
         },
         teardown() {
@@ -75,10 +75,10 @@ new Benchmark.Suite()
         // },
     })
 
-    .on('cycle', function(event) {
+    .on('cycle', function (event) {
         console.info(event.target.error || String(event.target))
     })
-    .on('complete', function() {
+    .on('complete', function () {
         console.info(`The fastest is ${this.filter('fastest').map('name')}.`)
     })
 

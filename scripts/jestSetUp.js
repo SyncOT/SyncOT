@@ -9,7 +9,7 @@
  * See https://github.com/facebook/jest/issues/2549#issuecomment-423202304.
  */
 Object.defineProperty(Error, Symbol.hasInstance, {
-    value: function(value) {
+    value: function (value) {
         if (this === Error) {
             return Object.prototype.toString.call(value) === '[object Error]'
         } else {

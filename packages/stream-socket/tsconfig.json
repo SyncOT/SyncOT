@@ -5,8 +5,5 @@
     "outDir": "./lib",
     "lib": ["es2018", "dom"]
   },
-  "references": [
-    { "path": "../error" },
-    { "path": "../event-loop" }
-  ]
+  "references": [{ "path": "../error" }, { "path": "../event-loop" }]
 }
