@@ -14,7 +14,6 @@ import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
 import { requestNames } from './presenceClient'
 
-const spanContextMatcher = expect.toBeObject()
 const testError = new Error('test-error')
 const testErrorMatcher = expect.objectContaining({
     message: 'test-error',
@@ -302,10 +301,7 @@ test('initially active with presence', async () => {
     expect(onActive).toHaveBeenCalledTimes(1)
     expect(onInactive).toHaveBeenCalledTimes(0)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
@@ -362,10 +358,7 @@ test('handle AuthClient "active" event with presence', async () => {
     expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toEqual(presence)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
@@ -402,10 +395,7 @@ test('handle AuthClient "inactive" event with presence', async () => {
     expect(presenceClient.userId).toBeUndefined()
     expect(presenceClient.presence).toBeUndefined()
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
@@ -423,10 +413,7 @@ test('change locationId when active', async () => {
     await whenPresence()
     await whenNextTick()
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence1,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence1)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 
     presenceService.submitPresence.mockClear()
@@ -435,10 +422,7 @@ test('change locationId when active', async () => {
     await whenPresence()
     await whenNextTick()
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence2,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence2)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 
     presenceService.submitPresence.mockClear()
@@ -458,10 +442,7 @@ test('change data when active', async () => {
     await whenPresence()
     await whenNextTick()
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence1,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence1)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 
     presenceService.submitPresence.mockClear()
@@ -470,10 +451,7 @@ test('change data when active', async () => {
     await whenPresence()
     await whenNextTick()
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
-    expect(presenceService.submitPresence).toHaveBeenCalledWith(
-        presence,
-        spanContextMatcher,
-    )
+    expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
@@ -508,7 +486,6 @@ describe('getPresenceBySessionId', () => {
         expect(presenceService.getPresenceBySessionId).toHaveBeenCalledTimes(1)
         expect(presenceService.getPresenceBySessionId).toHaveBeenCalledWith(
             sessionId,
-            spanContextMatcher,
         )
     })
     test('error', async () => {
@@ -519,7 +496,6 @@ describe('getPresenceBySessionId', () => {
         expect(presenceService.getPresenceBySessionId).toHaveBeenCalledTimes(1)
         expect(presenceService.getPresenceBySessionId).toHaveBeenCalledWith(
             sessionId,
-            spanContextMatcher,
         )
     })
 })
@@ -532,10 +508,7 @@ describe('getPresenceByUserId', () => {
             presenceClient.getPresenceByUserId(userId),
         ).resolves.toEqual([presence])
         expect(presenceService.getPresenceByUserId).toHaveBeenCalledTimes(1)
-        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(
-            userId,
-            spanContextMatcher,
-        )
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(userId)
     })
     test('error', async () => {
         presenceService.getPresenceByUserId.mockRejectedValue(testError)
@@ -543,10 +516,7 @@ describe('getPresenceByUserId', () => {
             presenceClient.getPresenceByUserId(userId),
         ).rejects.toEqual(testErrorMatcher)
         expect(presenceService.getPresenceByUserId).toHaveBeenCalledTimes(1)
-        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(
-            userId,
-            spanContextMatcher,
-        )
+        expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(userId)
     })
 })
 
@@ -560,7 +530,6 @@ describe('getPresenceByLocationId', () => {
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledTimes(1)
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
-            spanContextMatcher,
         )
     })
     test('error', async () => {
@@ -571,7 +540,6 @@ describe('getPresenceByLocationId', () => {
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledTimes(1)
         expect(presenceService.getPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
-            spanContextMatcher,
         )
     })
 })
@@ -594,7 +562,6 @@ describe('streamPresenceBySessionId', () => {
         )
         expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledWith(
             sessionId,
-            spanContextMatcher,
         )
         serviceControllerStream.write('test')
         await whenStreamData(presenceStream, 'test')
@@ -609,7 +576,6 @@ describe('streamPresenceBySessionId', () => {
         )
         expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledWith(
             sessionId,
-            spanContextMatcher,
         )
     })
 })
@@ -628,7 +594,6 @@ describe('streamPresenceByUserId', () => {
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
             userId,
-            spanContextMatcher,
         )
         serviceControllerStream.write('test')
         await whenStreamData(presenceStream, 'test')
@@ -641,7 +606,6 @@ describe('streamPresenceByUserId', () => {
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
             userId,
-            spanContextMatcher,
         )
     })
 })
@@ -664,7 +628,6 @@ describe('streamPresenceByLocationId', () => {
         ).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
-            spanContextMatcher,
         )
         serviceControllerStream.write('test')
         await whenStreamData(presenceStream, 'test')
@@ -679,7 +642,6 @@ describe('streamPresenceByLocationId', () => {
         ).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
-            spanContextMatcher,
         )
     })
 })

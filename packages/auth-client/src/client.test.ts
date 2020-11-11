@@ -21,7 +21,6 @@ const loginResponse = {
     sessionId,
     userId,
 }
-const spanContextMatcher = expect.toBeObject()
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
     name: 'SyncOtError Assert',
@@ -111,7 +110,7 @@ test('log in on startup with default params', async () => {
     expect(authClient.userId).toBeUndefined()
     await whenActive()
     expect(authService.logIn).toHaveBeenCalledTimes(1)
-    expect(authService.logIn).toHaveBeenCalledWith(null, spanContextMatcher)
+    expect(authService.logIn).toHaveBeenCalledWith(null)
     expect(authClient.active).toBeTrue()
     expect(authClient.sessionId).toBe(sessionId)
     expect(authClient.userId).toBe(userId)
@@ -136,10 +135,7 @@ test('log in on startup with custom params', async () => {
     expect(authClient.userId).toBeUndefined()
     await whenActive()
     expect(customAuthService.logIn).toHaveBeenCalledTimes(1)
-    expect(customAuthService.logIn).toHaveBeenCalledWith(
-        accessToken,
-        spanContextMatcher,
-    )
+    expect(customAuthService.logIn).toHaveBeenCalledWith(accessToken)
     expect(authService.logIn).toHaveBeenCalledTimes(0)
     expect(authClient.active).toBeTrue()
     expect(authClient.sessionId).toBe(sessionId)
@@ -164,7 +160,7 @@ test('log in on "connect"', async () => {
     expect(authClient.userId).toBeUndefined()
     await whenActive()
     expect(authService.logIn).toHaveBeenCalledTimes(1)
-    expect(authService.logIn).toHaveBeenCalledWith(null, spanContextMatcher)
+    expect(authService.logIn).toHaveBeenCalledWith(null)
     expect(authClient.active).toBeTrue()
     expect(authClient.sessionId).toBe(sessionId)
     expect(authClient.userId).toBe(userId)

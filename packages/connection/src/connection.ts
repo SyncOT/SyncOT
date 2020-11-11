@@ -12,10 +12,7 @@ import {
 import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
 import { isOpenDuplexStream, isStream } from '@syncot/stream'
 import { assert, validate, Validator } from '@syncot/util'
-import { globalTracer } from 'opentracing'
 import { Duplex } from 'readable-stream'
-
-const component = '@syncot/connection'
 
 type RequestId = number
 type ServiceName = string
@@ -552,19 +549,10 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
     ): Promise<void> {
         const stream = this.stream
         const { id, name, service } = message
-        const span = globalTracer().startSpan('syncot.connection.request')
-        span.setTag('component', component)
-        span.setTag('request.name', name)
-        span.setTag('request.service', service)
-        span.setTag('span.kind', 'server')
 
         try {
-            const reply = await (instance as any)[name](
-                ...message.data,
-                span.context(),
-            )
+            const reply = await (instance as any)[name](...message.data)
 
-            span.finish()
             if (this.stream !== stream) {
                 if (isStream(reply)) {
                     reply.destroy()
@@ -677,10 +665,6 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
                 })
             }
         } catch (error) {
-            span.setTag('error', true)
-            span.setTag('error.name', error.name)
-            span.setTag('error.message', error.message)
-            span.finish()
             if (this.stream === stream) {
                 this.send({
                     data: toJSON(error),

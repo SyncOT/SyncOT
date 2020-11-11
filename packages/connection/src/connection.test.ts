@@ -1,6 +1,5 @@
 import { invertedStreams } from '@syncot/stream'
 import { delay, noop, whenNextTick } from '@syncot/util'
-import { initGlobalTracer, MockTracer } from 'opentracing'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,
@@ -10,8 +9,6 @@ import {
     Proxy,
     Service,
 } from '.'
-const tracer = new MockTracer()
-initGlobalTracer(tracer)
 
 function omit<T extends object>(value: T, property: keyof T) {
     const newValue = { ...value }
@@ -39,7 +36,6 @@ const invalidStreamMatcher = expect.objectContaining({
     message: 'Service returned an invalid stream.',
     name: 'SyncOtError InvalidStream',
 })
-const spanContextMatcher = expect.toBeObject()
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
@@ -76,10 +72,6 @@ beforeEach(() => {
         objectMode: true,
     })
     instance = {}
-})
-
-afterEach(() => {
-    tracer.clear()
 })
 
 describe('connection', () => {
@@ -1082,9 +1074,7 @@ describe('service and proxy', () => {
                 type: MessageType.REPLY_VALUE,
             })
             expect(service.returnMethod.mock.calls.length).toBe(1)
-            expect(service.returnMethod.mock.calls[0]).toEqual(
-                params.concat(spanContextMatcher),
-            )
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
             expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
         test.each<[any]>([
@@ -1695,22 +1685,8 @@ describe('service and proxy', () => {
                 replyData,
             )
 
-            const span = tracer
-                .report()
-                .firstSpanWithTagValue('request.name', 'returnMethod')!
-            expect(span.operationName()).toBe('syncot.connection.request')
-            expect(span.tags()).toEqual({
-                component: '@syncot/connection',
-                'request.name': 'returnMethod',
-                'request.service': serviceName,
-                'span.kind': 'server',
-            })
-            expect(span.durationMs()).toBeGreaterThanOrEqual(0)
-
             expect(service.returnMethod.mock.calls.length).toBe(1)
-            expect(service.returnMethod.mock.calls[0]).toEqual(
-                params.concat(span.context() as any),
-            )
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
             expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
         test('request, error', async () => {
@@ -1719,25 +1695,8 @@ describe('service and proxy', () => {
                 testErrorMatcher,
             )
 
-            const span = tracer
-                .report()
-                .firstSpanWithTagValue('request.name', 'returnMethod')!
-            expect(span.operationName()).toBe('syncot.connection.request')
-            expect(span.tags()).toEqual({
-                component: '@syncot/connection',
-                error: true,
-                'error.message': 'test error',
-                'error.name': 'Error',
-                'request.name': 'returnMethod',
-                'request.service': serviceName,
-                'span.kind': 'server',
-            })
-            expect(span.durationMs()).toBeGreaterThanOrEqual(0)
-
             expect(service.returnMethod.mock.calls.length).toBe(1)
-            expect(service.returnMethod.mock.calls[0]).toEqual(
-                params.concat(span.context() as any),
-            )
+            expect(service.returnMethod.mock.calls[0]).toEqual(params)
             expect(service.returnMethod.mock.instances[0]).toBe(service)
         })
 
@@ -1748,25 +1707,8 @@ describe('service and proxy', () => {
 
                 const proxyStream = await proxy2.returnStreamMethod(...params)
 
-                const span = tracer
-                    .report()
-                    .firstSpanWithTagValue(
-                        'request.name',
-                        'returnStreamMethod',
-                    )!
-                expect(span.operationName()).toBe('syncot.connection.request')
-                expect(span.tags()).toEqual({
-                    component: '@syncot/connection',
-                    'request.name': 'returnStreamMethod',
-                    'request.service': serviceName,
-                    'span.kind': 'server',
-                })
-                expect(span.durationMs()).toBeGreaterThanOrEqual(0)
-
                 expect(service.returnStreamMethod.mock.calls.length).toBe(1)
-                expect(service.returnStreamMethod.mock.calls[0]).toEqual(
-                    params.concat(span.context() as any),
-                )
+                expect(service.returnStreamMethod.mock.calls[0]).toEqual(params)
                 expect(service.returnStreamMethod.mock.instances[0]).toBe(
                     service,
                 )
@@ -1789,7 +1731,7 @@ describe('service and proxy', () => {
                 const proxyStream = await proxy2.resolveStreamMethod(...params)
                 expect(service.resolveStreamMethod.mock.calls.length).toBe(1)
                 expect(service.resolveStreamMethod.mock.calls[0]).toEqual(
-                    params.concat(spanContextMatcher),
+                    params,
                 )
                 expect(service.resolveStreamMethod.mock.instances[0]).toBe(
                     service,
