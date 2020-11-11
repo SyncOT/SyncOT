@@ -1,6 +1,6 @@
 {
   "name": "@syncot/stream-socket-websocket",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A client-side factory of Duplex object streams backed by WebSocket and exchanging JSON encoded messages.",
   "keywords": [
     "stream",

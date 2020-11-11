@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.1.8](https://github.com/SyncOT/SyncOT/compare/@syncot/auth-client@0.1.7...@syncot/auth-client@0.1.8) (2020-11-11)
+
+
+### Reverts
+
+* remove opentracing ([475bfe2](https://github.com/SyncOT/SyncOT/commit/475bfe270470baa330141d539be8c3cb13c3270e))
+
+
+
+
+
 ## [0.1.7](https://github.com/SyncOT/SyncOT/compare/@syncot/auth-client@0.1.6...@syncot/auth-client@0.1.7) (2020-11-10)
 
 **Note:** Version bump only for package @syncot/auth-client

@@ -1,6 +1,6 @@
 {
   "name": "@syncot/ping",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A ping service for keeping connections alive and for detecting and closing broken connections.",
   "keywords": [
     "ping",
