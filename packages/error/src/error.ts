@@ -173,19 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface NoServiceError extends Error {
-    name: 'SyncOTError NoService'
-}
-export function createNoServiceError(message?: string): NoServiceError {
-    return createError({
-        message,
-        name: 'SyncOTError NoService',
-    }) as NoServiceError
-}
-export function isNoServiceError(error: any): error is NoServiceError {
-    return isCustomError(error) && error.name === 'SyncOTError NoService'
-}
-
 export interface DisconnectedError extends Error {
     name: 'SyncOTError Disconnected'
 }
