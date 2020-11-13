@@ -3,7 +3,6 @@ import {
     createAssertError,
     createAuthError,
     createCompositeError,
-    createDisconnectedError,
     createDuplicateIdError,
     createError,
     createInvalidEntityError,
@@ -23,7 +22,6 @@ import {
     isAuthError,
     isCompositeError,
     isCustomError,
-    isDisconnectedError,
     isDuplicateIdError,
     isInvalidEntityError,
     isInvalidStreamError,
@@ -333,22 +331,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('DisconnectedError', () => {
-    test('createDisconnectedError', () => {
-        const error = createDisconnectedError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError Disconnected')
-        expect(error.message).toBe('test')
-    })
-    test('isDisconnectedError', () => {
-        const error = createDisconnectedError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isDisconnectedError(error)).toBeTrue()
-        expect(isDisconnectedError(new Error())).toBeFalse()
-        expect(isDisconnectedError({})).toBeFalse()
     })
 })
 
