@@ -61,11 +61,11 @@
     "node": ">=12.0.0"
   },
   "scripts": {
-    "clean": "rimraf packages/*/lib **/*.tsbuildinfo && jest --clearCache",
+    "clean": "rimraf packages/*/lib **/*.tsbuildinfo",
     "prettier": "prettier --list-different .",
     "tslint": "tslint --project .",
     "tsc": "tsc -b packages/*",
-    "jest": "jest",
+    "jest": "jest --no-cache",
     "test": "run-s clean prettier tslint tsc jest",
     "benchmark": "lerna run benchmark",
     "start": "run-p start:*",
