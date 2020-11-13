@@ -3,7 +3,6 @@ import {
     createCompositeError,
     createError,
     createInvalidEntityError,
-    createInvalidStreamError,
     createSocketError,
     CustomError,
     fromJSON,
@@ -11,7 +10,6 @@ import {
     isCompositeError,
     isCustomError,
     isInvalidEntityError,
-    isInvalidStreamError,
     isSocketError,
     isSyncOTError,
     toJSON,
@@ -311,22 +309,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('InvalidStreamError', () => {
-    test('createInvalidStreamError', () => {
-        const error = createInvalidStreamError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError InvalidStream')
-        expect(error.message).toBe('test')
-    })
-    test('isInvalidStreamError', () => {
-        const error = createInvalidStreamError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isInvalidStreamError(error)).toBeTrue()
-        expect(isInvalidStreamError(new Error())).toBeFalse()
-        expect(isInvalidStreamError({})).toBeFalse()
     })
 })
 
