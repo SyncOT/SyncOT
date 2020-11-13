@@ -4,5 +4,9 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../events" }, { "path": "../presence" }]
+  "references": [
+    { "path": "../error" },
+    { "path": "../events" },
+    { "path": "../presence" }
+  ]
 }
