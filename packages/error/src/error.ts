@@ -173,23 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface NotInitializedError extends Error {
-    name: 'SyncOTError NotInitialized'
-}
-export function createNotInitializedError(
-    message?: string,
-): NotInitializedError {
-    return createError({
-        message,
-        name: 'SyncOTError NotInitialized',
-    }) as NotInitializedError
-}
-export function isNotInitializedError(
-    error: any,
-): error is NotInitializedError {
-    return isCustomError(error) && error.name === 'SyncOTError NotInitialized'
-}
-
 export interface AlreadyInitializedError extends Error {
     name: 'SyncOTError AlreadyInitialized'
 }

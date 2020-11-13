@@ -7,7 +7,6 @@ import {
     createError,
     createInvalidEntityError,
     createInvalidStreamError,
-    createNotInitializedError,
     createPingError,
     createPresenceError,
     createSessionError,
@@ -25,7 +24,6 @@ import {
     isDuplicateIdError,
     isInvalidEntityError,
     isInvalidStreamError,
-    isNotInitializedError,
     isPingError,
     isPresenceError,
     isSessionError,
@@ -331,22 +329,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('NotInitializedError', () => {
-    test('createNotInitializedError', () => {
-        const error = createNotInitializedError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError NotInitialized')
-        expect(error.message).toBe('test')
-    })
-    test('isNotInitializedError', () => {
-        const error = createNotInitializedError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isNotInitializedError(error)).toBeTrue()
-        expect(isNotInitializedError(new Error())).toBeFalse()
-        expect(isNotInitializedError({})).toBeFalse()
     })
 })
 
