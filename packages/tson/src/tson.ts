@@ -5,7 +5,7 @@ import {
     isSharedArrayBuffer,
     toBuffer,
 } from '@syncot/buffer'
-import { createTsonError } from '@syncot/error'
+import { createTsonError } from './error'
 
 /**
  * A list of types supported by TSON.
