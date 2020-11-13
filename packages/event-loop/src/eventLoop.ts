@@ -72,7 +72,7 @@ class Loop implements EventLoop {
         }
 
         // Process the scheduled tasks once ASAP.
-        process.nextTick(this.startCycle)
+        queueMicrotask(this.startCycle)
     }
 
     public get isFree(): boolean {
