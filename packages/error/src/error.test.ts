@@ -2,7 +2,6 @@ import {
     createAssertError,
     createAuthError,
     createCompositeError,
-    createDuplicateIdError,
     createError,
     createInvalidEntityError,
     createInvalidStreamError,
@@ -15,7 +14,6 @@ import {
     isAuthError,
     isCompositeError,
     isCustomError,
-    isDuplicateIdError,
     isInvalidEntityError,
     isInvalidStreamError,
     isPingError,
@@ -375,22 +373,6 @@ describe('AuthError', () => {
         expect(isAuthError(error)).toBeTrue()
         expect(isAuthError(new Error())).toBeFalse()
         expect(isAuthError({})).toBeFalse()
-    })
-})
-
-describe('DuplicateIdError', () => {
-    test('createDuplicateIdError', () => {
-        const error = createDuplicateIdError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError DuplicateId')
-        expect(error.message).toBe('test')
-    })
-    test('isDuplicateIdError', () => {
-        const error = createDuplicateIdError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isDuplicateIdError(error)).toBeTrue()
-        expect(isDuplicateIdError(new Error())).toBeFalse()
-        expect(isDuplicateIdError({})).toBeFalse()
     })
 })
 
