@@ -173,26 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface UnexpectedSequenceNumberError extends Error {
-    name: 'SyncOTError UnexpectedSequenceNumber'
-}
-export function createUnexpectedSequenceNumberError(
-    message?: string,
-): UnexpectedSequenceNumberError {
-    return createError({
-        message,
-        name: 'SyncOTError UnexpectedSequenceNumber',
-    }) as UnexpectedSequenceNumberError
-}
-export function isUnexpectedSequenceNumberError(
-    error: any,
-): error is UnexpectedSequenceNumberError {
-    return (
-        isCustomError(error) &&
-        error.name === 'SyncOTError UnexpectedSequenceNumber'
-    )
-}
-
 export interface SessionError extends Error {
     cause?: Error
     name: 'SyncOTError Session'

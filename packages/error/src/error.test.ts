@@ -10,7 +10,6 @@ import {
     createPresenceError,
     createSessionError,
     createSocketError,
-    createUnexpectedSequenceNumberError,
     CustomError,
     fromJSON,
     isAssertError,
@@ -25,7 +24,6 @@ import {
     isSessionError,
     isSocketError,
     isSyncOTError,
-    isUnexpectedSequenceNumberError,
     toJSON,
 } from '.'
 
@@ -323,21 +321,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('UnexpectedSequenceNumberError', () => {
-    test('createUnexpectedSequenceNumberError', () => {
-        const error = createUnexpectedSequenceNumberError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError UnexpectedSequenceNumber')
-        expect(error.message).toBe('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isUnexpectedSequenceNumberError(error)).toBeTrue()
-    })
-    test('isUnexpectedSequenceNumberError', () => {
-        expect(isUnexpectedSequenceNumberError(new Error())).toBeFalse()
-        expect(isUnexpectedSequenceNumberError({})).toBeFalse()
     })
 })
 
