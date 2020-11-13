@@ -1,9 +1,7 @@
-import { createInvalidEntityError } from '@syncot/error'
 import { EventEmitter } from 'events'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import {
-    assert,
-    assertUnreachable,
+    createInvalidEntityError,
     delay,
     noop,
     randomInteger,
@@ -50,25 +48,6 @@ describe('validate', () => {
     test('second validator fails', () => {
         expect(validate([numberValidator, positiveValidator])(-5)).toBe(
             positiveError,
-        )
-    })
-})
-
-describe('assertUnreachable', () => {
-    test('throws an error (with a param)', () => {
-        expect(() => assertUnreachable({} as never)).toThrow(
-            expect.objectContaining({
-                message: 'This should never happen!',
-                name: 'SyncOTError Assert',
-            }),
-        )
-    })
-    test('throws an error (without a param)', () => {
-        expect(() => assertUnreachable()).toThrow(
-            expect.objectContaining({
-                message: 'This should never happen!',
-                name: 'SyncOTError Assert',
-            }),
         )
     })
 })
@@ -190,41 +169,5 @@ describe('randomInteger', () => {
                 expect(result).toBeLessThan(max)
             }
         }
-    })
-})
-
-describe('assert', () => {
-    const message = 'Test message'
-
-    test.each([true, 1, {}, noop, [], 'false'])(
-        'do not throw on: value === %p',
-        (value) => {
-            assert(value, message)
-        },
-    )
-
-    test.each([false, 0, null, undefined, ''])(
-        'throw on: value === %p',
-        (value) => {
-            expect(() => assert(value, message)).toThrow(
-                expect.objectContaining({
-                    message,
-                    name: 'SyncOTError Assert',
-                }),
-            )
-        },
-    )
-
-    test('do not throw without a message', () => {
-        assert(true)
-    })
-
-    test('throw without a message', () => {
-        expect(() => assert(false)).toThrow(
-            expect.objectContaining({
-                message: '',
-                name: 'SyncOTError Assert',
-            }),
-        )
     })
 })

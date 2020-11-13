@@ -26,7 +26,6 @@
     "access": "public"
   },
   "dependencies": {
-    "@syncot/error": "file:../error",
     "tslib": "^2.0.3"
   }
 }

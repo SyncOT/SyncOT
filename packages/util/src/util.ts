@@ -1,22 +1,4 @@
-import { createAssertError } from '@syncot/error'
-
-/**
- * Throws an `AssertError` if `value` is falsy.
- */
-export function assert(value: any, message?: string): void {
-    if (!value) {
-        throw createAssertError(message)
-    }
-}
-
-/**
- * A simple function which throws an error, when a theoretically unreachable code path is executed anyway.
- * @param _never An optional parameter which can be used by the client code to ensura that a variable
- *   has type `never`.
- */
-export function assertUnreachable(_never?: never): never {
-    throw createAssertError('This should never happen!')
-}
+import { assert } from './error'
 
 /**
  * The type of validation result.
@@ -61,7 +43,10 @@ export const validate = <T>(validators: Validator<T>[]) => (
  */
 export type Interface<T> = { [P in keyof T]: T[P] }
 
-export function noop() {
+/**
+ * A function which does nothing.
+ */
+export function noop(): void {
     // Do nothing.
 }
 
@@ -98,6 +83,9 @@ export const whenClose = whenEvent('close')
  */
 export const whenError = whenEvent('error')
 
+/**
+ * Returns a random integer in the specified range.
+ */
 export function randomInteger(
     minInclusive: number,
     maxExclusive: number,
