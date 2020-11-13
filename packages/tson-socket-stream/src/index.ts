@@ -8,3 +8,4 @@ export {
     TsonSocket,
     TsonSocketStream,
 } from './tsonSocketStream'
+export * from './error'
