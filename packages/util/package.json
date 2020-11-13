@@ -26,6 +26,7 @@
     "access": "public"
   },
   "dependencies": {
+    "base64-js": "^1.5.1",
     "tslib": "^2.0.3"
   }
 }
