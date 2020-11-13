@@ -1,5 +1,4 @@
-import { createSocketError } from '@syncot/error'
-import { SocketStream } from '@syncot/stream-socket'
+import { createSocketError, SocketStream } from '@syncot/stream-socket'
 import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 

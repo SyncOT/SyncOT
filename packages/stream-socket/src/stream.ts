@@ -1,6 +1,6 @@
-import { createSocketError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
 import { Duplex } from 'readable-stream'
+import { createSocketError } from './error'
 
 const eventLoop = globalEventLoop()
 

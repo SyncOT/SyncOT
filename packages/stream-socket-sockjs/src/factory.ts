@@ -1,5 +1,5 @@
-import { createSocketError } from '@syncot/error'
 import {
+    createSocketError,
     sockJsClientConnectionToSocket,
     SocketStream,
 } from '@syncot/stream-socket'
