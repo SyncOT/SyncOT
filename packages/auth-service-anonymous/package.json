@@ -30,7 +30,6 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
-    "@syncot/id": "file:../id",
     "@syncot/util": "file:../util",
     "tslib": "^2.0.3"
   }

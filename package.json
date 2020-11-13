@@ -91,7 +91,6 @@
     "@syncot/buffer": "file:packages/buffer",
     "@syncot/connection": "file:packages/connection",
     "@syncot/event-loop": "file:packages/event-loop",
-    "@syncot/id": "file:packages/id",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
     "@syncot/ping": "file:packages/ping",
     "@syncot/presence": "file:packages/presence",

@@ -8,7 +8,6 @@
     { "path": "../auth" },
     { "path": "../auth-client" },
     { "path": "../connection" },
-    { "path": "../id" },
     { "path": "../util" }
   ]
 }

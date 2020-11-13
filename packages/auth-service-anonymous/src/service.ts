@@ -1,7 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { generateId } from '@syncot/id'
-import { assert, SyncOTEmitter } from '@syncot/util'
+import { assert, createId, SyncOTEmitter } from '@syncot/util'
 /**
  * The options expected by `createAuthService`.
  */
@@ -93,7 +92,7 @@ class AnonymousAuthService
     public logIn(): LoginResponse {
         if (!this.active) {
             this.active = true
-            this.sessionId = generateId()
+            this.sessionId = createId()
             this.userId = ''
             this.emitAsync('active')
         }
