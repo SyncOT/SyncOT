@@ -1,6 +1,5 @@
 import { Connection } from '@syncot/connection'
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
-import { assert } from '@syncot/util'
+import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { createPingError } from './error'
 
 export const requestNames = new Set(['ping'])

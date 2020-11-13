@@ -1,5 +1,9 @@
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
-import { assert, randomInteger } from '@syncot/util'
+import {
+    assert,
+    EmitterInterface,
+    randomInteger,
+    SyncOTEmitter,
+} from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Connection } from './connection'
 import { StreamFactory } from './factory'

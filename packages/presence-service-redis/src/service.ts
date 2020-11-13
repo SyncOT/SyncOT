@@ -1,7 +1,6 @@
 import { createAuthError, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { globalEventLoop } from '@syncot/event-loop'
-import { SyncOTEmitter } from '@syncot/events'
 import {
     EventType,
     getRedisSubscriber,
@@ -14,7 +13,7 @@ import {
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { assert, throwError } from '@syncot/util'
+import { assert, SyncOTEmitter, throwError } from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import {

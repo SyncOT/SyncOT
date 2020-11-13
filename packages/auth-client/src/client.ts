@@ -1,8 +1,7 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { SyncOTEmitter } from '@syncot/events'
 import { createTaskRunner, TaskRunner } from '@syncot/task-runner'
-import { assert } from '@syncot/util'
+import { assert, SyncOTEmitter } from '@syncot/util'
 
 /**
  * Options expected by `createAuthClient`.

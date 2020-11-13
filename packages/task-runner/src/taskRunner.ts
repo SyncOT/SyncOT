@@ -1,5 +1,4 @@
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
-import { assert } from '@syncot/util'
+import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 
 /**
  * The type of tasks run by `TaskRunner`s.

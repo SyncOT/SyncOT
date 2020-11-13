@@ -1,6 +1,5 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { SyncOTEmitter } from '@syncot/events'
 import {
     createPresenceError,
     Presence,
@@ -8,7 +7,7 @@ import {
     PresenceClientEvents,
     PresenceService,
 } from '@syncot/presence'
-import { assert } from '@syncot/util'
+import { assert, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**

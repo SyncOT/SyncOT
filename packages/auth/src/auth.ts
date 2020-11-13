@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Presence } from '@syncot/presence'
 
 /**

@@ -1,6 +1,5 @@
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { Presence, PresenceClient, PresenceMessage } from '@syncot/presence'
-import { assert, noop } from '@syncot/util'
+import { assert, EmitterInterface, noop, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**

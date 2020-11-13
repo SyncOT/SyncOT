@@ -1,11 +1,11 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOTEmitter } from '@syncot/events'
 import { Presence, PresenceService } from '@syncot/presence'
 import { invertedStreams } from '@syncot/stream'
 import {
     delay,
     randomInteger,
+    SyncOTEmitter,
     whenClose,
     whenData,
     whenError,

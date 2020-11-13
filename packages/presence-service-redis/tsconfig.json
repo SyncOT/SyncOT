@@ -8,7 +8,6 @@
     { "path": "../auth" },
     { "path": "../connection" },
     { "path": "../event-loop" },
-    { "path": "../events" },
     { "path": "../ioredis-subscriber" },
     { "path": "../presence" },
     { "path": "../util" }
