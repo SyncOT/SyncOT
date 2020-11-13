@@ -7,7 +7,6 @@
   "references": [
     { "path": "../auth" },
     { "path": "../connection" },
-    { "path": "../error" },
     { "path": "../event-loop" },
     { "path": "../events" },
     { "path": "../ioredis-subscriber" },

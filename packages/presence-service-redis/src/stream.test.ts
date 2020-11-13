@@ -45,7 +45,7 @@ test('write', async () => {
     expect(onError).toHaveBeenCalledWith(
         expect.objectContaining({
             message: 'PresenceStream does not support "write".',
-            name: 'SyncOTError Assert',
+            name: 'TypeError',
         }),
     )
     await whenNextTick()

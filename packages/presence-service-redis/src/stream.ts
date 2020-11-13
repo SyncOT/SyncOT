@@ -1,4 +1,3 @@
-import { createAssertError } from '@syncot/error'
 import {
     Presence,
     PresenceAddedMessage,
@@ -34,7 +33,7 @@ export class PresenceStream extends Duplex {
         _encoding: any,
         callback: (error?: Error | null) => void,
     ) {
-        callback(nonWritableError)
+        callback(new TypeError('PresenceStream does not support "write".'))
     }
     public _final(callback: () => void) {
         callback()
@@ -115,7 +114,3 @@ const presenceStreamOptions = {
     allowHalfOpen: false,
     objectMode: true,
 }
-
-const nonWritableError = createAssertError(
-    'PresenceStream does not support "write".',
-)
