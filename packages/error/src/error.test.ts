@@ -11,7 +11,6 @@ import {
     createSessionError,
     createSocketError,
     createUnexpectedSequenceNumberError,
-    createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
     CustomError,
     fromJSON,
@@ -28,7 +27,6 @@ import {
     isSocketError,
     isSyncOTError,
     isUnexpectedSequenceNumberError,
-    isUnexpectedSessionIdError,
     isUnexpectedVersionNumberError,
     toJSON,
 } from '.'
@@ -327,22 +325,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('UnexpectedSessionIdError', () => {
-    test('createUnexpectedSessionIdError', () => {
-        const error = createUnexpectedSessionIdError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError UnexpectedSessionId')
-        expect(error.message).toBe('test')
-    })
-    test('isUnexpectedSessionIdError', () => {
-        const error = createUnexpectedSessionIdError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isUnexpectedSessionIdError(error)).toBeTrue()
-        expect(isUnexpectedSessionIdError(new Error())).toBeFalse()
-        expect(isUnexpectedSessionIdError({})).toBeFalse()
     })
 })
 
