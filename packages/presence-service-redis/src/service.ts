@@ -1,6 +1,5 @@
-import { AuthService } from '@syncot/auth'
+import { createAuthError, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createAuthError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
 import { SyncOTEmitter } from '@syncot/events'
 import {
