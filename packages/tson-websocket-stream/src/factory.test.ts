@@ -84,7 +84,7 @@ test('time out while connecting', async () => {
     await expect(streamPromise).rejects.toEqual(
         expect.objectContaining({
             message: 'Timed out while establishing a WebSocket connection.',
-            name: 'SyncOTError Socket',
+            name: 'SyncOTError TSONSocket',
         }),
     )
 })
@@ -95,7 +95,7 @@ test('fail to connect', async () => {
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Failed to establish a WebSocket connection.',
-            name: 'SyncOTError Socket',
+            name: 'SyncOTError TSONSocket',
         }),
     )
 })

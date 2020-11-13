@@ -1,8 +1,8 @@
 import { Binary, isArrayBuffer } from '@syncot/buffer'
-import { createSocketError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
 import { decode, encode } from '@syncot/tson'
 import { Duplex } from 'readable-stream'
+import { createTSONSocketError } from './error'
 
 const eventLoop = globalEventLoop()
 
@@ -185,6 +185,6 @@ export class TsonSocketStream extends Duplex {
                 : event.error instanceof Error
                 ? event.error
                 : undefined
-        this.emit('error', createSocketError('Socket error.', cause))
+        this.emit('error', createTSONSocketError('Socket error.', cause))
     }
 }

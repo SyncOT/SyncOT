@@ -5,9 +5,5 @@
     "outDir": "./lib",
     "lib": ["es2018", "dom"]
   },
-  "references": [
-    { "path": "../error" },
-    { "path": "../tson-socket-stream" },
-    { "path": "../util" }
-  ]
+  "references": [{ "path": "../tson-socket-stream" }, { "path": "../util" }]
 }

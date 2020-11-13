@@ -1,5 +1,5 @@
-import { createSocketError } from '@syncot/error'
 import {
+    createTSONSocketError,
     sockJsClientConnectionToTsonSocket as toTsonSocket,
     TsonSocketStream,
 } from '@syncot/tson-socket-stream'
@@ -51,7 +51,7 @@ export const createSockJsStream = ({
             const onClose = () => {
                 cleanUp()
                 reject(
-                    createSocketError(
+                    createTSONSocketError(
                         'Failed to establish a SockJS connection.',
                     ),
                 )
@@ -60,7 +60,7 @@ export const createSockJsStream = ({
                 cleanUp()
                 socket.close()
                 reject(
-                    createSocketError(
+                    createTSONSocketError(
                         'Timed out while establishing a SockJS connection.',
                     ),
                 )

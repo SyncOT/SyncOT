@@ -213,7 +213,7 @@ describe.each<[string, () => void]>([
                 expect(onError).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: expect.stringContaining('Socket error.'),
-                        name: 'SyncOTError Socket',
+                        name: 'SyncOTError TSONSocket',
                     }),
                 )
             }
@@ -542,7 +542,7 @@ describe.each<[string, () => void]>([
                         name: 'Error',
                     }),
                     message: 'Socket error. => Error: test error',
-                    name: 'SyncOTError Socket',
+                    name: 'SyncOTError TSONSocket',
                 }),
             )
         })

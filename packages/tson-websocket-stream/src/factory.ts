@@ -1,5 +1,7 @@
-import { createSocketError } from '@syncot/error'
-import { TsonSocketStream } from '@syncot/tson-socket-stream'
+import {
+    createTSONSocketError,
+    TsonSocketStream,
+} from '@syncot/tson-socket-stream'
 import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
@@ -42,7 +44,7 @@ export const createWebSocketStream = ({
             const onClose = () => {
                 cleanUp()
                 reject(
-                    createSocketError(
+                    createTSONSocketError(
                         'Failed to establish a WebSocket connection.',
                     ),
                 )
@@ -51,7 +53,7 @@ export const createWebSocketStream = ({
                 cleanUp()
                 webSocket.close()
                 reject(
-                    createSocketError(
+                    createTSONSocketError(
                         'Timed out while establishing a WebSocket connection.',
                     ),
                 )
