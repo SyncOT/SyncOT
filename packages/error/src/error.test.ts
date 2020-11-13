@@ -14,7 +14,6 @@ import {
     createPresenceError,
     createSessionError,
     createSocketError,
-    createTypeNotFoundError,
     createUnexpectedSequenceNumberError,
     createUnexpectedSessionIdError,
     createUnexpectedVersionNumberError,
@@ -36,7 +35,6 @@ import {
     isSessionError,
     isSocketError,
     isSyncOTError,
-    isTypeNotFoundError,
     isUnexpectedSequenceNumberError,
     isUnexpectedSessionIdError,
     isUnexpectedVersionNumberError,
@@ -337,31 +335,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('TypeNotFoundError', () => {
-    test('createTypeNotFoundError with invalid typeName', () => {
-        expect(() => createTypeNotFoundError(5 as any)).toThrow(
-            expect.objectContaining({
-                message: 'Argument "typeName" must be a string.',
-                name: 'SyncOTError Assert',
-            }),
-        )
-    })
-    test('createTypeNotFoundError with valid typeName', () => {
-        const error = createTypeNotFoundError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError TypeNotFound')
-        expect(error.message).toBe('Type "test" not found.')
-        expect(error.typeName).toBe('test')
-    })
-    test('isTypeNotFoundError', () => {
-        const error = createTypeNotFoundError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isTypeNotFoundError(error)).toBeTrue()
-        expect(isTypeNotFoundError(new Error())).toBeFalse()
-        expect(isTypeNotFoundError({})).toBeFalse()
     })
 })
 

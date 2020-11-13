@@ -173,25 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface TypeNotFoundError extends Error {
-    name: 'SyncOTError TypeNotFound'
-    typeName: string
-}
-export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
-    assert(
-        typeof typeName === 'string',
-        'Argument "typeName" must be a string.',
-    )
-    return createError({
-        message: `Type "${typeName}" not found.`,
-        name: 'SyncOTError TypeNotFound',
-        typeName,
-    }) as TypeNotFoundError
-}
-export function isTypeNotFoundError(error: any): error is TypeNotFoundError {
-    return isCustomError(error) && error.name === 'SyncOTError TypeNotFound'
-}
-
 export interface NoServiceError extends Error {
     name: 'SyncOTError NoService'
 }
