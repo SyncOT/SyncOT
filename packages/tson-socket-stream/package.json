@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@syncot/buffer": "file:../buffer",
-    "@syncot/error": "file:../error",
     "@syncot/event-loop": "file:../event-loop",
     "@syncot/tson": "file:../tson",
     "@syncot/util": "file:../util",

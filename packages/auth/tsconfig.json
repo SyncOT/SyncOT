@@ -5,8 +5,8 @@
     "outDir": "./lib"
   },
   "references": [
-    { "path": "../error" },
     { "path": "../events" },
-    { "path": "../presence" }
+    { "path": "../presence" },
+    { "path": "../util" }
   ]
 }

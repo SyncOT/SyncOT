@@ -1,6 +1,5 @@
-import { createInvalidEntityError } from '@syncot/error'
 import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
-import { validate, Validator } from '@syncot/util'
+import { createInvalidEntityError, validate, Validator } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 export interface Presence {

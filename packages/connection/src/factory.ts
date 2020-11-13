@@ -1,4 +1,4 @@
-import { createCompositeError } from '@syncot/error'
+import { createCompositeError } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**

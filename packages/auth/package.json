@@ -27,9 +27,9 @@
     "access": "public"
   },
   "dependencies": {
-    "@syncot/error": "file:../error",
     "@syncot/events": "file:../events",
     "@syncot/presence": "file:../presence",
+    "@syncot/util": "file:../util",
     "tslib": "^2.0.3"
   }
 }

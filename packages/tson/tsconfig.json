@@ -4,5 +4,5 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../buffer" }, { "path": "../error" }]
+  "references": [{ "path": "../buffer" }, { "path": "../util" }]
 }

@@ -1,4 +1,4 @@
-import { isSyncOTError } from '@syncot/error'
+import { isSyncOTError } from '@syncot/util'
 import { createAuthError, isAuthError } from '.'
 
 describe('AuthError', () => {

@@ -90,7 +90,6 @@
     "@syncot/auth-service-anonymous": "file:packages/auth-service-anonymous",
     "@syncot/buffer": "file:packages/buffer",
     "@syncot/connection": "file:packages/connection",
-    "@syncot/error": "file:packages/error",
     "@syncot/event-loop": "file:packages/event-loop",
     "@syncot/events": "file:packages/events",
     "@syncot/id": "file:packages/id",

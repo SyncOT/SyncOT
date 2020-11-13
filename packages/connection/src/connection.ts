@@ -1,13 +1,15 @@
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
+import { isOpenDuplexStream, isStream } from '@syncot/stream'
 import {
+    assert,
     createInvalidEntityError,
     CustomError,
     fromJSON,
     isCustomError,
     toJSON,
-} from '@syncot/error'
-import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
-import { isOpenDuplexStream, isStream } from '@syncot/stream'
-import { assert, validate, Validator } from '@syncot/util'
+    validate,
+    Validator,
+} from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     createDisconnectedError,

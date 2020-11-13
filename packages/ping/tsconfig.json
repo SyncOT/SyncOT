@@ -6,7 +6,6 @@
   },
   "references": [
     { "path": "../connection" },
-    { "path": "../error" },
     { "path": "../events" },
     { "path": "../util" }
   ]

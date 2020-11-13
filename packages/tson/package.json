@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@syncot/buffer": "file:../buffer",
-    "@syncot/error": "file:../error",
+    "@syncot/util": "file:../util",
     "@types/node": "^14.14.6",
     "tslib": "^2.0.3"
   },

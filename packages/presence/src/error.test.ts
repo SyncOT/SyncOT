@@ -1,4 +1,4 @@
-import { isSyncOTError } from '@syncot/error'
+import { isSyncOTError } from '@syncot/util'
 import { createPresenceError, isPresenceError } from '.'
 
 describe('PresenceError', () => {

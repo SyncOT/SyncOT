@@ -1,4 +1,4 @@
-import { isSyncOTError } from '@syncot/error'
+import { isSyncOTError } from '@syncot/util'
 import { createTsonError, isTsonError } from '.'
 
 describe('TsonError', () => {

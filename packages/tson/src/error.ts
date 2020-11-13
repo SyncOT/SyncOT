@@ -1,4 +1,4 @@
-import { createError, isCustomError } from '@syncot/error'
+import { createError, isCustomError } from '@syncot/util'
 
 export interface TsonError extends Error {
     name: 'SyncOTError TSON'
