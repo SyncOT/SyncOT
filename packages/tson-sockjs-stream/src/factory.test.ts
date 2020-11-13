@@ -99,7 +99,7 @@ test('fail to connect', async () => {
         createSockJsStream({
             // Allow only one transport to get an error faster.
             sockJsOptions: { transports: ['websocket'] },
-            url: 'http://does-not-exist.localhost',
+            url: 'http://does-not-exist',
         })(),
     ).rejects.toEqual(
         expect.objectContaining({

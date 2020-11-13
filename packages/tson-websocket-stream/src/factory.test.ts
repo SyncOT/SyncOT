@@ -91,7 +91,7 @@ test('time out while connecting', async () => {
 
 test('fail to connect', async () => {
     await expect(
-        createWebSocketStream({ url: 'ws://does-not-exist.localhost' })(),
+        createWebSocketStream({ url: 'ws://does-not-exist' })(),
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Failed to establish a WebSocket connection.',
