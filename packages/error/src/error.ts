@@ -173,24 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface SessionError extends Error {
-    cause?: Error
-    name: 'SyncOTError Session'
-}
-export function createSessionError(
-    message?: string,
-    cause?: Error,
-): SessionError {
-    return createError({
-        cause,
-        message,
-        name: 'SyncOTError Session',
-    }) as SessionError
-}
-export function isSessionError(error: any): error is SessionError {
-    return isCustomError(error) && error.name === 'SyncOTError Session'
-}
-
 export interface PresenceError extends Error {
     cause?: Error
     name: 'SyncOTError Presence'

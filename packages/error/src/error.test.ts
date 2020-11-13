@@ -8,7 +8,6 @@ import {
     createInvalidStreamError,
     createPingError,
     createPresenceError,
-    createSessionError,
     createSocketError,
     CustomError,
     fromJSON,
@@ -21,7 +20,6 @@ import {
     isInvalidStreamError,
     isPingError,
     isPresenceError,
-    isSessionError,
     isSocketError,
     isSyncOTError,
     toJSON,
@@ -321,34 +319,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('SessionError', () => {
-    test('createSessionError', () => {
-        const error = createSessionError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError Session')
-        expect(error.message).toBe('test')
-        expect(error.cause).toBe(undefined)
-    })
-    test('createSessionError with cause', () => {
-        const cause = new Error('Test cause!')
-        const error = createSessionError('Test message.', cause)
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError Session')
-        expect(error.message).toBe('Test message. => Error: Test cause!')
-        expect(error.toString()).toBe(
-            'SyncOTError Session: Test message. => Error: Test cause!',
-        )
-        expect(error.cause).toBe(cause)
-    })
-    test('isSessionError', () => {
-        const error = createSessionError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isSessionError(error)).toBeTrue()
-        expect(isSessionError(new Error())).toBeFalse()
-        expect(isSessionError({})).toBeFalse()
     })
 })
 
