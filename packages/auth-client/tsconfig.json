@@ -7,7 +7,6 @@
   "references": [
     { "path": "../auth" },
     { "path": "../connection" },
-    { "path": "../task-runner" },
     { "path": "../util" }
   ]
 }
