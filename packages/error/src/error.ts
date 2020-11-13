@@ -268,21 +268,6 @@ export function isAssertError(error: any): error is AssertError {
     return isCustomError(error) && error.name === 'SyncOTError Assert'
 }
 
-export interface PingError extends Error {
-    cause?: Error
-    name: 'SyncOTError Ping'
-}
-export function createPingError(message?: string, cause?: Error): PingError {
-    return createError({
-        cause,
-        message,
-        name: 'SyncOTError Ping',
-    }) as PingError
-}
-export function isPingError(error: any): error is PingError {
-    return isCustomError(error) && error.name === 'SyncOTError Ping'
-}
-
 function assert(value: any, message?: string): void {
     if (!value) {
         throw createAssertError(message)
