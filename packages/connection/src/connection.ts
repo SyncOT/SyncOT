@@ -1,6 +1,5 @@
 import {
     createInvalidEntityError,
-    createInvalidStreamError,
     CustomError,
     fromJSON,
     isCustomError,
@@ -13,6 +12,7 @@ import { Duplex } from 'readable-stream'
 import {
     createDisconnectedError,
     createDuplicateIdError,
+    createInvalidStreamError,
     createNoServiceError,
 } from './error'
 
