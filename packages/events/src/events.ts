@@ -111,7 +111,7 @@ export class TypedEventEmitter<
  * @emits error Emitted asynchronously when `destroy` is called with an error argument.
  * @emits destroy Emitted asynchronously when this emitter is destroyed.
  */
-export class SyncOtEmitter<Events> extends TypedEventEmitter<
+export class SyncOTEmitter<Events> extends TypedEventEmitter<
     Events & { destroy: void; error: Error },
     Events
 > {

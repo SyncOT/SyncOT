@@ -30,11 +30,11 @@ const invalidErrorMatcher = expect.objectContaining({
 })
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const invalidStreamMatcher = expect.objectContaining({
     message: 'Service returned an invalid stream.',
-    name: 'SyncOtError InvalidStream',
+    name: 'SyncOTError InvalidStream',
 })
 let connection: Connection
 let stream1: Duplex
@@ -123,7 +123,7 @@ describe('connection', () => {
         connection.connect(stream1)
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Connection is already associated with a stream.',
             ),
         )
@@ -134,7 +134,7 @@ describe('connection', () => {
     test('connect with an invalid stream', () => {
         expect(() => connection.connect({} as any)).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -143,7 +143,7 @@ describe('connection', () => {
         stream1.destroy()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -152,7 +152,7 @@ describe('connection', () => {
         stream1.end()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -163,7 +163,7 @@ describe('connection', () => {
         await delay()
         expect(() => connection.connect(stream1)).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "stream" must be an open Duplex.',
             ),
         )
@@ -304,7 +304,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: 5 as any }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -312,7 +312,7 @@ describe('service registration', () => {
             connection.registerService({ name, instance: null as any }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Argument "instance" must be an object.',
             ),
         )
@@ -326,7 +326,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Connection events not implemented',
             ),
         )
@@ -341,7 +341,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Service.anotherMethod must be a function.',
             ),
         )
@@ -367,7 +367,7 @@ describe('service registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Service "service-or-proxy-name" has been already registered.',
             ),
         )
@@ -412,7 +412,7 @@ describe('proxy registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Connection events not implemented',
             ),
         )
@@ -425,7 +425,7 @@ describe('proxy registration', () => {
             }),
         ).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Proxy.toString already exists.',
             ),
         )
@@ -440,7 +440,7 @@ describe('proxy registration', () => {
         connection.registerProxy({ name })
         expect(() => connection.registerProxy({ name })).toThrow(
             errorMatcher(
-                'SyncOtError Assert',
+                'SyncOTError Assert',
                 'Proxy "service-or-proxy-name" has been already registered.',
             ),
         )
@@ -666,7 +666,7 @@ describe('message validation', () => {
                     property == null
                         ? 'Invalid "Message".'
                         : `Invalid "Message.${property}".`,
-                name: 'SyncOtError InvalidEntity',
+                name: 'SyncOTError InvalidEntity',
             }),
         )
     })
@@ -830,7 +830,7 @@ describe('no service', () => {
             expect.objectContaining({
                 ...message,
                 data: errorMatcher(
-                    'SyncOtError NoService',
+                    'SyncOTError NoService',
                     `No service to handle the request for "${serviceName}.${message.name}".`,
                 ),
                 name: null,
@@ -1132,7 +1132,7 @@ describe('service and proxy', () => {
                 ...message,
                 data: expect.objectContaining({
                     message: 'Duplicate request ID.',
-                    name: 'SyncOtError DuplicateId',
+                    name: 'SyncOTError DuplicateId',
                 }),
                 name: null,
                 type: MessageType.REPLY_ERROR,
@@ -1383,7 +1383,7 @@ describe('service and proxy', () => {
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: 'Invalid "Message.name".',
-                    name: 'SyncOtError InvalidEntity',
+                    name: 'SyncOTError InvalidEntity',
                 }),
             )
         })
@@ -1482,7 +1482,7 @@ describe('service and proxy', () => {
             connection.disconnect()
             await expect(promise).rejects.toEqual(
                 errorMatcher(
-                    'SyncOtError Disconnected',
+                    'SyncOTError Disconnected',
                     'Disconnected, request failed.',
                 ),
             )
@@ -1514,7 +1514,7 @@ describe('service and proxy', () => {
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
                     message: 'Disconnected, stream destroyed.',
-                    name: 'SyncOtError Disconnected',
+                    name: 'SyncOTError Disconnected',
                 }),
             )
             expect(onClose).toHaveBeenCalledTimes(1)
@@ -1557,7 +1557,7 @@ describe('service and proxy', () => {
             stream1.destroy()
             await expect(promise).rejects.toEqual(
                 errorMatcher(
-                    'SyncOtError Disconnected',
+                    'SyncOTError Disconnected',
                     'Disconnected, request failed.',
                 ),
             )
@@ -1573,7 +1573,7 @@ describe('service and proxy', () => {
             )
             await expect(promise).rejects.toEqual(
                 errorMatcher(
-                    'SyncOtError Disconnected',
+                    'SyncOTError Disconnected',
                     'Disconnected, request failed.',
                 ),
             )

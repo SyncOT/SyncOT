@@ -1,5 +1,5 @@
 import { createInvalidEntityError } from '@syncot/error'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { validate, Validator } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
@@ -60,7 +60,7 @@ export interface PresenceServiceEvents {
  * @event destroy The PresenceClient has been destroyed.
  */
 export interface PresenceClient
-    extends EmitterInterface<SyncOtEmitter<PresenceClientEvents>> {
+    extends EmitterInterface<SyncOTEmitter<PresenceClientEvents>> {
     /**
      * The read-only local presence `sessionId`.
      * It is `undefined` if, and only if, `active` is `false`.
@@ -106,7 +106,7 @@ export interface PresenceClient
  * @event destroy The PresenceClient has been destroyed.
  */
 export interface PresenceService
-    extends EmitterInterface<SyncOtEmitter<PresenceServiceEvents>> {
+    extends EmitterInterface<SyncOTEmitter<PresenceServiceEvents>> {
     /**
      * Submits a new presence object for the current session.
      */

@@ -49,7 +49,7 @@ test('invalid URL', () => {
     expect(() => createSockJsStream({ url: 5 as any })).toThrow(
         expect.objectContaining({
             message: 'Argument "url" must be a string.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -59,7 +59,7 @@ test('invalid timeout (< 0)', () => {
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -69,7 +69,7 @@ test('invalid timeout (string)', () => {
         expect.objectContaining({
             message:
                 'Argument "timeout" must be undefined or a safe integer >= 0.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -89,7 +89,7 @@ test('time out while connecting', async () => {
     await expect(streamPromise).rejects.toEqual(
         expect.objectContaining({
             message: 'Timed out while establishing a SockJS connection.',
-            name: 'SyncOtError Socket',
+            name: 'SyncOTError Socket',
         }),
     )
 })
@@ -104,7 +104,7 @@ test('fail to connect', async () => {
     ).rejects.toEqual(
         expect.objectContaining({
             message: 'Failed to establish a SockJS connection.',
-            name: 'SyncOtError Socket',
+            name: 'SyncOTError Socket',
         }),
     )
 })

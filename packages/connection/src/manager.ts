@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { assert, randomInteger } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Connection } from './connection'
@@ -18,7 +18,7 @@ export interface StreamManagerEvents {
  * @event destroy When the `StreamManager` is destroyed.
  */
 export interface StreamManager
-    extends EmitterInterface<SyncOtEmitter<StreamManagerEvents>> {}
+    extends EmitterInterface<SyncOTEmitter<StreamManagerEvents>> {}
 
 /**
  * The parameter type for `createStreamManager`.
@@ -78,7 +78,7 @@ export function createStreamManager({
 }
 
 class Manager
-    extends SyncOtEmitter<StreamManagerEvents>
+    extends SyncOTEmitter<StreamManagerEvents>
     implements StreamManager {
     private attempt: number = -1
     private scheduledConnect: NodeJS.Timeout | undefined = undefined

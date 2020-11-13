@@ -49,7 +49,7 @@ test.each<[string[], string, string[]]>([
             expect.objectContaining({
                 errors: errorList,
                 message: 'Failed to create a stream.',
-                name: 'SyncOtError Composite',
+                name: 'SyncOTError Composite',
             }),
         )
     }

@@ -157,7 +157,7 @@ test('throw on enableOfflineQueue=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableOfflineQueue=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -174,7 +174,7 @@ test('throw on enableReadyCheck=false', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableReadyCheck=true.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -301,7 +301,7 @@ test('invalid data to remove', async () => {
             message: expect.stringContaining(
                 'Failed to initialize connectionId. => ReplyError: ERR Error running script',
             ),
-            name: 'SyncOtError Presence',
+            name: 'SyncOTError Presence',
         }),
     )
     expect(manager.connectionId).toBeUndefined()
@@ -393,7 +393,7 @@ test('remove dangling presence error - incorrect data type', async () => {
             }),
             message:
                 'Failed to prune dangling data. => ReplyError: WRONGTYPE Operation against a key holding the wrong kind of value',
-            name: 'SyncOtError Presence',
+            name: 'SyncOTError Presence',
         }),
     )
 })

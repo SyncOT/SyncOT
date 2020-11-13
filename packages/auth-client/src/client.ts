@@ -1,6 +1,6 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import { createTaskRunner, TaskRunner } from '@syncot/task-runner'
 import { assert } from '@syncot/util'
 
@@ -73,7 +73,7 @@ export interface InternalAuthService {
     logIn(loginDetails: any): Promise<LoginResponse>
 }
 
-class Client extends SyncOtEmitter<AuthEvents> implements AuthClient {
+class Client extends SyncOTEmitter<AuthEvents> implements AuthClient {
     public active: boolean = false
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined

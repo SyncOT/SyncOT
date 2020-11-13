@@ -59,7 +59,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable({} as never)).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -67,7 +67,7 @@ describe('assertUnreachable', () => {
         expect(() => assertUnreachable()).toThrow(
             expect.objectContaining({
                 message: 'This should never happen!',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -139,7 +139,7 @@ describe('randomInteger', () => {
         expect(() => randomInteger(1.5, 5)).toThrow(
             expect.objectContaining({
                 message: 'Argument "minInclusive" must be a safe integer.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -147,7 +147,7 @@ describe('randomInteger', () => {
         expect(() => randomInteger(1, 5.5)).toThrow(
             expect.objectContaining({
                 message: 'Argument "maxExclusive" must be a safe integer.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -156,7 +156,7 @@ describe('randomInteger', () => {
             expect.objectContaining({
                 message:
                     'Argument "minInclusive" must be less or equal to argument "maxExclusive".',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -209,7 +209,7 @@ describe('assert', () => {
             expect(() => assert(value, message)).toThrow(
                 expect.objectContaining({
                     message,
-                    name: 'SyncOtError Assert',
+                    name: 'SyncOTError Assert',
                 }),
             )
         },
@@ -223,7 +223,7 @@ describe('assert', () => {
         expect(() => assert(false)).toThrow(
             expect.objectContaining({
                 message: '',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })

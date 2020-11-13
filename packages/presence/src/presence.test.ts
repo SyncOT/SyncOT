@@ -48,7 +48,7 @@ describe('validatePresence', () => {
                         invalidProperty === null
                             ? 'Invalid "Presence".'
                             : `Invalid "Presence.${invalidProperty}".`,
-                    name: 'SyncOtError InvalidEntity',
+                    name: 'SyncOTError InvalidEntity',
                 }),
             )
         }

@@ -9,7 +9,7 @@ import {
     isCustomError,
     toJSON,
 } from '@syncot/error'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { isOpenDuplexStream, isStream } from '@syncot/stream'
 import { assert, validate, Validator } from '@syncot/util'
 import { Duplex } from 'readable-stream'
@@ -218,7 +218,7 @@ const validateMessage: Validator<Message> = validate([
     },
 ])
 
-class ConnectionImpl extends SyncOtEmitter<Events> {
+class ConnectionImpl extends SyncOTEmitter<Events> {
     private stream: Duplex | null = null
     private services: Map<ServiceName, RegisteredServiceDescriptor> = new Map()
     private proxies: Map<ProxyName, RegisteredProxyDescriptor> = new Map()
@@ -838,9 +838,9 @@ class ConnectionImpl extends SyncOtEmitter<Events> {
  * @event disconnect Emitted when the associated stream finishes.
  * @event error Emitted when an error occurs. Possible errors are:
  *
- *   - `SyncOtError InvalidEntity` - emitted when sending or receiving an invalid message.
+ *   - `SyncOTError InvalidEntity` - emitted when sending or receiving an invalid message.
  *     It indicates presence of a bug in SyncOT or the client code.
- *   - `SyncOtError InvalidStream` - emitted when a service returns a stream, or a promise which
+ *   - `SyncOTError InvalidStream` - emitted when a service returns a stream, or a promise which
  *     resolves to a stream, and that stream is already destroyed, not readable, or not writable.
  * @event destroy Emitted when the Connection is destroyed.
  */

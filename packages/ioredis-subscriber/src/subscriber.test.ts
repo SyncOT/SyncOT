@@ -114,7 +114,7 @@ test('throw on autoResubscribe=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with autoResubscribe=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -132,7 +132,7 @@ test('throw on enableOfflineQueue=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableOfflineQueue=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -150,7 +150,7 @@ test('throw on enableReadyCheck=false', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableReadyCheck=true.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })

@@ -1,7 +1,7 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { createPresenceError } from '@syncot/error'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import {
     Presence,
     PresenceClient,
@@ -54,7 +54,7 @@ export const requestNames = new Set([
 ])
 
 class Client
-    extends SyncOtEmitter<PresenceClientEvents>
+    extends SyncOTEmitter<PresenceClientEvents>
     implements PresenceClient {
     public active: boolean = false
     public sessionId: string | undefined = undefined

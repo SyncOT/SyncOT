@@ -6,7 +6,7 @@ const bits = (strings: TemplateStringsArray) => parseInt(strings[0], 2)
 const errorMatcher = (message: string) =>
     expect.objectContaining({
         message,
-        name: 'SyncOtError TSON',
+        name: 'SyncOTError TSON',
     })
 
 const encodeToBufferReader = (data: any) => {

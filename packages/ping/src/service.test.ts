@@ -21,20 +21,20 @@ const whenPong = whenEvent('pong')
 
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const invalidTimeoutMatcher = expect.objectContaining({
     message: 'Argument "timeout" must be a positive 32-bit integer.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const pingFailedMatcher = expect.objectContaining({
     message:
-        'Ping failed => SyncOtError NoService: No service to handle the request for "ping.ping".',
-    name: 'SyncOtError Ping',
+        'Ping failed => SyncOTError NoService: No service to handle the request for "ping.ping".',
+    name: 'SyncOTError Ping',
 })
 const pingTimeoutMatcher = expect.objectContaining({
     message: 'Ping timed out',
-    name: 'SyncOtError Ping',
+    name: 'SyncOTError Ping',
 })
 
 beforeEach(() => {

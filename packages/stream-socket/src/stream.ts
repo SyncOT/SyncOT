@@ -58,7 +58,7 @@ export interface Socket {
  *   - serializing JSON fails, or
  *   - the parsed received data is `null`.
  * - `SyntaxError`: If parsing JSON fails.
- * - `SyncOtError Socket`: If an error is emitted by the `socket`.
+ * - `SyncOTError Socket`: If an error is emitted by the `socket`.
  */
 export class SocketStream extends Duplex {
     /**

@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { assert } from '@syncot/util'
 
 /**
@@ -18,7 +18,7 @@ export interface TaskRunnerEvents<Result> {
  * Manages running of a single task, including retries.
  */
 export interface TaskRunner<Result>
-    extends EmitterInterface<SyncOtEmitter<TaskRunnerEvents<Result>>> {
+    extends EmitterInterface<SyncOTEmitter<TaskRunnerEvents<Result>>> {
     /**
      * Runs the task now, unless it is already running or scheduled.
      * If it fails, emits an `error` event and schedules a retry.
@@ -71,7 +71,7 @@ export function createTaskRunner<Result>(
 }
 
 class Runner<Result>
-    extends SyncOtEmitter<TaskRunnerEvents<Result>>
+    extends SyncOTEmitter<TaskRunnerEvents<Result>>
     implements TaskRunner<Result> {
     private timeout: NodeJS.Timeout | undefined = undefined
     private promise: Promise<Result> | undefined = undefined

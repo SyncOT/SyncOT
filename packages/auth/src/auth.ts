@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { Presence } from '@syncot/presence'
 
 /**
@@ -19,7 +19,7 @@ export interface AuthEvents {
  * @event destroy The AuthClient has been destroyed.
  */
 export interface AuthClient
-    extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
+    extends EmitterInterface<SyncOTEmitter<AuthEvents>> {
     /**
      * If a user is authenticated, then `true`, otherwise `false`.
      */
@@ -43,7 +43,7 @@ export interface AuthClient
  * @event destroy The AuthService has been destroyed.
  */
 export interface AuthService
-    extends EmitterInterface<SyncOtEmitter<AuthEvents>> {
+    extends EmitterInterface<SyncOTEmitter<AuthEvents>> {
     /**
      * If a user is authenticated, then `true`, otherwise `false`.
      */

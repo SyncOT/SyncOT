@@ -2,7 +2,7 @@ import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { createAuthError, createPresenceError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import {
     EventType,
     getRedisSubscriber,
@@ -87,7 +87,7 @@ export const requestNames = new Set([
 const eventLoop = globalEventLoop()
 
 class RedisPresenceService
-    extends SyncOtEmitter<PresenceServiceEvents>
+    extends SyncOTEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
     private readonly connectionManager: RedisConnectionManager

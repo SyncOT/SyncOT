@@ -36,7 +36,7 @@ import {
     isPresenceError,
     isSessionError,
     isSocketError,
-    isSyncOtError,
+    isSyncOTError,
     isTsonError,
     isTypeNotFoundError,
     isUnexpectedSequenceNumberError,
@@ -119,7 +119,7 @@ describe('CustomError', () => {
         expect(() => createError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "data" must be an object.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -127,7 +127,7 @@ describe('CustomError', () => {
         expect(() => createError({ name: 5 as any })).toThrow(
             expect.objectContaining({
                 message: 'Argument "data.name" must be a string or undefined.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -136,7 +136,7 @@ describe('CustomError', () => {
             expect.objectContaining({
                 message:
                     'Argument "data.message" must be a string or undefined.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -144,7 +144,7 @@ describe('CustomError', () => {
         expect(() => createError({ cause: 5 as any })).toThrow(
             expect.objectContaining({
                 message: 'Argument "data.cause" must be an Error or undefined.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -171,17 +171,17 @@ describe('CustomError', () => {
         ).toBeFalse()
     })
 
-    test('isSyncOtError', () => {
-        expect(isSyncOtError(createError({ name: 'SyncOtError' }))).toBeTrue()
+    test('isSyncOTError', () => {
+        expect(isSyncOTError(createError({ name: 'SyncOTError' }))).toBeTrue()
         expect(
-            isSyncOtError(createError({ name: 'SyncOtError abc' })),
+            isSyncOTError(createError({ name: 'SyncOTError abc' })),
         ).toBeTrue()
-        expect(isSyncOtError({ name: 'SyncOtError', message })).toBeTrue()
-        expect(isSyncOtError({ name: 'SyncOtError abc', message })).toBeTrue()
-        expect(isSyncOtError(createError())).toBeFalse()
-        expect(isSyncOtError(createError({ name: 'SyncOtErrors' }))).toBeFalse()
-        expect(isSyncOtError({})).toBeFalse()
-        expect(isSyncOtError({ name: 'SyncOtErrors', message })).toBeFalse()
+        expect(isSyncOTError({ name: 'SyncOTError', message })).toBeTrue()
+        expect(isSyncOTError({ name: 'SyncOTError abc', message })).toBeTrue()
+        expect(isSyncOTError(createError())).toBeFalse()
+        expect(isSyncOTError(createError({ name: 'SyncOTErrors' }))).toBeFalse()
+        expect(isSyncOTError({})).toBeFalse()
+        expect(isSyncOTError({ name: 'SyncOTErrors', message })).toBeFalse()
     })
 
     describe('toJSON', () => {
@@ -285,12 +285,12 @@ describe('TsonError', () => {
     test('createTsonError', () => {
         const error = createTsonError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError TSON')
+        expect(error.name).toBe('SyncOTError TSON')
         expect(error.message).toBe('test')
     })
     test('isTsonError', () => {
         const error = createTsonError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isTsonError(error)).toBeTrue()
         expect(isTsonError(new Error())).toBeFalse()
         expect(isTsonError({})).toBeFalse()
@@ -302,7 +302,7 @@ describe('InvalidEntityError', () => {
         expect(() => createInvalidEntityError(5 as any, {})).toThrow(
             expect.objectContaining({
                 message: 'Argument "entityName" must be a string.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -310,7 +310,7 @@ describe('InvalidEntityError', () => {
         expect(() => createInvalidEntityError('', {}, 5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "key" must be a string or null.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -319,7 +319,7 @@ describe('InvalidEntityError', () => {
         const entity = { key: 'value' }
         const error = createInvalidEntityError(name, entity)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError InvalidEntity')
+        expect(error.name).toBe('SyncOTError InvalidEntity')
         expect(error.message).toBe(`Invalid "${name}".`)
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
@@ -331,7 +331,7 @@ describe('InvalidEntityError', () => {
         const key = 'aKey'
         const error = createInvalidEntityError(name, entity, key)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError InvalidEntity')
+        expect(error.name).toBe('SyncOTError InvalidEntity')
         expect(error.message).toBe(`Invalid "${name}.${key}".`)
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
@@ -343,7 +343,7 @@ describe('InvalidEntityError', () => {
         const key = null
         const error = createInvalidEntityError(name, entity, key)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError InvalidEntity')
+        expect(error.name).toBe('SyncOTError InvalidEntity')
         expect(error.message).toBe(`Invalid "${name}".`)
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
@@ -351,7 +351,7 @@ describe('InvalidEntityError', () => {
     })
     test('isInvalidEntityError', () => {
         const error = createInvalidEntityError('Entity', {}, null)
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
@@ -363,20 +363,20 @@ describe('TypeNotFoundError', () => {
         expect(() => createTypeNotFoundError(5 as any)).toThrow(
             expect.objectContaining({
                 message: 'Argument "typeName" must be a string.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
     test('createTypeNotFoundError with valid typeName', () => {
         const error = createTypeNotFoundError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError TypeNotFound')
+        expect(error.name).toBe('SyncOTError TypeNotFound')
         expect(error.message).toBe('Type "test" not found.')
         expect(error.typeName).toBe('test')
     })
     test('isTypeNotFoundError', () => {
         const error = createTypeNotFoundError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isTypeNotFoundError(error)).toBeTrue()
         expect(isTypeNotFoundError(new Error())).toBeFalse()
         expect(isTypeNotFoundError({})).toBeFalse()
@@ -387,12 +387,12 @@ describe('NoServiceError', () => {
     test('createNoServiceError', () => {
         const error = createNoServiceError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError NoService')
+        expect(error.name).toBe('SyncOTError NoService')
         expect(error.message).toBe('test')
     })
     test('isNoServiceError', () => {
         const error = createNoServiceError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isNoServiceError(error)).toBeTrue()
         expect(isNoServiceError(new Error())).toBeFalse()
         expect(isNoServiceError({})).toBeFalse()
@@ -403,12 +403,12 @@ describe('DisconnectedError', () => {
     test('createDisconnectedError', () => {
         const error = createDisconnectedError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Disconnected')
+        expect(error.name).toBe('SyncOTError Disconnected')
         expect(error.message).toBe('test')
     })
     test('isDisconnectedError', () => {
         const error = createDisconnectedError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isDisconnectedError(error)).toBeTrue()
         expect(isDisconnectedError(new Error())).toBeFalse()
         expect(isDisconnectedError({})).toBeFalse()
@@ -419,12 +419,12 @@ describe('NotInitializedError', () => {
     test('createNotInitializedError', () => {
         const error = createNotInitializedError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError NotInitialized')
+        expect(error.name).toBe('SyncOTError NotInitialized')
         expect(error.message).toBe('test')
     })
     test('isNotInitializedError', () => {
         const error = createNotInitializedError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isNotInitializedError(error)).toBeTrue()
         expect(isNotInitializedError(new Error())).toBeFalse()
         expect(isNotInitializedError({})).toBeFalse()
@@ -435,12 +435,12 @@ describe('AlreadyInitializedError', () => {
     test('createAlreadyInitializedError', () => {
         const error = createAlreadyInitializedError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError AlreadyInitialized')
+        expect(error.name).toBe('SyncOTError AlreadyInitialized')
         expect(error.message).toBe('test')
     })
     test('isAlreadyInitializedError', () => {
         const error = createAlreadyInitializedError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isAlreadyInitializedError(error)).toBeTrue()
         expect(isAlreadyInitializedError(new Error())).toBeFalse()
         expect(isAlreadyInitializedError({})).toBeFalse()
@@ -451,12 +451,12 @@ describe('UnexpectedSessionIdError', () => {
     test('createUnexpectedSessionIdError', () => {
         const error = createUnexpectedSessionIdError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError UnexpectedSessionId')
+        expect(error.name).toBe('SyncOTError UnexpectedSessionId')
         expect(error.message).toBe('test')
     })
     test('isUnexpectedSessionIdError', () => {
         const error = createUnexpectedSessionIdError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isUnexpectedSessionIdError(error)).toBeTrue()
         expect(isUnexpectedSessionIdError(new Error())).toBeFalse()
         expect(isUnexpectedSessionIdError({})).toBeFalse()
@@ -467,9 +467,9 @@ describe('UnexpectedSequenceNumberError', () => {
     test('createUnexpectedSequenceNumberError', () => {
         const error = createUnexpectedSequenceNumberError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError UnexpectedSequenceNumber')
+        expect(error.name).toBe('SyncOTError UnexpectedSequenceNumber')
         expect(error.message).toBe('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isUnexpectedSequenceNumberError(error)).toBeTrue()
     })
     test('isUnexpectedSequenceNumberError', () => {
@@ -482,12 +482,12 @@ describe('UnexpectedVersionNumberError', () => {
     test('createUnexpectedVersionNumberError', () => {
         const error = createUnexpectedVersionNumberError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError UnexpectedVersionNumber')
+        expect(error.name).toBe('SyncOTError UnexpectedVersionNumber')
         expect(error.message).toBe('test')
     })
     test('not a UnexpectedVersionNumberError', () => {
         const error = createUnexpectedVersionNumberError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isUnexpectedVersionNumberError(error)).toBeTrue()
         expect(isUnexpectedVersionNumberError(new Error())).toBeFalse()
         expect(isUnexpectedVersionNumberError({})).toBeFalse()
@@ -498,7 +498,7 @@ describe('SessionError', () => {
     test('createSessionError', () => {
         const error = createSessionError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Session')
+        expect(error.name).toBe('SyncOTError Session')
         expect(error.message).toBe('test')
         expect(error.cause).toBe(undefined)
     })
@@ -506,16 +506,16 @@ describe('SessionError', () => {
         const cause = new Error('Test cause!')
         const error = createSessionError('Test message.', cause)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Session')
+        expect(error.name).toBe('SyncOTError Session')
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
-            'SyncOtError Session: Test message. => Error: Test cause!',
+            'SyncOTError Session: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
     test('isSessionError', () => {
         const error = createSessionError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isSessionError(error)).toBeTrue()
         expect(isSessionError(new Error())).toBeFalse()
         expect(isSessionError({})).toBeFalse()
@@ -526,7 +526,7 @@ describe('PresenceError', () => {
     test('createPresenceError', () => {
         const error = createPresenceError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Presence')
+        expect(error.name).toBe('SyncOTError Presence')
         expect(error.message).toBe('test')
         expect(error.cause).toBe(undefined)
     })
@@ -534,16 +534,16 @@ describe('PresenceError', () => {
         const cause = new Error('Test cause!')
         const error = createPresenceError('Test message.', cause)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Presence')
+        expect(error.name).toBe('SyncOTError Presence')
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
-            'SyncOtError Presence: Test message. => Error: Test cause!',
+            'SyncOTError Presence: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
     test('isPresenceError', () => {
         const error = createPresenceError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isPresenceError(error)).toBeTrue()
         expect(isPresenceError(new Error())).toBeFalse()
         expect(isPresenceError({})).toBeFalse()
@@ -554,7 +554,7 @@ describe('AuthError', () => {
     test('createAuthError', () => {
         const error = createAuthError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Auth')
+        expect(error.name).toBe('SyncOTError Auth')
         expect(error.message).toBe('test')
         expect(error.cause).toBe(undefined)
     })
@@ -562,16 +562,16 @@ describe('AuthError', () => {
         const cause = new Error('Test cause!')
         const error = createAuthError('Test message.', cause)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Auth')
+        expect(error.name).toBe('SyncOTError Auth')
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
-            'SyncOtError Auth: Test message. => Error: Test cause!',
+            'SyncOTError Auth: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
     test('isAuthError', () => {
         const error = createAuthError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isAuthError(error)).toBeTrue()
         expect(isAuthError(new Error())).toBeFalse()
         expect(isAuthError({})).toBeFalse()
@@ -582,12 +582,12 @@ describe('DuplicateIdError', () => {
     test('createDuplicateIdError', () => {
         const error = createDuplicateIdError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError DuplicateId')
+        expect(error.name).toBe('SyncOTError DuplicateId')
         expect(error.message).toBe('test')
     })
     test('isDuplicateIdError', () => {
         const error = createDuplicateIdError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isDuplicateIdError(error)).toBeTrue()
         expect(isDuplicateIdError(new Error())).toBeFalse()
         expect(isDuplicateIdError({})).toBeFalse()
@@ -598,12 +598,12 @@ describe('InvalidStreamError', () => {
     test('createInvalidStreamError', () => {
         const error = createInvalidStreamError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError InvalidStream')
+        expect(error.name).toBe('SyncOTError InvalidStream')
         expect(error.message).toBe('test')
     })
     test('isInvalidStreamError', () => {
         const error = createInvalidStreamError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isInvalidStreamError(error)).toBeTrue()
         expect(isInvalidStreamError(new Error())).toBeFalse()
         expect(isInvalidStreamError({})).toBeFalse()
@@ -614,7 +614,7 @@ describe('SocketError', () => {
     test('createSocketError', () => {
         const error = createSocketError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Socket')
+        expect(error.name).toBe('SyncOTError Socket')
         expect(error.message).toBe('test')
         expect(error.cause).toBe(undefined)
     })
@@ -622,16 +622,16 @@ describe('SocketError', () => {
         const cause = new Error('Test cause!')
         const error = createSocketError('Test message.', cause)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Socket')
+        expect(error.name).toBe('SyncOTError Socket')
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
-            'SyncOtError Socket: Test message. => Error: Test cause!',
+            'SyncOTError Socket: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
     test('isSocketError', () => {
         const error = createSocketError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isSocketError(error)).toBeTrue()
         expect(isSocketError(new Error())).toBeFalse()
         expect(isSocketError({})).toBeFalse()
@@ -642,7 +642,7 @@ describe('CompositeError', () => {
     test('createCompositeError', () => {
         const error = createCompositeError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Composite')
+        expect(error.name).toBe('SyncOTError Composite')
         expect(error.message).toBe('test')
         expect(error.errors).toEqual([])
     })
@@ -650,14 +650,14 @@ describe('CompositeError', () => {
         const errors = [new Error('error 1.'), new Error('error 2.')]
         const error = createCompositeError('Test message.', errors)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Composite')
+        expect(error.name).toBe('SyncOTError Composite')
         expect(error.message).toBe('Test message.')
-        expect(error.toString()).toBe('SyncOtError Composite: Test message.')
+        expect(error.toString()).toBe('SyncOTError Composite: Test message.')
         expect(error.errors).toBe(errors)
     })
     test('isCompositeError', () => {
         const error = createCompositeError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isCompositeError(error)).toBeTrue()
         expect(isCompositeError(new Error())).toBeFalse()
         expect(isCompositeError({})).toBeFalse()
@@ -668,12 +668,12 @@ describe('AssertError', () => {
     test('createAssertError', () => {
         const error = createAssertError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Assert')
+        expect(error.name).toBe('SyncOTError Assert')
         expect(error.message).toBe('test')
     })
     test('isAssertError', () => {
         const error = createAssertError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isAssertError(error)).toBeTrue()
         expect(isAssertError(new Error())).toBeFalse()
         expect(isAssertError({})).toBeFalse()
@@ -684,7 +684,7 @@ describe('PingError', () => {
     test('createPingError', () => {
         const error = createPingError('test')
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Ping')
+        expect(error.name).toBe('SyncOTError Ping')
         expect(error.message).toBe('test')
         expect(error.cause).toBe(undefined)
     })
@@ -692,16 +692,16 @@ describe('PingError', () => {
         const cause = new Error('Test cause!')
         const error = createPingError('Test message.', cause)
         expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOtError Ping')
+        expect(error.name).toBe('SyncOTError Ping')
         expect(error.message).toBe('Test message. => Error: Test cause!')
         expect(error.toString()).toBe(
-            'SyncOtError Ping: Test message. => Error: Test cause!',
+            'SyncOTError Ping: Test message. => Error: Test cause!',
         )
         expect(error.cause).toBe(cause)
     })
     test('isPingError', () => {
         const error = createPingError('test')
-        expect(isSyncOtError(error)).toBeTrue()
+        expect(isSyncOTError(error)).toBeTrue()
         expect(isPingError(error)).toBeTrue()
         expect(isPingError(new Error())).toBeFalse()
         expect(isPingError({})).toBeFalse()

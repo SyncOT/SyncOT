@@ -1,6 +1,6 @@
 import { AuthClient, AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import { invertedStreams } from '@syncot/stream'
 import { whenNextTick } from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
@@ -23,11 +23,11 @@ const loginResponse = {
 }
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const testError = new Error('test-error')
 
-class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
+class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
     public active: boolean = false
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined

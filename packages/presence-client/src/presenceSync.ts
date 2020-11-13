@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { Presence, PresenceClient, PresenceMessage } from '@syncot/presence'
 import { assert, noop } from '@syncot/util'
 import { Duplex } from 'readable-stream'
@@ -19,7 +19,7 @@ export interface PresenceSyncEvents {
  * @event destroy `() => void` Emitted once this `PresenceSync` object gets destroyed.
  */
 export interface PresenceSync
-    extends EmitterInterface<SyncOtEmitter<PresenceSyncEvents>> {
+    extends EmitterInterface<SyncOTEmitter<PresenceSyncEvents>> {
     /**
      * A map of Presence objects indexed by sessionId.
      * It is synchronized with a server based on a filter.
@@ -84,7 +84,7 @@ function assertString(value: string, name: string): void {
     assert(typeof value === 'string', `Argument "${name}" must be a string.`)
 }
 
-class Sync extends SyncOtEmitter<PresenceSyncEvents> implements PresenceSync {
+class Sync extends SyncOTEmitter<PresenceSyncEvents> implements PresenceSync {
     public readonly presence: Map<string, Presence> = new Map()
     private stream: Duplex | undefined = undefined
     private streamPromise: Promise<Duplex> | undefined = undefined

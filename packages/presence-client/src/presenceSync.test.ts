@@ -1,4 +1,4 @@
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import {
     Presence,
     PresenceClient,
@@ -36,19 +36,19 @@ const pairList: [string, Presence][] = presenceList.map((presence) => [
 const invalidPresenceClientMatcher = expect.objectContaining({
     message:
         'Argument "presenceClient" must be a non-destroyed PresenceClient.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const invalidLocationIdMatcher = expect.objectContaining({
     message: 'Argument "locationId" must be a string.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const invalidSessionIdMatcher = expect.objectContaining({
     message: 'Argument "sessionId" must be a string.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const invalidUserIdMatcher = expect.objectContaining({
     message: 'Argument "userId" must be a string.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 let presenceClient: MockPresenceClient
 let presenceStream: Duplex
@@ -64,7 +64,7 @@ const testErrorMatcher = expect.objectContaining({
 })
 
 class MockPresenceClient
-    extends SyncOtEmitter<PresenceClientEvents>
+    extends SyncOTEmitter<PresenceClientEvents>
     implements PresenceClient {
     public sessionId: string | undefined = sessionId
     public userId: string | undefined = userId

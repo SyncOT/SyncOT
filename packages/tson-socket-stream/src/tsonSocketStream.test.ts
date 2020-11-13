@@ -26,7 +26,7 @@ const streamDestroyedMatcher = expect.objectContaining({
 
 const tsonErrorMatcher = expect.objectContaining({
     message: 'Error name is not a string.',
-    name: 'SyncOtError TSON',
+    name: 'SyncOTError TSON',
 })
 
 let httpServer: http.Server
@@ -213,7 +213,7 @@ describe.each<[string, () => void]>([
                 expect(onError).toHaveBeenCalledWith(
                     expect.objectContaining({
                         message: expect.stringContaining('Socket error.'),
-                        name: 'SyncOtError Socket',
+                        name: 'SyncOTError Socket',
                     }),
                 )
             }
@@ -249,7 +249,7 @@ describe.each<[string, () => void]>([
                 ).toThrow(
                     expect.objectContaining({
                         message: 'Argument "binaryType" must be "arraybuffer".',
-                        name: 'SyncOtError Assert',
+                        name: 'SyncOTError Assert',
                     }),
                 )
                 expect(clientSocket.binaryType).toBe('arraybuffer')
@@ -542,7 +542,7 @@ describe.each<[string, () => void]>([
                         name: 'Error',
                     }),
                     message: 'Socket error. => Error: test error',
-                    name: 'SyncOtError Socket',
+                    name: 'SyncOTError Socket',
                 }),
             )
         })

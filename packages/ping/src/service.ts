@@ -1,6 +1,6 @@
 import { Connection } from '@syncot/connection'
 import { createPingError } from '@syncot/error'
-import { EmitterInterface, SyncOtEmitter } from '@syncot/events'
+import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { assert } from '@syncot/util'
 
 export const requestNames = new Set(['ping'])
@@ -9,7 +9,7 @@ export const requestNames = new Set(['ping'])
  * A ping service interface.
  */
 export interface PingService
-    extends EmitterInterface<SyncOtEmitter<PingServiceEvents>> {}
+    extends EmitterInterface<SyncOTEmitter<PingServiceEvents>> {}
 
 /**
  * Events emitted by the ping service.
@@ -78,7 +78,7 @@ export interface InternalPingService {
 }
 
 class SimplePingService
-    extends SyncOtEmitter<PingServiceEvents>
+    extends SyncOTEmitter<PingServiceEvents>
     implements PingService {
     private readonly peerService: InternalPingService
     private timeoutHandle: NodeJS.Timeout | undefined = undefined

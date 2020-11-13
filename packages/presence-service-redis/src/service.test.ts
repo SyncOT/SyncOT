@@ -1,6 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import { Presence, PresenceService } from '@syncot/presence'
 import { invertedStreams } from '@syncot/stream'
 import {
@@ -33,7 +33,7 @@ const testErrorMatcher = expect.objectContaining({
 })
 const alreadyDestroyedMatcher = expect.objectContaining({
     message: 'Already destroyed.',
-    name: 'SyncOtError Assert',
+    name: 'SyncOTError Assert',
 })
 const throwTestError = () => {
     throw testError
@@ -95,7 +95,7 @@ let connection2: Connection
 let presenceService: PresenceService
 let presenceProxy: PresenceService
 
-class MockAuthService extends SyncOtEmitter<AuthEvents> implements AuthService {
+class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
     public active: boolean = true
     public sessionId: string | undefined = sessionId
     public userId: string | undefined = userId
@@ -209,7 +209,7 @@ test('throw on redis autoResubscribe=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with autoResubscribe=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -228,7 +228,7 @@ test('throw on redis enableOfflineQueue=true', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableOfflineQueue=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -247,7 +247,7 @@ test('throw on redis enableReadyCheck=false', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Redis must be configured with enableReadyCheck=true.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -267,7 +267,7 @@ test('throw on redisSubscriber autoResubscribe=true', () => {
         expect.objectContaining({
             message:
                 'Redis subscriber must be configured with autoResubscribe=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -287,7 +287,7 @@ test('throw on redisSubscriber enableOfflineQueue=true', () => {
         expect.objectContaining({
             message:
                 'Redis subscriber must be configured with enableOfflineQueue=false.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -307,7 +307,7 @@ test('throw on redisSubscriber enableReadyCheck=false', () => {
         expect.objectContaining({
             message:
                 'Redis subscriber must be configured with enableReadyCheck=true.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -324,7 +324,7 @@ test('invalid connection (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -343,7 +343,7 @@ test('invalid connection (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -365,7 +365,7 @@ test('invalid authService (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "authService" must be a non-destroyed AuthService.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -384,7 +384,7 @@ test('invalid authService (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "authService" must be a non-destroyed AuthService.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -405,7 +405,7 @@ test('create twice on the same connection', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Service "presence" has been already registered.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -538,7 +538,7 @@ describe('submitPresence', () => {
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'User ID mismatch.',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
     })
@@ -552,7 +552,7 @@ describe('submitPresence', () => {
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'Session ID mismatch.',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
     })
@@ -564,7 +564,7 @@ describe('submitPresence', () => {
                 entityName: 'Presence',
                 key: null,
                 message: 'Invalid "Presence".',
-                name: 'SyncOtError InvalidEntity',
+                name: 'SyncOTError InvalidEntity',
             }),
         )
     })
@@ -576,7 +576,7 @@ describe('submitPresence', () => {
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
     })
@@ -586,7 +586,7 @@ describe('submitPresence', () => {
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'Not authorized to submit this presence object.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
         expect(authService.mayWritePresence).toHaveBeenCalledTimes(1)
@@ -639,7 +639,7 @@ describe('submitPresence', () => {
                 message: expect.stringContaining(
                     'Failed to store presence in Redis. => ReplyError: ERR Error running script',
                 ),
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
 
@@ -824,7 +824,7 @@ describe('removePresence', () => {
         await expect(presenceProxy.removePresence()).rejects.toEqual(
             expect.objectContaining({
                 message: 'Already destroyed.',
-                name: 'SyncOtError Assert',
+                name: 'SyncOTError Assert',
             }),
         )
     })
@@ -992,7 +992,7 @@ describe('getPresenceBySessionId', () => {
         const message =
             'Failed to load presence by sessionId. => ' +
             'SyntaxError: Unexpected token o in JSON at position 1'
-        const name = 'SyncOtError Presence'
+        const name = 'SyncOTError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -1017,8 +1017,8 @@ describe('getPresenceBySessionId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by sessionId. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
-                name: 'SyncOtError Presence',
+                    'SyncOTError InvalidEntity: Invalid "Presence.lastModified".',
+                name: 'SyncOTError Presence',
             }),
         )
     })
@@ -1030,7 +1030,7 @@ describe('getPresenceBySessionId', () => {
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
     })
@@ -1044,7 +1044,7 @@ describe('getPresenceBySessionId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by sessionId. => Error: Connection is closed.',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
         await redis.connect()
@@ -1214,7 +1214,7 @@ describe('getPresenceByUserId', () => {
         const message =
             'Failed to load presence by userId. => ' +
             'SyntaxError: Unexpected token o in JSON at position 1'
-        const name = 'SyncOtError Presence'
+        const name = 'SyncOTError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -1239,8 +1239,8 @@ describe('getPresenceByUserId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by userId. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
-                name: 'SyncOtError Presence',
+                    'SyncOTError InvalidEntity: Invalid "Presence.lastModified".',
+                name: 'SyncOTError Presence',
             }),
         )
     })
@@ -1250,7 +1250,7 @@ describe('getPresenceByUserId', () => {
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
     })
@@ -1262,7 +1262,7 @@ describe('getPresenceByUserId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by userId. => Error: Connection is closed.',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
         await redis.connect()
@@ -1434,7 +1434,7 @@ describe('getPresenceByLocationId', () => {
         const message =
             'Failed to load presence by locationId. => ' +
             'SyntaxError: Unexpected token o in JSON at position 1'
-        const name = 'SyncOtError Presence'
+        const name = 'SyncOTError Presence'
         await redis.hmset(sessionKey, {
             data: 'not-json',
             lastModified,
@@ -1466,8 +1466,8 @@ describe('getPresenceByLocationId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by locationId. => ' +
-                    'SyncOtError InvalidEntity: Invalid "Presence.lastModified".',
-                name: 'SyncOtError Presence',
+                    'SyncOTError InvalidEntity: Invalid "Presence.lastModified".',
+                name: 'SyncOTError Presence',
             }),
         )
     })
@@ -1479,7 +1479,7 @@ describe('getPresenceByLocationId', () => {
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
     })
@@ -1493,7 +1493,7 @@ describe('getPresenceByLocationId', () => {
             expect.objectContaining({
                 message:
                     'Failed to load presence by locationId. => Error: Connection is closed.',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
         await redis.connect()
@@ -1508,7 +1508,7 @@ describe('streamPresenceBySessionId', () => {
         ).rejects.toEqual(
             expect.objectContaining({
                 message: 'No authenticated user.',
-                name: 'SyncOtError Auth',
+                name: 'SyncOTError Auth',
             }),
         )
     })
@@ -1542,7 +1542,7 @@ describe('streamPresenceBySessionId', () => {
         expect(onError).toHaveBeenCalledWith(
             expect.objectContaining({
                 message: 'Disconnected, stream destroyed.',
-                name: 'SyncOtError Disconnected',
+                name: 'SyncOTError Disconnected',
             }),
         )
     })
@@ -1728,7 +1728,7 @@ describe('streamPresenceBySessionId', () => {
                 }),
                 message:
                     'Failed to load presence by sessionId. => Error: test error',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
 
@@ -1802,7 +1802,7 @@ describe('streamPresenceBySessionId', () => {
                 cause: testErrorMatcher,
                 message:
                     'Failed to load presence by sessionId. => Error: test error',
-                name: 'SyncOtError Presence',
+                name: 'SyncOTError Presence',
             }),
         )
         expect(onData).toHaveBeenCalledTimes(1)

@@ -1,6 +1,6 @@
 import { AuthClient, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import {
     Presence,
     PresenceClient,
@@ -22,7 +22,7 @@ const testErrorMatcher = expect.objectContaining({
 const syncErrorMatcher = expect.objectContaining({
     cause: testErrorMatcher,
     message: 'Failed to sync presence. => Error: test-error',
-    name: 'SyncOtError Presence',
+    name: 'SyncOTError Presence',
 })
 
 const now = 12345
@@ -48,14 +48,14 @@ let authClient: MockAuthClient
 let presenceService: MockPresenceService
 let presenceClient: PresenceClient
 
-class MockAuthClient extends SyncOtEmitter<AuthEvents> implements AuthClient {
+class MockAuthClient extends SyncOTEmitter<AuthEvents> implements AuthClient {
     public active = true
     public sessionId = sessionId
     public userId = userId
 }
 
 class MockPresenceService
-    extends SyncOtEmitter<PresenceServiceEvents>
+    extends SyncOTEmitter<PresenceServiceEvents>
     implements PresenceService {
     public submitPresence = jest
         .fn<Promise<void>, [Presence]>()
@@ -167,7 +167,7 @@ test('invalid connection (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -183,7 +183,7 @@ test('invalid connection (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "connection" must be a non-destroyed Connection.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -204,7 +204,7 @@ test('invalid authClient (missing)', () => {
         expect.objectContaining({
             message:
                 'Argument "authClient" must be a non-destroyed AuthClient.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -220,7 +220,7 @@ test('invalid authClient (destroyed)', () => {
         expect.objectContaining({
             message:
                 'Argument "authClient" must be a non-destroyed AuthClient.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })
@@ -241,7 +241,7 @@ test('register twice on the same connection', () => {
     ).toThrow(
         expect.objectContaining({
             message: 'Proxy "presence" has been already registered.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })

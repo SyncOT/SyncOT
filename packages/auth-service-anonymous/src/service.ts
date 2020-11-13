@@ -1,6 +1,6 @@
 import { AuthEvents, AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { SyncOtEmitter } from '@syncot/events'
+import { SyncOTEmitter } from '@syncot/events'
 import { generateId } from '@syncot/id'
 import { assert } from '@syncot/util'
 /**
@@ -36,7 +36,7 @@ export interface LoginResponse {
 }
 
 class AnonymousAuthService
-    extends SyncOtEmitter<AuthEvents>
+    extends SyncOTEmitter<AuthEvents>
     implements AuthService {
     public active: boolean = false
     public sessionId: string | undefined = undefined

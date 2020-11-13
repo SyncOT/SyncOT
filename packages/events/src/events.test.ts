@@ -1,5 +1,5 @@
 import { delay, whenNextTick } from '@syncot/util'
-import { SyncOtEmitter } from '.'
+import { SyncOTEmitter } from '.'
 
 type Params = [number, string, boolean]
 const params: Params = [1, 'test', true]
@@ -9,11 +9,11 @@ interface Events {
     other: (...args: Params) => void
 }
 
-let emitter: SyncOtEmitter<Events>
+let emitter: SyncOTEmitter<Events>
 let onEvent: jest.Mock<Params>
 
 beforeEach(() => {
-    emitter = new SyncOtEmitter()
+    emitter = new SyncOTEmitter()
     onEvent = jest.fn()
     emitter.on('event', onEvent)
 })
@@ -53,7 +53,7 @@ describe('destroy', () => {
 })
 
 test('assertNotDestroyed', () => {
-    class Test extends SyncOtEmitter<{}> {
+    class Test extends SyncOTEmitter<{}> {
         public test(): void {
             this.assertNotDestroyed()
         }
@@ -65,7 +65,7 @@ test('assertNotDestroyed', () => {
     expect(() => test.test()).toThrow(
         expect.objectContaining({
             message: 'Already destroyed.',
-            name: 'SyncOtError Assert',
+            name: 'SyncOTError Assert',
         }),
     )
 })

@@ -57,8 +57,8 @@ export interface TsonSocket {
  * The stream emits the following errors:
  *
  * - `TypeError`: If receiving anything other than an `ArrayBuffer`, or if the decoded received data is `null`.
- * - `SyncOtError TSON`: If serializing or parsing TSON fails.
- * - `SyncOtError Socket`: If an error is emitted by the `socket`.
+ * - `SyncOTError TSON`: If serializing or parsing TSON fails.
+ * - `SyncOTError Socket`: If an error is emitted by the `socket`.
  */
 export class TsonSocketStream extends Duplex {
     /**

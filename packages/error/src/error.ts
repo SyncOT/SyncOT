@@ -126,28 +126,28 @@ export function createError(data: Partial<CustomError> = {}): CustomError {
 }
 
 /**
- * A SyncOtError is a CustomError with the `name` matching the regex /^SyncOtError($| )/.
+ * A SyncOTError is a CustomError with the `name` matching the regex /^SyncOTError($| )/.
  */
-export type SyncOtError = CustomError
-export function isSyncOtError(error: any): error is SyncOtError {
-    return isCustomError(error) && /^SyncOtError($| )/.test(error.name)
+export type SyncOTError = CustomError
+export function isSyncOTError(error: any): error is SyncOTError {
+    return isCustomError(error) && /^SyncOTError($| )/.test(error.name)
 }
 
 export interface TsonError extends Error {
-    name: 'SyncOtError TSON'
+    name: 'SyncOTError TSON'
 }
 export function createTsonError(message?: string): TsonError {
     return createError({
         message,
-        name: 'SyncOtError TSON',
+        name: 'SyncOTError TSON',
     }) as TsonError
 }
 export function isTsonError(error: any): error is TsonError {
-    return isCustomError(error) && error.name === 'SyncOtError TSON'
+    return isCustomError(error) && error.name === 'SyncOTError TSON'
 }
 
 export interface InvalidEntityError extends Error {
-    name: 'SyncOtError InvalidEntity'
+    name: 'SyncOTError InvalidEntity'
     entityName: string
     entity: any
     key: string
@@ -179,15 +179,15 @@ export function createInvalidEntityError(
             key === null
                 ? `Invalid "${entityName}".`
                 : `Invalid "${entityName}.${key}".`,
-        name: 'SyncOtError InvalidEntity',
+        name: 'SyncOTError InvalidEntity',
     }) as InvalidEntityError
 }
 export function isInvalidEntityError(error: any): error is InvalidEntityError {
-    return isCustomError(error) && error.name === 'SyncOtError InvalidEntity'
+    return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
 export interface TypeNotFoundError extends Error {
-    name: 'SyncOtError TypeNotFound'
+    name: 'SyncOTError TypeNotFound'
     typeName: string
 }
 export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
@@ -197,104 +197,104 @@ export function createTypeNotFoundError(typeName: string): TypeNotFoundError {
     )
     return createError({
         message: `Type "${typeName}" not found.`,
-        name: 'SyncOtError TypeNotFound',
+        name: 'SyncOTError TypeNotFound',
         typeName,
     }) as TypeNotFoundError
 }
 export function isTypeNotFoundError(error: any): error is TypeNotFoundError {
-    return isCustomError(error) && error.name === 'SyncOtError TypeNotFound'
+    return isCustomError(error) && error.name === 'SyncOTError TypeNotFound'
 }
 
 export interface NoServiceError extends Error {
-    name: 'SyncOtError NoService'
+    name: 'SyncOTError NoService'
 }
 export function createNoServiceError(message?: string): NoServiceError {
     return createError({
         message,
-        name: 'SyncOtError NoService',
+        name: 'SyncOTError NoService',
     }) as NoServiceError
 }
 export function isNoServiceError(error: any): error is NoServiceError {
-    return isCustomError(error) && error.name === 'SyncOtError NoService'
+    return isCustomError(error) && error.name === 'SyncOTError NoService'
 }
 
 export interface DisconnectedError extends Error {
-    name: 'SyncOtError Disconnected'
+    name: 'SyncOTError Disconnected'
 }
 export function createDisconnectedError(message?: string): DisconnectedError {
     return createError({
         message,
-        name: 'SyncOtError Disconnected',
+        name: 'SyncOTError Disconnected',
     }) as DisconnectedError
 }
 export function isDisconnectedError(error: any): error is DisconnectedError {
-    return isCustomError(error) && error.name === 'SyncOtError Disconnected'
+    return isCustomError(error) && error.name === 'SyncOTError Disconnected'
 }
 
 export interface NotInitializedError extends Error {
-    name: 'SyncOtError NotInitialized'
+    name: 'SyncOTError NotInitialized'
 }
 export function createNotInitializedError(
     message?: string,
 ): NotInitializedError {
     return createError({
         message,
-        name: 'SyncOtError NotInitialized',
+        name: 'SyncOTError NotInitialized',
     }) as NotInitializedError
 }
 export function isNotInitializedError(
     error: any,
 ): error is NotInitializedError {
-    return isCustomError(error) && error.name === 'SyncOtError NotInitialized'
+    return isCustomError(error) && error.name === 'SyncOTError NotInitialized'
 }
 
 export interface AlreadyInitializedError extends Error {
-    name: 'SyncOtError AlreadyInitialized'
+    name: 'SyncOTError AlreadyInitialized'
 }
 export function createAlreadyInitializedError(
     message?: string,
 ): AlreadyInitializedError {
     return createError({
         message,
-        name: 'SyncOtError AlreadyInitialized',
+        name: 'SyncOTError AlreadyInitialized',
     }) as AlreadyInitializedError
 }
 export function isAlreadyInitializedError(
     error: any,
 ): error is AlreadyInitializedError {
     return (
-        isCustomError(error) && error.name === 'SyncOtError AlreadyInitialized'
+        isCustomError(error) && error.name === 'SyncOTError AlreadyInitialized'
     )
 }
 
 export interface UnexpectedSessionIdError extends Error {
-    name: 'SyncOtError UnexpectedSessionId'
+    name: 'SyncOTError UnexpectedSessionId'
 }
 export function createUnexpectedSessionIdError(
     message?: string,
 ): UnexpectedSessionIdError {
     return createError({
         message,
-        name: 'SyncOtError UnexpectedSessionId',
+        name: 'SyncOTError UnexpectedSessionId',
     }) as UnexpectedSessionIdError
 }
 export function isUnexpectedSessionIdError(
     error: any,
 ): error is UnexpectedSessionIdError {
     return (
-        isCustomError(error) && error.name === 'SyncOtError UnexpectedSessionId'
+        isCustomError(error) && error.name === 'SyncOTError UnexpectedSessionId'
     )
 }
 
 export interface UnexpectedVersionNumberError extends Error {
-    name: 'SyncOtError UnexpectedVersionNumber'
+    name: 'SyncOTError UnexpectedVersionNumber'
 }
 export function createUnexpectedVersionNumberError(
     message?: string,
 ): UnexpectedVersionNumberError {
     return createError({
         message,
-        name: 'SyncOtError UnexpectedVersionNumber',
+        name: 'SyncOTError UnexpectedVersionNumber',
     }) as UnexpectedVersionNumberError
 }
 export function isUnexpectedVersionNumberError(
@@ -302,19 +302,19 @@ export function isUnexpectedVersionNumberError(
 ): error is UnexpectedVersionNumberError {
     return (
         isCustomError(error) &&
-        error.name === 'SyncOtError UnexpectedVersionNumber'
+        error.name === 'SyncOTError UnexpectedVersionNumber'
     )
 }
 
 export interface UnexpectedSequenceNumberError extends Error {
-    name: 'SyncOtError UnexpectedSequenceNumber'
+    name: 'SyncOTError UnexpectedSequenceNumber'
 }
 export function createUnexpectedSequenceNumberError(
     message?: string,
 ): UnexpectedSequenceNumberError {
     return createError({
         message,
-        name: 'SyncOtError UnexpectedSequenceNumber',
+        name: 'SyncOTError UnexpectedSequenceNumber',
     }) as UnexpectedSequenceNumberError
 }
 export function isUnexpectedSequenceNumberError(
@@ -322,13 +322,13 @@ export function isUnexpectedSequenceNumberError(
 ): error is UnexpectedSequenceNumberError {
     return (
         isCustomError(error) &&
-        error.name === 'SyncOtError UnexpectedSequenceNumber'
+        error.name === 'SyncOTError UnexpectedSequenceNumber'
     )
 }
 
 export interface SessionError extends Error {
     cause?: Error
-    name: 'SyncOtError Session'
+    name: 'SyncOTError Session'
 }
 export function createSessionError(
     message?: string,
@@ -337,16 +337,16 @@ export function createSessionError(
     return createError({
         cause,
         message,
-        name: 'SyncOtError Session',
+        name: 'SyncOTError Session',
     }) as SessionError
 }
 export function isSessionError(error: any): error is SessionError {
-    return isCustomError(error) && error.name === 'SyncOtError Session'
+    return isCustomError(error) && error.name === 'SyncOTError Session'
 }
 
 export interface PresenceError extends Error {
     cause?: Error
-    name: 'SyncOtError Presence'
+    name: 'SyncOTError Presence'
 }
 export function createPresenceError(
     message?: string,
@@ -355,57 +355,57 @@ export function createPresenceError(
     return createError({
         cause,
         message,
-        name: 'SyncOtError Presence',
+        name: 'SyncOTError Presence',
     }) as PresenceError
 }
 export function isPresenceError(error: any): error is PresenceError {
-    return isCustomError(error) && error.name === 'SyncOtError Presence'
+    return isCustomError(error) && error.name === 'SyncOTError Presence'
 }
 
 export interface AuthError extends Error {
     cause?: Error
-    name: 'SyncOtError Auth'
+    name: 'SyncOTError Auth'
 }
 export function createAuthError(message?: string, cause?: Error): AuthError {
     return createError({
         cause,
         message,
-        name: 'SyncOtError Auth',
+        name: 'SyncOTError Auth',
     }) as AuthError
 }
 export function isAuthError(error: any): error is AuthError {
-    return isCustomError(error) && error.name === 'SyncOtError Auth'
+    return isCustomError(error) && error.name === 'SyncOTError Auth'
 }
 
 export interface DuplicateIdError extends Error {
-    name: 'SyncOtError DuplicateId'
+    name: 'SyncOTError DuplicateId'
 }
 export function createDuplicateIdError(message?: string): DuplicateIdError {
     return createError({
         message,
-        name: 'SyncOtError DuplicateId',
+        name: 'SyncOTError DuplicateId',
     }) as DuplicateIdError
 }
 export function isDuplicateIdError(error: any): error is DuplicateIdError {
-    return isCustomError(error) && error.name === 'SyncOtError DuplicateId'
+    return isCustomError(error) && error.name === 'SyncOTError DuplicateId'
 }
 
 export interface InvalidStreamError extends Error {
-    name: 'SyncOtError InvalidStream'
+    name: 'SyncOTError InvalidStream'
 }
 export function createInvalidStreamError(message?: string): InvalidStreamError {
     return createError({
         message,
-        name: 'SyncOtError InvalidStream',
+        name: 'SyncOTError InvalidStream',
     }) as InvalidStreamError
 }
 export function isInvalidStreamError(error: any): error is InvalidStreamError {
-    return isCustomError(error) && error.name === 'SyncOtError InvalidStream'
+    return isCustomError(error) && error.name === 'SyncOTError InvalidStream'
 }
 
 export interface SocketError extends Error {
     cause?: Error
-    name: 'SyncOtError Socket'
+    name: 'SyncOTError Socket'
 }
 export function createSocketError(
     message?: string,
@@ -414,16 +414,16 @@ export function createSocketError(
     return createError({
         cause,
         message,
-        name: 'SyncOtError Socket',
+        name: 'SyncOTError Socket',
     }) as SocketError
 }
 export function isSocketError(error: any): error is SocketError {
-    return isCustomError(error) && error.name === 'SyncOtError Socket'
+    return isCustomError(error) && error.name === 'SyncOTError Socket'
 }
 
 export interface CompositeError extends Error {
     errors: Error[]
-    name: 'SyncOtError Composite'
+    name: 'SyncOTError Composite'
 }
 export function createCompositeError(
     message?: string,
@@ -432,39 +432,39 @@ export function createCompositeError(
     return createError({
         errors,
         message,
-        name: 'SyncOtError Composite',
+        name: 'SyncOTError Composite',
     }) as CompositeError
 }
 export function isCompositeError(error: any): error is CompositeError {
-    return isCustomError(error) && error.name === 'SyncOtError Composite'
+    return isCustomError(error) && error.name === 'SyncOTError Composite'
 }
 
 export interface AssertError extends Error {
-    name: 'SyncOtError Assert'
+    name: 'SyncOTError Assert'
 }
 export function createAssertError(message?: string): AssertError {
     return createError({
         message,
-        name: 'SyncOtError Assert',
+        name: 'SyncOTError Assert',
     }) as AssertError
 }
 export function isAssertError(error: any): error is AssertError {
-    return isCustomError(error) && error.name === 'SyncOtError Assert'
+    return isCustomError(error) && error.name === 'SyncOTError Assert'
 }
 
 export interface PingError extends Error {
     cause?: Error
-    name: 'SyncOtError Ping'
+    name: 'SyncOTError Ping'
 }
 export function createPingError(message?: string, cause?: Error): PingError {
     return createError({
         cause,
         message,
-        name: 'SyncOtError Ping',
+        name: 'SyncOTError Ping',
     }) as PingError
 }
 export function isPingError(error: any): error is PingError {
-    return isCustomError(error) && error.name === 'SyncOtError Ping'
+    return isCustomError(error) && error.name === 'SyncOTError Ping'
 }
 
 function assert(value: any, message?: string): void {
