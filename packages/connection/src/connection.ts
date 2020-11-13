@@ -1,5 +1,4 @@
 import {
-    createDuplicateIdError,
     createInvalidEntityError,
     createInvalidStreamError,
     CustomError,
@@ -11,7 +10,11 @@ import { EmitterInterface, SyncOTEmitter } from '@syncot/events'
 import { isOpenDuplexStream, isStream } from '@syncot/stream'
 import { assert, validate, Validator } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { createDisconnectedError, createNoServiceError } from './error'
+import {
+    createDisconnectedError,
+    createDuplicateIdError,
+    createNoServiceError,
+} from './error'
 
 type RequestId = number
 type ServiceName = string
