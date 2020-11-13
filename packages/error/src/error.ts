@@ -173,21 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface AuthError extends Error {
-    cause?: Error
-    name: 'SyncOTError Auth'
-}
-export function createAuthError(message?: string, cause?: Error): AuthError {
-    return createError({
-        cause,
-        message,
-        name: 'SyncOTError Auth',
-    }) as AuthError
-}
-export function isAuthError(error: any): error is AuthError {
-    return isCustomError(error) && error.name === 'SyncOTError Auth'
-}
-
 export interface InvalidStreamError extends Error {
     name: 'SyncOTError InvalidStream'
 }
