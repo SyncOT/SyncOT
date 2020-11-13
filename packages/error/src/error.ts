@@ -133,19 +133,6 @@ export function isSyncOTError(error: any): error is SyncOTError {
     return isCustomError(error) && /^SyncOTError($| )/.test(error.name)
 }
 
-export interface TsonError extends Error {
-    name: 'SyncOTError TSON'
-}
-export function createTsonError(message?: string): TsonError {
-    return createError({
-        message,
-        name: 'SyncOTError TSON',
-    }) as TsonError
-}
-export function isTsonError(error: any): error is TsonError {
-    return isCustomError(error) && error.name === 'SyncOTError TSON'
-}
-
 export interface InvalidEntityError extends Error {
     name: 'SyncOTError InvalidEntity'
     entityName: string
