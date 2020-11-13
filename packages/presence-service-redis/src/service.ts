@@ -1,6 +1,6 @@
 import { AuthService } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createAuthError, createPresenceError } from '@syncot/error'
+import { createAuthError } from '@syncot/error'
 import { globalEventLoop } from '@syncot/event-loop'
 import { SyncOTEmitter } from '@syncot/events'
 import {
@@ -9,6 +9,7 @@ import {
     Subscriber,
 } from '@syncot/ioredis-subscriber'
 import {
+    createPresenceError,
     Presence,
     PresenceService,
     PresenceServiceEvents,

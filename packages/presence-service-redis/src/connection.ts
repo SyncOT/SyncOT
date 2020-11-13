@@ -1,5 +1,5 @@
-import { createPresenceError } from '@syncot/error'
 import { EmitterInterface, TypedEventEmitter } from '@syncot/events'
+import { createPresenceError } from '@syncot/presence'
 import { assert } from '@syncot/util'
 import Redis from 'ioredis'
 import {

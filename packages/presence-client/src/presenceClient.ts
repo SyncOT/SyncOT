@@ -1,8 +1,8 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { createPresenceError } from '@syncot/error'
 import { SyncOTEmitter } from '@syncot/events'
 import {
+    createPresenceError,
     Presence,
     PresenceClient,
     PresenceClientEvents,
