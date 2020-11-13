@@ -173,25 +173,6 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
-export interface AlreadyInitializedError extends Error {
-    name: 'SyncOTError AlreadyInitialized'
-}
-export function createAlreadyInitializedError(
-    message?: string,
-): AlreadyInitializedError {
-    return createError({
-        message,
-        name: 'SyncOTError AlreadyInitialized',
-    }) as AlreadyInitializedError
-}
-export function isAlreadyInitializedError(
-    error: any,
-): error is AlreadyInitializedError {
-    return (
-        isCustomError(error) && error.name === 'SyncOTError AlreadyInitialized'
-    )
-}
-
 export interface UnexpectedSessionIdError extends Error {
     name: 'SyncOTError UnexpectedSessionId'
 }

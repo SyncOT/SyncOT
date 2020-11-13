@@ -1,5 +1,4 @@
 import {
-    createAlreadyInitializedError,
     createAssertError,
     createAuthError,
     createCompositeError,
@@ -16,7 +15,6 @@ import {
     createUnexpectedVersionNumberError,
     CustomError,
     fromJSON,
-    isAlreadyInitializedError,
     isAssertError,
     isAuthError,
     isCompositeError,
@@ -329,22 +327,6 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
-    })
-})
-
-describe('AlreadyInitializedError', () => {
-    test('createAlreadyInitializedError', () => {
-        const error = createAlreadyInitializedError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError AlreadyInitialized')
-        expect(error.message).toBe('test')
-    })
-    test('isAlreadyInitializedError', () => {
-        const error = createAlreadyInitializedError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isAlreadyInitializedError(error)).toBeTrue()
-        expect(isAlreadyInitializedError(new Error())).toBeFalse()
-        expect(isAlreadyInitializedError({})).toBeFalse()
     })
 })
 
