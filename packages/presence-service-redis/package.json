@@ -30,6 +30,7 @@
   "dependencies": {
     "@syncot/auth": "file:../auth",
     "@syncot/connection": "file:../connection",
+    "@syncot/event-loop": "file:../event-loop",
     "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
