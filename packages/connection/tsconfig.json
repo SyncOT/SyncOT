@@ -4,5 +4,5 @@
     "rootDir": "./src",
     "outDir": "./lib"
   },
-  "references": [{ "path": "../stream" }, { "path": "../util" }]
+  "references": [{ "path": "../util" }]
 }

@@ -96,7 +96,6 @@
     "@syncot/presence": "file:packages/presence",
     "@syncot/presence-client": "file:packages/presence-client",
     "@syncot/presence-service-redis": "file:packages/presence-service-redis",
-    "@syncot/stream": "file:packages/stream",
     "@syncot/stream-socket": "file:packages/stream-socket",
     "@syncot/stream-socket-sockjs": "file:packages/stream-socket-sockjs",
     "@syncot/stream-socket-websocket": "file:packages/stream-socket-websocket",

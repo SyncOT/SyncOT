@@ -3,8 +3,7 @@ import {
     PresenceClient,
     PresenceClientEvents,
 } from '@syncot/presence'
-import { invertedStreams } from '@syncot/stream'
-import { SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     PresenceSync,

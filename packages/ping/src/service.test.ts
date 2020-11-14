@@ -1,6 +1,11 @@
 import { Connection, createConnection } from '@syncot/connection'
-import { invertedStreams } from '@syncot/stream'
-import { whenEvent, whenNextTick, whenError, noop } from '@syncot/util'
+import {
+    invertedStreams,
+    whenEvent,
+    whenNextTick,
+    whenError,
+    noop,
+} from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex } from 'readable-stream'
 import { createPingService, PingService } from '.'

@@ -6,8 +6,7 @@ import {
     PresenceService,
     PresenceServiceEvents,
 } from '@syncot/presence'
-import { invertedStreams } from '@syncot/stream'
-import { SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'

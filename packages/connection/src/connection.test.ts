@@ -1,5 +1,4 @@
-import { invertedStreams } from '@syncot/stream'
-import { delay, noop, whenNextTick } from '@syncot/util'
+import { delay, invertedStreams, noop, whenNextTick } from '@syncot/util'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,

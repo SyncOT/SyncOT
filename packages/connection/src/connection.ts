@@ -1,4 +1,3 @@
-import { isOpenDuplexStream, isStream } from '@syncot/stream'
 import {
     assert,
     createInvalidEntityError,
@@ -6,6 +5,8 @@ import {
     EmitterInterface,
     fromJSON,
     isCustomError,
+    isOpenDuplexStream,
+    isStream,
     SyncOTEmitter,
     toJSON,
     validate,

@@ -2,8 +2,13 @@ import { AuthClient, AuthEvents, AuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
-import { invertedStreams } from '@syncot/stream'
-import { randomInteger, SyncOTEmitter, whenClose, whenData } from '@syncot/util'
+import {
+    invertedStreams,
+    randomInteger,
+    SyncOTEmitter,
+    whenClose,
+    whenData,
+} from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import RedisServer from 'redis-server'
