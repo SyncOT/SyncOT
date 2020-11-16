@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.3.0](https://github.com/SyncOT/SyncOT/compare/@syncot/ioredis-subscriber@0.2.5...@syncot/ioredis-subscriber@0.3.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.2.5](https://github.com/SyncOT/SyncOT/compare/@syncot/ioredis-subscriber@0.2.4...@syncot/ioredis-subscriber@0.2.5) (2020-11-10)
 
 **Note:** Version bump only for package @syncot/ioredis-subscriber

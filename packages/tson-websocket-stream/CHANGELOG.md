@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.1.0](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-websocket-stream@0.0.22...@syncot/tson-websocket-stream@0.1.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### Code Refactoring
+
+* use TSONSocketError ([7014302](https://github.com/SyncOT/SyncOT/commit/70143021eaca4e2860a1df54749bc513c5b60ba4))
+
+
+### BREAKING CHANGES
+
+* now using TSONSocketError instead of SocketError
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.0.22](https://github.com/SyncOT/SyncOT/compare/@syncot/tson-websocket-stream@0.0.21...@syncot/tson-websocket-stream@0.0.22) (2020-11-11)
 
 **Note:** Version bump only for package @syncot/tson-websocket-stream

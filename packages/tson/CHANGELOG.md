@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.1.0](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.26...@syncot/tson@0.1.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### Features
+
+* add TsonError ([7031609](https://github.com/SyncOT/SyncOT/commit/703160996498b86953a31c7602ba1856c7d3bb1a))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.0.26](https://github.com/SyncOT/SyncOT/compare/@syncot/tson@0.0.25...@syncot/tson@0.0.26) (2020-11-11)
 
 **Note:** Version bump only for package @syncot/tson

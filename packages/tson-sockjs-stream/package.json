@@ -1,6 +1,6 @@
 {
   "name": "@syncot/tson-sockjs-stream",
-  "version": "0.0.22",
+  "version": "0.1.0",
   "description": "A factory for TSON-encoded client SockJS streams.",
   "keywords": [
     "tson",

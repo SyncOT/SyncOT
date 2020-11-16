@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.1.0](https://github.com/SyncOT/SyncOT/compare/@syncot/presence@0.0.23...@syncot/presence@0.1.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### Features
+
+* add PresenceError ([17b5d5b](https://github.com/SyncOT/SyncOT/commit/17b5d5b9bad7a3c48e5894f5bfb9247fc0015ff6))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.0.23](https://github.com/SyncOT/SyncOT/compare/@syncot/presence@0.0.22...@syncot/presence@0.0.23) (2020-11-10)
 
 **Note:** Version bump only for package @syncot/presence

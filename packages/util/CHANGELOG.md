@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [2.0.0](https://github.com/SyncOT/SyncOT/compare/@syncot/util@1.0.3...@syncot/util@2.0.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### Features
+
+* add createId ([dd2242f](https://github.com/SyncOT/SyncOT/commit/dd2242f7bb2cf0a97b295f5c2f5553d29b0a37ab))
+* add stream utils ([e63f9dc](https://github.com/SyncOT/SyncOT/commit/e63f9dc7246f2fc5cb84ebbabdf04c7caacdc9e5))
+* add task runner ([d4c0fe0](https://github.com/SyncOT/SyncOT/commit/d4c0fe04d106ee40c8d506cf9a6d9728b33a2166))
+* move code here from @syncot/events ([07d2e35](https://github.com/SyncOT/SyncOT/commit/07d2e35971f083bafdf5a77b70ffd90e755c5579))
+* move errors here from @syncot/error ([ed34daf](https://github.com/SyncOT/SyncOT/commit/ed34daf04c610df0eb552de55c28c93f1aaf1518))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [1.0.3](https://github.com/SyncOT/SyncOT/compare/@syncot/util@1.0.2...@syncot/util@1.0.3) (2020-11-10)
 
 **Note:** Version bump only for package @syncot/util

@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.2.0](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-client@0.1.8...@syncot/presence-client@0.2.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.1.8](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-client@0.1.7...@syncot/presence-client@0.1.8) (2020-11-11)
 
 

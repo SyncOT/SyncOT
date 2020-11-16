@@ -3,6 +3,30 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.4.0](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.3.1...@syncot/connection@0.4.0) (2020-11-16)
+
+
+### Bug Fixes
+
+* replace SyncOt with SyncOT everywhere ([1643d98](https://github.com/SyncOT/SyncOT/commit/1643d98d22a811444a8992cbfb26598a583a5afd))
+
+
+### Features
+
+* add DisconnectedError ([64a7ffd](https://github.com/SyncOT/SyncOT/commit/64a7ffd71f42b5ec198f4cd7d145fd9b7c084d06))
+* add DuplicateIdError ([9f05d37](https://github.com/SyncOT/SyncOT/commit/9f05d37de7e015471a65fbce4e99438a137a7fd3))
+* add InvalidStreamError ([59c0bac](https://github.com/SyncOT/SyncOT/commit/59c0bacb181cea4d07863b0e88c23aacb9b3baff))
+* add NoServiceError ([98c7fec](https://github.com/SyncOT/SyncOT/commit/98c7fec27c05091cc5ef8d60761a019cfe96b6ec))
+
+
+### BREAKING CHANGES
+
+* "SyncOt" replaced with "SyncOT" in the whole codebase
+
+
+
+
+
 ## [0.3.1](https://github.com/SyncOT/SyncOT/compare/@syncot/connection@0.3.0...@syncot/connection@0.3.1) (2020-11-11)
 
 
