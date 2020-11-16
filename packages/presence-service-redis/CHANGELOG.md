@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.3.0](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-service-redis@0.2.0...@syncot/presence-service-redis@0.3.0) (2020-11-16)
+
+
+### chore
+
+* update peer dependencies ([86d95a1](https://github.com/SyncOT/SyncOT/commit/86d95a1eefafd921b1a9fdf89726f8c5bc633341))
+
+
+### BREAKING CHANGES
+
+* @syncot/ioredis-subscriber peer dependency updated to ^0.3.0.
+
+
+
+
+
 # [0.2.0](https://github.com/SyncOT/SyncOT/compare/@syncot/presence-service-redis@0.1.2...@syncot/presence-service-redis@0.2.0) (2020-11-16)
 
 
