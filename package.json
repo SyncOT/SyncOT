@@ -86,7 +86,6 @@
     "@syncot/auth": "file:packages/auth",
     "@syncot/auth-client": "file:packages/auth-client",
     "@syncot/auth-service-anonymous": "file:packages/auth-service-anonymous",
-    "@syncot/buffer": "file:packages/buffer",
     "@syncot/connection": "file:packages/connection",
     "@syncot/event-loop": "file:packages/event-loop",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
