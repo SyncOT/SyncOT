@@ -102,7 +102,6 @@
     "@syncot/tson": "file:packages/tson",
     "@syncot/tson-socket-stream": "file:packages/tson-socket-stream",
     "@syncot/tson-sockjs-stream": "file:packages/tson-sockjs-stream",
-    "@syncot/tson-websocket-stream": "file:packages/tson-websocket-stream",
     "@syncot/util": "file:packages/util"
   }
 }

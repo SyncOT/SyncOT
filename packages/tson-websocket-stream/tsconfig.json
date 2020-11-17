@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "rootDir": "./src",
-    "outDir": "./lib",
-    "lib": ["es2018", "dom"]
-  },
-  "references": [{ "path": "../tson-socket-stream" }, { "path": "../util" }]
-}
