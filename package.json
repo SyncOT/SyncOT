@@ -99,7 +99,6 @@
     "@syncot/stream-socket": "file:packages/stream-socket",
     "@syncot/stream-socket-sockjs": "file:packages/stream-socket-sockjs",
     "@syncot/stream-socket-websocket": "file:packages/stream-socket-websocket",
-    "@syncot/tson": "file:packages/tson",
     "@syncot/util": "file:packages/util"
   }
 }
