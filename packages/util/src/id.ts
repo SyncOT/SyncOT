@@ -15,6 +15,7 @@ let counter =
 /**
  * Creates a unique ID using an approach inspired by MongoDB ObjectID.
  * See https://docs.mongodb.com/manual/reference/method/ObjectId/.
+ * @returns A new base64-encoded ID.
  */
 export function createId(): string {
     dataView.setUint32(0, (Date.now() * 0.001) | 0)
