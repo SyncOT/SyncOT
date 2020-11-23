@@ -57,13 +57,13 @@ export interface AuthService
      */
     readonly userId: string | undefined
     /**
-     * Determines if the user may read from the specified document.
+     * Determines if the user may read from the specified document's content.
      */
-    mayReadDocument(typeName: string, id: string): boolean | Promise<boolean>
+    mayReadContent(typeName: string, id: string): boolean | Promise<boolean>
     /**
-     * Determines if the user may write to the specified document.
+     * Determines if the user may write to the specified document's content.
      */
-    mayWriteDocument(typeName: string, id: string): boolean | Promise<boolean>
+    mayWriteContent(typeName: string, id: string): boolean | Promise<boolean>
     /**
      * Determines if the user may read/load the specified presence object.
      */

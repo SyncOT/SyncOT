@@ -73,11 +73,11 @@ class AnonymousAuthService
         super.destroy()
     }
 
-    public mayReadDocument(): boolean {
+    public mayReadContent(): boolean {
         return this.active
     }
 
-    public mayWriteDocument(): boolean {
+    public mayWriteContent(): boolean {
         return this.active
     }
 
