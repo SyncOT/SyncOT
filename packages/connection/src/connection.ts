@@ -13,11 +13,7 @@ import {
     Validator,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import {
-    createDisconnectedError,
-    createDuplicateIdError,
-    createNoServiceError,
-} from './error'
+import { createDisconnectedError, createNoServiceError } from './error'
 
 type RequestId = number
 type ServiceName = string
@@ -567,9 +563,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
 
                 if (serviceStreams.has(id)) {
                     this.send({
-                        data: toJSON(
-                            createDuplicateIdError('Duplicate request ID.'),
-                        ),
+                        data: toJSON(new RangeError('Duplicate request ID.')),
                         id,
                         name: null,
                         service,

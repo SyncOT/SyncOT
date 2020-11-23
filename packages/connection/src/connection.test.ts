@@ -1131,7 +1131,7 @@ describe('service and proxy', () => {
                 ...message,
                 data: expect.objectContaining({
                     message: 'Duplicate request ID.',
-                    name: 'SyncOTError DuplicateId',
+                    name: 'RangeError',
                 }),
                 name: null,
                 type: MessageType.REPLY_ERROR,
