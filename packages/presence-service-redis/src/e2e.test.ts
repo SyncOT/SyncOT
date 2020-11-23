@@ -25,8 +25,8 @@ class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
     public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
-    public mayReadDocument = jest.fn().mockResolvedValue(true)
-    public mayWriteDocument = jest.fn().mockResolvedValue(true)
+    public mayReadContent = jest.fn().mockResolvedValue(true)
+    public mayWriteContent = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockResolvedValue(true)
     public mayWritePresence = jest.fn().mockResolvedValue(true)
     public constructor(sessionId: string, userId: string) {

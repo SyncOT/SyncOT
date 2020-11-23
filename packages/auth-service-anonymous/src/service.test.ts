@@ -30,13 +30,13 @@ const presence: Presence = {
 }
 
 async function checkAccess(granted: boolean) {
-    const mayReadDocument = authService.mayReadDocument('', '')
-    const mayWriteDocument = authService.mayWriteDocument('', '')
+    const mayReadContent = authService.mayReadContent('', '')
+    const mayWriteContent = authService.mayWriteContent('', '')
     const mayReadPresence = authService.mayReadPresence(presence)
     const mayWritePresence = authService.mayWritePresence(presence)
 
-    expect(mayReadDocument).toBe(granted)
-    expect(mayWriteDocument).toBe(granted)
+    expect(mayReadContent).toBe(granted)
+    expect(mayWriteContent).toBe(granted)
     expect(mayReadPresence).toBe(granted)
     expect(mayWritePresence).toBe(granted)
 }

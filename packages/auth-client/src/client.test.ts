@@ -32,8 +32,8 @@ class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
     public logIn: jest.Mock<
         Promise<LoginResponse>
     > = jest.fn().mockResolvedValue(loginResponse)
-    public mayReadDocument = () => false
-    public mayWriteDocument = () => false
+    public mayReadContent = () => false
+    public mayWriteContent = () => false
     public mayReadPresence = () => false
     public mayWritePresence = () => false
 }
