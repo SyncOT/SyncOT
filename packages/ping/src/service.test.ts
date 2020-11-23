@@ -34,7 +34,7 @@ const invalidTimeoutMatcher = expect.objectContaining({
 })
 const pingFailedMatcher = expect.objectContaining({
     message:
-        'Ping failed => SyncOTError NoService: No service to handle the request for "ping.ping".',
+        'Ping failed => RangeError: No service to handle the request for "ping.ping".',
     name: 'SyncOTError Ping',
 })
 const pingTimeoutMatcher = expect.objectContaining({
