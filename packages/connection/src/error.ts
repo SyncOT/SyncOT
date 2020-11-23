@@ -26,19 +26,6 @@ export function isDuplicateIdError(error: any): error is DuplicateIdError {
     return isCustomError(error) && error.name === 'SyncOTError DuplicateId'
 }
 
-export interface InvalidStreamError extends Error {
-    name: 'SyncOTError InvalidStream'
-}
-export function createInvalidStreamError(message?: string): InvalidStreamError {
-    return createError({
-        message,
-        name: 'SyncOTError InvalidStream',
-    }) as InvalidStreamError
-}
-export function isInvalidStreamError(error: any): error is InvalidStreamError {
-    return isCustomError(error) && error.name === 'SyncOTError InvalidStream'
-}
-
 export interface NoServiceError extends Error {
     name: 'SyncOTError NoService'
 }

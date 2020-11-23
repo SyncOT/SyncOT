@@ -16,7 +16,6 @@ import { Duplex } from 'readable-stream'
 import {
     createDisconnectedError,
     createDuplicateIdError,
-    createInvalidStreamError,
     createNoServiceError,
 } from './error'
 
@@ -641,7 +640,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
                     type: MessageType.REPLY_STREAM,
                 })
             } else if (isStream(reply)) {
-                const error = createInvalidStreamError(
+                const error = new TypeError(
                     'Service returned an invalid stream.',
                 )
                 this.emitAsync('error', error)
