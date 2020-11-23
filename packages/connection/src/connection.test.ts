@@ -829,7 +829,7 @@ describe('no service', () => {
             expect.objectContaining({
                 ...message,
                 data: errorMatcher(
-                    'SyncOTError NoService',
+                    'RangeError',
                     `No service to handle the request for "${serviceName}.${message.name}".`,
                 ),
                 name: null,

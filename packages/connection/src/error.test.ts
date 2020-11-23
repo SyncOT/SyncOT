@@ -1,10 +1,5 @@
 import { isSyncOTError } from '@syncot/util'
-import {
-    createDisconnectedError,
-    createNoServiceError,
-    isDisconnectedError,
-    isNoServiceError,
-} from '.'
+import { createDisconnectedError, isDisconnectedError } from '.'
 
 describe('DisconnectedError', () => {
     test('createDisconnectedError', () => {
@@ -19,21 +14,5 @@ describe('DisconnectedError', () => {
         expect(isDisconnectedError(error)).toBeTrue()
         expect(isDisconnectedError(new Error())).toBeFalse()
         expect(isDisconnectedError({})).toBeFalse()
-    })
-})
-
-describe('NoServiceError', () => {
-    test('createNoServiceError', () => {
-        const error = createNoServiceError('test')
-        expect(error).toBeInstanceOf(Error)
-        expect(error.name).toBe('SyncOTError NoService')
-        expect(error.message).toBe('test')
-    })
-    test('isNoServiceError', () => {
-        const error = createNoServiceError('test')
-        expect(isSyncOTError(error)).toBeTrue()
-        expect(isNoServiceError(error)).toBeTrue()
-        expect(isNoServiceError(new Error())).toBeFalse()
-        expect(isNoServiceError({})).toBeFalse()
     })
 })

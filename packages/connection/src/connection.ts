@@ -13,7 +13,7 @@ import {
     Validator,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { createDisconnectedError, createNoServiceError } from './error'
+import { createDisconnectedError } from './error'
 
 type RequestId = number
 type ServiceName = string
@@ -503,7 +503,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             ) {
                 this.send({
                     data: toJSON(
-                        createNoServiceError(
+                        new RangeError(
                             `No service to handle the request for "${service}.${name}".`,
                         ),
                     ),
