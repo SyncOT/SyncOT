@@ -3,3 +3,4 @@
 **/*.tsbuildinfo
 /coverage/
 /demo/client-dist/
+/.idea/
