@@ -7,10 +7,16 @@ body {
     padding: 0.5rem;
 }
 
-.comment { background-color: #ff8 }
-.currentComment { background-color: #fe0 }
+.comment {
+    background-color: #ff8;
+}
 
-.commentList, .commentText {
+.currentComment {
+    background-color: #fe0;
+}
+
+.commentList,
+.commentText {
     display: block;
     padding: 0;
     margin: 0;
@@ -26,7 +32,7 @@ body {
 }
 
 .ProseMirror ul.commentList {
-    font-family: "Source Sans Pro";
+    font-family: 'Source Sans Pro';
     font-size: 16px;
     width: 15em;
     position: absolute;
@@ -50,7 +56,7 @@ ul.commentList::before {
     position: absolute;
     top: -5px;
     left: calc(2em - 6px);
-    content: " ";
+    content: ' ';
     height: 0;
     width: 0;
 }

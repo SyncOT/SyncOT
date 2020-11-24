@@ -1,7 +1,7 @@
 import './polyfill'
 import './index.css'
 import 'prosemirror-view/style/prosemirror.css'
-import {commentPlugin, addAnnotation, commentUI} from './comment'
+import { commentPlugin, addAnnotation, commentUI } from './comment'
 import { baseKeymap } from 'prosemirror-commands'
 import { undo, redo, history } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
@@ -20,16 +20,16 @@ if (isWin) {
 }
 
 // set up dom
-const menuEl = document.createElement('div');
-menuEl.classList.add('menu');
-const addCommentBtnEl = document.createElement('button');
-addCommentBtnEl.innerText = 'Comment';
-menuEl.appendChild(addCommentBtnEl);
-const editorEl = document.createElement('div');
-editorEl.classList.add('content');
+const menuEl = document.createElement('div')
+menuEl.classList.add('menu')
+const addCommentBtnEl = document.createElement('button')
+addCommentBtnEl.innerText = 'Comment'
+menuEl.appendChild(addCommentBtnEl)
+const editorEl = document.createElement('div')
+editorEl.classList.add('content')
 
-document.body.appendChild(menuEl);
-document.body.appendChild(editorEl);
+document.body.appendChild(menuEl)
+document.body.appendChild(editorEl)
 
 const state = EditorState.create({
     schema,
@@ -38,20 +38,20 @@ const state = EditorState.create({
         keymap(historyKeyMap),
         keymap(baseKeymap),
         commentPlugin,
-        commentUI
+        commentUI,
     ],
     // comments will be init from server when demo is made collaborative
     comments: {
         comments: [],
         version: 1,
-    }
+    },
 })
 
 const view = new EditorView(editorEl, { state })
 
-addCommentBtnEl.addEventListener('click', ()=>{
-    addAnnotation(view.state, view.dispatch);
-});
+addCommentBtnEl.addEventListener('click', () => {
+    addAnnotation(view.state, view.dispatch)
+})
 
 window.proseMirror = {
     view,
