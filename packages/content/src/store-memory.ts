@@ -1,3 +1,4 @@
+import { assert, combine } from '@syncot/util'
 import { Operation, OperationKey } from './content'
 import { createAlreadyExistsError } from './error'
 import { ContentStore } from './store'
@@ -10,7 +11,7 @@ export function createContentStore(): ContentStore {
 }
 
 class MemoryContentStore implements ContentStore {
-    private operations: Map<string, Map<string, Operation[]>> = new Map()
+    private operations: Map<string, Operation[]> = new Map()
     private operationsByKey: Map<OperationKey, Operation> = new Map()
 
     public async storeOperation(operation: Operation): Promise<void> {
@@ -19,24 +20,24 @@ class MemoryContentStore implements ContentStore {
         }
 
         const { type, id, version } = operation
+        const typeAndId = combine(type, id)
 
-        let operationsForType = this.operations.get(type)
-        if (operationsForType == null) {
-            operationsForType = new Map()
-            this.operations.set(type, operationsForType)
+        let operations = this.operations.get(typeAndId)
+        if (!operations) {
+            operations = new Array(1)
+            this.operations.set(typeAndId, operations)
         }
 
-        let operationsForId = operationsForType.get(id)
-        if (operationsForId == null) {
-            operationsForId = new Array(1)
-            operationsForType.set(id, operationsForId)
-        }
-
-        if (operationsForId[version]) {
+        assert(version > 0, 'Operation.version must be a positive integer.')
+        if (version < operations.length) {
             throw createAlreadyExistsError('Operation', operation, 'version')
         }
+        assert(
+            version === operations.length,
+            'Operation.version out of sequence.',
+        )
 
-        operationsForId[version] = operation
+        operations[version] = operation
         this.operationsByKey.set(operation.key, operation)
     }
 
@@ -50,30 +51,12 @@ class MemoryContentStore implements ContentStore {
         versionStart: number,
         versionEnd: number,
     ): Promise<Operation[]> {
-        const operationsForType = this.operations.get(type)
-        if (!operationsForType) {
-            return []
-        }
-
-        const operationsForId = operationsForType.get(id)
-        if (!operationsForId) {
-            return []
-        }
-
-        return operationsForId.slice(versionStart, versionEnd)
+        const operations = this.operations.get(combine(type, id))
+        return operations ? operations.slice(versionStart, versionEnd) : []
     }
 
     public async getVersion(type: string, id: string): Promise<number> {
-        const operationsForType = this.operations.get(type)
-        if (!operationsForType) {
-            return 0
-        }
-
-        const operationsForId = operationsForType.get(id)
-        if (!operationsForId) {
-            return 0
-        }
-
-        return operationsForId.length - 1
+        const operations = this.operations.get(combine(type, id))
+        return operations ? operations.length - 1 : 0
     }
 }

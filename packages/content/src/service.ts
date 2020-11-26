@@ -166,12 +166,10 @@ class ProseMirrorContentService
             operationKeyUser(operation.key) === this.authService.userId,
             'Operation.key does not contain the expected userId.',
         )
-        const { type, id, version } = operation
+        const { type, id } = operation
         if (!this.authService.mayWriteContent(type, id)) {
             throw createAuthError('Not authorized to submit this operation.')
         }
-        const nextVersion = (await this.contentStore.getVersion(type, id)) + 1
-        assert(version <= nextVersion, 'Operation.version out of sequence.')
         const storedOperation = {
             ...operation,
             meta: {
