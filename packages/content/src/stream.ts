@@ -12,6 +12,8 @@ export class OperationStream extends Duplex {
     }
 
     public constructor(
+        public readonly type: string,
+        public readonly id: string,
         public readonly versionStart: number,
         public readonly versionEnd: number,
     ) {

@@ -70,7 +70,7 @@ export function createContentService({
 class ProseMirrorContentService
     extends SyncOTEmitter<ContentServiceEvents>
     implements ContentService {
-    private streams: Map<string, Map<string, OperationStream[]>> = new Map()
+    private streams: Map<string, OperationStream[]> = new Map()
     public constructor(
         private readonly connection: Connection,
         private readonly authService: AuthService,
@@ -116,16 +116,17 @@ class ProseMirrorContentService
         }
         this.connection.off('destroy', this.onDestroy)
         this.authService.off('destroy', this.onDestroy)
-        for (const [_type, streamsByType] of this.streams) {
-            for (const [_id, streamsById] of streamsByType) {
-                for (const stream of streamsById) {
-                    stream.destroy()
-                }
+
+        for (const [_, streams] of this.streams) {
+            for (const stream of streams) {
+                stream.destroy()
             }
         }
+
         super.destroy()
     }
 
+    // TODO complete the implementation
     public async getSnapshot(
         type: string,
         id: string,
@@ -213,35 +214,47 @@ class ProseMirrorContentService
             throw createAuthError('Not authorized to stream these operations.')
         }
 
-        const channel = combine('operation', type, id)
         const start = versionStart == null ? 0 : versionStart
         const end =
             versionEnd == null
                 ? Number.MAX_SAFE_INTEGER
                 : Math.max(versionEnd, start)
-        const stream = new OperationStream(start, end)
+        const streamKey = combine(type, id)
+        const stream = new OperationStream(type, id, start, end)
+        stream.on('error', this.onError)
 
-        const streamsByType = this.streams.get(type) || new Map()
-        this.streams.set(type, streamsByType)
-        const streamsById = streamsByType.get(id) || []
-        streamsByType.set(id, streamsById)
-
-        streamsById.push(stream)
-        if (streamsById.length === 1) {
-            this.pubSub.subscribe(channel, this.onOperation)
+        {
+            const streams = this.streams.get(streamKey)
+            if (streams) {
+                this.streams.set(streamKey, streams.concat(stream))
+            } else {
+                this.streams.set(streamKey, [stream])
+                this.pubSub.subscribe(
+                    combine('operation', type, id),
+                    this.onOperation,
+                )
+            }
         }
 
         stream.on('destroy', () => {
-            const index = streamsById.indexOf(stream)
-            if (index >= 0) {
-                streamsById.splice(index, 1)
-            }
-            if (streamsById.length === 0) {
-                this.pubSub.unsubscribe(channel, this.onOperation)
+            const streams = this.streams.get(streamKey)
+            if (streams) {
+                if (streams.length === 1 && streams[0] === stream) {
+                    this.streams.delete(streamKey)
+                    this.pubSub.unsubscribe(
+                        combine('operation', type, id),
+                        this.onOperation,
+                    )
+                } else {
+                    this.streams.set(
+                        streamKey,
+                        streams.filter((s) => s !== stream),
+                    )
+                }
             }
         })
 
-        this.updateStreams(type, id)
+        queueMicrotask(() => this.updateStreams(type, id))
 
         return stream
     }
@@ -250,8 +263,12 @@ class ProseMirrorContentService
         this.destroy()
     }
 
+    private onError = (error: Error): void => {
+        this.emitAsync('error', error)
+    }
+
     private onOperation = (operation: Operation): void => {
-        this.updateStreams(operation.type, operation.id)
+        queueMicrotask(() => this.updateStreams(operation.type, operation.id))
     }
 
     private assertOk(): void {
@@ -266,34 +283,29 @@ class ProseMirrorContentService
     }
 
     private updateStreams(type: string, id: string): void {
-        queueMicrotask(() => {
-            const streamsByType = this.streams.get(type)
-            if (!streamsByType) {
-                return
+        const streams = this.streams.get(combine(type, id))
+        if (streams) {
+            for (const stream of streams) {
+                this.updateStream(stream)
             }
+        }
+    }
 
-            const streamsById = streamsByType.get(id)
-            if (!streamsById) {
-                return
-            }
-
-            streamsById.forEach(async (stream) => {
-                try {
-                    const operations = await this.contentStore.loadOperations(
-                        type,
-                        id,
-                        stream.versionNext,
-                        stream.versionEnd,
-                    )
-                    if (isOpenWritableStream(stream)) {
-                        for (const operation of operations) {
-                            stream.pushOperation(operation)
-                        }
-                    }
-                } catch (error) {
-                    this.emitAsync('error', error)
+    private async updateStream(stream: OperationStream): Promise<void> {
+        try {
+            const operations = await this.contentStore.loadOperations(
+                stream.type,
+                stream.id,
+                stream.versionNext,
+                stream.versionEnd,
+            )
+            if (isOpenWritableStream(stream)) {
+                for (const operation of operations) {
+                    stream.pushOperation(operation)
                 }
-            })
-        })
+            }
+        } catch (error) {
+            this.onError(error)
+        }
     }
 }
