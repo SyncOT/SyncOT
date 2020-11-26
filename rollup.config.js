@@ -18,12 +18,22 @@ export default {
         format: 'esm',
     },
     plugins: [
-        commonjs(),
         nodeResolve({ browser: true, preferBuiltins: false }),
+        commonjs({
+            sourceMap: false,
+            transformMixedEsModules: true,
+            dynamicRequireTargets: [
+                './node_modules/readable-stream/lib**/*.js',
+            ],
+        }),
         postcss({ extract: true }),
         html({ title: 'SyncOT demo' }),
         isWatchMode && liveReload({ watch: dst }),
-        isWatchMode && serve(dst),
+        isWatchMode &&
+            serve({
+                port: 10003,
+                contentBase: dst,
+            }),
     ],
     watch: {
         clearScreen: false,
