@@ -1,11 +1,14 @@
 import { EventEmitter } from 'events'
 import { PubSub } from './pubSub'
 
+/**
+ * Creates a PubSub which broadcasts messages only locally - within the current process.
+ */
 export function createPubSub(): PubSub {
-    return new MemoryPubSub()
+    return new LocalPubSub()
 }
 
-class MemoryPubSub implements PubSub {
+class LocalPubSub implements PubSub {
     private readonly hub: EventEmitter = new EventEmitter()
 
     public subscribe(channel: string, callback: (message: any) => void): void {
