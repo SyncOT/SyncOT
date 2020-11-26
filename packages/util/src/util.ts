@@ -107,3 +107,44 @@ export function randomInteger(
         minInclusive + Math.random() * (maxExclusive - minInclusive),
     )
 }
+
+/**
+ * Combines the `parts` into a single string,
+ * so that the original `parts` can be recovered using the `separate` function.
+ *
+ * Notes on the algorithm:
+ *
+ * - `!` and `~` characters in `parts` are replaced by `!!` and `!~` respectively.
+ * - The parts are joined using the `~` character.
+ *
+ * @param parts The strings to combine.
+ * @returns A single string encoding the input strings.
+ */
+export function combine(...parts: string[]): string {
+    return parts.map(combineEscape).join('~')
+}
+
+/**
+ * Reverses the action of the `combine` function.
+ * @param value A value produced by the `combine` function.
+ * @returns A list of arguments passed to the `combine` function, which produced the `value`.
+ */
+export function separate(value: string): string[] {
+    const result = []
+    const regex = /(?:![!~]|[^~])*/y
+    let match
+    // tslint:disable-next-line:no-conditional-assignment
+    while ((match = regex.exec(value))) {
+        result.push(separateUnescape(match[0]))
+        regex.lastIndex++
+    }
+    return result
+}
+
+function combineEscape(value: string): string {
+    return value.replace(/[!~]/g, '!$&')
+}
+
+function separateUnescape(value: string): string {
+    return value.replace(/!(.)/g, '$1')
+}

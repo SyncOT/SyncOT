@@ -14,6 +14,7 @@ import {
     whenEvent,
     whenNextTick,
 } from '.'
+import { combine, separate } from './util'
 
 describe('throwError', () => {
     const error = createInvalidEntityError('test error', null)
@@ -169,5 +170,44 @@ describe('randomInteger', () => {
                 expect(result).toBeLessThan(max)
             }
         }
+    })
+})
+
+describe('combine & separate', () => {
+    // A special case for an empty array input.
+    test('[] = ""', () => {
+        expect(combine()).toBe('')
+    })
+    // combine -> separate -> combine
+    test.each([
+        [[''], ''],
+        [['', ''], '~'],
+        [['', '', ''], '~~'],
+        [['a'], 'a'],
+        [['abc'], 'abc'],
+        [['abc', 'def', 'ghi'], 'abc~def~ghi'],
+        [['', 'abc', 'def', ''], '~abc~def~'],
+        [['~'], '!~'],
+        [['~~'], '!~!~'],
+        [['', '~~'], '~!~!~'],
+        [['~~', '', '~~'], '!~!~~~!~!~'],
+        [['!'], '!!'],
+        [['!!'], '!!!!'],
+        [['!!', '', '!'], '!!!!~~!!'],
+        [['!~!', '~', '', '!'], '!!!~!!~!~~~!!'],
+        [['a!', 'b~', 'c', '!d', '~e', ''], 'a!!~b!~~c~!!d~!~e~'],
+    ])('%p = %p', (parts, combined) => {
+        expect(combine(...parts)).toBe(combined)
+        expect(separate(combined)).toStrictEqual(parts)
+    })
+    // separate(unnecessary escape chars in input) -> combine -> separate
+    test.each([
+        ['!a', ['a']],
+        ['123!!!abc', ['123!abc']],
+        ['~!$!~', ['', '$~']],
+    ])('%p = %p', (combined, parts) => {
+        expect(separate(combined)).toStrictEqual(parts)
+        expect(combine(...parts)).not.toBe(combined)
+        expect(separate(combine(...parts))).toStrictEqual(parts)
     })
 })
