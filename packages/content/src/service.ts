@@ -15,6 +15,7 @@ import {
     requestNames,
     Snapshot,
     validateOperation,
+    operationKeyUser,
 } from './content'
 import { createNotFoundError, isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
@@ -161,6 +162,10 @@ class ProseMirrorContentService
     public async submitOperation(operation: Operation): Promise<void> {
         this.assertOk()
         throwError(validateOperation(operation))
+        assert(
+            operationKeyUser(operation.key) === this.authService.userId,
+            'Operation.key does not contain the expected userId.',
+        )
         const { type, id, version } = operation
         if (!this.authService.mayWriteContent(type, id)) {
             throw createAuthError('Not authorized to submit this operation.')
