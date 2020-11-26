@@ -260,6 +260,8 @@ export interface ContentBase {
 
 /**
  * The `ContentService` interface.
+ *
+ * @emits error When an error occurs.
  */
 export interface ContentService
     extends ContentBase,
@@ -267,6 +269,10 @@ export interface ContentService
 
 /**
  * The `ContentClient` interface.
+ *
+ * @emits error When an error occurs.
+ * @emits active When the service becomes able to communicate with the ContentService.
+ * @emits inactive When the service stops being able to communicate with the ContentService.
  */
 export interface ContentClient
     extends ContentBase,
