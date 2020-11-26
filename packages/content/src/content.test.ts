@@ -1,117 +1,34 @@
 import {
     createOperationKey,
-    getOperationKeyUser,
-    isOperationKey,
+    operationKeyUser,
     Operation,
     validateOperation,
 } from '.'
 
-describe('createOperationKey', () => {
-    test('userId = 5', () => {
-        expect(() => createOperationKey(5 as any)).toThrow(
-            expect.objectContaining({
-                message: 'Argument "userId" must be a string.',
-                name: 'SyncOTError Assert',
-            }),
-        )
-    })
-    test.each(['', 'test-user-id', 'test:user:id'])(`userId = %p`, (userId) => {
-        const key = createOperationKey(userId)
-        const index = key.indexOf(':')
-        const keyId = key.slice(0, index)
-        const keyUserId = key.slice(index + 1)
-        expect(Buffer.from(keyId, 'base64').toString('base64')).toBe(keyId)
-        expect(keyUserId).toBe(userId)
-        expect(isOperationKey(key)).toBeTrue()
-        expect(getOperationKeyUser(key)).toBe(keyUserId)
-    })
-})
-
-describe('isOperationKey', () => {
+describe('OperationKey', () => {
     test.each([
-        // invalid data type
-        [5, false],
-        [{}, false],
-        [true, false],
-        [false, false],
-        // invalid without ":"
-        ['', false],
-        ['abc', false],
-        // anything after ":" is good
-        [':', true],
-        [':abc@', true],
-        [':abc@:def":', true],
-        // invalid prefix length
-        ['0:abc', false],
-        ['01:abc', false],
-        ['012:abc', false],
-        ['01234:abc', false],
-        ['012345:abc', false],
-        ['0123456:abc', false],
-        // invalid characters in prefix
-        ['012@:abc', false],
-        ['012*:abc', false],
-        ['012-:abc', false],
-        ['012_:abc', false],
-        // invalid use of "=" in prefix
-        ['=123:abc', false],
-        ['0=23:abc', false],
-        ['01=3:abc', false],
-        ['====:abc', false],
-        ['0===:abc', false],
-        ['0123=:abc', false],
-        ['0123==:abc', false],
-        ['0123===:abc', false],
-        ['0123====:abc', false],
-        // valid base64
-        [':abc', true],
-        ['0123:abc', true],
-        ['012=:abc', true],
-        ['01==:abc', true],
-        ['01234567:abc', true],
-        ['0123456=:abc', true],
-        ['012345==:abc', true],
-        [
-            '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/00==:abc',
-            true,
-        ],
-    ])('key = %p', (key, result) => {
-        expect(isOperationKey(key)).toBe(result)
-    })
-})
-
-describe('getOperationKeyUser', () => {
-    test.each([5 as any, {}, true, false, '', '0123', '0123;abc'])(
-        'key = %p',
-        (key) => {
-            expect(() => getOperationKeyUser(key)).toThrow(
-                expect.objectContaining({
-                    message: 'Invalid operation key.',
-                    name: 'SyncOTError Assert',
-                }),
-            )
-        },
-    )
-
-    test.each([
-        ':',
-        ':a',
-        ':abc',
-        ':abc@:def=',
-        '0123:',
-        '0123:a',
-        '0123:abc',
-        '0123:abc@:def=',
-        // Not a valid key but getOperationKeyUser does not perform full validation.
-        '0:abc@:def=',
-    ])('key = %p', (key) => {
-        expect(getOperationKeyUser(key)).toBe(key.slice(key.indexOf(':') + 1))
+        '',
+        '!',
+        '~',
+        'abc',
+        'abc~def~',
+        'abc!def!',
+        '!~123456!~',
+        '!!123456!!',
+    ])('createOperationKey(%s)', (userId) => {
+        const key1 = createOperationKey(userId)
+        const key2 = createOperationKey(userId)
+        expect(key1).toBeString()
+        expect(key2).toBeString()
+        expect(key1).not.toBe(key2)
+        expect(operationKeyUser(key1)).toBe(userId)
+        expect(operationKeyUser(key2)).toBe(userId)
     })
 })
 
 describe('validateOperation', () => {
     const operation: Operation = {
-        key: ':',
+        key: '',
         type: '',
         id: '',
         version: 1,
@@ -156,8 +73,6 @@ describe('validateOperation', () => {
         [null, null],
         [() => undefined, null],
         [{ ...operation, key: null }, 'key'],
-        [{ ...operation, key: '' }, 'key'],
-        [{ ...operation, key: '01=:abc' }, 'key'],
         [{ ...operation, type: null }, 'type'],
         [{ ...operation, id: null }, 'id'],
         [{ ...operation, version: null }, 'version'],
