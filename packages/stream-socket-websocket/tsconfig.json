@@ -3,7 +3,7 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./lib",
-    "lib": ["es2018", "dom"]
+    "lib": ["ES2020", "dom"]
   },
   "references": [{ "path": "../stream-socket" }, { "path": "../util" }]
 }
