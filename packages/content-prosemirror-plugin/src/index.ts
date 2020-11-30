@@ -1,1 +1,1 @@
-export * from './plugin'
+export { syncOT, SyncOTConfig } from './plugin'

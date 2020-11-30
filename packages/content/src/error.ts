@@ -5,17 +5,20 @@ export interface AlreadyExistsError extends Error {
     entityName: string
     entity: any
     key: string | null
+    value: any
 }
 /**
  * Creates a new AlreadyExistsError.
  * @param entityName The entity name.
  * @param entity The entity instance.
- * @param key The name of the property based on which the conflict was detected.
+ * @param key The name of the property which caused the conflict.
+ * @param value The value of the `key` property which caused the conflict.
  */
 export function createAlreadyExistsError(
     entityName: string,
     entity: any,
     key: string | null = null,
+    value: any = null,
 ): AlreadyExistsError {
     assert(
         typeof entityName === 'string',
@@ -29,6 +32,7 @@ export function createAlreadyExistsError(
         entity,
         entityName,
         key,
+        value,
         message: `"${entityName}" already exists.`,
         name: 'SyncOTError AlreadyExists',
     }) as AlreadyExistsError

@@ -16,7 +16,12 @@ class MemoryContentStore implements ContentStore {
 
     public async storeOperation(operation: Operation): Promise<void> {
         if (this.operationsByKey.has(operation.key)) {
-            throw createAlreadyExistsError('Operation', operation, 'key')
+            throw createAlreadyExistsError(
+                'Operation',
+                operation,
+                'key',
+                operation.key,
+            )
         }
 
         const { type, id, version } = operation
@@ -30,7 +35,12 @@ class MemoryContentStore implements ContentStore {
 
         assert(version > 0, 'Operation.version must be a positive integer.')
         if (version < operations.length) {
-            throw createAlreadyExistsError('Operation', operation, 'version')
+            throw createAlreadyExistsError(
+                'Operation',
+                operation,
+                'version',
+                operations.length - 1,
+            )
         }
         assert(
             version === operations.length,

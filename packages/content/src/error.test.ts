@@ -33,6 +33,7 @@ describe('AlreadyExistsError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(null)
+        expect(error.value).toBe(null)
     })
     test('createAlreadyExistsError with string key', () => {
         const name = 'MyEntity'
@@ -45,6 +46,7 @@ describe('AlreadyExistsError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(key)
+        expect(error.value).toBe(null)
     })
     test('createAlreadyExistsError with null key', () => {
         const name = 'MyEntity'
@@ -57,9 +59,24 @@ describe('AlreadyExistsError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(key)
+        expect(error.value).toBe(null)
+    })
+    test('createAlreadyExistsError with a key and value', () => {
+        const name = 'MyEntity'
+        const entity = { key: 'value' }
+        const key = 'aKey'
+        const value = 'aValue'
+        const error = createAlreadyExistsError(name, entity, key, value)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOTError AlreadyExists')
+        expect(error.message).toBe(`"${name}" already exists.`)
+        expect(error.entityName).toBe(name)
+        expect(error.entity).toBe(entity)
+        expect(error.key).toBe(key)
+        expect(error.value).toBe(value)
     })
     test('isAlreadyExistsError', () => {
-        const error = createAlreadyExistsError('Entity', {}, null)
+        const error = createAlreadyExistsError('Entity', {}, null, null)
         expect(isSyncOTError(error)).toBeTrue()
         expect(isAlreadyExistsError(error)).toBeTrue()
         expect(isAlreadyExistsError(new Error())).toBeFalse()

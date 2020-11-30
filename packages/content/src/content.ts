@@ -246,7 +246,7 @@ export interface ContentBase {
      * Streams the specified operations.
      * @param type The document type.
      * @param id The document ID.
-     * @param versionStart The version number of first operation to include. Defaults to 0.
+     * @param versionStart The version number of first operation to include. Defaults to 1.
      * @param versionEnd The version number of the first operation to exclude. Defaults to Number.MAX_SAFE_INTEGER.
      * @returns A stream of Operation objects.
      */

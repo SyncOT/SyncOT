@@ -7,12 +7,6 @@ import { createContentClient } from '@syncot/content'
 import { syncOT } from '@syncot/content-prosemirror-plugin'
 import { createPingService } from '@syncot/ping'
 import { createWebSocketStream } from '@syncot/stream-socket-websocket'
-import {
-    collab,
-    sendableSteps,
-    receiveTransaction,
-    getVersion,
-} from 'prosemirror-collab'
 import { baseKeymap } from 'prosemirror-commands'
 import { undo, redo, history } from 'prosemirror-history'
 import { keymap } from 'prosemirror-keymap'
@@ -46,7 +40,6 @@ const state = EditorState.create({
         keymap(historyKeyMap),
         keymap(baseKeymap),
         history(),
-        collab(),
         syncOT({
             type: 'demo',
             id: '1',
@@ -61,9 +54,6 @@ window.demo = {
     contentClient,
     pingClient,
     view,
-    sendableSteps,
-    receiveTransaction,
-    getVersion,
     EditorState,
     EditorView,
     Node,

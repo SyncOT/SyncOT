@@ -1,5 +1,5 @@
-import { Duplex } from 'readable-stream'
 import { assert } from '@syncot/util'
+import { Duplex } from 'readable-stream'
 import { Operation } from './content'
 
 /**
@@ -31,7 +31,7 @@ export class OperationStream extends Duplex {
         this._versionNext = versionStart
 
         if (this._versionNext >= this.versionEnd) {
-            this.push(null)
+            queueMicrotask(() => this.push(null))
         }
     }
 

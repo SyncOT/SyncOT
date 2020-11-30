@@ -217,7 +217,7 @@ class ProseMirrorContentService
             throw createAuthError('Not authorized to stream these operations.')
         }
 
-        const start = versionStart == null ? 0 : versionStart
+        const start = versionStart == null ? 1 : versionStart
         const end =
             versionEnd == null
                 ? Number.MAX_SAFE_INTEGER
