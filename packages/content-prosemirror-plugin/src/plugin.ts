@@ -4,7 +4,7 @@ import {
     isAlreadyExistsError,
     Operation,
 } from '@syncot/content'
-import { assert, throwError } from '@syncot/util'
+import { assert, createTaskRunner, throwError } from '@syncot/util'
 import {
     EditorState,
     Plugin,
@@ -106,11 +106,9 @@ const key = new PluginKey<PluginState>('syncOT')
 type PluginViewInterface = ReturnType<
     NonNullable<PluginSpec<PluginState>['view']>
 >
-// TODO complete it
 class PluginView implements PluginViewInterface {
     private view: EditorView | undefined
     private stream: Duplex | undefined
-    private streamLoading: boolean = false
     private streamType: string = ''
     private streamId: string = ''
     private streamVersion: number = -1
@@ -130,20 +128,29 @@ class PluginView implements PluginViewInterface {
         private onError: (error: Error) => void,
     ) {
         this.view = view
-        assert(
-            this.pluginState.pendingSteps.length === 0,
-            'Unexpected pending steps in syncOT plugin state.',
-        )
+        this.ensureVersionTaskRunner.on('error', this.onError)
+        this.ensureStreamTaskRunner.on('error', this.onError)
+        this.contentClient.on('active', this.onActive)
         this.ensureVersion()
         this.ensureStream()
-        this.contentClient.on('active', this.onActive)
     }
 
     public update(_view: EditorView, previousState: EditorState): void {
-        this.ensureVersion()
-        this.ensureStream()
         const { pluginState } = this
         const previousPluginState = key.getState(previousState)!
+
+        // Close the operation stream immediately, if it is not valid for the new state.
+        if (
+            this.stream &&
+            (this.streamType !== pluginState.type ||
+                this.streamId !== pluginState.id ||
+                this.streamVersion !== pluginState.version)
+        ) {
+            this.stream.destroy()
+        }
+
+        // Allow any operation version on submit,
+        // if the new state is not derived from the previous state.
         if (
             pluginState.type !== previousPluginState.type ||
             pluginState.id !== previousPluginState.id ||
@@ -151,11 +158,16 @@ class PluginView implements PluginViewInterface {
         ) {
             this.minVersionForSubmit = 0
         }
+
+        this.ensureVersion()
+        this.ensureStream()
         this.submitOperation()
     }
 
     public destroy() {
         this.view = undefined
+        this.ensureVersionTaskRunner.destroy()
+        this.ensureStreamTaskRunner.destroy()
         this.contentClient.off('active', this.onActive)
         if (this.stream) {
             this.stream.destroy()
@@ -177,102 +189,119 @@ class PluginView implements PluginViewInterface {
         this.ensureStream()
     }
 
-    private async ensureVersion(): Promise<void> {
-        const { type, id, version } = this.pluginState
-        if (version >= 0 || !this.contentClient.active) {
-            return
-        }
+    private ensureVersion(force: boolean = true): void {
+        if (this.ensureVersionTaskRunner.destroyed) return
+        if (force) this.ensureVersionTaskRunner.cancel()
+        this.ensureVersionTaskRunner.run()
+    }
+    private ensureVersionTaskRunner = createTaskRunner(
+        async (): Promise<void> => {
+            assert(this.view, 'Plugin already destroyed.')
 
-        try {
-            const oldState = this.state
+            // Handle already initialized.
+            const { type, id, version } = this.pluginState
+            if (version >= 0) return
+
+            // Check, if authenticated.
+            if (!this.contentClient.active) return
+
+            // Load the latest document snapshot.
             const snapshot = await this.contentClient.getSnapshot(type, id)
-            if (!this.view || this.state !== oldState) return
+
+            // Handle plugin destroyed.
+            if (!this.view) return
+
+            // Handle state changed in the meantime.
+            const newPluginState = this.pluginState
+            if (
+                newPluginState.type !== type ||
+                newPluginState.id !== id ||
+                newPluginState.version !== version
+            ) {
+                this.ensureVersion(true)
+                return
+            }
+
             // TODO init state.doc from the snapshot
+
+            // Update the state.
             this.view.dispatch(
                 this.view.state.tr.setMeta(
                     key,
                     new PluginState(type, id, snapshot.version, []),
                 ),
             )
-        } catch (error) {
-            queueMicrotask(() => this.onError(error))
-            // TODO wait and retry
-        }
-    }
+        },
+    )
 
-    private async ensureStream(): Promise<void> {
-        // Handle plugin already destroyed.
-        if (!this.view) {
+    private ensureStream(force: boolean = false): void {
+        if (this.ensureStreamTaskRunner.destroyed) return
+        if (force) this.ensureStreamTaskRunner.cancel()
+        this.ensureStreamTaskRunner.run()
+    }
+    private ensureStreamTaskRunner = createTaskRunner(
+        async (): Promise<void> => {
+            assert(this.view, 'Plugin already destroyed.')
+
+            // Handle a correct existing stream.
+            const { type, id, version } = this.pluginState
+            if (
+                this.stream &&
+                this.streamType === type &&
+                this.streamId === id &&
+                this.streamVersion === version
+            ) {
+                return
+            }
+
+            // Handle an incorrect existing stream.
             if (this.stream) {
                 this.stream.destroy()
-                this.stream = undefined
+                return
             }
-            return
-        }
 
-        // Handle a correct existing stream.
-        const { type, id, version } = this.pluginState
-        if (
-            this.stream &&
-            this.streamType === type &&
-            this.streamId === id &&
-            this.streamVersion === version
-        ) {
-            return
-        }
+            // Check if a new stream can be created.
+            if (version < 0) return // Version not initialized.
+            if (!this.contentClient.active) return // Not authenticated.
 
-        // Handle an incorrect existing stream.
-        if (this.stream) {
-            this.stream.destroy()
-            this.stream = undefined
-            return
-        }
-
-        // Check if new stream can be created.
-        if (version < 0) return // State version not initialized.
-        if (!this.contentClient.active) return // Content client not active.
-        if (this.streamLoading) return // Stream already initializing.
-
-        // Create a new stream.
-        try {
-            this.streamLoading = true
-            this.streamType = type
-            this.streamId = id
-            this.streamVersion = version
-            this.stream = await this.contentClient.streamOperations(
+            // Create a new stream.
+            const stream = await this.contentClient.streamOperations(
                 type,
                 id,
                 version + 1,
             )
+
+            // Handle plugin destroyed.
+            if (!this.view) {
+                stream.destroy()
+                return
+            }
+
+            this.streamType = type
+            this.streamId = id
+            this.streamVersion = version
+            this.stream = stream
             this.stream.on('data', this.onData)
             this.stream.on('error', this.onError)
             this.stream.on('close', this.onClose)
+
             // Make sure that we're still subscribed to the correct stream,
             // as the plugin's state might have changed in the meantime.
-            this.ensureStream()
-        } catch (error) {
-            queueMicrotask(() => this.onError(error))
-            // TODO wait and retry
-        } finally {
-            this.streamLoading = false
-        }
-    }
+            this.ensureStream(true)
+        },
+    )
 
     private async submitOperation(): Promise<void> {
-        if (!this.contentClient.active) {
-            // Can't submit right now.
-            return
-        }
+        // Ensure authenticated.
+        if (!this.contentClient.active) return
 
+        // Ensure there are steps to submit.
         const { type, id, version, pendingSteps } = this.pluginState
-        if (pendingSteps.length === 0) {
-            // Nothing to submit.
-            return
-        }
+        if (pendingSteps.length === 0) return
 
+        // Create an operation, if it does not exist.
         const pendingOperation = pendingSteps[0].operation
         if (!pendingOperation) {
-            // No operation to submit - create it first.
             const operation: Operation = {
                 key: createOperationKey(this.contentClient.userId!),
                 type,
@@ -299,14 +328,15 @@ class PluginView implements PluginViewInterface {
             return
         }
 
-        if (pendingOperation.version < this.minVersionForSubmit) {
-            // Must get operations from the server first.
-            return
-        }
+        // Make sure we're up to date with the server before submitting.
+        if (pendingOperation.version < this.minVersionForSubmit) return
 
+        // Record the minimum version for the next operation to submit.
         this.minVersionForSubmit = pendingOperation.version + 1
 
+        // TODO turn submitOperation into a task execution
         try {
+            // Submit the operation.
             await this.contentClient.submitOperation(pendingOperation)
         } catch (error) {
             if (isAlreadyExistsError(error)) {
