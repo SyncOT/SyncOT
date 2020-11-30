@@ -1,4 +1,3 @@
-import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Operation } from './content'
 
@@ -18,16 +17,6 @@ export class OperationStream extends Duplex {
         public readonly versionEnd: number,
     ) {
         super(streamOptions)
-        assert(
-            typeof versionStart === 'number',
-            '"versionStart" must be a number.',
-        )
-        assert(typeof versionEnd === 'number', '"versionEnd" must be a number.')
-        assert(
-            versionStart <= versionEnd,
-            '"versionStart" must be less or equal to "versionEnd".',
-        )
-
         this._versionNext = versionStart
 
         if (this._versionNext >= this.versionEnd) {
@@ -35,7 +24,7 @@ export class OperationStream extends Duplex {
         }
     }
 
-    public _read() {
+    public _read(): void {
         // Nothing to do.
     }
     public _write(
