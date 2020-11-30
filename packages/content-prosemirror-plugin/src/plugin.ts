@@ -130,6 +130,7 @@ class PluginView implements PluginViewInterface {
         this.view = view
         this.ensureVersionTaskRunner.on('error', this.onError)
         this.ensureStreamTaskRunner.on('error', this.onError)
+        this.submitOperationTaskRunner.on('error', this.onError)
         this.contentClient.on('active', this.onActive)
         this.ensureVersion()
         this.ensureStream()
@@ -161,6 +162,7 @@ class PluginView implements PluginViewInterface {
 
         this.ensureVersion()
         this.ensureStream()
+        this.ensureOperation()
         this.submitOperation()
     }
 
@@ -168,6 +170,7 @@ class PluginView implements PluginViewInterface {
         this.view = undefined
         this.ensureVersionTaskRunner.destroy()
         this.ensureStreamTaskRunner.destroy()
+        this.submitOperationTaskRunner.destroy()
         this.contentClient.off('active', this.onActive)
         if (this.stream) {
             this.stream.destroy()
@@ -291,69 +294,96 @@ class PluginView implements PluginViewInterface {
         },
     )
 
-    private async submitOperation(): Promise<void> {
-        // Ensure authenticated.
-        if (!this.contentClient.active) return
-
-        // Ensure there are steps to submit.
+    private ensureOperation(): void {
+        // Check, if there are any pending steps.
         const { type, id, version, pendingSteps } = this.pluginState
         if (pendingSteps.length === 0) return
 
-        // Create an operation, if it does not exist.
-        const pendingOperation = pendingSteps[0].operation
-        if (!pendingOperation) {
-            const operation: Operation = {
-                key: createOperationKey(this.contentClient.userId!),
-                type,
-                id,
-                version: version + 1,
-                schema: '',
-                data: pendingSteps.map(({ step }) => step),
-                meta: null,
-            }
-            this.view!.dispatch(
-                this.state.tr.setMeta(
-                    key,
-                    new PluginState(
-                        type,
-                        id,
-                        version,
-                        pendingSteps.map(
-                            ({ step, invertedStep }) =>
-                                new Rebaseable(step, invertedStep, operation),
-                        ),
+        // Check, if an operation already exists.
+        if (pendingSteps[0].operation) return
+
+        // Create a new operation.
+        const operation: Operation = {
+            key: createOperationKey(this.contentClient.userId!),
+            type,
+            id,
+            version: version + 1,
+            schema: '',
+            data: pendingSteps.map(({ step }) => step),
+            meta: null,
+        }
+
+        // Add the operation to the state.
+        this.view!.dispatch(
+            this.state.tr.setMeta(
+                key,
+                new PluginState(
+                    type,
+                    id,
+                    version,
+                    pendingSteps.map(
+                        ({ step, invertedStep }) =>
+                            new Rebaseable(step, invertedStep, operation),
                     ),
                 ),
-            )
-            return
-        }
-
-        // Make sure we're up to date with the server before submitting.
-        if (pendingOperation.version < this.minVersionForSubmit) return
-
-        // Record the minimum version for the next operation to submit.
-        this.minVersionForSubmit = pendingOperation.version + 1
-
-        // TODO turn submitOperation into a task execution
-        try {
-            // Submit the operation.
-            await this.contentClient.submitOperation(pendingOperation)
-        } catch (error) {
-            if (isAlreadyExistsError(error)) {
-                // Wait until the operation is confirmed.
-                if (error.key === 'version') {
-                    this.minVersionForSubmit = Math.max(
-                        this.minVersionForSubmit,
-                        error.value + 1,
-                    )
-                } // else: `minVersionForSubmit` is already set to the correct value.
-            } else {
-                queueMicrotask(() => this.onError(error))
-                this.minVersionForSubmit = pendingOperation.version
-                // TODO wait and retry
-            }
-        }
+            ),
+        )
     }
+
+    private submitOperation(force: boolean = false): void {
+        if (this.submitOperationTaskRunner.destroyed) return
+        if (force) this.submitOperationTaskRunner.cancel()
+        this.submitOperationTaskRunner.run()
+    }
+    private submitOperationTaskRunner = createTaskRunner(
+        async (): Promise<void> => {
+            // Ensure authenticated.
+            if (!this.contentClient.active) return
+
+            // Ensure there is an operation to submit.
+            const { pendingSteps } = this.pluginState
+            const operation =
+                pendingSteps.length > 0 ? pendingSteps[0].operation : undefined
+            if (!operation) return
+
+            // Make sure we're up to date with the server before submitting.
+            if (operation.version < this.minVersionForSubmit) return
+
+            // Record the minimum version for the next operation to submit.
+            this.minVersionForSubmit = operation.version + 1
+
+            try {
+                // Submit the operation.
+                await this.contentClient.submitOperation(operation)
+
+                // Submit again, in case a new operation was added in the meantime.
+                this.submitOperation(true)
+            } catch (error) {
+                // Handle operation conflicting with an existing operation.
+                if (isAlreadyExistsError(error)) {
+                    // If the version number caused the conflict,
+                    // get all operations from the server before retrying.
+                    if (error.key === 'version') {
+                        this.minVersionForSubmit = Math.max(
+                            this.minVersionForSubmit,
+                            error.value + 1,
+                        )
+                    }
+                    // Otherwise the conflict must have been caused by the operation.key.
+                    // It can happen when we resubmit the same operation because we are
+                    // not sure, if it has been saved by the server already, for example
+                    // when connection drops after submitting an operation but before
+                    // receiving a confirmation. In this case we can jsut wait until the
+                    // operation is confirmed.
+                    return
+                }
+
+                // Allow the operation to be resubmitted and rethrow the error.
+                this.minVersionForSubmit = operation.version
+                throw error
+            }
+        },
+    )
 
     /**
      * Creates a transaction that represents an operation received from
