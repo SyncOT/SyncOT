@@ -83,6 +83,7 @@ describe('validateOperation', () => {
         [{ ...operation, version: Infinity }, 'version'],
         [{ ...operation, version: NaN }, 'version'],
         [{ ...operation, schema: null }, 'schema'],
+        [(({ data, ...o }) => o)(operation), 'data'],
         [{ ...operation, meta: undefined }, 'meta'],
         [{ ...operation, meta: 5 }, 'meta'],
         [{ ...operation, meta: { user: 5 } }, 'meta.user'],
