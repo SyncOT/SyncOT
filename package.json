@@ -89,7 +89,6 @@
     "@syncot/auth-service-anonymous": "file:packages/auth-service-anonymous",
     "@syncot/connection": "file:packages/connection",
     "@syncot/content": "file:packages/content",
-    "@syncot/content-prosemirror": "file:packages/content-prosemirror",
     "@syncot/content-prosemirror-plugin": "file:packages/content-prosemirror-plugin",
     "@syncot/event-loop": "file:packages/event-loop",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
