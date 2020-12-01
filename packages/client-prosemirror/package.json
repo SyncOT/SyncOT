@@ -1,11 +1,10 @@
 {
-  "name": "@syncot/content-prosemirror-plugin",
+  "name": "@syncot/client-prosemirror",
   "version": "0.0.0",
   "description": "A ProseMirror plugin for synchronising state using SyncOT.",
   "keywords": [
-    "content",
-    "ProseMirror",
-    "plugin"
+    "client",
+    "ProseMirror"
   ],
   "sideEffects": false,
   "main": "lib/index.js",
