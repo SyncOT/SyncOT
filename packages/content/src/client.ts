@@ -8,6 +8,7 @@ import {
     ContentService,
     Operation,
     requestNames,
+    Schema,
     Snapshot,
 } from './content'
 
@@ -89,6 +90,14 @@ class Client
         this.authClient.off('active', this.updateActive)
         this.authClient.off('inactive', this.updateActive)
         super.destroy()
+    }
+
+    public registerSchema(schema: Schema): Promise<number> {
+        return this.contentService.registerSchema(schema)
+    }
+
+    public async getSchema(key: number): Promise<Schema | null> {
+        return this.contentService.getSchema(key)
     }
 
     public getSnapshot(

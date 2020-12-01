@@ -15,8 +15,10 @@ import {
     Operation,
     operationKeyUser,
     requestNames,
+    Schema,
     Snapshot,
     validateOperation,
+    validateSchema,
 } from './content'
 import { createNotFoundError, isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
@@ -128,6 +130,28 @@ class ProseMirrorContentService
         super.destroy()
     }
 
+    public async registerSchema(schema: Schema): Promise<number> {
+        this.assertOk()
+        throwError(validateSchema(schema))
+        return this.contentStore.registerSchema({
+            key: 0,
+            type: schema.type,
+            data: schema.data,
+            meta: {
+                ...schema.meta,
+                session: this.authService.sessionId,
+                time: Date.now(),
+                user: this.authService.userId,
+            },
+        })
+    }
+
+    public async getSchema(key: number): Promise<Schema | null> {
+        this.assertOk()
+        assert(Number.isInteger(key), 'Argument "key" must be an integer.')
+        return this.contentStore.getSchema(key)
+    }
+
     // TODO complete the implementation
     public async getSnapshot(
         type: string,
@@ -172,8 +196,13 @@ class ProseMirrorContentService
         if (!this.authService.mayWriteContent(type, id)) {
             throw createAuthError('Not authorized to submit this operation.')
         }
-        const storedOperation = {
-            ...operation,
+        const storedOperation: Operation = {
+            key: operation.key,
+            type: operation.type,
+            id: operation.id,
+            version: operation.version,
+            schema: operation.schema,
+            data: operation.data,
             meta: {
                 ...operation.meta,
                 session: this.authService.sessionId,

@@ -2,7 +2,9 @@ import {
     createOperationKey,
     operationKeyUser,
     Operation,
+    Schema,
     validateOperation,
+    validateSchema,
 } from '.'
 
 describe('OperationKey', () => {
@@ -105,6 +107,81 @@ describe('validateOperation', () => {
                         invalidProperty === null
                             ? 'Invalid "Operation".'
                             : `Invalid "Operation.${invalidProperty}".`,
+                    name: 'SyncOTError InvalidEntity',
+                }),
+            )
+        }
+    })
+})
+
+describe('validateSchema', () => {
+    const schema: Schema = {
+        key: 0,
+        type: '',
+        data: null,
+        meta: null,
+    }
+    test.each<[any, string | null | undefined]>([
+        [schema, undefined],
+        [{ ...schema, key: 5 }, undefined],
+        [{ ...schema, type: 'a-type' }, undefined],
+        [{ ...schema, data: 5 }, undefined],
+        [{ ...schema, data: {} }, undefined],
+        [{ ...schema, meta: {} }, undefined],
+        [{ ...schema, meta: { time: 123 } }, undefined],
+        [{ ...schema, meta: { user: 'abc' } }, undefined],
+        [{ ...schema, meta: { session: 'xyz' } }, undefined],
+        [
+            { ...schema, meta: { user: null, time: 123, session: 'xyz' } },
+            undefined,
+        ],
+        [
+            { ...schema, meta: { user: 'abc', time: null, session: 'xyz' } },
+            undefined,
+        ],
+        [
+            { ...schema, meta: { user: 'abc', time: 123, session: null } },
+            undefined,
+        ],
+        [
+            {
+                ...schema,
+                meta: {
+                    user: 'abc',
+                    time: 123,
+                    session: 'xyz',
+                    other: 'value',
+                },
+            },
+            undefined,
+        ],
+        [null, null],
+        [() => undefined, null],
+        [{ ...schema, key: null }, 'key'],
+        [{ ...schema, key: 0.5 }, 'key'],
+        [{ ...schema, key: -1 }, 'key'],
+        [{ ...schema, key: Number.MAX_SAFE_INTEGER + 2 }, 'key'],
+        [{ ...schema, type: null }, 'type'],
+        [(({ data, ...o }) => o)(schema), 'data'],
+        [{ ...schema, meta: undefined }, 'meta'],
+        [{ ...schema, meta: 5 }, 'meta'],
+        [{ ...schema, meta: { user: 5 } }, 'meta.user'],
+        [{ ...schema, meta: { time: '5' } }, 'meta.time'],
+        [{ ...schema, meta: { session: 5 } }, 'meta.session'],
+    ])('Test #%#', (data, invalidProperty) => {
+        const result = validateSchema(data)
+        if (invalidProperty === undefined) {
+            expect(result).toBeUndefined()
+        } else {
+            expect(result).toEqual(
+                expect.objectContaining({
+                    entity: data,
+                    entityName: 'Schema',
+                    key: invalidProperty,
+                    message:
+                        invalidProperty === null
+                            ? 'Invalid "Schema".'
+                            : `Invalid "Schema.${invalidProperty}".`,
                     name: 'SyncOTError InvalidEntity',
                 }),
             )

@@ -1,5 +1,5 @@
-import { assert, combine } from '@syncot/util'
-import { Operation, OperationKey } from './content'
+import { assert, combine, hash } from '@syncot/util'
+import { Operation, OperationKey, Schema } from './content'
 import { createAlreadyExistsError } from './error'
 import { ContentStore } from './store'
 
@@ -13,6 +13,23 @@ export function createContentStore(): ContentStore {
 class MemoryContentStore implements ContentStore {
     private operations: Map<string, Operation[]> = new Map()
     private operationsByKey: Map<OperationKey, Operation> = new Map()
+    private schemas: Map<string, Schema> = new Map()
+    private schemasByKey: Schema[] = []
+
+    public async registerSchema(schema: Schema): Promise<number> {
+        const typeAndHash = combine(schema.type, hash(schema.data))
+        const existingSchema = this.schemas.get(typeAndHash)
+        if (existingSchema) return existingSchema.key
+
+        const newSchema: Schema = { ...schema, key: this.schemasByKey.length }
+        this.schemas.set(typeAndHash, newSchema)
+        this.schemasByKey[newSchema.key] = newSchema
+        return newSchema.key
+    }
+
+    public async getSchema(key: number): Promise<Schema | null> {
+        return this.schemasByKey[key] || null
+    }
 
     public async storeOperation(operation: Operation): Promise<void> {
         if (this.operationsByKey.has(operation.key)) {

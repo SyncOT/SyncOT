@@ -190,9 +190,80 @@ export interface Snapshot {
 }
 
 /**
+ * Represents the content schema, which defines the valid shape of Operation.data and Snapshot.data.
+ */
+export interface Schema {
+    /**
+     * A globally unique ID of this schema, which is a non-negative integer.
+     */
+    key: number
+    /**
+     * The document type.
+     */
+    type: string
+    /**
+     * The schema definition.
+     */
+    data: any
+    /**
+     * The schema's metadata.
+     */
+    meta: Meta | null
+}
+
+/**
+ * Validates the specified schema.
+ * @returns The first encountered error, if found, otherwise undefined.
+ */
+export const validateSchema: Validator<Schema> = validate([
+    (schema) =>
+        typeof schema === 'object' && schema != null
+            ? undefined
+            : createInvalidEntityError('Schema', schema, null),
+    (schema) =>
+        Number.isInteger(schema.key) &&
+        schema.key >= 0 &&
+        schema.key <= Number.MAX_SAFE_INTEGER
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'key'),
+    (schema) =>
+        typeof schema.type === 'string'
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'type'),
+    (schema) =>
+        schema.hasOwnProperty('data')
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'data'),
+    (schema) =>
+        typeof schema.meta === 'object'
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'meta'),
+    (schema) =>
+        schema.meta == null ||
+        schema.meta.user == null ||
+        typeof schema.meta.user === 'string'
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'meta.user'),
+    (schema) =>
+        schema.meta == null ||
+        schema.meta.time == null ||
+        typeof schema.meta.time === 'number'
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'meta.time'),
+    (schema) =>
+        schema.meta == null ||
+        schema.meta.session == null ||
+        typeof schema.meta.session === 'string'
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'meta.session'),
+])
+
+/**
  * The names of the requests supported by the content service.
  */
 export const requestNames = new Set([
+    'registerSchema',
+    'getSchema',
     'getSnapshot',
     'submitOperation',
     'streamOperations',
@@ -218,6 +289,26 @@ export interface ContentClientEvents {
  * The base interface for `ContentService` and `ContentClient`.
  */
 export interface ContentBase {
+    /**
+     * Registers the given schema.
+     *
+     * If a schema with the same `type` and `data` already exists,
+     * its `key` is returned and no new schema is registered.
+     * Otherwise a new schema is registered and its `key` is returned.
+     *
+     * @param schema The schema to register.
+     * @returns The `key` of an existing schema with the same `type` and `data`, or
+     *  the `key` of a newly registered schema.
+     */
+    registerSchema(schema: Schema): Promise<number>
+
+    /**
+     * Gets a Schema by key.
+     * @param key The schema key.
+     * @returns An existing Schema with the given `key`, or `null`, if not found.
+     */
+    getSchema(key: number): Promise<Schema | null>
+
     /**
      * Gets a snapshot of a document at a given version.
      *

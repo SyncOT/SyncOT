@@ -3,6 +3,7 @@ import {
     createContentStore,
     createOperationKey,
     Operation,
+    Schema,
 } from '.'
 
 const userId = 'test-user'
@@ -15,10 +16,97 @@ const operations: Operation[] = Array.from(Array(10), (_value, version) => ({
     data: version,
     meta: null,
 }))
+const schema: Schema = {
+    key: 100,
+    type: 'test-type',
+    data: 'test-data',
+    meta: null,
+}
 let store: ContentStore
 
 beforeEach(() => {
     store = createContentStore()
+})
+
+describe('registerSchema', () => {
+    test('the same schema twice', async () => {
+        await expect(store.registerSchema(schema)).resolves.toBe(0)
+        await expect(store.registerSchema(schema)).resolves.toBe(0)
+        await expect(store.getSchema(0)).resolves.toStrictEqual({
+            ...schema,
+            key: 0,
+        })
+        await expect(store.getSchema(1)).resolves.toBe(null)
+    })
+    test('different meta', async () => {
+        const user = 'test-user'
+        const time = Date.now()
+        const session = 'test-session'
+        const schemaWithMeta = { ...schema, meta: { session, time, user } }
+        await expect(store.registerSchema(schemaWithMeta)).resolves.toBe(0)
+        await expect(
+            store.registerSchema({
+                ...schemaWithMeta,
+                meta: { ...schemaWithMeta.meta, user: `${user}-different` },
+            }),
+        ).resolves.toBe(0)
+        await expect(store.getSchema(0)).resolves.toStrictEqual({
+            ...schemaWithMeta,
+            key: 0,
+        })
+        await expect(store.getSchema(1)).resolves.toBe(null)
+    })
+    test('different key', async () => {
+        await expect(store.registerSchema({ ...schema, key: 5 })).resolves.toBe(
+            0,
+        )
+        await expect(store.registerSchema({ ...schema, key: 7 })).resolves.toBe(
+            0,
+        )
+        await expect(store.getSchema(0)).resolves.toStrictEqual({
+            ...schema,
+            key: 0,
+        })
+        await expect(store.getSchema(1)).resolves.toBe(null)
+    })
+    test('different type', async () => {
+        await expect(
+            store.registerSchema({ ...schema, type: 'type-1' }),
+        ).resolves.toBe(0)
+        await expect(
+            store.registerSchema({ ...schema, type: 'type-2' }),
+        ).resolves.toBe(1)
+        await expect(store.getSchema(0)).resolves.toStrictEqual({
+            ...schema,
+            key: 0,
+            type: 'type-1',
+        })
+        await expect(store.getSchema(1)).resolves.toStrictEqual({
+            ...schema,
+            key: 1,
+            type: 'type-2',
+        })
+        await expect(store.getSchema(2)).resolves.toBe(null)
+    })
+    test('different data', async () => {
+        await expect(
+            store.registerSchema({ ...schema, data: 'data-1' }),
+        ).resolves.toBe(0)
+        await expect(
+            store.registerSchema({ ...schema, data: 'data-2' }),
+        ).resolves.toBe(1)
+        await expect(store.getSchema(0)).resolves.toStrictEqual({
+            ...schema,
+            key: 0,
+            data: 'data-1',
+        })
+        await expect(store.getSchema(1)).resolves.toStrictEqual({
+            ...schema,
+            key: 1,
+            data: 'data-2',
+        })
+        await expect(store.getSchema(2)).resolves.toBe(null)
+    })
 })
 
 describe('storeOperation', () => {
