@@ -3,19 +3,20 @@ import { Connection } from '@syncot/connection'
 import {
     assert,
     combine,
+    createId,
+    isOpenWritableStream,
     SyncOTEmitter,
     throwError,
-    isOpenWritableStream,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
-    ContentServiceEvents,
     ContentService,
+    ContentServiceEvents,
     Operation,
+    operationKeyUser,
     requestNames,
     Snapshot,
     validateOperation,
-    operationKeyUser,
 } from './content'
 import { createNotFoundError, isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
@@ -150,6 +151,7 @@ class ProseMirrorContentService
             throw createNotFoundError('Document version not found.')
         }
         return {
+            key: createId(),
             type,
             id,
             version: 0,

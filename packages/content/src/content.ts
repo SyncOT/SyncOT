@@ -159,6 +159,10 @@ export const validateOperation: Validator<Operation> = validate([
  */
 export interface Snapshot {
     /**
+     * A globally unique ID of this snapshot.
+     */
+    key: string
+    /**
      * The document type.
      */
     type: string
