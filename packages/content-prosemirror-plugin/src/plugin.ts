@@ -308,7 +308,7 @@ class PluginView implements PluginViewInterface {
             type,
             id,
             version: version + 1,
-            schema: '',
+            schema: 0,
             data: pendingSteps.map(({ step }) => step),
             meta: null,
         }

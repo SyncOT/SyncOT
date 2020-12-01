@@ -11,7 +11,7 @@ const operations: Operation[] = Array.from(Array(10), (_value, version) => ({
     type: 'test-type',
     id: 'test-id',
     version,
-    schema: '',
+    schema: 0,
     data: version,
     meta: null,
 }))

@@ -81,9 +81,9 @@ export interface Operation {
      */
     version: number
     /**
-     * The schema of the content at the version created by this operation.
+     * The ID of the schema of the content at the version created by this operation.
      */
-    schema: string
+    schema: number
     /**
      * The action to apply to the document's content at `operation.version - 1` version
      * in order to produce the document's content at `operation.version` version.
@@ -123,7 +123,7 @@ export const validateOperation: Validator<Operation> = validate([
             ? undefined
             : createInvalidEntityError('Operation', operation, 'version'),
     (operation) =>
-        typeof operation.schema === 'string'
+        Number.isInteger(operation.schema)
             ? undefined
             : createInvalidEntityError('Operation', operation, 'schema'),
     (operation) =>
@@ -176,9 +176,9 @@ export interface Snapshot {
      */
     version: number
     /**
-     * The schema of the document's content at the snapshot's version.
+     * The ID of the schema of the document's content at the snapshot's version.
      */
-    schema: string
+    schema: number
     /**
      * The document's content at the snapshot's version.
      */

@@ -155,7 +155,7 @@ class ProseMirrorContentService
             type,
             id,
             version: 0,
-            schema: '',
+            schema: 0,
             data: null,
             meta: null,
         }
