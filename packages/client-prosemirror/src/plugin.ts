@@ -64,7 +64,7 @@ export function syncOT({
         key,
         state: {
             init(): PluginState {
-                return new PluginState(type, id, -1, [])
+                return new PluginState(type, id, -1, -1, [])
             },
 
             apply(tr: Transaction, pluginState: PluginState): PluginState {
@@ -77,6 +77,7 @@ export function syncOT({
                         pluginState.type,
                         pluginState.id,
                         pluginState.version,
+                        pluginState.schema,
                         pluginState.pendingSteps.concat(
                             rebaseableStepsFrom(tr),
                         ),
@@ -128,12 +129,12 @@ class PluginView implements PluginViewInterface {
         private onError: (error: Error) => void,
     ) {
         this.view = view
-        this.ensureVersionTaskRunner.on('error', this.onError)
-        this.ensureStreamTaskRunner.on('error', this.onError)
+        this.initStateTaskRunner.on('error', this.onError)
+        this.initStreamTaskRunner.on('error', this.onError)
         this.submitOperationTaskRunner.on('error', this.onError)
         this.contentClient.on('active', this.onActive)
-        this.ensureVersion()
-        this.ensureStream()
+        this.initState()
+        this.initStream()
     }
 
     public update(_view: EditorView, previousState: EditorState): void {
@@ -160,16 +161,16 @@ class PluginView implements PluginViewInterface {
             this.minVersionForSubmit = 0
         }
 
-        this.ensureVersion()
-        this.ensureStream()
+        this.initState()
+        this.initStream()
         this.ensureOperation()
         this.submitOperation()
     }
 
     public destroy() {
         this.view = undefined
-        this.ensureVersionTaskRunner.destroy()
-        this.ensureStreamTaskRunner.destroy()
+        this.initStateTaskRunner.destroy()
+        this.initStreamTaskRunner.destroy()
         this.submitOperationTaskRunner.destroy()
         this.contentClient.off('active', this.onActive)
         if (this.stream) {
@@ -178,8 +179,8 @@ class PluginView implements PluginViewInterface {
     }
 
     private onActive = (): void => {
-        this.ensureVersion()
-        this.ensureStream()
+        this.initState()
+        this.initStream()
         this.submitOperation()
     }
 
@@ -189,20 +190,20 @@ class PluginView implements PluginViewInterface {
 
     private onClose = (): void => {
         this.stream = undefined
-        this.ensureStream()
+        this.initStream()
     }
 
-    private ensureVersion(force: boolean = true): void {
-        if (this.ensureVersionTaskRunner.destroyed) return
-        if (force) this.ensureVersionTaskRunner.cancel()
-        this.ensureVersionTaskRunner.run()
+    private initState(force: boolean = false): void {
+        if (this.initStateTaskRunner.destroyed) return
+        if (force) this.initStateTaskRunner.cancel()
+        this.initStateTaskRunner.run()
     }
-    private ensureVersionTaskRunner = createTaskRunner(
+    private initStateTaskRunner = createTaskRunner(
         async (): Promise<void> => {
             assert(this.view, 'Plugin already destroyed.')
 
             // Handle already initialized.
-            const { type, id, version } = this.pluginState
+            const { type, id, version, schema } = this.pluginState
             if (version >= 0) return
 
             // Check, if authenticated.
@@ -221,7 +222,7 @@ class PluginView implements PluginViewInterface {
                 newPluginState.id !== id ||
                 newPluginState.version !== version
             ) {
-                this.ensureVersion(true)
+                this.initState(true)
                 return
             }
 
@@ -231,18 +232,18 @@ class PluginView implements PluginViewInterface {
             this.view.dispatch(
                 this.view.state.tr.setMeta(
                     key,
-                    new PluginState(type, id, snapshot.version, []),
+                    new PluginState(type, id, snapshot.version, schema, []),
                 ),
             )
         },
     )
 
-    private ensureStream(force: boolean = false): void {
-        if (this.ensureStreamTaskRunner.destroyed) return
-        if (force) this.ensureStreamTaskRunner.cancel()
-        this.ensureStreamTaskRunner.run()
+    private initStream(force: boolean = false): void {
+        if (this.initStreamTaskRunner.destroyed) return
+        if (force) this.initStreamTaskRunner.cancel()
+        this.initStreamTaskRunner.run()
     }
-    private ensureStreamTaskRunner = createTaskRunner(
+    private initStreamTaskRunner = createTaskRunner(
         async (): Promise<void> => {
             assert(this.view, 'Plugin already destroyed.')
 
@@ -290,13 +291,13 @@ class PluginView implements PluginViewInterface {
 
             // Make sure that we're still subscribed to the correct stream,
             // as the plugin's state might have changed in the meantime.
-            this.ensureStream(true)
+            this.initStream(true)
         },
     )
 
     private ensureOperation(): void {
         // Check, if there are any pending steps.
-        const { type, id, version, pendingSteps } = this.pluginState
+        const { type, id, version, schema, pendingSteps } = this.pluginState
         if (pendingSteps.length === 0) return
 
         // Check, if an operation already exists.
@@ -321,6 +322,7 @@ class PluginView implements PluginViewInterface {
                     type,
                     id,
                     version,
+                    schema,
                     pendingSteps.map(
                         ({ step, invertedStep }) =>
                             new Rebaseable(step, invertedStep, operation),
@@ -396,7 +398,7 @@ class PluginView implements PluginViewInterface {
      */
     receiveOperation(operation: Operation): Transaction {
         const { state } = this.view!
-        const { type, id, version, pendingSteps } = this.pluginState
+        const { type, id, version, schema, pendingSteps } = this.pluginState
         const nextVersion = version + 1
         assert(operation.type === type, 'Unexpected operation.type.')
         assert(operation.id === id, 'Unexpected operation.id.')
@@ -420,6 +422,7 @@ class PluginView implements PluginViewInterface {
                     type,
                     id,
                     nextVersion,
+                    schema,
                     pendingSteps.filter((step) => !step.operation),
                 ),
             )
@@ -509,7 +512,13 @@ class PluginView implements PluginViewInterface {
                 // Update the "syncOT" plugin's state.
                 .setMeta(
                     key,
-                    new PluginState(type, id, nextVersion, rebasedPendingSteps),
+                    new PluginState(
+                        type,
+                        id,
+                        nextVersion,
+                        schema,
+                        rebasedPendingSteps,
+                    ),
                 )
         )
     }
@@ -541,6 +550,10 @@ export class PluginState {
          * The version number of the document in SyncOT with content corresponding to this state.
          */
         public version: number,
+        /**
+         * The registered `Schema.key` of this state's schema.
+         */
+        public schema: number,
         /**
          * A list of steps which have not been recorded and confirmed by the server.
          */
