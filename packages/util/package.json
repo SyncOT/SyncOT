@@ -26,8 +26,10 @@
     "access": "public"
   },
   "dependencies": {
+    "@types/blueimp-md5": "^2.7.0",
     "@types/readable-stream": "^2.3.1",
     "base64-js": "^1.5.1",
+    "blueimp-md5": "^2.18.0",
     "readable-stream": "^3.3.0",
     "tslib": "^2.0.3"
   }
