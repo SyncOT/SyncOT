@@ -5,6 +5,8 @@ import {
     Operation,
 } from '@syncot/content'
 import { assert, createTaskRunner, throwError } from '@syncot/util'
+import OrderedMap from 'orderedmap'
+import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model'
 import {
     EditorState,
     Plugin,
@@ -107,8 +109,8 @@ const key = new PluginKey<PluginState>('syncOT')
 type PluginViewInterface = ReturnType<
     NonNullable<PluginSpec<PluginState>['view']>
 >
-class PluginView implements PluginViewInterface {
-    private view: EditorView | undefined
+class PluginView<S extends Schema = any> implements PluginViewInterface {
+    private view: EditorView<S> | undefined
     private stream: Duplex | undefined
     private streamType: string = ''
     private streamId: string = ''
@@ -129,10 +131,12 @@ class PluginView implements PluginViewInterface {
         private onError: (error: Error) => void,
     ) {
         this.view = view
+        this.initSchemaTaskRunner.on('error', this.onError)
         this.initStateTaskRunner.on('error', this.onError)
         this.initStreamTaskRunner.on('error', this.onError)
         this.submitOperationTaskRunner.on('error', this.onError)
         this.contentClient.on('active', this.onActive)
+        this.initSchema()
         this.initState()
         this.initStream()
     }
@@ -161,6 +165,7 @@ class PluginView implements PluginViewInterface {
             this.minVersionForSubmit = 0
         }
 
+        this.initSchema()
         this.initState()
         this.initStream()
         this.ensureOperation()
@@ -169,6 +174,7 @@ class PluginView implements PluginViewInterface {
 
     public destroy() {
         this.view = undefined
+        this.initSchemaTaskRunner.destroy()
         this.initStateTaskRunner.destroy()
         this.initStreamTaskRunner.destroy()
         this.submitOperationTaskRunner.destroy()
@@ -179,6 +185,7 @@ class PluginView implements PluginViewInterface {
     }
 
     private onActive = (): void => {
+        this.initSchema()
         this.initState()
         this.initStream()
         this.submitOperation()
@@ -193,6 +200,68 @@ class PluginView implements PluginViewInterface {
         this.initStream()
     }
 
+    private initSchema(force: boolean = false): void {
+        if (this.initSchemaTaskRunner.destroyed) return
+        if (force) this.initSchemaTaskRunner.cancel()
+        this.initSchemaTaskRunner.run()
+    }
+    private initSchemaTaskRunner = createTaskRunner(
+        async (): Promise<void> => {
+            assert(this.view, 'Plugin already destroyed.')
+
+            // Handle already initialized.
+            const { type, schema } = this.pluginState
+            if (schema >= 0) return
+
+            // Check, if authenticated.
+            if (!this.contentClient.active) return
+
+            // Register the schema.
+            const oldState = this.view!.state
+            const { spec } = oldState.schema
+            const { topNode } = spec
+            const nodesMap = spec.nodes as OrderedMap<NodeSpec>
+            const nodes: any[] = []
+            nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
+                nodes.push(nodeName, nodeSpec),
+            )
+            const marksMap = spec.marks as OrderedMap<MarkSpec>
+            const marks: any[] = []
+            marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
+                marks.push(markName, markSpec),
+            )
+            const registeredSchema = await this.contentClient.registerSchema({
+                key: 0,
+                type,
+                data: { nodes, marks, topNode },
+                meta: null,
+            })
+
+            // Handle plugin destroyed.
+            if (!this.view) return
+
+            // Handle state changed in the meantime.
+            const newState = this.view.state
+            const newPluginState = this.pluginState
+            if (
+                newPluginState.type !== type ||
+                newPluginState.schema !== schema ||
+                newState.schema !== oldState.schema
+            ) {
+                this.initSchema(true)
+                return
+            }
+
+            // Record the registered schema key.
+            this.view.dispatch(
+                this.view.state.tr.setMeta(key, {
+                    ...newPluginState,
+                    schema: registeredSchema,
+                }),
+            )
+        },
+    )
+
     private initState(force: boolean = false): void {
         if (this.initStateTaskRunner.destroyed) return
         if (force) this.initStateTaskRunner.cancel()
@@ -205,6 +274,9 @@ class PluginView implements PluginViewInterface {
             // Handle already initialized.
             const { type, id, version, schema } = this.pluginState
             if (version >= 0) return
+
+            // Handle schema not initialized.
+            if (schema < 0) return
 
             // Check, if authenticated.
             if (!this.contentClient.active) return
@@ -220,7 +292,8 @@ class PluginView implements PluginViewInterface {
             if (
                 newPluginState.type !== type ||
                 newPluginState.id !== id ||
-                newPluginState.version !== version
+                newPluginState.version !== version ||
+                newPluginState.schema !== schema
             ) {
                 this.initState(true)
                 return
