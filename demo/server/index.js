@@ -5,6 +5,7 @@ import {
     createContentStore,
     createPubSub,
 } from '@syncot/content'
+import { contentType as proseMirrorContentType } from '@syncot/content-type-prosemirror'
 import { createPingService } from '@syncot/ping'
 import { SocketStream } from '@syncot/stream-socket'
 import WebSocket from 'ws'
@@ -31,6 +32,9 @@ server.on('connection', (socket) => {
         authService,
         contentStore,
         pubSub,
+        contentTypes: {
+            demo: proseMirrorContentType,
+        },
     })
 })
 

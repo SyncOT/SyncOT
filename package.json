@@ -90,6 +90,7 @@
     "@syncot/client-prosemirror": "file:packages/client-prosemirror",
     "@syncot/connection": "file:packages/connection",
     "@syncot/content": "file:packages/content",
+    "@syncot/content-type-prosemirror": "file:packages/content-type-prosemirror",
     "@syncot/event-loop": "file:packages/event-loop",
     "@syncot/ioredis-subscriber": "file:packages/ioredis-subscriber",
     "@syncot/ping": "file:packages/ping",

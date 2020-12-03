@@ -1,0 +1,1 @@
+export { contentType } from './type'

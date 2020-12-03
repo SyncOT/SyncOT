@@ -24,6 +24,7 @@ import { createNotFoundError, isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
+import { ContentType } from './type'
 
 /**
  * The options expected by `createContentService`.
@@ -46,6 +47,10 @@ export interface CreateContentServiceOptions {
      */
     pubSub: PubSub
     /**
+     * The content types to support.
+     */
+    contentTypes: { [key: string]: ContentType }
+    /**
      * The name of the service to register with the connection.
      * Default is `content`.
      */
@@ -60,6 +65,7 @@ export function createContentService({
     authService,
     contentStore,
     pubSub,
+    contentTypes,
     serviceName = 'content',
 }: CreateContentServiceOptions): ContentService {
     return new ProseMirrorContentService(
@@ -67,9 +73,12 @@ export function createContentService({
         authService,
         contentStore,
         pubSub,
+        contentTypes,
         serviceName,
     )
 }
+
+const { hasOwnProperty } = Object.prototype
 
 class ProseMirrorContentService
     extends SyncOTEmitter<ContentServiceEvents>
@@ -80,6 +89,7 @@ class ProseMirrorContentService
         private readonly authService: AuthService,
         private readonly contentStore: ContentStore,
         private readonly pubSub: PubSub,
+        private readonly contentTypes: { [key: string]: ContentType },
         serviceName: string,
     ) {
         super()
@@ -102,6 +112,11 @@ class ProseMirrorContentService
         assert(
             this.pubSub && typeof this.pubSub === 'object',
             'Argument "pubSub" must be a PubSub instance.',
+        )
+
+        assert(
+            this.contentTypes && typeof this.contentTypes === 'object',
+            'Argument "contentTypes" must be an object.',
         )
 
         this.connection.registerService({
@@ -133,6 +148,9 @@ class ProseMirrorContentService
     public async registerSchema(schema: Schema): Promise<number> {
         this.assertOk()
         throwError(validateSchema(schema))
+        this.assertContentType(schema.type)
+        const contentType = this.contentTypes[schema.type]
+        throwError(contentType.validateSchema(schema))
         return this.contentStore.registerSchema({
             key: 0,
             type: schema.type,
@@ -314,6 +332,11 @@ class ProseMirrorContentService
         if (!this.authService.active) {
             throw createAuthError('No authenticated user.')
         }
+    }
+
+    private assertContentType(type: string): void {
+        if (!hasOwnProperty.call(this.contentTypes, type))
+            throw new TypeError(`Unsupported document type: ${type}.`)
     }
 
     private updateStreams(type: string, id: string): void {
