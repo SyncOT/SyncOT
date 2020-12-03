@@ -156,6 +156,7 @@ export interface InvalidEntityError extends Error {
     entityName: string
     entity: any
     key: string
+    cause?: Error
 }
 /**
  * Creates a new InvalidEntity error.
@@ -167,6 +168,7 @@ export function createInvalidEntityError(
     entityName: string,
     entity: any,
     key: string | null = null,
+    cause?: Error,
 ): InvalidEntityError {
     assert(
         typeof entityName === 'string',
@@ -185,6 +187,7 @@ export function createInvalidEntityError(
                 ? `Invalid "${entityName}".`
                 : `Invalid "${entityName}.${key}".`,
         name: 'SyncOTError InvalidEntity',
+        cause,
     }) as InvalidEntityError
 }
 export function isInvalidEntityError(error: any): error is InvalidEntityError {

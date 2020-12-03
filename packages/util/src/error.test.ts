@@ -333,6 +333,7 @@ describe('InvalidEntityError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(null)
+        expect(error.cause).toBe(undefined)
     })
     test('createInvalidEntityError with string key', () => {
         const name = 'MyEntity'
@@ -345,6 +346,7 @@ describe('InvalidEntityError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(key)
+        expect(error.cause).toBe(undefined)
     })
     test('createInvalidEntityError with null key', () => {
         const name = 'MyEntity'
@@ -357,6 +359,23 @@ describe('InvalidEntityError', () => {
         expect(error.entityName).toBe(name)
         expect(error.entity).toBe(entity)
         expect(error.key).toBe(key)
+        expect(error.cause).toBe(undefined)
+    })
+    test('createInvalidEntityError with cause', () => {
+        const name = 'MyEntity'
+        const entity = { key: 'value' }
+        const key = 'aKey'
+        const cause = new Error('test cause')
+        const error = createInvalidEntityError(name, entity, key, cause)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOTError InvalidEntity')
+        expect(error.message).toBe(
+            `Invalid "${name}.${key}". => Error: test cause`,
+        )
+        expect(error.entityName).toBe(name)
+        expect(error.entity).toBe(entity)
+        expect(error.key).toBe(key)
+        expect(error.cause).toBe(cause)
     })
     test('isInvalidEntityError', () => {
         const error = createInvalidEntityError('Entity', {}, null)
