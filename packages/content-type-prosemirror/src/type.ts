@@ -1,5 +1,10 @@
 import { ContentType, Schema } from '@syncot/content'
-import { createInvalidEntityError, validate, Validator } from '@syncot/util'
+import {
+    createInvalidEntityError,
+    hash,
+    validate,
+    Validator,
+} from '@syncot/util'
 import OrderedMap from 'orderedmap'
 import {
     MarkSpec,
@@ -106,10 +111,16 @@ class ProseMirrorContentType implements ContentType {
  */
 export const contentType: ContentType = new ProseMirrorContentType()
 
+const schemaCachePerHash: Map<string, ProseMirrorSchema> = new Map()
+
 /**
  * Creates a ProseMirror Schema from a SyncOT Schema.
  */
 export function createProseMirrorSchema(schema: Schema): ProseMirrorSchema {
+    const dataHash = hash(schema.data)
+    const proseMirrorSchemaForHash = schemaCachePerHash.get(dataHash)
+    if (proseMirrorSchemaForHash) return proseMirrorSchemaForHash
+
     const { nodes: rawNodes, marks: rawMarks, topNode } = schema.data
 
     let nodes = OrderedMap.from<NodeSpec>()
@@ -124,5 +135,8 @@ export function createProseMirrorSchema(schema: Schema): ProseMirrorSchema {
 
     const proseMirrorSchema = new ProseMirrorSchema({ nodes, marks, topNode })
 
+    // TODO ensure that the required content does not cause a stack overflow and test it thoroughly
+
+    schemaCachePerHash.set(dataHash, proseMirrorSchema)
     return proseMirrorSchema
 }
