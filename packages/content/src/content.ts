@@ -194,9 +194,9 @@ export interface Snapshot {
  */
 export interface Schema {
     /**
-     * A globally unique ID of this schema, which is a non-negative integer.
+     * A globally unique ID of this schema, or null, if a key has not been assigned yet.
      */
-    key: number
+    key: number | null
     /**
      * The document type.
      */
@@ -221,9 +221,7 @@ export const validateSchema: Validator<Schema> = validate([
             ? undefined
             : createInvalidEntityError('Schema', schema, null),
     (schema) =>
-        Number.isInteger(schema.key) &&
-        schema.key >= 0 &&
-        schema.key <= Number.MAX_SAFE_INTEGER
+        Number.isSafeInteger(schema.key) || schema.key == null
             ? undefined
             : createInvalidEntityError('Schema', schema, 'key'),
     (schema) =>

@@ -19,12 +19,12 @@ class MemoryContentStore implements ContentStore {
     public async registerSchema(schema: Schema): Promise<number> {
         const typeAndHash = combine(schema.type, hash(schema.data))
         const existingSchema = this.schemas.get(typeAndHash)
-        if (existingSchema) return existingSchema.key
+        if (existingSchema) return existingSchema.key!
 
         const newSchema: Schema = { ...schema, key: this.schemasByKey.length }
         this.schemas.set(typeAndHash, newSchema)
-        this.schemasByKey[newSchema.key] = newSchema
-        return newSchema.key
+        this.schemasByKey[newSchema.key!] = newSchema
+        return newSchema.key!
     }
 
     public async getSchema(key: number): Promise<Schema | null> {
