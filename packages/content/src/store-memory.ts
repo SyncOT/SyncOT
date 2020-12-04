@@ -1,5 +1,11 @@
 import { assert, combine, hash } from '@syncot/util'
-import { Operation, OperationKey, Schema } from './content'
+import {
+    Operation,
+    OperationKey,
+    Schema,
+    Snapshot,
+    SnapshotKey,
+} from './content'
 import { createAlreadyExistsError } from './error'
 import { ContentStore } from './store'
 
@@ -15,6 +21,8 @@ class MemoryContentStore implements ContentStore {
     private operationsByKey: Map<OperationKey, Operation> = new Map()
     private schemas: Map<string, Schema> = new Map()
     private schemasByKey: Schema[] = []
+    private snapshots: Map<string, Snapshot[]> = new Map()
+    private snapshotsByKey: Map<SnapshotKey, Snapshot> = new Map()
 
     public async registerSchema(schema: Schema): Promise<number> {
         const typeAndHash = combine(schema.type, hash(schema.data))
@@ -80,6 +88,40 @@ class MemoryContentStore implements ContentStore {
     ): Promise<Operation[]> {
         const operations = this.operations.get(combine(type, id))
         return operations ? operations.slice(versionStart, versionEnd) : []
+    }
+
+    public async storeSnapshot(snapshot: Snapshot): Promise<void> {
+        const { key, type, id, version } = snapshot
+        if (this.snapshotsByKey.has(key)) return
+
+        this.snapshotsByKey.set(key, snapshot)
+
+        const typeAndId = combine(type, id)
+        let snapshots = this.snapshots.get(typeAndId)
+        if (!snapshots) {
+            snapshots = []
+            this.snapshots.set(typeAndId, snapshots)
+        }
+        snapshots[version] = snapshot
+    }
+
+    public async loadSnapshot(key: SnapshotKey): Promise<Snapshot | null> {
+        return this.snapshotsByKey.get(key) || null
+    }
+
+    public async loadClosestSnapshot(
+        type: string,
+        id: string,
+        version: number,
+    ): Promise<Snapshot | null> {
+        const snapshots = this.snapshots.get(combine(type, id))
+        if (snapshots) {
+            for (let i = Math.min(version, snapshots.length - 1); i > 0; i--) {
+                const snapshot = snapshots[i]
+                if (snapshot) return snapshot
+            }
+        }
+        return null
     }
 
     public async getVersion(type: string, id: string): Promise<number> {
