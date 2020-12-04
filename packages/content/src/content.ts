@@ -27,6 +27,11 @@ import {
 export type OperationKey = string
 
 /**
+ * An alias for OperationKey.
+ */
+export type SnapshotKey = OperationKey
+
+/**
  * Creates a new OperationKey for the userId.
  */
 export function createOperationKey(userId: string): OperationKey {
@@ -159,9 +164,10 @@ export const validateOperation: Validator<Operation> = validate([
  */
 export interface Snapshot {
     /**
-     * A globally unique ID of this snapshot.
+     * A globally unique ID of this snapshot,
+     * equal to the key of the operation with the same type, id and version.
      */
-    key: string
+    key: SnapshotKey
     /**
      * The document type.
      */
@@ -172,7 +178,7 @@ export interface Snapshot {
     id: string
     /**
      * The document version which the snapshot represents.
-     * It must be an integer between 0 (inclusive) and Number.MAX_SAFE_INTEGER (exclusive).
+     * It must be an integer between 1 (inclusive) and Number.MAX_SAFE_INTEGER (exclusive).
      */
     version: number
     /**
@@ -184,7 +190,8 @@ export interface Snapshot {
      */
     data: any
     /**
-     * The snapshot's metadata.
+     * The snapshot's metadata,
+     * equal to meta of the operation with the same type, id and version.
      */
     meta: Meta | null
 }
@@ -313,13 +320,13 @@ export interface ContentBase {
      * @param type The document type.
      * @param id The document ID.
      * @param version The document version. Defaults to the latest version.
-     * @returns A snapshot matching the params.
+     * @returns A snapshot matching the params, or null, if not found.
      */
     getSnapshot(
         type: string,
         id: string,
         version?: number | null | undefined,
-    ): Promise<Snapshot>
+    ): Promise<Snapshot | null>
 
     /**
      * Submits the operation to update a document.

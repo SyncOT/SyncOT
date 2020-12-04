@@ -104,7 +104,7 @@ class Client
         type: string,
         id: string,
         version?: number | null | undefined,
-    ): Promise<Snapshot> {
+    ): Promise<Snapshot | null> {
         return this.contentService.getSnapshot(type, id, version)
     }
 

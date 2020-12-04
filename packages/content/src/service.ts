@@ -3,7 +3,6 @@ import { Connection } from '@syncot/connection'
 import {
     assert,
     combine,
-    createId,
     isOpenWritableStream,
     SyncOTEmitter,
     throwError,
@@ -20,7 +19,7 @@ import {
     validateOperation,
     validateSchema,
 } from './content'
-import { createNotFoundError, isAlreadyExistsError } from './error'
+import { isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
@@ -174,12 +173,11 @@ class ProseMirrorContentService
         return this.contentStore.getSchema(key)
     }
 
-    // TODO complete the implementation
     public async getSnapshot(
         type: string,
         id: string,
         version?: number | null | undefined,
-    ): Promise<Snapshot> {
+    ): Promise<Snapshot | null> {
         this.assertOk()
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
@@ -189,22 +187,12 @@ class ProseMirrorContentService
         assert(
             version == null ||
                 (Number.isInteger(version) &&
-                    version >= 0 &&
+                    version >= 1 &&
                     version <= Number.MAX_SAFE_INTEGER),
             'Argument "version" must be a non-negative integer or null.',
         )
-        if (version != null && version !== 0) {
-            throw createNotFoundError('Document version not found.')
-        }
-        return {
-            key: createId(),
-            type,
-            id,
-            version: 0,
-            schema: 0,
-            data: null,
-            meta: null,
-        }
+        // TODO implement it properly
+        return null
     }
 
     public async submitOperation(operation: Operation): Promise<void> {

@@ -283,6 +283,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
 
             // Load the latest document snapshot.
             const snapshot = await this.contentClient.getSnapshot(type, id)
+            const newVersion = snapshot ? snapshot.version : 0
 
             // Handle plugin destroyed.
             if (!this.view) return
@@ -305,7 +306,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             this.view.dispatch(
                 this.view.state.tr.setMeta(
                     key,
-                    new PluginState(type, id, snapshot.version, schema, []),
+                    new PluginState(type, id, newVersion, schema, []),
                 ),
             )
         },
