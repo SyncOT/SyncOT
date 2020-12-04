@@ -5,7 +5,7 @@ import {
     createContentStore,
     createPubSub,
 } from '@syncot/content'
-import { contentType as proseMirrorContentType } from '@syncot/content-type-prosemirror'
+import { createContentType as createProseMirrorContentType } from '@syncot/content-type-prosemirror'
 import { createPingService } from '@syncot/ping'
 import { SocketStream } from '@syncot/stream-socket'
 import WebSocket from 'ws'
@@ -15,6 +15,7 @@ const port = 10004
 const server = new WebSocket.Server({ path, port })
 const contentStore = createContentStore()
 const pubSub = createPubSub()
+const proseMirrorContentType = createProseMirrorContentType()
 
 server.on('connection', (socket) => {
     const stream = new SocketStream(socket)
