@@ -211,7 +211,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
 
             // Handle already initialized.
             const { type, schema } = this.pluginState
-            if (schema >= 0) return
+            if (schema != null) return
 
             // Check, if authenticated.
             if (!this.contentClient.active) return
@@ -276,7 +276,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             if (version >= 0) return
 
             // Handle schema not initialized.
-            if (schema < 0) return
+            if (schema == null) return
 
             // Check, if authenticated.
             if (!this.contentClient.active) return
@@ -376,13 +376,16 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
         // Check, if an operation already exists.
         if (pendingSteps[0].operation) return
 
+        // Check, if schema is initialized.
+        if (schema == null) return
+
         // Create a new operation.
         const operation: Operation = {
             key: createOperationKey(this.contentClient.userId!),
             type,
             id,
             version: version + 1,
-            schema: 0,
+            schema,
             data: pendingSteps.map(({ step }) => step),
             meta: null,
         }
@@ -624,9 +627,9 @@ export class PluginState {
          */
         public version: number,
         /**
-         * The registered `Schema.key` of this state's schema.
+         * The registered `Schema.key` of this state's schema, or null, if not registered.
          */
-        public schema: number,
+        public schema: number | null,
         /**
          * A list of steps which have not been recorded and confirmed by the server.
          */
