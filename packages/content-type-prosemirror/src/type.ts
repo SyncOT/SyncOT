@@ -111,17 +111,28 @@ class ProseMirrorContentType implements ContentType {
  */
 export const contentType: ContentType = new ProseMirrorContentType()
 
-const schemaCachePerHash: Map<string, ProseMirrorSchema> = new Map()
+const schemaCacheByKey: Map<number, ProseMirrorSchema> = new Map()
+const schemaCacheByHash: Map<string, ProseMirrorSchema> = new Map()
 
 /**
  * Creates a ProseMirror Schema from a SyncOT Schema.
  */
-export function createProseMirrorSchema(schema: Schema): ProseMirrorSchema {
-    const dataHash = hash(schema.data)
-    const proseMirrorSchemaForHash = schemaCachePerHash.get(dataHash)
-    if (proseMirrorSchemaForHash) return proseMirrorSchemaForHash
+export function createProseMirrorSchema({
+    key,
+    data,
+}: Schema): ProseMirrorSchema {
+    const proseMirrorSchemaForKey =
+        key != null ? schemaCacheByKey.get(key) : undefined
+    if (proseMirrorSchemaForKey) return proseMirrorSchemaForKey
 
-    const { nodes: rawNodes, marks: rawMarks, topNode } = schema.data
+    const dataHash = hash(data)
+    const proseMirrorSchemaForHash = schemaCacheByHash.get(dataHash)
+    if (proseMirrorSchemaForHash) {
+        if (key != null) schemaCacheByKey.set(key, proseMirrorSchemaForHash)
+        return proseMirrorSchemaForHash
+    }
+
+    const { nodes: rawNodes, marks: rawMarks, topNode } = data
 
     let nodes = OrderedMap.from<NodeSpec>()
     for (let i = 0; i < rawNodes.length; i += 2) {
@@ -137,6 +148,7 @@ export function createProseMirrorSchema(schema: Schema): ProseMirrorSchema {
 
     // TODO ensure that the required content does not cause a stack overflow and test it thoroughly
 
-    schemaCachePerHash.set(dataHash, proseMirrorSchema)
+    if (key != null) schemaCacheByKey.set(key, proseMirrorSchema)
+    schemaCacheByHash.set(dataHash, proseMirrorSchema)
     return proseMirrorSchema
 }

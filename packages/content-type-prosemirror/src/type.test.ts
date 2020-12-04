@@ -3,7 +3,7 @@ import { contentType } from '.'
 
 describe('validateSchemaData', () => {
     const schema: Schema = {
-        key: 0,
+        key: null,
         type: '',
         data: {
             nodes: [
