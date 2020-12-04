@@ -148,6 +148,10 @@ class ProseMirrorContentService
     public async registerSchema(schema: Schema): Promise<number> {
         this.assertOk()
         throwError(validateSchema(schema))
+        assert(
+            schema.key == null,
+            'Schema.key must be null in a Schema submitted for registration.',
+        )
         this.assertContentType(schema.type)
         const contentType = this.contentTypes[schema.type]
         throwError(contentType.validateSchema(schema))
