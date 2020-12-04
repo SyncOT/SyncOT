@@ -1,1 +1,1 @@
-export { contentType } from './type'
+export { createContentType } from './type'

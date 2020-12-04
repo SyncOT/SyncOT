@@ -12,7 +12,23 @@ import {
     Schema as ProseMirrorSchema,
 } from 'prosemirror-model'
 
-class ProseMirrorContentType implements ContentType {
+/**
+ * Creates a ContentType instance supporting ProseMirror.
+ */
+export function createContentType(): ContentType {
+    return new ProseMirrorContentType()
+}
+
+export class ProseMirrorContentType implements ContentType {
+    private readonly schemaCacheByKey: Map<
+        number,
+        ProseMirrorSchema
+    > = new Map()
+    private readonly schemaCacheByHash: Map<
+        string,
+        ProseMirrorSchema
+    > = new Map()
+
     public validateSchema: Validator<Schema> = validate([
         (schema) =>
             typeof schema === 'object' && schema != null
@@ -97,58 +113,52 @@ class ProseMirrorContentType implements ContentType {
         },
         (schema) => {
             try {
-                createProseMirrorSchema(schema)
+                this.createProseMirrorSchema(schema)
                 return undefined
             } catch (error) {
                 return createInvalidEntityError('Schema', schema, 'data', error)
             }
         },
     ])
-}
 
-/**
- * A ContentType instance supporting ProseMirror.
- */
-export const contentType: ContentType = new ProseMirrorContentType()
+    /**
+     * Creates a ProseMirror Schema from a SyncOT Schema.
+     */
+    public createProseMirrorSchema({ key, data }: Schema): ProseMirrorSchema {
+        const proseMirrorSchemaForKey =
+            key != null ? this.schemaCacheByKey.get(key) : undefined
+        if (proseMirrorSchemaForKey) return proseMirrorSchemaForKey
 
-const schemaCacheByKey: Map<number, ProseMirrorSchema> = new Map()
-const schemaCacheByHash: Map<string, ProseMirrorSchema> = new Map()
+        const dataHash = hash(data)
+        const proseMirrorSchemaForHash = this.schemaCacheByHash.get(dataHash)
+        if (proseMirrorSchemaForHash) {
+            if (key != null)
+                this.schemaCacheByKey.set(key, proseMirrorSchemaForHash)
+            return proseMirrorSchemaForHash
+        }
 
-/**
- * Creates a ProseMirror Schema from a SyncOT Schema.
- */
-export function createProseMirrorSchema({
-    key,
-    data,
-}: Schema): ProseMirrorSchema {
-    const proseMirrorSchemaForKey =
-        key != null ? schemaCacheByKey.get(key) : undefined
-    if (proseMirrorSchemaForKey) return proseMirrorSchemaForKey
+        const { nodes: rawNodes, marks: rawMarks, topNode } = data
 
-    const dataHash = hash(data)
-    const proseMirrorSchemaForHash = schemaCacheByHash.get(dataHash)
-    if (proseMirrorSchemaForHash) {
-        if (key != null) schemaCacheByKey.set(key, proseMirrorSchemaForHash)
-        return proseMirrorSchemaForHash
+        let nodes = OrderedMap.from<NodeSpec>()
+        for (let i = 0; i < rawNodes.length; i += 2) {
+            nodes = nodes.addToEnd(rawNodes[i], rawNodes[i + 1])
+        }
+
+        let marks = OrderedMap.from<MarkSpec>()
+        for (let i = 0; i < rawMarks.length; i += 2) {
+            marks = marks.addToEnd(rawMarks[i], rawMarks[i + 1])
+        }
+
+        const proseMirrorSchema = new ProseMirrorSchema({
+            nodes,
+            marks,
+            topNode,
+        })
+
+        // TODO ensure that the required content does not cause a stack overflow and test it thoroughly
+
+        if (key != null) this.schemaCacheByKey.set(key, proseMirrorSchema)
+        this.schemaCacheByHash.set(dataHash, proseMirrorSchema)
+        return proseMirrorSchema
     }
-
-    const { nodes: rawNodes, marks: rawMarks, topNode } = data
-
-    let nodes = OrderedMap.from<NodeSpec>()
-    for (let i = 0; i < rawNodes.length; i += 2) {
-        nodes = nodes.addToEnd(rawNodes[i], rawNodes[i + 1])
-    }
-
-    let marks = OrderedMap.from<MarkSpec>()
-    for (let i = 0; i < rawMarks.length; i += 2) {
-        marks = marks.addToEnd(rawMarks[i], rawMarks[i + 1])
-    }
-
-    const proseMirrorSchema = new ProseMirrorSchema({ nodes, marks, topNode })
-
-    // TODO ensure that the required content does not cause a stack overflow and test it thoroughly
-
-    if (key != null) schemaCacheByKey.set(key, proseMirrorSchema)
-    schemaCacheByHash.set(dataHash, proseMirrorSchema)
-    return proseMirrorSchema
 }
