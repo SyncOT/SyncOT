@@ -291,6 +291,19 @@ export interface ContentClientEvents {
 }
 
 /**
+ * The options for the ContentBase#submitOperation function.
+ */
+export interface SubmitOperationOptions {
+    /**
+     * Determines, if the ContentService is allowed to rebase the operation internally,
+     * if the version of the submitted operation conflicts with an existing operation.
+     * This option is effective only if the ContentType, as determined by `Operation.type`, supports rebasing.
+     * Defaults to `false`.
+     */
+    allowRebase?: boolean
+}
+
+/**
  * The base interface for `ContentService` and `ContentClient`.
  */
 export interface ContentBase {
@@ -339,8 +352,12 @@ export interface ContentBase {
      * the operation.
      *
      * @param operation The operation to submit.
+     * @param options The options providing additional control over the submition process.
      */
-    submitOperation(operation: Operation): Promise<void>
+    submitOperation(
+        operation: Operation,
+        options?: SubmitOperationOptions,
+    ): Promise<void>
 
     /**
      * Streams the specified operations.

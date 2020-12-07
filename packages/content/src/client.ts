@@ -10,6 +10,7 @@ import {
     requestNames,
     Schema,
     Snapshot,
+    SubmitOperationOptions,
 } from './content'
 
 /**
@@ -108,8 +109,11 @@ class Client
         return this.contentService.getSnapshot(type, id, version)
     }
 
-    public submitOperation(operation: Operation): Promise<void> {
-        return this.contentService.submitOperation(operation)
+    public submitOperation(
+        operation: Operation,
+        options?: SubmitOperationOptions,
+    ): Promise<void> {
+        return this.contentService.submitOperation(operation, options)
     }
 
     public streamOperations(
