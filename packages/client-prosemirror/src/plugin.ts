@@ -66,7 +66,7 @@ export function syncOT({
         key,
         state: {
             init(): PluginState {
-                return new PluginState(type, id, -1, -1, [])
+                return new PluginState(type, id, -1, null, [])
             },
 
             apply(tr: Transaction, pluginState: PluginState): PluginState {
@@ -231,7 +231,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 marks.push(markName, markSpec),
             )
             const registeredSchema = await this.contentClient.registerSchema({
-                key: 0,
+                key: schema,
                 type,
                 data: { nodes, marks, topNode },
                 meta: null,
@@ -254,10 +254,16 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
 
             // Record the registered schema key.
             this.view.dispatch(
-                this.view.state.tr.setMeta(key, {
-                    ...newPluginState,
-                    schema: registeredSchema,
-                }),
+                this.view.state.tr.setMeta(
+                    key,
+                    new PluginState(
+                        newPluginState.type,
+                        newPluginState.id,
+                        newPluginState.version,
+                        registeredSchema,
+                        newPluginState.pendingSteps,
+                    ),
+                ),
             )
         },
     )
@@ -613,6 +619,9 @@ export class Rebaseable {
     ) {}
 }
 
+/**
+ * The `syncOT` plugin's state.
+ */
 export class PluginState {
     public constructor(
         /**
