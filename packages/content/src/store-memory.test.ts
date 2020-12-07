@@ -1,3 +1,4 @@
+import { Snapshot } from '@syncot/content/src/content'
 import {
     ContentStore,
     createContentStore,
@@ -21,6 +22,19 @@ const schema: Schema = {
     type: 'test-type',
     data: 'test-data',
     meta: null,
+}
+const snapshot: Snapshot = {
+    key: 's-1',
+    type: 't-1',
+    id: 'i-1',
+    version: 1,
+    schema: 5,
+    data: 'd-1',
+    meta: {
+        session: 's-1',
+        time: Date.now(),
+        user: 'u-1',
+    },
 }
 let store: ContentStore
 
@@ -227,6 +241,109 @@ describe('loadOperations', () => {
                 Number.MAX_SAFE_INTEGER,
             ),
         ).resolves.toStrictEqual([])
+    })
+})
+
+describe('storeSnapshot', () => {
+    test('success', async () => {
+        const snapshot2 = {
+            ...snapshot,
+            key: 'k-2',
+            version: snapshot.version + 5,
+        }
+        await store.storeSnapshot(snapshot)
+        await store.storeSnapshot(snapshot2)
+        await expect(
+            store.loadSnapshot(snapshot.type, snapshot.id, snapshot.version),
+        ).resolves.toStrictEqual(snapshot)
+        await expect(
+            store.loadSnapshot(snapshot2.type, snapshot2.id, snapshot2.version),
+        ).resolves.toStrictEqual(snapshot2)
+    })
+    test('invalid version', async () => {
+        await expect(
+            store.storeSnapshot({ ...snapshot, version: 0 }),
+        ).rejects.toStrictEqual(
+            expect.objectContaining({
+                name: 'SyncOTError Assert',
+                message: 'Snapshot.version must be a positive integer.',
+            }),
+        )
+    })
+    test('duplicate key', async () => {
+        const snapshot2 = {
+            ...snapshot,
+            version: snapshot.version + 5,
+            data: 'd-2',
+        }
+        await store.storeSnapshot(snapshot)
+        await expect(store.storeSnapshot(snapshot2)).rejects.toStrictEqual(
+            expect.objectContaining({
+                message: '"Snapshot" already exists.',
+                name: 'SyncOTError AlreadyExists',
+                entity: snapshot2,
+                entityName: 'Snapshot',
+                key: 'key',
+                value: snapshot2.key,
+            }),
+        )
+    })
+    test('duplicate type, id and version', async () => {
+        const snapshot2 = {
+            ...snapshot,
+            key: 'k-2',
+            data: 'd-2',
+        }
+        await store.storeSnapshot(snapshot)
+        await expect(store.storeSnapshot(snapshot2)).rejects.toStrictEqual(
+            expect.objectContaining({
+                message: '"Snapshot" already exists.',
+                name: 'SyncOTError AlreadyExists',
+                entity: snapshot2,
+                entityName: 'Snapshot',
+                key: 'version',
+                value: snapshot2.version,
+            }),
+        )
+    })
+})
+
+describe('loadSnapshot', () => {
+    test('found', async () => {
+        await store.storeSnapshot(snapshot)
+        await expect(
+            store.loadSnapshot(snapshot.type, snapshot.id, snapshot.version),
+        ).resolves.toBe(snapshot)
+    })
+    test('found older version', async () => {
+        const snapshot2 = { ...snapshot, key: 'k-2', version: 10 }
+        const snapshot3 = { ...snapshot, key: 'k-3', version: 20 }
+        await store.storeSnapshot(snapshot)
+        await store.storeSnapshot(snapshot2)
+        await store.storeSnapshot(snapshot3)
+        await expect(
+            store.loadSnapshot(snapshot.type, snapshot.id, 5),
+        ).resolves.toBe(snapshot)
+        await expect(
+            store.loadSnapshot(snapshot.type, snapshot.id, 19),
+        ).resolves.toBe(snapshot2)
+        await expect(
+            store.loadSnapshot(
+                snapshot.type,
+                snapshot.id,
+                Number.MAX_SAFE_INTEGER,
+            ),
+        ).resolves.toBe(snapshot3)
+    })
+    test('not found', async () => {
+        await store.storeSnapshot(snapshot)
+        await expect(
+            store.loadSnapshot(
+                snapshot.type,
+                snapshot.id + '-different',
+                snapshot.version,
+            ),
+        ).resolves.toBe(null)
     })
 })
 

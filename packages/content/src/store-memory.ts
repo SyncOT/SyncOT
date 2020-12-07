@@ -76,10 +76,6 @@ class MemoryContentStore implements ContentStore {
         this.operationsByKey.set(operation.key, operation)
     }
 
-    public async loadOperation(key: OperationKey): Promise<Operation | null> {
-        return this.operationsByKey.get(key) || null
-    }
-
     public async loadOperations(
         type: string,
         id: string,
