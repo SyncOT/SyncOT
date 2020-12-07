@@ -1,10 +1,4 @@
-import {
-    Operation,
-    OperationKey,
-    Schema,
-    Snapshot,
-    SnapshotKey,
-} from './content'
+import { Operation, OperationKey, Schema, Snapshot } from './content'
 
 /**
  * The interface for storing document content.
@@ -67,13 +61,6 @@ export interface ContentStore {
     storeSnapshot(snapshot: Snapshot): Promise<void>
 
     /**
-     * Loads a snapshot by key.
-     * @param key A snapshot key.
-     * @returns A Snapshot with the given ID or null, if not found.
-     */
-    loadSnapshot(key: SnapshotKey): Promise<Snapshot | null>
-
-    /**
      * Loads a snapshot by type and ID,
      * with the version equal to or lower than the specified version.
      * @param type A document type.
@@ -81,10 +68,10 @@ export interface ContentStore {
      * @param version A document version.
      * @returns A Snapshot, or `null`, if not found.
      */
-    loadClosestSnapshot(
+    loadSnapshot(
         type: string,
         id: string,
-        version: number | null,
+        version: number,
     ): Promise<Snapshot | null>
 
     /**

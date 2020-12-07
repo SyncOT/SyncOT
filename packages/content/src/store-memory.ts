@@ -105,11 +105,7 @@ class MemoryContentStore implements ContentStore {
         snapshots[version] = snapshot
     }
 
-    public async loadSnapshot(key: SnapshotKey): Promise<Snapshot | null> {
-        return this.snapshotsByKey.get(key) || null
-    }
-
-    public async loadClosestSnapshot(
+    public async loadSnapshot(
         type: string,
         id: string,
         version: number,
