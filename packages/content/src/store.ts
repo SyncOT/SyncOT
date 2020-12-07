@@ -1,4 +1,4 @@
-import { Operation, OperationKey, Schema, Snapshot } from './content'
+import { Operation, Schema, Snapshot } from './content'
 
 /**
  * The interface for storing document content.
@@ -29,13 +29,6 @@ export interface ContentStore {
      * @param operation The operation to store.
      */
     storeOperation(operation: Operation): Promise<void>
-
-    /**
-     * Loads a single operation by key.
-     * @param key The key of the operation to load.
-     * @returns A Promise which resolves to the requested operation, or `null`, if not found.
-     */
-    loadOperation(key: OperationKey): Promise<Operation | null>
 
     /**
      * Loads operations matching the params.

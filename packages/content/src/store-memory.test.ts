@@ -188,29 +188,8 @@ describe('storeOperation', () => {
                 await expect(
                     store.loadOperations(type, id, 1, Number.MAX_SAFE_INTEGER),
                 ).resolves.toStrictEqual(modifiedOperations)
-
-                for (const operation of modifiedOperations) {
-                    await expect(
-                        store.loadOperation(operation.key),
-                    ).resolves.toStrictEqual(operation)
-                }
             }
         }
-    })
-})
-
-describe('loadOperation', () => {
-    test('existing operation', async () => {
-        await store.storeOperation(operations[1])
-        await expect(
-            store.loadOperation(operations[1].key),
-        ).resolves.toStrictEqual(operations[1])
-    })
-    test('non-existent operation', async () => {
-        await store.storeOperation(operations[1])
-        await expect(
-            store.loadOperation(createOperationKey(userId)),
-        ).resolves.toBe(null)
     })
 })
 
