@@ -92,9 +92,15 @@ class MemoryContentStore implements ContentStore {
 
     public async storeSnapshot(snapshot: Snapshot): Promise<void> {
         const { key, type, id, version } = snapshot
-        if (this.snapshotsByKey.has(key)) return
+        assert(version > 0, 'Snapshot.version must be a positive integer.')
 
-        this.snapshotsByKey.set(key, snapshot)
+        if (this.snapshotsByKey.has(key))
+            throw createAlreadyExistsError(
+                'Snapshot',
+                snapshot,
+                'key',
+                snapshot.key,
+            )
 
         const typeAndId = combine(type, id)
         let snapshots = this.snapshots.get(typeAndId)
@@ -102,6 +108,16 @@ class MemoryContentStore implements ContentStore {
             snapshots = []
             this.snapshots.set(typeAndId, snapshots)
         }
+
+        if (snapshots[version])
+            throw createAlreadyExistsError(
+                'Snapshot',
+                snapshot,
+                'version',
+                snapshot.version,
+            )
+
+        this.snapshotsByKey.set(key, snapshot)
         snapshots[version] = snapshot
     }
 

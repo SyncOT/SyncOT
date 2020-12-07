@@ -47,8 +47,6 @@ export interface ContentStore {
 
     /**
      * Stores the specified snapshot.
-     * If a snapshot with the given key already exists,
-     * the function does nothing and returns successfully.
      * @param snapshot The snapshot to store.
      */
     storeSnapshot(snapshot: Snapshot): Promise<void>
