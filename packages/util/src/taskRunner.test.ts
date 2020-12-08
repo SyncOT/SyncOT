@@ -139,48 +139,58 @@ test('call `run` when destroyed', () => {
 test('call `run` when task is in progress', async () => {
     task.mockReturnValue(resolveResult())
     runner.run()
-    expect(task).toHaveBeenCalledTimes(1)
-    expect(clock.countTimers()).toBe(0)
     runner.run()
-    expect(task).toHaveBeenCalledTimes(1)
+    runner.run()
+    runner.run()
     expect(clock.countTimers()).toBe(0)
     await whenDone()
+    expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(0)
 })
 
 test('call `run` when task is scheduled', async () => {
     task.mockImplementationOnce(throwTestError)
     runner.run()
-    expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(0)
     await whenError()
+    expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(1)
 
+    runner.run()
+    runner.run()
     runner.run()
     expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(1)
 
     clock.next()
+    await whenDone()
     expect(task).toHaveBeenCalledTimes(2)
     expect(clock.countTimers()).toBe(0)
-    await whenDone()
 })
 
 test('run a returning task', async () => {
     runner.run()
+    expect(task).toHaveBeenCalledTimes(0)
     await whenDone()
+    expect(task).toHaveBeenCalledTimes(1)
+    expect(clock.countTimers()).toBe(0)
 })
 
 test('run a resolving task', async () => {
     task.mockImplementationOnce(resolveResult)
     runner.run()
+    expect(task).toHaveBeenCalledTimes(0)
     await whenDone()
+    expect(task).toHaveBeenCalledTimes(1)
+    expect(clock.countTimers()).toBe(0)
 })
 
 test('run a throwing task', async () => {
     task.mockImplementationOnce(throwTestError)
     runner.run()
+    expect(task).toHaveBeenCalledTimes(0)
     await whenError()
+    expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(1)
     clock.reset()
 })
@@ -188,12 +198,14 @@ test('run a throwing task', async () => {
 test('run a rejecting task', async () => {
     task.mockImplementationOnce(rejectTestError)
     runner.run()
+    expect(task).toHaveBeenCalledTimes(0)
     await whenError()
+    expect(task).toHaveBeenCalledTimes(1)
     expect(clock.countTimers()).toBe(1)
     clock.reset()
 })
 
-test('"done" fires before whenNextTick', async () => {
+test('"done" fires after whenNextTick', async () => {
     const onDone = jest.fn()
     runner.on('done', onDone)
     runner.run()
@@ -213,7 +225,7 @@ test('cancel a returning task', async () => {
     expect(onDone).toHaveBeenCalledTimes(0)
 })
 
-test('"error" fires before whenNextTick', async () => {
+test('"error" fires after whenNextTick', async () => {
     task.mockImplementationOnce(throwTestError)
     const onError = jest.fn()
     runner.on('error', onError)

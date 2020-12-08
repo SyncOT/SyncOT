@@ -54,6 +54,7 @@ export interface CreateTaskRunnerOptions {
 }
 
 const emptyOptions: CreateTaskRunnerOptions = {}
+const resolvedPromise = Promise.resolve()
 
 /**
  * Creates a new `TaskRunner` which runs the specified `task`.
@@ -129,7 +130,8 @@ class Runner<Result>
     }
 
     private async runTask(): Promise<Result> {
-        return await this.task()
+        await resolvedPromise
+        return await this.task.call(null)
     }
 
     private runNow(): void {
