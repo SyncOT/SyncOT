@@ -4,7 +4,13 @@ import {
     isAlreadyExistsError,
     Operation,
 } from '@syncot/content'
-import { assert, createTaskRunner, throwError } from '@syncot/util'
+import {
+    assert,
+    delay,
+    noop,
+    throwError,
+    TypedEventEmitter,
+} from '@syncot/util'
 import OrderedMap from 'orderedmap'
 import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model'
 import {
@@ -106,10 +112,17 @@ export function syncOT({
 
 const key = new PluginKey<PluginState>('syncOT')
 
+interface PluginViewEvents {
+    update: void
+    destroy: void
+}
+
 type PluginViewInterface = ReturnType<
     NonNullable<PluginSpec<PluginState>['view']>
 >
-class PluginView<S extends Schema = any> implements PluginViewInterface {
+class PluginView<S extends Schema = any>
+    extends TypedEventEmitter<PluginViewEvents>
+    implements PluginViewInterface {
     private view: EditorView<S> | undefined
     private stream: Duplex | undefined
     private streamType: string = ''
@@ -117,108 +130,80 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
     private streamVersion: number = -1
     private minVersionForSubmit: number = 0
 
-    private get state(): EditorState {
-        return this.view!.state
-    }
-
-    private get pluginState(): PluginState {
-        return key.getState(this.state)!
-    }
-
     public constructor(
         view: EditorView,
         private contentClient: ContentClient,
         private onError: (error: Error) => void,
     ) {
+        super()
         this.view = view
-        this.initSchemaTaskRunner.on('error', this.onError)
-        this.initStateTaskRunner.on('error', this.onError)
-        this.initStreamTaskRunner.on('error', this.onError)
-        this.submitOperationTaskRunner.on('error', this.onError)
-        this.contentClient.on('active', this.onActive)
         this.initSchema()
         this.initState()
         this.initStream()
+        this.submitOperation()
     }
 
-    public update(_view: EditorView, previousState: EditorState): void {
-        const { pluginState } = this
-        const previousPluginState = key.getState(previousState)!
-
-        // Close the operation stream immediately, if it is not valid for the new state.
-        if (
-            this.stream &&
-            (this.streamType !== pluginState.type ||
-                this.streamId !== pluginState.id ||
-                this.streamVersion !== pluginState.version)
-        ) {
-            this.stream.destroy()
-        }
+    public update(view: EditorView, previousState: EditorState): void {
+        queueMicrotask(() => this.emit('update'))
 
         // Allow any operation version on submit,
         // if the new state is not derived from the previous state.
+        const pluginState = key.getState(view.state)
+        const previousPluginState = key.getState(previousState)
         if (
+            !pluginState ||
+            !previousPluginState ||
             pluginState.type !== previousPluginState.type ||
             pluginState.id !== previousPluginState.id ||
             pluginState.version < previousPluginState.version
         ) {
             this.minVersionForSubmit = 0
         }
-
-        this.initSchema()
-        this.initState()
-        this.initStream()
-        this.ensureOperation()
-        this.submitOperation()
     }
 
     public destroy() {
+        queueMicrotask(() => this.emit('destroy'))
         this.view = undefined
-        this.initSchemaTaskRunner.destroy()
-        this.initStateTaskRunner.destroy()
-        this.initStreamTaskRunner.destroy()
-        this.submitOperationTaskRunner.destroy()
-        this.contentClient.off('active', this.onActive)
-        if (this.stream) {
-            this.stream.destroy()
-        }
     }
 
-    private onActive = (): void => {
-        this.initSchema()
-        this.initState()
-        this.initStream()
-        this.submitOperation()
+    private setUp = (notify: () => void): void => {
+        this.on('update', notify)
+        this.on('destroy', notify)
+        this.contentClient.on('active', notify)
     }
 
-    private onData = (operation: Operation): void => {
-        this.view!.dispatch(this.receiveOperation(operation))
+    private tearDown = (notify: () => void): void => {
+        this.off('update', notify)
+        this.off('destroy', notify)
+        this.contentClient.off('active', notify)
     }
 
-    private onClose = (): void => {
-        this.stream = undefined
-        this.initStream()
+    private isDestroyed = (): boolean => {
+        return !this.view
     }
 
-    private initSchema(force: boolean = false): void {
-        if (this.initSchemaTaskRunner.destroyed) return
-        if (force) this.initSchemaTaskRunner.cancel()
-        this.initSchemaTaskRunner.run()
-    }
-    private initSchemaTaskRunner = createTaskRunner(
-        async (): Promise<void> => {
-            assert(this.view, 'Plugin already destroyed.')
+    private initSchema = task<PluginView>({
+        setUp: this.setUp,
+        tearDown: this.tearDown,
+        done: this.isDestroyed,
+        onError: this.onError,
+        retryDelay: backOffStrategy,
+        async run() {
+            // Make sure state exists.
+            if (!this.view) return
+            const { state } = this.view
+            const pluginState = key.getState(state)
+            if (!pluginState) return
 
             // Handle already initialized.
-            const { type, schema } = this.pluginState
+            const { type, schema } = pluginState
             if (schema != null) return
 
             // Check, if authenticated.
             if (!this.contentClient.active) return
 
             // Register the schema.
-            const oldState = this.view!.state
-            const { spec } = oldState.schema
+            const { spec } = state.schema
             const { topNode } = spec
             const nodesMap = spec.nodes as OrderedMap<NodeSpec>
             const nodes: any[] = []
@@ -231,26 +216,23 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 marks.push(markName, markSpec),
             )
             const registeredSchema = await this.contentClient.registerSchema({
-                key: schema,
+                key: null,
                 type,
                 data: { nodes, marks, topNode },
                 meta: null,
             })
 
-            // Handle plugin destroyed.
-            if (!this.view) return
-
             // Handle state changed in the meantime.
+            if (!this.view) return
             const newState = this.view.state
-            const newPluginState = this.pluginState
+            const newPluginState = key.getState(newState)
+            if (!newPluginState) return
             if (
-                newPluginState.type !== type ||
-                newPluginState.schema !== schema ||
-                newState.schema !== oldState.schema
-            ) {
-                this.initSchema(true)
+                newPluginState.type !== pluginState.type ||
+                newPluginState.schema !== pluginState.schema ||
+                newState.schema !== state.schema
+            )
                 return
-            }
 
             // Record the registered schema key.
             this.view.dispatch(
@@ -266,19 +248,23 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 ),
             )
         },
-    )
+    })
 
-    private initState(force: boolean = false): void {
-        if (this.initStateTaskRunner.destroyed) return
-        if (force) this.initStateTaskRunner.cancel()
-        this.initStateTaskRunner.run()
-    }
-    private initStateTaskRunner = createTaskRunner(
-        async (): Promise<void> => {
-            assert(this.view, 'Plugin already destroyed.')
+    private initState = task<PluginView>({
+        setUp: this.setUp,
+        tearDown: this.tearDown,
+        done: this.isDestroyed,
+        onError: this.onError,
+        retryDelay: backOffStrategy,
+        async run() {
+            // Make sure state exists.
+            if (!this.view) return
+            const { state } = this.view
+            const pluginState = key.getState(state)
+            if (!pluginState) return
 
             // Handle already initialized.
-            const { type, id, version, schema } = this.pluginState
+            const { type, id, version, schema } = pluginState
             if (version >= 0) return
 
             // Handle schema not initialized.
@@ -291,20 +277,18 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             const snapshot = await this.contentClient.getSnapshot(type, id)
             const newVersion = snapshot ? snapshot.version : 0
 
-            // Handle plugin destroyed.
-            if (!this.view) return
-
             // Handle state changed in the meantime.
-            const newPluginState = this.pluginState
+            if (!this.view) return
+            const newState = this.view.state
+            const newPluginState = key.getState(newState)
+            if (!newPluginState) return
             if (
                 newPluginState.type !== type ||
                 newPluginState.id !== id ||
                 newPluginState.version !== version ||
                 newPluginState.schema !== schema
-            ) {
-                this.initState(true)
+            )
                 return
-            }
 
             // TODO init state.doc from the snapshot
 
@@ -316,19 +300,28 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 ),
             )
         },
-    )
+    })
 
-    private initStream(force: boolean = false): void {
-        if (this.initStreamTaskRunner.destroyed) return
-        if (force) this.initStreamTaskRunner.cancel()
-        this.initStreamTaskRunner.run()
-    }
-    private initStreamTaskRunner = createTaskRunner(
-        async (): Promise<void> => {
-            assert(this.view, 'Plugin already destroyed.')
+    private initStream = task<PluginView>({
+        setUp: this.setUp,
+        tearDown(notify) {
+            this.tearDown(notify)
+            if (this.stream) {
+                this.stream.destroy()
+            }
+        },
+        done: this.isDestroyed,
+        onError: this.onError,
+        retryDelay: backOffStrategy,
+        async run(notify) {
+            // Make sure state exists.
+            if (!this.view) return
+            const { state } = this.view
+            const pluginState = key.getState(state)
+            if (!pluginState) return
 
             // Handle a correct existing stream.
-            const { type, id, version } = this.pluginState
+            const { type, id, version } = pluginState
             if (
                 this.stream &&
                 this.streamType === type &&
@@ -341,7 +334,6 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             // Handle an incorrect existing stream.
             if (this.stream) {
                 this.stream.destroy()
-                return
             }
 
             // Check if a new stream can be created.
@@ -354,82 +346,74 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 id,
                 version + 1,
             )
-
-            // Handle plugin destroyed.
-            if (!this.view) {
-                stream.destroy()
-                return
-            }
-
             this.streamType = type
             this.streamId = id
             this.streamVersion = version
             this.stream = stream
-            this.stream.on('data', this.onData)
+            this.stream.on('data', this.receiveOperation)
             this.stream.on('error', this.onError)
-            this.stream.on('close', this.onClose)
-
-            // Make sure that we're still subscribed to the correct stream,
-            // as the plugin's state might have changed in the meantime.
-            this.initStream(true)
+            this.stream.on('close', notify)
         },
-    )
+    })
 
-    private ensureOperation(): void {
-        // Check, if there are any pending steps.
-        const { type, id, version, schema, pendingSteps } = this.pluginState
-        if (pendingSteps.length === 0) return
+    private submitOperation = task<PluginView>({
+        setUp: this.setUp,
+        tearDown: this.tearDown,
+        done: this.isDestroyed,
+        onError: this.onError,
+        retryDelay: backOffStrategy,
+        async run() {
+            // Make sure state exists.
+            const { view } = this
+            if (!view) return
+            const { dispatch, state } = view
+            const pluginState = key.getState(state)
+            if (!pluginState) return
 
-        // Check, if an operation already exists.
-        if (pendingSteps[0].operation) return
-
-        // Check, if schema is initialized.
-        if (schema == null) return
-
-        // Create a new operation.
-        const operation: Operation = {
-            key: createOperationKey(this.contentClient.userId!),
-            type,
-            id,
-            version: version + 1,
-            schema,
-            data: pendingSteps.map(({ step }) => step),
-            meta: null,
-        }
-
-        // Add the operation to the state.
-        this.view!.dispatch(
-            this.state.tr.setMeta(
-                key,
-                new PluginState(
-                    type,
-                    id,
-                    version,
-                    schema,
-                    pendingSteps.map(
-                        ({ step, invertedStep }) =>
-                            new Rebaseable(step, invertedStep, operation),
-                    ),
-                ),
-            ),
-        )
-    }
-
-    private submitOperation(force: boolean = false): void {
-        if (this.submitOperationTaskRunner.destroyed) return
-        if (force) this.submitOperationTaskRunner.cancel()
-        this.submitOperationTaskRunner.run()
-    }
-    private submitOperationTaskRunner = createTaskRunner(
-        async (): Promise<void> => {
             // Ensure authenticated.
             if (!this.contentClient.active) return
 
+            // Verify the state.
+            const { type, id, version, schema, pendingSteps } = pluginState
+            if (version < 0 || schema == null || pendingSteps.length === 0)
+                return
+
             // Ensure there is an operation to submit.
-            const { pendingSteps } = this.pluginState
-            const operation =
-                pendingSteps.length > 0 ? pendingSteps[0].operation : undefined
-            if (!operation) return
+            const operation = pendingSteps[0].operation
+            if (!operation) {
+                // Create a new operation.
+                const newOperation: Operation = {
+                    key: createOperationKey(this.contentClient.userId!),
+                    type,
+                    id,
+                    version: version + 1,
+                    schema,
+                    data: pendingSteps.map(({ step }) => step),
+                    meta: null,
+                }
+
+                // Add the operation to the state.
+                dispatch(
+                    state.tr.setMeta(
+                        key,
+                        new PluginState(
+                            type,
+                            id,
+                            version,
+                            schema,
+                            pendingSteps.map(
+                                ({ step, invertedStep }) =>
+                                    new Rebaseable(
+                                        step,
+                                        invertedStep,
+                                        newOperation,
+                                    ),
+                            ),
+                        ),
+                    ),
+                )
+                return
+            }
 
             // Make sure we're up to date with the server before submitting.
             if (operation.version < this.minVersionForSubmit) return
@@ -440,9 +424,6 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             try {
                 // Submit the operation.
                 await this.contentClient.submitOperation(operation)
-
-                // Submit again, in case a new operation was added in the meantime.
-                this.submitOperation(true)
             } catch (error) {
                 // Handle operation conflicting with an existing operation.
                 if (isAlreadyExistsError(error)) {
@@ -468,20 +449,19 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                 throw error
             }
         },
-    )
+    })
 
     /**
-     * Creates a transaction that represents an operation received from
-     * the authority. Applying this transaction moves the state forward to
-     * adjust to the authority's view of the document.
-     *
-     * @param state The current editor state.
-     * @param operation The operation received from the authority.
-     * @returns A transaction which applies the operation to the state.
+     * Applies the operation to the state.
+     * @param operation The operation to apply.
      */
-    receiveOperation(operation: Operation): Transaction {
-        const { state } = this.view!
-        const { type, id, version, schema, pendingSteps } = this.pluginState
+    receiveOperation = (operation: Operation): void => {
+        if (!this.view) return
+        const { state } = this.view
+        const pluginState = key.getState(state)
+        if (!pluginState) return
+
+        const { type, id, version, schema, pendingSteps } = pluginState
         const nextVersion = version + 1
         assert(operation.type === type, 'Unexpected operation.type.')
         assert(operation.id === id, 'Unexpected operation.id.')
@@ -499,14 +479,16 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             pendingSteps[0].operation.key === operation.key
         ) {
             // Update the "syncOT" plugin's state.
-            return tr.setMeta(
-                key,
-                new PluginState(
-                    type,
-                    id,
-                    nextVersion,
-                    schema,
-                    pendingSteps.filter((step) => !step.operation),
+            return this.view.dispatch(
+                tr.setMeta(
+                    key,
+                    new PluginState(
+                        type,
+                        id,
+                        nextVersion,
+                        schema,
+                        pendingSteps.filter((step) => !step.operation),
+                    ),
                 ),
             )
         }
@@ -585,7 +567,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
             ;(tr as any).updated &= ~1
         }
 
-        return (
+        return this.view.dispatch(
             tr
                 // Tell the "prosemirror-history" plugin to rebase its items.
                 // This is based on the "prosemirror-collab" plugin.
@@ -602,7 +584,7 @@ class PluginView<S extends Schema = any> implements PluginViewInterface {
                         schema,
                         rebasedPendingSteps,
                     ),
-                )
+                ),
         )
     }
 }
@@ -662,3 +644,73 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
         )
     return rebaseableSteps
 }
+
+function task<T>({
+    setUp,
+    tearDown: tearDown,
+    run,
+    done,
+    onError,
+    retryDelay,
+}: {
+    setUp(this: T, notify: () => void): void
+    tearDown(this: T, notify: () => void): void
+    run: (this: T, notify: () => void) => Promise<void>
+    done: (this: T) => boolean
+    onError: (this: T, error: Error) => void
+    retryDelay: (this: T, attempt: number) => number
+}): (this: T) => Promise<void> {
+    // tslint:disable-next-line:only-arrow-functions
+    return async function (): Promise<void> {
+        await Promise.resolve()
+        let retry = 0
+        let change: Promise<void>
+        let triggerChange: () => void = noop
+        function notify() {
+            triggerChange()
+        }
+
+        setUp.call(this, notify)
+        try {
+            while (!done.call(this)) {
+                change = new Promise((resolve) => (triggerChange = resolve))
+                try {
+                    await run.call(this, notify)
+                    retry = 0
+                    await change
+                } catch (error) {
+                    queueMicrotask(() => onError.call(this, error))
+                    await Promise.race([
+                        change,
+                        delay(retryDelay.call(this, retry++)),
+                    ])
+                }
+            }
+        } finally {
+            tearDown.call(this, notify)
+        }
+    }
+}
+
+const exponentialBackOffStrategy = ({
+    minDelay,
+    maxDelay,
+    delayFactor,
+}: {
+    minDelay: number
+    maxDelay: number
+    delayFactor: number
+}) => (attempt: number) =>
+    Math.max(
+        minDelay,
+        Math.min(
+            maxDelay,
+            Math.floor(minDelay * Math.pow(delayFactor, attempt)),
+        ),
+    )
+
+const backOffStrategy = exponentialBackOffStrategy({
+    minDelay: 1000,
+    maxDelay: 10000,
+    delayFactor: 1.5,
+})
