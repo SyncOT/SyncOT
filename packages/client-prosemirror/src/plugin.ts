@@ -4,15 +4,9 @@ import {
     isAlreadyExistsError,
     Operation,
 } from '@syncot/content'
-import {
-    assert,
-    delay,
-    noop,
-    throwError,
-    TypedEventEmitter,
-} from '@syncot/util'
+import { assert, delay, noop, throwError } from '@syncot/util'
 import OrderedMap from 'orderedmap'
-import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model'
+import { MarkSpec, NodeSpec } from 'prosemirror-model'
 import {
     EditorState,
     Plugin,
@@ -24,6 +18,158 @@ import {
 import { Step, Transform } from 'prosemirror-transform'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
+
+/**
+ * Returns the number of milliseconds to wait before the specified retry attempt.
+ * @param retryAttempt The 0-based retry attempt number.
+ * @returns The number of milliseconds to wait.
+ */
+export type BackOffStrategy = (retryAttempt: number) => number
+
+/**
+ * The options expected by the `exponentialBackOffStrategy` function.
+ */
+export interface ExponentialBackOffStrategyOptions {
+    /**
+     * The minimum delay in milliseconds, defaults to 1000.
+     */
+    minDelay?: number
+    /**
+     * The maximum delay in milliseconds, defaults to 10000.
+     */
+    maxDelay?: number
+    /**
+     * The delay factor, defaults to 1.5.
+     */
+    delayFactor?: number
+}
+
+/**
+ * Creates a function which implements the exponential back-off strategy with fixed configuration.
+ * @param options Options for configuring the strategy.
+ * @returns A function which implement the exponential back-off strategy.
+ */
+export function exponentialBackOffStrategy(
+    options?: ExponentialBackOffStrategyOptions,
+): BackOffStrategy {
+    const { minDelay = 1000, maxDelay = 10000, delayFactor = 1.5 } =
+        options || {}
+    assert(
+        Number.isSafeInteger(minDelay) && minDelay >= 0,
+        '"minDelay" must be a safe integer >= 0.',
+    )
+    assert(
+        Number.isSafeInteger(maxDelay) && maxDelay >= minDelay,
+        '"maxDelay" must be a safe integer >= minDelay.',
+    )
+    assert(
+        Number.isFinite(delayFactor),
+        '"delayFactor" must be a finite number.',
+    )
+    return (attempt: number) =>
+        Math.max(
+            minDelay,
+            Math.min(
+                maxDelay,
+                Math.floor(minDelay * Math.pow(delayFactor, attempt)),
+            ),
+        )
+}
+
+/**
+ * A WorkLoop performs work in an iterative fasion.
+ */
+export interface WorkLoop {
+    /**
+     * Performs some work in an iteration of the WorkLoop.
+     * Defaults to do nothing.
+     * @param notify A function which notifies that there's more work to do.
+     * @returns If it returns a Promise,
+     *   the WorkLoop waits until it is fulfilled before starting the next iteration.
+     */
+    work?(notify: () => void): void | Promise<void>
+    /**
+     * Releases the resources claimed by the WorkLoop.
+     * Defaults to do nothing.
+     * @param notify A function which notifies that there's more work to do.
+     */
+    destroy?(notify: () => void): void
+    /**
+     * Informs whether all works has been completed or more should be expected in the future.
+     * Defaults to a function which always returns `false`.
+     * @returns `true`, if all work has been completed and the WorkLoop should be terminated, otherwise `false`.
+     */
+    isDone?(): boolean
+    /**
+     * Reports an error.
+     * Defaults to a function which throws the error.
+     * @param error The error to report.
+     */
+    onError?(error: Error): void
+    /**
+     * Returns the max number of milliseconds to wait before retrying a failed iteration of the WorkLoop.
+     * Defaults to no maximum delay.
+     */
+    retryDelay?: BackOffStrategy
+}
+
+/**
+ * Manages a WorkLoop obtained by calling `create`.
+ *
+ * It works as follows:
+ *
+ * 1. Call `isDone`. If it returns `true`, call `destroy` and exit.
+ * 2. Call `work` and wait until it's complete.
+ * 3. If `work` succeeds,
+ *   - reset `retryAttempt` back to 0,
+ *   - wait until notified and resume at step 1.
+ * 4. If `work` fails,
+ *   - call `onError` to report the error,
+ *   - get `maxDelay` by calling `retryDelay(retryAttemp)`,
+ *   - increment `retryAttempt`,
+ *   - wait for at most `maxDelay` or until notified and resume at step 1.
+ *
+ * @param create Returns an instance of WorkLoop to manage - usually a new instance.
+ *   This function is always called synchronously by `workLoop`.
+ *   The functions of the returned `WorkLoop` instance are always called asynchronously.
+ *   It gets a `notify` function which can be called at any time
+ *   to notify the loop that there is more work to do.
+ *   The same `notify` function is passed to `WorkLoop#work` and `WorkLoop#destroy`.
+ * @returns A Promise which resolves once the loop completes.
+ */
+export async function workLoop<T extends WorkLoop>(
+    create: (notify: () => void) => T,
+): Promise<void> {
+    let retryAttempt = 0
+    let change: Promise<void>
+    let triggerChange = noop
+    const notify = () => triggerChange()
+    const instance = create(notify)
+    try {
+        await Promise.resolve()
+        while (!(instance.isDone && instance.isDone())) {
+            change = new Promise((resolve) => (triggerChange = resolve))
+            try {
+                if (instance.work) await instance.work(notify)
+                await change
+                retryAttempt = 0
+            } catch (error) {
+                queueMicrotask(() => {
+                    if (instance.onError) instance.onError(error)
+                    else throw error
+                })
+                if (instance.retryDelay)
+                    await Promise.race([
+                        change,
+                        delay(instance.retryDelay(retryAttempt++)),
+                    ])
+                else await change
+            }
+        }
+    } finally {
+        if (instance.destroy) instance.destroy(notify)
+    }
+}
 
 /**
  * The config expected by the `syncOT` plugin.
@@ -94,7 +240,20 @@ export function syncOT({
             },
         },
         view(view: EditorView) {
-            return new PluginView(view, contentClient, onError)
+            let localNotify = noop
+            let localView: EditorView | undefined = view
+            const getView = () => localView
+            workLoop((notify) => {
+                localNotify = notify
+                return new PluginLoop(getView, contentClient, onError, notify)
+            })
+            return {
+                update: localNotify,
+                destroy() {
+                    localView = undefined
+                    localNotify()
+                },
+            }
         },
         props: {
             editable(state: EditorState): boolean {
@@ -112,40 +271,54 @@ export function syncOT({
 
 const key = new PluginKey<PluginState>('syncOT')
 
-interface PluginViewEvents {
-    update: void
-    destroy: void
-}
-
-type PluginViewInterface = ReturnType<
-    NonNullable<PluginSpec<PluginState>['view']>
->
-class PluginView<S extends Schema = any>
-    extends TypedEventEmitter<PluginViewEvents>
-    implements PluginViewInterface {
-    private view: EditorView<S> | undefined
+class PluginLoop {
+    private get view(): EditorView | undefined {
+        return this.getView()
+    }
+    private previousState: EditorState
     private stream: Duplex | undefined
     private streamType: string = ''
     private streamId: string = ''
     private streamVersion: number = -1
     private minVersionForSubmit: number = 0
+    public retryDelay = exponentialBackOffStrategy({
+        minDelay: 1000,
+        maxDelay: 10000,
+        delayFactor: 1.5,
+    })
 
     public constructor(
-        view: EditorView,
+        private getView: () => EditorView | undefined,
         private contentClient: ContentClient,
-        private onError: (error: Error) => void,
+        public onError: (error: Error) => void,
+        private notify: () => void,
     ) {
-        super()
-        this.view = view
-        this.loop()
+        this.contentClient.on('active', this.notify)
+        this.previousState = this.view!.state
     }
 
-    public update(view: EditorView, previousState: EditorState): void {
-        queueMicrotask(() => this.emit('update'))
+    public destroy(): void {
+        this.contentClient.off('active', this.notify)
+        if (this.stream) {
+            this.stream.destroy()
+        }
+    }
+
+    public isDone(): boolean {
+        return !this.view
+    }
+
+    async work() {
+        if (!this.view) return
+        const { state } = this.view
+        const pluginState = key.getState(state)
+        if (!pluginState) return
+
+        const { previousState } = this
+        this.previousState = state
 
         // Allow any operation version on submit,
         // if the new state is not derived from the previous state.
-        const pluginState = key.getState(view.state)
         const previousPluginState = key.getState(previousState)
         if (
             !pluginState ||
@@ -156,70 +329,38 @@ class PluginView<S extends Schema = any>
         ) {
             this.minVersionForSubmit = 0
         }
+
+        const hasValidStream =
+            !!this.stream &&
+            !this.stream.destroyed &&
+            this.streamType === pluginState.type &&
+            this.streamId === pluginState.id &&
+            this.streamVersion === pluginState.version
+
+        if (!hasValidStream && this.stream) {
+            this.stream.destroy()
+        }
+        if (!this.contentClient.active) {
+            return
+        }
+        if (pluginState.schema == null) {
+            return this.initSchema(state, pluginState)
+        }
+        if (pluginState.version < 0) {
+            return this.initState(state, pluginState)
+        }
+        if (!hasValidStream) {
+            return this.initStream(state, pluginState)
+        }
+        if (pluginState.pendingSteps.length > 0) {
+            const operation = pluginState.pendingSteps[0].operation
+            if (operation) {
+                return this.submitOperation(operation)
+            } else {
+                return this.createOperation(state, pluginState)
+            }
+        }
     }
-
-    public destroy() {
-        queueMicrotask(() => this.emit('destroy'))
-        this.view = undefined
-    }
-
-    private loop = asyncLoop<PluginView>({
-        create(notify) {
-            this.on('update', notify)
-            this.on('destroy', notify)
-            this.contentClient.on('active', notify)
-        },
-        destroy(notify) {
-            this.off('update', notify)
-            this.off('destroy', notify)
-            this.contentClient.off('active', notify)
-            if (this.stream) {
-                this.stream.destroy()
-            }
-        },
-        done(): boolean {
-            return !this.view
-        },
-        onError: this.onError,
-        retryDelay: backOffStrategy,
-        async update(notify) {
-            if (!this.view) return
-            const { state } = this.view
-            const pluginState = key.getState(state)
-            if (!pluginState) return
-
-            const hasValidStream =
-                !!this.stream &&
-                !this.stream.destroyed &&
-                this.streamType === pluginState.type &&
-                this.streamId === pluginState.id &&
-                this.streamVersion === pluginState.version
-
-            if (!hasValidStream && this.stream) {
-                this.stream.destroy()
-            }
-            if (!this.contentClient.active) {
-                return
-            }
-            if (pluginState.schema == null) {
-                return this.initSchema(state, pluginState)
-            }
-            if (pluginState.version < 0) {
-                return this.initState(state, pluginState)
-            }
-            if (!hasValidStream) {
-                return this.initStream(state, pluginState, notify)
-            }
-            if (pluginState.pendingSteps.length > 0) {
-                const operation = pluginState.pendingSteps[0].operation
-                if (operation) {
-                    return this.submitOperation(operation)
-                } else {
-                    return this.createOperation(state, pluginState)
-                }
-            }
-        },
-    })
 
     private async initSchema(
         state: EditorState,
@@ -316,7 +457,6 @@ class PluginView<S extends Schema = any>
     private async initStream(
         _state: EditorState,
         pluginState: PluginState,
-        notify: () => void,
     ): Promise<void> {
         // Create a new stream.
         const stream = await this.contentClient.streamOperations(
@@ -328,18 +468,15 @@ class PluginView<S extends Schema = any>
         this.streamId = pluginState.id
         this.streamVersion = pluginState.version
         this.stream = stream
-        this.stream.on('data', (operation: Operation) => {
-            this.streamVersion = operation.version
-            this.receiveOperation(operation)
-        })
+        this.stream.on('data', this.receiveOperation)
         this.stream.on('error', this.onError)
-        this.stream.on('close', notify)
+        this.stream.on('close', this.notify)
     }
 
-    private async createOperation(
+    private createOperation(
         state: EditorState,
         { type, id, version, schema, pendingSteps }: PluginState,
-    ): Promise<void> {
+    ): void {
         const operation: Operation = {
             key: createOperationKey(this.contentClient.userId!),
             type,
@@ -406,7 +543,9 @@ class PluginView<S extends Schema = any>
      * Applies the operation to the state.
      * @param operation The operation to apply.
      */
-    receiveOperation = (operation: Operation): void => {
+    private receiveOperation = (operation: Operation): void => {
+        this.streamVersion = operation.version
+
         if (!this.view) return
         const { state } = this.view
         const pluginState = key.getState(state)
@@ -594,73 +733,3 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
         )
     return rebaseableSteps
 }
-
-function asyncLoop<T>({
-    create,
-    update,
-    destroy,
-    done,
-    onError,
-    retryDelay,
-}: {
-    create(this: T, notify: () => void): void
-    update: (this: T, notify: () => void) => Promise<void>
-    destroy(this: T, notify: () => void): void
-    done: (this: T) => boolean
-    onError: (this: T, error: Error) => void
-    retryDelay: (this: T, attempt: number) => number
-}): (this: T) => Promise<void> {
-    // tslint:disable-next-line:only-arrow-functions
-    return async function (): Promise<void> {
-        await Promise.resolve()
-        let retryAttempt = 0
-        let change: Promise<void>
-        let triggerChange = noop
-        function notify() {
-            triggerChange()
-        }
-
-        create.call(this, notify)
-        try {
-            while (!done.call(this)) {
-                change = new Promise((resolve) => (triggerChange = resolve))
-                try {
-                    await update.call(this, notify)
-                    await change
-                    retryAttempt = 0
-                } catch (error) {
-                    queueMicrotask(() => onError.call(this, error))
-                    await Promise.race([
-                        change,
-                        delay(retryDelay.call(this, retryAttempt++)),
-                    ])
-                }
-            }
-        } finally {
-            destroy.call(this, notify)
-        }
-    }
-}
-
-const exponentialBackOffStrategy = ({
-    minDelay,
-    maxDelay,
-    delayFactor,
-}: {
-    minDelay: number
-    maxDelay: number
-    delayFactor: number
-}) => (attempt: number) =>
-    Math.max(
-        minDelay,
-        Math.min(
-            maxDelay,
-            Math.floor(minDelay * Math.pow(delayFactor, attempt)),
-        ),
-    )
-
-const backOffStrategy = exponentialBackOffStrategy({
-    minDelay: 1000,
-    maxDelay: 10000,
-    delayFactor: 1.5,
-})
