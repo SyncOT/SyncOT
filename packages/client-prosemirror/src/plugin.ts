@@ -137,10 +137,7 @@ class PluginView<S extends Schema = any>
     ) {
         super()
         this.view = view
-        this.initSchema()
-        this.initState()
-        this.initStream()
-        this.submitOperation()
+        this.loop()
     }
 
     public update(view: EditorView, previousState: EditorState): void {
@@ -166,290 +163,244 @@ class PluginView<S extends Schema = any>
         this.view = undefined
     }
 
-    private setUp = (notify: () => void): void => {
-        this.on('update', notify)
-        this.on('destroy', notify)
-        this.contentClient.on('active', notify)
-    }
-
-    private tearDown = (notify: () => void): void => {
-        this.off('update', notify)
-        this.off('destroy', notify)
-        this.contentClient.off('active', notify)
-    }
-
-    private isDestroyed = (): boolean => {
-        return !this.view
-    }
-
-    private initSchema = task<PluginView>({
-        setUp: this.setUp,
-        tearDown: this.tearDown,
-        done: this.isDestroyed,
-        onError: this.onError,
-        retryDelay: backOffStrategy,
-        async run() {
-            // Make sure state exists.
-            if (!this.view) return
-            const { state } = this.view
-            const pluginState = key.getState(state)
-            if (!pluginState) return
-
-            // Handle already initialized.
-            const { type, schema } = pluginState
-            if (schema != null) return
-
-            // Check, if authenticated.
-            if (!this.contentClient.active) return
-
-            // Register the schema.
-            const { spec } = state.schema
-            const { topNode } = spec
-            const nodesMap = spec.nodes as OrderedMap<NodeSpec>
-            const nodes: any[] = []
-            nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
-                nodes.push(nodeName, nodeSpec),
-            )
-            const marksMap = spec.marks as OrderedMap<MarkSpec>
-            const marks: any[] = []
-            marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
-                marks.push(markName, markSpec),
-            )
-            const registeredSchema = await this.contentClient.registerSchema({
-                key: null,
-                type,
-                data: { nodes, marks, topNode },
-                meta: null,
-            })
-
-            // Handle state changed in the meantime.
-            if (!this.view) return
-            const newState = this.view.state
-            const newPluginState = key.getState(newState)
-            if (!newPluginState) return
-            if (
-                newPluginState.type !== pluginState.type ||
-                newPluginState.schema !== pluginState.schema ||
-                newState.schema !== state.schema
-            )
-                return
-
-            // Record the registered schema key.
-            this.view.dispatch(
-                this.view.state.tr.setMeta(
-                    key,
-                    new PluginState(
-                        newPluginState.type,
-                        newPluginState.id,
-                        newPluginState.version,
-                        registeredSchema,
-                        newPluginState.pendingSteps,
-                    ),
-                ),
-            )
+    private loop = asyncLoop<PluginView>({
+        create(notify) {
+            this.on('update', notify)
+            this.on('destroy', notify)
+            this.contentClient.on('active', notify)
         },
-    })
-
-    private initState = task<PluginView>({
-        setUp: this.setUp,
-        tearDown: this.tearDown,
-        done: this.isDestroyed,
-        onError: this.onError,
-        retryDelay: backOffStrategy,
-        async run() {
-            // Make sure state exists.
-            if (!this.view) return
-            const { state } = this.view
-            const pluginState = key.getState(state)
-            if (!pluginState) return
-
-            // Handle already initialized.
-            const { type, id, version, schema } = pluginState
-            if (version >= 0) return
-
-            // Handle schema not initialized.
-            if (schema == null) return
-
-            // Check, if authenticated.
-            if (!this.contentClient.active) return
-
-            // Load the latest document snapshot.
-            const snapshot = await this.contentClient.getSnapshot(type, id)
-            const newVersion = snapshot ? snapshot.version : 0
-
-            // Handle state changed in the meantime.
-            if (!this.view) return
-            const newState = this.view.state
-            const newPluginState = key.getState(newState)
-            if (!newPluginState) return
-            if (
-                newPluginState.type !== type ||
-                newPluginState.id !== id ||
-                newPluginState.version !== version ||
-                newPluginState.schema !== schema
-            )
-                return
-
-            // TODO init state.doc from the snapshot
-
-            // Update the state.
-            this.view.dispatch(
-                this.view.state.tr.setMeta(
-                    key,
-                    new PluginState(type, id, newVersion, schema, []),
-                ),
-            )
-        },
-    })
-
-    private initStream = task<PluginView>({
-        setUp: this.setUp,
-        tearDown(notify) {
-            this.tearDown(notify)
+        destroy(notify) {
+            this.off('update', notify)
+            this.off('destroy', notify)
+            this.contentClient.off('active', notify)
             if (this.stream) {
                 this.stream.destroy()
             }
         },
-        done: this.isDestroyed,
+        done(): boolean {
+            return !this.view
+        },
         onError: this.onError,
         retryDelay: backOffStrategy,
-        async run(notify) {
-            // Make sure state exists.
+        async update(notify) {
             if (!this.view) return
             const { state } = this.view
             const pluginState = key.getState(state)
             if (!pluginState) return
 
-            // Handle a correct existing stream.
-            const { type, id, version } = pluginState
-            if (
-                this.stream &&
-                this.streamType === type &&
-                this.streamId === id &&
-                this.streamVersion === version
-            ) {
-                return
-            }
+            const hasValidStream =
+                !!this.stream &&
+                !this.stream.destroyed &&
+                this.streamType === pluginState.type &&
+                this.streamId === pluginState.id &&
+                this.streamVersion === pluginState.version
 
-            // Handle an incorrect existing stream.
-            if (this.stream) {
+            if (!hasValidStream && this.stream) {
                 this.stream.destroy()
             }
-
-            // Check if a new stream can be created.
-            if (version < 0) return // Version not initialized.
-            if (!this.contentClient.active) return // Not authenticated.
-
-            // Create a new stream.
-            const stream = await this.contentClient.streamOperations(
-                type,
-                id,
-                version + 1,
-            )
-            this.streamType = type
-            this.streamId = id
-            this.streamVersion = version
-            this.stream = stream
-            this.stream.on('data', this.receiveOperation)
-            this.stream.on('error', this.onError)
-            this.stream.on('close', notify)
+            if (!this.contentClient.active) {
+                return
+            }
+            if (pluginState.schema == null) {
+                return this.initSchema(state, pluginState)
+            }
+            if (pluginState.version < 0) {
+                return this.initState(state, pluginState)
+            }
+            if (!hasValidStream) {
+                return this.initStream(state, pluginState, notify)
+            }
+            if (pluginState.pendingSteps.length > 0) {
+                const operation = pluginState.pendingSteps[0].operation
+                if (operation) {
+                    return this.submitOperation(operation)
+                } else {
+                    return this.createOperation(state, pluginState)
+                }
+            }
         },
     })
 
-    private submitOperation = task<PluginView>({
-        setUp: this.setUp,
-        tearDown: this.tearDown,
-        done: this.isDestroyed,
-        onError: this.onError,
-        retryDelay: backOffStrategy,
-        async run() {
-            // Make sure state exists.
-            const { view } = this
-            if (!view) return
-            const { dispatch, state } = view
-            const pluginState = key.getState(state)
-            if (!pluginState) return
+    private async initSchema(
+        state: EditorState,
+        pluginState: PluginState,
+    ): Promise<void> {
+        // Register the schema.
+        const { spec } = state.schema
+        const { topNode } = spec
+        const nodesMap = spec.nodes as OrderedMap<NodeSpec>
+        const nodes: any[] = []
+        nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
+            nodes.push(nodeName, nodeSpec),
+        )
+        const marksMap = spec.marks as OrderedMap<MarkSpec>
+        const marks: any[] = []
+        marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
+            marks.push(markName, markSpec),
+        )
+        const registeredSchema = await this.contentClient.registerSchema({
+            key: null,
+            type: pluginState.type,
+            data: { nodes, marks, topNode },
+            meta: null,
+        })
 
-            // Ensure authenticated.
-            if (!this.contentClient.active) return
+        // Handle state changed in the meantime.
+        if (!this.view) return
+        const newState = this.view.state
+        const newPluginState = key.getState(newState)
+        if (
+            !newPluginState ||
+            newPluginState.type !== pluginState.type ||
+            newPluginState.schema !== pluginState.schema ||
+            newState.schema !== state.schema
+        )
+            return
 
-            // Verify the state.
-            const { type, id, version, schema, pendingSteps } = pluginState
-            if (version < 0 || schema == null || pendingSteps.length === 0)
-                return
+        // Record the registered schema key.
+        this.view.dispatch(
+            this.view.state.tr.setMeta(
+                key,
+                new PluginState(
+                    newPluginState.type,
+                    newPluginState.id,
+                    newPluginState.version,
+                    registeredSchema,
+                    newPluginState.pendingSteps,
+                ),
+            ),
+        )
+    }
 
-            // Ensure there is an operation to submit.
-            const operation = pendingSteps[0].operation
-            if (!operation) {
-                // Create a new operation.
-                const newOperation: Operation = {
-                    key: createOperationKey(this.contentClient.userId!),
+    private async initState(
+        _state: EditorState,
+        pluginState: PluginState,
+    ): Promise<void> {
+        // Load the latest document snapshot.
+        const snapshot = await this.contentClient.getSnapshot(
+            pluginState.type,
+            pluginState.id,
+        )
+
+        // Handle state changed in the meantime.
+        if (!this.view) return
+        const newState = this.view.state
+        const newPluginState = key.getState(newState)
+        if (
+            !newPluginState ||
+            newPluginState.type !== pluginState.type ||
+            newPluginState.id !== pluginState.id ||
+            newPluginState.version !== pluginState.version ||
+            newPluginState.schema !== pluginState.schema
+        )
+            return
+
+        // TODO init state.doc from the snapshot
+
+        // Update the state.
+        const newVersion = snapshot ? snapshot.version : 0
+        this.view.dispatch(
+            this.view.state.tr.setMeta(
+                key,
+                new PluginState(
+                    pluginState.type,
+                    pluginState.id,
+                    newVersion,
+                    pluginState.schema,
+                    [],
+                ),
+            ),
+        )
+    }
+
+    private async initStream(
+        _state: EditorState,
+        pluginState: PluginState,
+        notify: () => void,
+    ): Promise<void> {
+        // Create a new stream.
+        const stream = await this.contentClient.streamOperations(
+            pluginState.type,
+            pluginState.id,
+            pluginState.version + 1,
+        )
+        this.streamType = pluginState.type
+        this.streamId = pluginState.id
+        this.streamVersion = pluginState.version
+        this.stream = stream
+        this.stream.on('data', (operation: Operation) => {
+            this.streamVersion = operation.version
+            this.receiveOperation(operation)
+        })
+        this.stream.on('error', this.onError)
+        this.stream.on('close', notify)
+    }
+
+    private async createOperation(
+        state: EditorState,
+        { type, id, version, schema, pendingSteps }: PluginState,
+    ): Promise<void> {
+        const operation: Operation = {
+            key: createOperationKey(this.contentClient.userId!),
+            type,
+            id,
+            version: version + 1,
+            schema: schema!,
+            data: pendingSteps.map(({ step }) => step),
+            meta: null,
+        }
+        this.view!.dispatch(
+            state.tr.setMeta(
+                key,
+                new PluginState(
                     type,
                     id,
-                    version: version + 1,
+                    version,
                     schema,
-                    data: pendingSteps.map(({ step }) => step),
-                    meta: null,
-                }
-
-                // Add the operation to the state.
-                dispatch(
-                    state.tr.setMeta(
-                        key,
-                        new PluginState(
-                            type,
-                            id,
-                            version,
-                            schema,
-                            pendingSteps.map(
-                                ({ step, invertedStep }) =>
-                                    new Rebaseable(
-                                        step,
-                                        invertedStep,
-                                        newOperation,
-                                    ),
-                            ),
-                        ),
+                    pendingSteps.map(
+                        ({ step, invertedStep }) =>
+                            new Rebaseable(step, invertedStep, operation),
                     ),
-                )
+                ),
+            ),
+        )
+    }
+
+    private async submitOperation(operation: Operation): Promise<void> {
+        // Make sure we're up to date with the server before submitting.
+        if (operation.version < this.minVersionForSubmit) return
+
+        // Record the minimum version for the next operation to submit.
+        this.minVersionForSubmit = operation.version + 1
+
+        try {
+            // Submit the operation.
+            await this.contentClient.submitOperation(operation)
+        } catch (error) {
+            // Handle operation conflicting with an existing operation.
+            if (isAlreadyExistsError(error)) {
+                // If the version number caused the conflict,
+                // get all operations from the server before retrying.
+                if (error.key === 'version') {
+                    this.minVersionForSubmit = Math.max(
+                        this.minVersionForSubmit,
+                        error.value + 1,
+                    )
+                }
+                // Otherwise the conflict must have been caused by the operation.key.
+                // It can happen when we resubmit the same operation because we are
+                // not sure, if it has been saved by the server already, for example
+                // when connection drops after submitting an operation but before
+                // receiving a confirmation. In this case we can jsut wait until the
+                // operation is confirmed.
                 return
             }
 
-            // Make sure we're up to date with the server before submitting.
-            if (operation.version < this.minVersionForSubmit) return
-
-            // Record the minimum version for the next operation to submit.
-            this.minVersionForSubmit = operation.version + 1
-
-            try {
-                // Submit the operation.
-                await this.contentClient.submitOperation(operation)
-            } catch (error) {
-                // Handle operation conflicting with an existing operation.
-                if (isAlreadyExistsError(error)) {
-                    // If the version number caused the conflict,
-                    // get all operations from the server before retrying.
-                    if (error.key === 'version') {
-                        this.minVersionForSubmit = Math.max(
-                            this.minVersionForSubmit,
-                            error.value + 1,
-                        )
-                    }
-                    // Otherwise the conflict must have been caused by the operation.key.
-                    // It can happen when we resubmit the same operation because we are
-                    // not sure, if it has been saved by the server already, for example
-                    // when connection drops after submitting an operation but before
-                    // receiving a confirmation. In this case we can jsut wait until the
-                    // operation is confirmed.
-                    return
-                }
-
-                // Allow the operation to be resubmitted and rethrow the error.
-                this.minVersionForSubmit = operation.version
-                throw error
-            }
-        },
-    })
+            // Allow the operation to be resubmitted and rethrow the error.
+            this.minVersionForSubmit = operation.version
+            throw error
+        }
+    }
 
     /**
      * Applies the operation to the state.
@@ -469,7 +420,6 @@ class PluginView<S extends Schema = any>
             operation.version === nextVersion,
             'Unexpected operation.version.',
         )
-        this.streamVersion = nextVersion
         const { tr } = state
 
         // Handle our own operation being confirmed by the authority.
@@ -645,17 +595,17 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
     return rebaseableSteps
 }
 
-function task<T>({
-    setUp,
-    tearDown: tearDown,
-    run,
+function asyncLoop<T>({
+    create,
+    update,
+    destroy,
     done,
     onError,
     retryDelay,
 }: {
-    setUp(this: T, notify: () => void): void
-    tearDown(this: T, notify: () => void): void
-    run: (this: T, notify: () => void) => Promise<void>
+    create(this: T, notify: () => void): void
+    update: (this: T, notify: () => void) => Promise<void>
+    destroy(this: T, notify: () => void): void
     done: (this: T) => boolean
     onError: (this: T, error: Error) => void
     retryDelay: (this: T, attempt: number) => number
@@ -663,31 +613,31 @@ function task<T>({
     // tslint:disable-next-line:only-arrow-functions
     return async function (): Promise<void> {
         await Promise.resolve()
-        let retry = 0
+        let retryAttempt = 0
         let change: Promise<void>
-        let triggerChange: () => void = noop
+        let triggerChange = noop
         function notify() {
             triggerChange()
         }
 
-        setUp.call(this, notify)
+        create.call(this, notify)
         try {
             while (!done.call(this)) {
                 change = new Promise((resolve) => (triggerChange = resolve))
                 try {
-                    await run.call(this, notify)
-                    retry = 0
+                    await update.call(this, notify)
                     await change
+                    retryAttempt = 0
                 } catch (error) {
                     queueMicrotask(() => onError.call(this, error))
                     await Promise.race([
                         change,
-                        delay(retryDelay.call(this, retry++)),
+                        delay(retryDelay.call(this, retryAttempt++)),
                     ])
                 }
             }
         } finally {
-            tearDown.call(this, notify)
+            destroy.call(this, notify)
         }
     }
 }
