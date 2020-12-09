@@ -1,3 +1,4 @@
+export * from './backOff'
 export * from './error'
 export * from './events'
 export { hash } from './hash'
