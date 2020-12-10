@@ -72,25 +72,25 @@ export function syncOT({
         key,
         state: {
             init(): PluginState {
-                return new PluginState(type, id, -1, null, [])
+                return {
+                    type,
+                    id,
+                    version: -1,
+                    schema: null,
+                    pendingSteps: [],
+                }
             },
 
             apply(tr: Transaction, pluginState: PluginState): PluginState {
-                const newPluginState = tr.getMeta(key)
-                if (newPluginState) {
-                    return newPluginState
+                const newPluginState: PluginState = tr.getMeta(key)
+                if (newPluginState) return newPluginState
+                if (!tr.docChanged) return pluginState
+                return {
+                    ...pluginState,
+                    pendingSteps: pluginState.pendingSteps.concat(
+                        rebaseableStepsFrom(tr),
+                    ),
                 }
-                if (tr.docChanged)
-                    return new PluginState(
-                        pluginState.type,
-                        pluginState.id,
-                        pluginState.version,
-                        pluginState.schema,
-                        pluginState.pendingSteps.concat(
-                            rebaseableStepsFrom(tr),
-                        ),
-                    )
-                return pluginState
             },
         },
         view(view: EditorView) {
@@ -253,18 +253,11 @@ class PluginLoop {
             return
 
         // Record the registered schema key.
-        this.view.dispatch(
-            this.view.state.tr.setMeta(
-                key,
-                new PluginState(
-                    newPluginState.type,
-                    newPluginState.id,
-                    newPluginState.version,
-                    registeredSchema,
-                    newPluginState.pendingSteps,
-                ),
-            ),
-        )
+        const nextPluginState: PluginState = {
+            ...newPluginState,
+            schema: registeredSchema,
+        }
+        this.view.dispatch(this.view.state.tr.setMeta(key, nextPluginState))
     }
 
     private async initState(
@@ -294,18 +287,12 @@ class PluginLoop {
 
         // Update the state.
         const newVersion = snapshot ? snapshot.version : 0
-        this.view.dispatch(
-            this.view.state.tr.setMeta(
-                key,
-                new PluginState(
-                    pluginState.type,
-                    pluginState.id,
-                    newVersion,
-                    pluginState.schema,
-                    [],
-                ),
-            ),
-        )
+        const nextPluginState: PluginState = {
+            ...pluginState,
+            version: newVersion,
+            pendingSteps: [],
+        }
+        this.view.dispatch(this.view.state.tr.setMeta(key, nextPluginState))
     }
 
     private async initStream(
@@ -329,8 +316,9 @@ class PluginLoop {
 
     private createOperation(
         state: EditorState,
-        { type, id, version, schema, pendingSteps }: PluginState,
+        pluginState: PluginState,
     ): void {
+        const { type, id, version, schema, pendingSteps } = pluginState
         const operation: Operation = {
             key: createOperationKey(this.contentClient.userId!),
             type,
@@ -340,21 +328,14 @@ class PluginLoop {
             data: pendingSteps.map(({ step }) => step),
             meta: null,
         }
-        this.view!.dispatch(
-            state.tr.setMeta(
-                key,
-                new PluginState(
-                    type,
-                    id,
-                    version,
-                    schema,
-                    pendingSteps.map(
-                        ({ step, invertedStep }) =>
-                            new Rebaseable(step, invertedStep, operation),
-                    ),
-                ),
+        const nextPluginState: PluginState = {
+            ...pluginState,
+            pendingSteps: pendingSteps.map(
+                ({ step, invertedStep }) =>
+                    new Rebaseable(step, invertedStep, operation),
             ),
-        )
+        }
+        this.view!.dispatch(state.tr.setMeta(key, nextPluginState))
     }
 
     private async submitOperation(operation: Operation): Promise<void> {
@@ -405,7 +386,7 @@ class PluginLoop {
         const pluginState = key.getState(state)
         if (!pluginState) return
 
-        const { type, id, version, schema, pendingSteps } = pluginState
+        const { type, id, version, pendingSteps } = pluginState
         const nextVersion = version + 1
         assert(operation.type === type, 'Unexpected operation.type.')
         assert(operation.id === id, 'Unexpected operation.id.')
@@ -422,18 +403,12 @@ class PluginLoop {
             pendingSteps[0].operation.key === operation.key
         ) {
             // Update the "syncOT" plugin's state.
-            return this.view.dispatch(
-                tr.setMeta(
-                    key,
-                    new PluginState(
-                        type,
-                        id,
-                        nextVersion,
-                        schema,
-                        pendingSteps.filter((step) => !step.operation),
-                    ),
-                ),
-            )
+            const nextPluginState: PluginState = {
+                ...pluginState,
+                version: nextVersion,
+                pendingSteps: pendingSteps.filter((step) => !step.operation),
+            }
+            return this.view.dispatch(tr.setMeta(key, nextPluginState))
         }
 
         // Deserialize the steps from the operation.
@@ -510,25 +485,23 @@ class PluginLoop {
             ;(tr as any).updated &= ~1
         }
 
-        return this.view.dispatch(
-            tr
-                // Tell the "prosemirror-history" plugin to rebase its items.
-                // This is based on the "prosemirror-collab" plugin.
-                .setMeta('rebased', pendingSteps.length)
-                // Tell the "prosemirror-history" plugin to not add this transaction to the undo list.
-                .setMeta('addToHistory', false)
-                // Update the "syncOT" plugin's state.
-                .setMeta(
-                    key,
-                    new PluginState(
-                        type,
-                        id,
-                        nextVersion,
-                        schema,
-                        rebasedPendingSteps,
-                    ),
-                ),
-        )
+        {
+            const nextPluginState: PluginState = {
+                ...pluginState,
+                version: nextVersion,
+                pendingSteps: rebasedPendingSteps,
+            }
+            return this.view.dispatch(
+                tr
+                    // Tell the "prosemirror-history" plugin to rebase its items.
+                    // This is based on the "prosemirror-collab" plugin.
+                    .setMeta('rebased', pendingSteps.length)
+                    // Tell the "prosemirror-history" plugin to not add this transaction to the undo list.
+                    .setMeta('addToHistory', false)
+                    // Update the "syncOT" plugin's state.
+                    .setMeta(key, nextPluginState),
+            )
+        }
     }
 }
 
@@ -547,29 +520,27 @@ export class Rebaseable {
 /**
  * The `syncOT` plugin's state.
  */
-export class PluginState {
-    public constructor(
-        /**
-         * The type of the document in SyncOT.
-         */
-        public type: string,
-        /**
-         * The ID of the document in SyncOT.
-         */
-        public id: string,
-        /**
-         * The version number of the document in SyncOT with content corresponding to this state.
-         */
-        public version: number,
-        /**
-         * The registered `Schema.key` of this state's schema, or null, if not registered.
-         */
-        public schema: number | null,
-        /**
-         * A list of steps which have not been recorded and confirmed by the server.
-         */
-        public pendingSteps: Rebaseable[],
-    ) {}
+export interface PluginState {
+    /**
+     * The type of the document in SyncOT.
+     */
+    type: string
+    /**
+     * The ID of the document in SyncOT.
+     */
+    id: string
+    /**
+     * The version number of the document in SyncOT with content corresponding to this state.
+     */
+    version: number
+    /**
+     * The registered `Schema.key` of this state's schema, or null, if not registered.
+     */
+    schema: number | null
+    /**
+     * A list of steps which have not been recorded and confirmed by the server.
+     */
+    pendingSteps: Rebaseable[]
 }
 
 /**
