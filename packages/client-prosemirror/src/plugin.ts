@@ -3,6 +3,7 @@ import {
     createOperationKey,
     isAlreadyExistsError,
     Operation,
+    OperationKey,
 } from '@syncot/content'
 import {
     assert,
@@ -206,14 +207,7 @@ class PluginLoop {
         if (!hasValidStream) {
             return this.initStream(state, pluginState)
         }
-        if (pluginState.pendingSteps.length > 0) {
-            const operation = pluginState.pendingSteps[0].operation
-            if (operation) {
-                return this.submitOperation(operation)
-            } else {
-                return this.createOperation(state, pluginState)
-            }
-        }
+        return this.submitOperation(state, pluginState)
     }
 
     private async initSchema(
@@ -314,40 +308,58 @@ class PluginLoop {
         this.stream.on('close', this.notify)
     }
 
-    private createOperation(
+    private async submitOperation(
         state: EditorState,
         pluginState: PluginState,
-    ): void {
-        const { type, id, version, schema, pendingSteps } = pluginState
-        const operation: Operation = {
-            key: createOperationKey(this.contentClient.userId!),
-            type,
-            id,
-            version: version + 1,
-            schema: schema!,
-            data: pendingSteps.map(({ step }) => step),
-            meta: null,
-        }
-        const nextPluginState: PluginState = {
-            ...pluginState,
-            pendingSteps: pendingSteps.map(
-                ({ step, invertedStep }) =>
-                    new Rebaseable(step, invertedStep, operation),
-            ),
-        }
-        this.view!.dispatch(state.tr.setMeta(key, nextPluginState))
-    }
+    ): Promise<void> {
+        // Check, if there's anything to submit.
+        if (pluginState.pendingSteps.length === 0) return
 
-    private async submitOperation(operation: Operation): Promise<void> {
+        // Make sure that some steps have an operationKey assigned.
+        const { operationKey } = pluginState.pendingSteps[0]
+        if (operationKey == null) {
+            const newOperationKey = createOperationKey(
+                this.contentClient.userId!,
+            )
+            const nextPluginState = {
+                ...pluginState,
+                pendingSteps: pluginState.pendingSteps.map(
+                    ({ step, invertedStep }) =>
+                        new Rebaseable(step, invertedStep, newOperationKey),
+                ),
+            }
+            return this.view!.dispatch(state.tr.setMeta(key, nextPluginState))
+        }
+
+        const operationVersion = pluginState.version + 1
+
         // Make sure we're up to date with the server before submitting.
-        if (operation.version < this.minVersionForSubmit) return
+        if (operationVersion < this.minVersionForSubmit) return
 
         // Record the minimum version for the next operation to submit.
-        this.minVersionForSubmit = operation.version + 1
+        this.minVersionForSubmit = operationVersion + 1
 
         try {
+            // Prepare the steps.
+            const operationSteps: Step[] = []
+            for (const pendingStep of pluginState.pendingSteps) {
+                if (pendingStep.operationKey === operationKey) {
+                    operationSteps.push(pendingStep.step)
+                } else {
+                    break
+                }
+            }
+
             // Submit the operation.
-            await this.contentClient.submitOperation(operation)
+            await this.contentClient.submitOperation({
+                key: operationKey,
+                type: pluginState.type,
+                id: pluginState.id,
+                version: operationVersion,
+                schema: pluginState.schema!,
+                data: operationSteps,
+                meta: null,
+            })
         } catch (error) {
             // Handle operation conflicting with an existing operation.
             if (isAlreadyExistsError(error)) {
@@ -369,7 +381,7 @@ class PluginLoop {
             }
 
             // Allow the operation to be resubmitted and rethrow the error.
-            this.minVersionForSubmit = operation.version
+            this.minVersionForSubmit = operationVersion
             throw error
         }
     }
@@ -399,14 +411,15 @@ class PluginLoop {
         // Handle our own operation being confirmed by the authority.
         if (
             pendingSteps.length > 0 &&
-            pendingSteps[0].operation &&
-            pendingSteps[0].operation.key === operation.key
+            pendingSteps[0].operationKey === operation.key
         ) {
             // Update the "syncOT" plugin's state.
             const nextPluginState: PluginState = {
                 ...pluginState,
                 version: nextVersion,
-                pendingSteps: pendingSteps.filter((step) => !step.operation),
+                pendingSteps: pendingSteps.filter(
+                    (step) => step.operationKey == null,
+                ),
             }
             return this.view.dispatch(tr.setMeta(key, nextPluginState))
         }
@@ -423,16 +436,6 @@ class PluginLoop {
                 tr.step(step)
             }
         } else {
-            const pendingOperationSteps: Step[] = []
-            const pendingOperation: Operation | undefined = pendingSteps[0]
-                .operation
-                ? {
-                      ...pendingSteps[0].operation,
-                      data: pendingOperationSteps,
-                      version: nextVersion + 1,
-                  }
-                : undefined
-
             // Undo `pendingSteps`.
             for (let i = pendingSteps.length - 1; i >= 0; i--) {
                 tr.step(pendingSteps[i].invertedStep)
@@ -458,12 +461,9 @@ class PluginLoop {
                         new Rebaseable(
                             mappedStep,
                             mappedStep.invert(tr.docs[tr.docs.length - 1]),
-                            pendingStep.operation && pendingOperation,
+                            pendingStep.operationKey,
                         ),
                     )
-                    if (pendingStep.operation) {
-                        pendingOperationSteps.push(mappedStep)
-                    }
                 }
             }
         }
@@ -513,7 +513,7 @@ export class Rebaseable {
     constructor(
         public step: Step,
         public invertedStep: Step,
-        public operation: Operation | undefined,
+        public operationKey: OperationKey | undefined,
     ) {}
 }
 
