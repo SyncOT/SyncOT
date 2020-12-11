@@ -1,4 +1,5 @@
-import { BackOffStrategy, delay, noop } from '.'
+import { BackOffStrategy } from './backOff'
+import { delay, noop } from './util'
 
 /**
  * A WorkLoop performs work in an iterative fasion.
