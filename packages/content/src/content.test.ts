@@ -1,3 +1,4 @@
+import { createSchemaKey } from '@syncot/content/src/content'
 import {
     createOperationKey,
     operationKeyUser,
@@ -28,13 +29,43 @@ describe('OperationKey', () => {
     })
 })
 
+describe('SchemaKey', () => {
+    test('is a string', () => {
+        const key = createSchemaKey('type-1', { a: 5, b: 6, c: [1, 2, 3] })
+        expect(key).toBeString()
+    })
+    test('the same key for the same input type and data', () => {
+        const key1 = createSchemaKey('type-1', { a: 5, b: 6, c: [1, 2, 3] })
+        const key2 = createSchemaKey('type-1', { b: 6, a: 5, c: [1, 2, 3] })
+        expect(key1).toBe(key2)
+    })
+
+    test('different keys for different types', () => {
+        const key1 = createSchemaKey('type-1', { a: 5, b: 6, c: [1, 2, 3] })
+        const key2 = createSchemaKey('type-2', { b: 6, a: 5, c: [1, 2, 3] })
+        expect(key1).not.toBe(key2)
+    })
+
+    test('different keys for different data', () => {
+        const key1 = createSchemaKey('type-1', { a: 5, b: 6, c: [1, 2, 3] })
+        const key2 = createSchemaKey('type-1', { b: 6, a: 5, c: [1, 2, 3, 4] })
+        expect(key1).not.toBe(key2)
+    })
+
+    test('different keys for different data', () => {
+        const key1 = createSchemaKey('type-1', '')
+        const key2 = createSchemaKey('type-1', null)
+        expect(key1).not.toBe(key2)
+    })
+})
+
 describe('validateOperation', () => {
     const operation: Operation = {
         key: '',
         type: '',
         id: '',
         version: 1,
-        schema: 0,
+        schema: '',
         data: null,
         meta: null,
     }
@@ -42,7 +73,7 @@ describe('validateOperation', () => {
         [operation, undefined],
         [{ ...operation, version: 2 }, undefined],
         [{ ...operation, version: Number.MAX_SAFE_INTEGER - 1 }, undefined],
-        [{ ...operation, schema: 5 }, undefined],
+        [{ ...operation, schema: 'schema-key' }, undefined],
         [{ ...operation, data: 5 }, undefined],
         [{ ...operation, data: {} }, undefined],
         [{ ...operation, meta: {} }, undefined],
@@ -86,6 +117,7 @@ describe('validateOperation', () => {
         [{ ...operation, version: Infinity }, 'version'],
         [{ ...operation, version: NaN }, 'version'],
         [{ ...operation, schema: null }, 'schema'],
+        [{ ...operation, schema: undefined }, 'schema'],
         [{ ...operation, schema: 0.5 }, 'schema'],
         [(({ data, ...o }) => o)(operation), 'data'],
         [{ ...operation, meta: undefined }, 'meta'],
@@ -116,20 +148,19 @@ describe('validateOperation', () => {
 
 describe('validateSchema', () => {
     const schema: Schema = {
-        key: 0,
+        key: createSchemaKey('', null),
         type: '',
         data: null,
         meta: null,
     }
     test.each<[any, string | null | undefined]>([
         [schema, undefined],
-        [{ ...schema, key: 5 }, undefined],
-        [{ ...schema, key: -5 }, undefined],
-        [{ ...schema, key: null }, undefined],
-        [{ ...schema, key: undefined }, undefined],
-        [{ ...schema, type: 'a-type' }, undefined],
-        [{ ...schema, data: 5 }, undefined],
-        [{ ...schema, data: {} }, undefined],
+        [
+            { ...schema, key: createSchemaKey('a-type', null), type: 'a-type' },
+            undefined,
+        ],
+        [{ ...schema, key: createSchemaKey('', 5), data: 5 }, undefined],
+        [{ ...schema, key: createSchemaKey('', {}), data: {} }, undefined],
         [{ ...schema, meta: {} }, undefined],
         [{ ...schema, meta: { time: 123 } }, undefined],
         [{ ...schema, meta: { user: 'abc' } }, undefined],
@@ -160,10 +191,10 @@ describe('validateSchema', () => {
         ],
         [null, null],
         [() => undefined, null],
-        [{ ...schema, key: 0.5 }, 'key'],
-        [{ ...schema, key: '1' }, 'key'],
-        [{ ...schema, key: Number.MAX_SAFE_INTEGER + 2 }, 'key'],
-        [{ ...schema, key: Number.MIN_SAFE_INTEGER - 2 }, 'key'],
+        [{ ...schema, key: 'invalid-key' }, 'key'],
+        [{ ...schema, key: 5 }, 'key'],
+        [{ ...schema, key: null }, 'key'],
+        [{ ...schema, key: undefined }, 'key'],
         [{ ...schema, type: null }, 'type'],
         [(({ data, ...o }) => o)(schema), 'data'],
         [{ ...schema, meta: undefined }, 'meta'],

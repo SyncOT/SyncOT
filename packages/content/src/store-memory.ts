@@ -1,4 +1,4 @@
-import { assert, combine, hash } from '@syncot/util'
+import { assert, combine } from '@syncot/util'
 import {
     Operation,
     OperationKey,
@@ -17,26 +17,19 @@ export function createContentStore(): ContentStore {
 }
 
 class MemoryContentStore implements ContentStore {
+    private schemas: Map<string, Schema> = new Map()
     private operations: Map<string, Operation[]> = new Map()
     private operationsByKey: Map<OperationKey, Operation> = new Map()
-    private schemas: Map<string, Schema> = new Map()
-    private schemasByKey: Schema[] = []
     private snapshots: Map<string, Snapshot[]> = new Map()
     private snapshotsByKey: Map<SnapshotKey, Snapshot> = new Map()
 
-    public async registerSchema(schema: Schema): Promise<number> {
-        const typeAndHash = combine(schema.type, hash(schema.data))
-        const existingSchema = this.schemas.get(typeAndHash)
-        if (existingSchema) return existingSchema.key!
-
-        const newSchema: Schema = { ...schema, key: this.schemasByKey.length }
-        this.schemas.set(typeAndHash, newSchema)
-        this.schemasByKey[newSchema.key!] = newSchema
-        return newSchema.key!
+    public async registerSchema(schema: Schema): Promise<void> {
+        if (this.schemas.has(schema.key)) return
+        this.schemas.set(schema.key, schema)
     }
 
-    public async getSchema(key: number): Promise<Schema | null> {
-        return this.schemasByKey[key] || null
+    public async getSchema(key: string): Promise<Schema | null> {
+        return this.schemas.get(key) || null
     }
 
     public async storeOperation(operation: Operation): Promise<void> {

@@ -144,18 +144,14 @@ class ProseMirrorContentService
         super.destroy()
     }
 
-    public async registerSchema(schema: Schema): Promise<number> {
+    public async registerSchema(schema: Schema): Promise<void> {
         this.assertOk()
         throwError(validateSchema(schema))
-        assert(
-            schema.key == null,
-            'Schema.key must be null in a Schema submitted for registration.',
-        )
         this.assertContentType(schema.type)
         const contentType = this.contentTypes[schema.type]
         throwError(contentType.validateSchema(schema))
         return this.contentStore.registerSchema({
-            key: 0,
+            key: schema.key,
             type: schema.type,
             data: schema.data,
             meta: {
@@ -167,9 +163,9 @@ class ProseMirrorContentService
         })
     }
 
-    public async getSchema(key: number): Promise<Schema | null> {
+    public async getSchema(key: string): Promise<Schema | null> {
         this.assertOk()
-        assert(Number.isInteger(key), 'Argument "key" must be an integer.')
+        assert(typeof key === 'string', 'Argument "key" must be a string.')
         return this.contentStore.getSchema(key)
     }
 

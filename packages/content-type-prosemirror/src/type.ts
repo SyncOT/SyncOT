@@ -1,7 +1,6 @@
-import { ContentType, Schema } from '@syncot/content'
+import { ContentType, Schema, SchemaKey } from '@syncot/content'
 import {
     createInvalidEntityError,
-    hash,
     throwError,
     validate,
     Validator,
@@ -23,14 +22,7 @@ export function createContentType(): ContentType {
 }
 
 export class ProseMirrorContentType implements ContentType {
-    private readonly schemaCacheByKey: Map<
-        number,
-        ProseMirrorSchema
-    > = new Map()
-    private readonly schemaCacheByHash: Map<
-        string,
-        ProseMirrorSchema
-    > = new Map()
+    private readonly schemaCache: Map<SchemaKey, ProseMirrorSchema> = new Map()
 
     public validateSchema: Validator<Schema> = validate([
         (schema) =>
@@ -128,18 +120,11 @@ export class ProseMirrorContentType implements ContentType {
      * Creates a ProseMirror Schema from a SyncOT Schema.
      */
     public createProseMirrorSchema({ key, data }: Schema): ProseMirrorSchema {
-        const proseMirrorSchemaForKey =
-            key != null ? this.schemaCacheByKey.get(key) : undefined
-        if (proseMirrorSchemaForKey) return proseMirrorSchemaForKey
+        // Return the cached schema, if any.
+        const cachedProseMirrorSchema = this.schemaCache.get(key)
+        if (cachedProseMirrorSchema) return cachedProseMirrorSchema
 
-        const dataHash = hash(data)
-        const proseMirrorSchemaForHash = this.schemaCacheByHash.get(dataHash)
-        if (proseMirrorSchemaForHash) {
-            if (key != null)
-                this.schemaCacheByKey.set(key, proseMirrorSchemaForHash)
-            return proseMirrorSchemaForHash
-        }
-
+        // Prepare a schema spec.
         const { nodes: rawNodes, marks: rawMarks, topNode } = data
 
         let nodes = OrderedMap.from<NodeSpec>()
@@ -152,15 +137,19 @@ export class ProseMirrorContentType implements ContentType {
             marks = marks.addToEnd(rawMarks[i], rawMarks[i + 1])
         }
 
+        // Create a schema.
         const proseMirrorSchema = new ProseMirrorSchema({
             nodes,
             marks,
             topNode,
         })
+
+        // Validate the schema.
         throwError(this.validateProseMirrorSchema(proseMirrorSchema))
 
-        if (key != null) this.schemaCacheByKey.set(key, proseMirrorSchema)
-        this.schemaCacheByHash.set(dataHash, proseMirrorSchema)
+        // Cache the schema.
+        this.schemaCache.set(key, proseMirrorSchema)
+
         return proseMirrorSchema
     }
 

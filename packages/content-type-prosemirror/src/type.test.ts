@@ -1,11 +1,11 @@
-import { Schema } from '@syncot/content'
+import { createSchemaKey, Schema } from '@syncot/content'
 import { NodeSpec } from 'prosemirror-model'
 import { createContentType } from '.'
 import { ProseMirrorContentType } from './type'
 
 let contentType: ProseMirrorContentType
 const schema: Schema = {
-    key: null,
+    key: '',
     type: 'type-0',
     data: {
         nodes: [
@@ -21,6 +21,7 @@ const schema: Schema = {
     },
     meta: null,
 }
+schema.key = createSchemaKey(schema.type, schema.data)
 
 beforeEach(() => {
     contentType = createContentType() as ProseMirrorContentType
@@ -217,7 +218,7 @@ describe('validateSchema', () => {
 describe('createProseMirrorSchema', () => {
     describe('cache', () => {
         test('key=5', () => {
-            const key = 5
+            const key = '5'
             const proseMirrorSchema1 = contentType.createProseMirrorSchema({
                 ...schema,
                 key,
@@ -230,82 +231,6 @@ describe('createProseMirrorSchema', () => {
                 meta: {},
             })
             expect(proseMirrorSchema2).toBe(proseMirrorSchema1)
-        })
-
-        test('key=null', () => {
-            const proseMirrorSchema1 = contentType.createProseMirrorSchema(
-                schema,
-            )
-            // Schema cached by hash(schema.data) - all other porperties are ignored.
-            const proseMirrorSchema2 = contentType.createProseMirrorSchema({
-                ...schema,
-                type: 'type-1',
-                meta: {},
-            })
-            expect(proseMirrorSchema2).toBe(proseMirrorSchema1)
-        })
-
-        test('key=null then key=5', () => {
-            const key = 5
-            const proseMirrorSchema1 = contentType.createProseMirrorSchema(
-                schema,
-            )
-            // Schema cached by hash(schema.data) - all other porperties are ignored.
-            const proseMirrorSchema2 = contentType.createProseMirrorSchema({
-                ...schema,
-                key,
-                type: 'type-1',
-            })
-            // Schema cached by schema.key - all other porperties are ignored.
-            const proseMirrorSchema3 = contentType.createProseMirrorSchema({
-                ...schema,
-                key,
-                data: null,
-                type: 'type-2',
-            })
-            expect(proseMirrorSchema2).toBe(proseMirrorSchema1)
-            expect(proseMirrorSchema3).toBe(proseMirrorSchema1)
-        })
-
-        test('key=5 then key=6 with the same data', () => {
-            const key = 5
-            const proseMirrorSchema1 = contentType.createProseMirrorSchema({
-                ...schema,
-                key,
-            })
-            // Schema cached by hash(schema.data) - all other porperties are ignored.
-            const proseMirrorSchema2 = contentType.createProseMirrorSchema({
-                ...schema,
-                key: key + 1,
-                type: 'type-1',
-                meta: {},
-            })
-            expect(proseMirrorSchema2).toBe(proseMirrorSchema1)
-        })
-
-        test('key=null with different data', () => {
-            const proseMirrorSchema1 = contentType.createProseMirrorSchema(
-                schema,
-            )
-            const proseMirrorSchema2 = contentType.createProseMirrorSchema({
-                ...schema,
-                data: { ...schema.data, topNode: 'paragraph' },
-            })
-            expect(proseMirrorSchema2).not.toBe(proseMirrorSchema1)
-        })
-
-        test('key=5 then key=6 with different data', () => {
-            const key = 5
-            const proseMirrorSchema1 = contentType.createProseMirrorSchema({
-                ...schema,
-                key,
-            })
-            const proseMirrorSchema2 = contentType.createProseMirrorSchema({
-                ...schema,
-                key: key + 1,
-                data: { ...schema.data, topNode: 'paragraph' },
-            })
-            expect(proseMirrorSchema2).not.toBe(proseMirrorSchema1)
         })
     })
 
@@ -319,20 +244,23 @@ describe('createProseMirrorSchema', () => {
             marks?: Record<string, NodeSpec>
             topNode?: string
         }): Schema {
+            const type = 'test-type'
+            const data = {
+                nodes: Object.keys(nodes).flatMap((name) => [
+                    name,
+                    nodes[name],
+                ]),
+                marks: Object.keys(marks).flatMap((name) => [
+                    name,
+                    marks[name],
+                ]),
+                topNode,
+            }
+            const key = createSchemaKey(type, data)
             return {
-                key: null,
-                type: '',
-                data: {
-                    nodes: Object.keys(nodes).flatMap((name) => [
-                        name,
-                        nodes[name],
-                    ]),
-                    marks: Object.keys(marks).flatMap((name) => [
-                        name,
-                        marks[name],
-                    ]),
-                    topNode,
-                },
+                key,
+                type,
+                data,
                 meta: null,
             }
         }

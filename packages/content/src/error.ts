@@ -43,10 +43,16 @@ export function isAlreadyExistsError(error: any): error is AlreadyExistsError {
 
 export interface NotFoundError extends Error {
     name: 'SyncOTError NotFound'
+    entityName: string
 }
-export function createNotFoundError(message?: string): NotFoundError {
+export function createNotFoundError(entityName: string): NotFoundError {
+    assert(
+        typeof entityName === 'string',
+        'Argument "entityName" must be a string.',
+    )
     return createError({
-        message,
+        entityName,
+        message: `"${entityName}" not found.`,
         name: 'SyncOTError NotFound',
     }) as NotFoundError
 }

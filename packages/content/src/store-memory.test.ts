@@ -1,4 +1,4 @@
-import { Snapshot } from '@syncot/content/src/content'
+import { createSchemaKey, Snapshot } from '@syncot/content/src/content'
 import {
     ContentStore,
     createContentStore,
@@ -13,12 +13,12 @@ const operations: Operation[] = Array.from(Array(10), (_value, version) => ({
     type: 'test-type',
     id: 'test-id',
     version,
-    schema: 0,
+    schema: 'test-schema',
     data: version,
     meta: null,
 }))
 const schema: Schema = {
-    key: 100,
+    key: createSchemaKey('test-type', 'test-data'),
     type: 'test-type',
     data: 'test-data',
     meta: null,
@@ -28,7 +28,7 @@ const snapshot: Snapshot = {
     type: 't-1',
     id: 'i-1',
     version: 1,
-    schema: 5,
+    schema: 'test-schema',
     data: 'd-1',
     meta: {
         session: 's-1',
@@ -44,82 +44,37 @@ beforeEach(() => {
 
 describe('registerSchema', () => {
     test('the same schema twice', async () => {
-        await expect(store.registerSchema(schema)).resolves.toBe(0)
-        await expect(store.registerSchema(schema)).resolves.toBe(0)
-        await expect(store.getSchema(0)).resolves.toStrictEqual({
-            ...schema,
-            key: 0,
-        })
-        await expect(store.getSchema(1)).resolves.toBe(null)
+        await store.registerSchema(schema)
+        await store.registerSchema(schema)
+        await expect(store.getSchema(schema.key)).resolves.toStrictEqual(schema)
     })
     test('different meta', async () => {
         const user = 'test-user'
         const time = Date.now()
         const session = 'test-session'
         const schemaWithMeta = { ...schema, meta: { session, time, user } }
-        await expect(store.registerSchema(schemaWithMeta)).resolves.toBe(0)
-        await expect(
-            store.registerSchema({
-                ...schemaWithMeta,
-                meta: { ...schemaWithMeta.meta, user: `${user}-different` },
-            }),
-        ).resolves.toBe(0)
-        await expect(store.getSchema(0)).resolves.toStrictEqual({
+        await store.registerSchema(schemaWithMeta)
+        await store.registerSchema({
             ...schemaWithMeta,
-            key: 0,
+            meta: { ...schemaWithMeta.meta, user: `${user}-different` },
         })
-        await expect(store.getSchema(1)).resolves.toBe(null)
+        await expect(store.getSchema(schema.key)).resolves.toStrictEqual(
+            schemaWithMeta,
+        )
     })
     test('different key', async () => {
-        await expect(store.registerSchema({ ...schema, key: 5 })).resolves.toBe(
-            0,
-        )
-        await expect(store.registerSchema({ ...schema, key: 7 })).resolves.toBe(
-            0,
-        )
-        await expect(store.getSchema(0)).resolves.toStrictEqual({
-            ...schema,
-            key: 0,
-        })
-        await expect(store.getSchema(1)).resolves.toBe(null)
-    })
-    test('different type', async () => {
-        await expect(
-            store.registerSchema({ ...schema, type: 'type-1' }),
-        ).resolves.toBe(0)
-        await expect(
-            store.registerSchema({ ...schema, type: 'type-2' }),
-        ).resolves.toBe(1)
-        await expect(store.getSchema(0)).resolves.toStrictEqual({
-            ...schema,
-            key: 0,
-            type: 'type-1',
-        })
-        await expect(store.getSchema(1)).resolves.toStrictEqual({
-            ...schema,
-            key: 1,
-            type: 'type-2',
-        })
-        await expect(store.getSchema(2)).resolves.toBe(null)
-    })
-    test('different data', async () => {
-        await expect(
-            store.registerSchema({ ...schema, data: 'data-1' }),
-        ).resolves.toBe(0)
-        await expect(
-            store.registerSchema({ ...schema, data: 'data-2' }),
-        ).resolves.toBe(1)
-        await expect(store.getSchema(0)).resolves.toStrictEqual({
-            ...schema,
-            key: 0,
-            data: 'data-1',
-        })
-        await expect(store.getSchema(1)).resolves.toStrictEqual({
-            ...schema,
-            key: 1,
-            data: 'data-2',
-        })
-        await expect(store.getSchema(2)).resolves.toBe(null)
+        const data = { a: 5 }
+        const type1 = 'type-1'
+        const type2 = 'type-2'
+        const key1 = createSchemaKey(type1, data)
+        const key2 = createSchemaKey(type2, data)
+        const schema1 = { ...schema, key: key1, type: type1 }
+        const schema2 = { ...schema, key: key2, type: type2 }
+        await store.registerSchema(schema1)
+        await store.registerSchema(schema2)
+        await expect(store.getSchema(key1)).resolves.toStrictEqual(schema1)
+        await expect(store.getSchema(key2)).resolves.toStrictEqual(schema2)
+        await expect(store.getSchema('missing-key')).resolves.toBe(null)
     })
 })
 

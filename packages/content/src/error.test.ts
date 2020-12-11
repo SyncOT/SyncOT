@@ -85,11 +85,20 @@ describe('AlreadyExistsError', () => {
 })
 
 describe('NotFoundError', () => {
+    test('createNotFoundError with invalid entityName', () => {
+        expect(() => createAlreadyExistsError(5 as any, {})).toThrow(
+            expect.objectContaining({
+                message: 'Argument "entityName" must be a string.',
+                name: 'SyncOTError Assert',
+            }),
+        )
+    })
     test('createNotFoundError', () => {
         const error = createNotFoundError('test')
         expect(error).toBeInstanceOf(Error)
         expect(error.name).toBe('SyncOTError NotFound')
-        expect(error.message).toBe('test')
+        expect(error.message).toBe('"test" not found.')
+        expect(error.entityName).toBe('test')
     })
     test('isNotFoundError', () => {
         const error = createNotFoundError('test')

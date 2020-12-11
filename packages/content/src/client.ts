@@ -93,11 +93,11 @@ class Client
         super.destroy()
     }
 
-    public registerSchema(schema: Schema): Promise<number> {
+    public registerSchema(schema: Schema): Promise<void> {
         return this.contentService.registerSchema(schema)
     }
 
-    public async getSchema(key: number): Promise<Schema | null> {
+    public async getSchema(key: string): Promise<Schema | null> {
         return this.contentService.getSchema(key)
     }
 

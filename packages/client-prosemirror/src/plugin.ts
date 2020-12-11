@@ -1,9 +1,11 @@
 import {
     ContentClient,
     createOperationKey,
+    createSchemaKey,
     isAlreadyExistsError,
     Operation,
     OperationKey,
+    Schema,
 } from '@syncot/content'
 import {
     assert,
@@ -13,7 +15,7 @@ import {
     workLoop,
 } from '@syncot/util'
 import OrderedMap from 'orderedmap'
-import { MarkSpec, NodeSpec } from 'prosemirror-model'
+import { MarkSpec, NodeSpec, Schema as EditorSchema } from 'prosemirror-model'
 import {
     EditorState,
     Plugin,
@@ -77,7 +79,6 @@ export function syncOT({
                     type,
                     id,
                     version: -1,
-                    schema: null,
                     pendingSteps: [],
                 }
             },
@@ -198,9 +199,6 @@ class PluginLoop {
         if (!this.contentClient.active) {
             return
         }
-        if (pluginState.schema == null) {
-            return this.initSchema(state, pluginState)
-        }
         if (pluginState.version < 0) {
             return this.initState(state, pluginState)
         }
@@ -208,50 +206,6 @@ class PluginLoop {
             return this.initStream(state, pluginState)
         }
         return this.submitOperation(state, pluginState)
-    }
-
-    private async initSchema(
-        state: EditorState,
-        pluginState: PluginState,
-    ): Promise<void> {
-        // Register the schema.
-        const { spec } = state.schema
-        const { topNode } = spec
-        const nodesMap = spec.nodes as OrderedMap<NodeSpec>
-        const nodes: any[] = []
-        nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
-            nodes.push(nodeName, nodeSpec),
-        )
-        const marksMap = spec.marks as OrderedMap<MarkSpec>
-        const marks: any[] = []
-        marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
-            marks.push(markName, markSpec),
-        )
-        const registeredSchema = await this.contentClient.registerSchema({
-            key: null,
-            type: pluginState.type,
-            data: { nodes, marks, topNode },
-            meta: null,
-        })
-
-        // Handle state changed in the meantime.
-        if (!this.view) return
-        const newState = this.view.state
-        const newPluginState = key.getState(newState)
-        if (
-            !newPluginState ||
-            newPluginState.type !== pluginState.type ||
-            newPluginState.schema !== pluginState.schema ||
-            newState.schema !== state.schema
-        )
-            return
-
-        // Record the registered schema key.
-        const nextPluginState: PluginState = {
-            ...newPluginState,
-            schema: registeredSchema,
-        }
-        this.view.dispatch(this.view.state.tr.setMeta(key, nextPluginState))
     }
 
     private async initState(
@@ -272,8 +226,7 @@ class PluginLoop {
             !newPluginState ||
             newPluginState.type !== pluginState.type ||
             newPluginState.id !== pluginState.id ||
-            newPluginState.version !== pluginState.version ||
-            newPluginState.schema !== pluginState.schema
+            newPluginState.version !== pluginState.version
         )
             return
 
@@ -356,7 +309,7 @@ class PluginLoop {
                 type: pluginState.type,
                 id: pluginState.id,
                 version: operationVersion,
-                schema: pluginState.schema!,
+                schema: getSchema(pluginState.type, state.schema).key,
                 data: operationSteps,
                 meta: null,
             })
@@ -534,10 +487,6 @@ export interface PluginState {
      */
     version: number
     /**
-     * The registered `Schema.key` of this state's schema, or null, if not registered.
-     */
-    schema: number | null
-    /**
      * A list of steps which have not been recorded and confirmed by the server.
      */
     pendingSteps: Rebaseable[]
@@ -557,4 +506,41 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
             ),
         )
     return rebaseableSteps
+}
+
+const cachedSchemas: Map<string, Map<EditorSchema, Schema>> = new Map()
+/**
+ * Gets a SyncOT Schema for the given type and EditorSchema.
+ */
+export function getSchema(type: string, editorSchema: EditorSchema): Schema {
+    let schemasByType = cachedSchemas.get(type)
+    if (!schemasByType) {
+        schemasByType = new Map()
+        cachedSchemas.set(type, schemasByType)
+    }
+
+    const cachedSchema = schemasByType.get(editorSchema)
+    if (cachedSchema) return cachedSchema
+
+    const { spec } = editorSchema
+    const { topNode } = spec
+    const nodesMap = spec.nodes as OrderedMap<NodeSpec>
+    const nodes: any[] = []
+    nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
+        nodes.push(nodeName, nodeSpec),
+    )
+    const marksMap = spec.marks as OrderedMap<MarkSpec>
+    const marks: any[] = []
+    marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
+        marks.push(markName, markSpec),
+    )
+    const data = { nodes, marks, topNode }
+    const schema = {
+        key: createSchemaKey(type, data),
+        type,
+        data,
+        meta: null,
+    }
+    schemasByType.set(editorSchema, schema)
+    return schema
 }

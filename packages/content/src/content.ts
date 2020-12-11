@@ -4,6 +4,7 @@ import {
     createId,
     createInvalidEntityError,
     EmitterInterface,
+    hash,
     separate,
     SyncOTEmitter,
     validate,
@@ -32,6 +33,13 @@ export type OperationKey = string
 export type SnapshotKey = OperationKey
 
 /**
+ * A globally unique value suitable as a schema's primary key.
+ *
+ * The schema key is a hash of `Schema.type` and `Schema.data`.
+ */
+export type SchemaKey = string
+
+/**
  * Creates a new OperationKey for the userId.
  */
 export function createOperationKey(userId: string): OperationKey {
@@ -43,6 +51,16 @@ export function createOperationKey(userId: string): OperationKey {
  */
 export function operationKeyUser(key: OperationKey): string {
     return separate(key)[0]
+}
+
+/**
+ * Creates a SchemaKey from the given `Schema.type` and `Schema.data`.
+ * @param type A `Schema.type`.
+ * @param data A `Schema.data`.
+ * @returns A `Schema.key`.
+ */
+export function createSchemaKey(type: string, data: any): SchemaKey {
+    return hash([type, data])
 }
 
 /**
@@ -88,7 +106,7 @@ export interface Operation {
     /**
      * The ID of the schema of the content at the version created by this operation.
      */
-    schema: number
+    schema: SchemaKey
     /**
      * The action to apply to the document's content at `operation.version - 1` version
      * in order to produce the document's content at `operation.version` version.
@@ -128,7 +146,7 @@ export const validateOperation: Validator<Operation> = validate([
             ? undefined
             : createInvalidEntityError('Operation', operation, 'version'),
     (operation) =>
-        Number.isInteger(operation.schema)
+        typeof operation.schema === 'string'
             ? undefined
             : createInvalidEntityError('Operation', operation, 'schema'),
     (operation) =>
@@ -184,7 +202,7 @@ export interface Snapshot {
     /**
      * The ID of the schema of the document's content at the snapshot's version.
      */
-    schema: number
+    schema: SchemaKey
     /**
      * The document's content at the snapshot's version.
      */
@@ -201,9 +219,9 @@ export interface Snapshot {
  */
 export interface Schema {
     /**
-     * A globally unique ID of this schema, or null, if a key has not been assigned yet.
+     * A globally unique ID of this schema, which must be a hash of the type and data fields.
      */
-    key: number | null
+    key: SchemaKey
     /**
      * The document type.
      */
@@ -228,10 +246,6 @@ export const validateSchema: Validator<Schema> = validate([
             ? undefined
             : createInvalidEntityError('Schema', schema, null),
     (schema) =>
-        Number.isSafeInteger(schema.key) || schema.key == null
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'key'),
-    (schema) =>
         typeof schema.type === 'string'
             ? undefined
             : createInvalidEntityError('Schema', schema, 'type'),
@@ -239,6 +253,10 @@ export const validateSchema: Validator<Schema> = validate([
         schema.hasOwnProperty('data')
             ? undefined
             : createInvalidEntityError('Schema', schema, 'data'),
+    (schema) =>
+        schema.key === createSchemaKey(schema.type, schema.data)
+            ? undefined
+            : createInvalidEntityError('Schema', schema, 'key'),
     (schema) =>
         typeof schema.meta === 'object'
             ? undefined
@@ -308,24 +326,17 @@ export interface SubmitOperationOptions {
  */
 export interface ContentBase {
     /**
-     * Registers the given schema.
-     *
-     * If a schema with the same `type` and `data` already exists,
-     * its `key` is returned and no new schema is registered.
-     * Otherwise a new schema is registered and its `key` is returned.
-     *
+     * Registers the given schema, if it does not exist yet, otherwise does nothing.
      * @param schema The schema to register.
-     * @returns The `key` of an existing schema with the same `type` and `data`, or
-     *  the `key` of a newly registered schema.
      */
-    registerSchema(schema: Schema): Promise<number>
+    registerSchema(schema: Schema): Promise<void>
 
     /**
      * Gets a Schema by key.
      * @param key The schema key.
      * @returns An existing Schema with the given `key`, or `null`, if not found.
      */
-    getSchema(key: number): Promise<Schema | null>
+    getSchema(key: SchemaKey): Promise<Schema | null>
 
     /**
      * Gets a snapshot of a document at a given version.

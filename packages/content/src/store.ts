@@ -5,24 +5,17 @@ import { Operation, Schema, Snapshot } from './content'
  */
 export interface ContentStore {
     /**
-     * Registers the given schema.
-     *
-     * If a schema with the same `type` and `data` already exists,
-     * its `key` is returned and no new schema is registered.
-     * Otherwise a new schema is registered and its `key` is returned.
-     *
+     * Registers the given schema, if it does not exist yet, otherwise does nothing.
      * @param schema The schema to register.
-     * @returns The `key` of an existing schema with the same `type` and `data`, or
-     *  the `key` of a newly registered schema.
      */
-    registerSchema(schema: Schema): Promise<number>
+    registerSchema(schema: Schema): Promise<void>
 
     /**
      * Gets a Schema by key.
      * @param key The schema key.
      * @returns An existing Schema with the given `key`, or `null`, if not found.
      */
-    getSchema(key: number): Promise<Schema | null>
+    getSchema(key: string): Promise<Schema | null>
 
     /**
      * Stores the specified operation.
