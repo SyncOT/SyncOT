@@ -1,4 +1,4 @@
-import { Schema } from './content'
+import { Operation, Schema, Snapshot } from './content'
 
 /**
  * An interface for all functionality which varies by content type.
@@ -10,4 +10,18 @@ export interface ContentType {
      * @returns An Error, if `schema` is invalid, otherwise `undefined`.
      */
     validateSchema(schema: Schema): Error | undefined
+
+    /**
+     * Registers a schema. Does nothing, if a schema with the same key has been already registered.
+     * @param schema A schema to register.
+     */
+    registerSchema(schema: Schema): void
+
+    /**
+     * Applies the operation to the snapshot to produce a new snapshot.
+     * @param snapshot The base snapshot.
+     * @param operation The operation to apply.
+     * @returns A snapshot resulting from applying `operation` to `snapshot`.
+     */
+    apply(snapshot: Snapshot | null, operation: Operation): Snapshot
 }

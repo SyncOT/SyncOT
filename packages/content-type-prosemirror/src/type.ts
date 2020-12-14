@@ -1,5 +1,12 @@
-import { ContentType, Schema, SchemaKey } from '@syncot/content'
 import {
+    ContentType,
+    Operation,
+    Snapshot,
+    Schema,
+    SchemaKey,
+} from '@syncot/content'
+import {
+    assert,
     createInvalidEntityError,
     throwError,
     validate,
@@ -9,10 +16,12 @@ import OrderedMap from 'orderedmap'
 import {
     ContentMatch,
     MarkSpec,
+    Node,
     NodeSpec,
     NodeType,
     Schema as ProseMirrorSchema,
 } from 'prosemirror-model'
+import { Step } from 'prosemirror-transform'
 
 /**
  * Creates a ContentType instance supporting ProseMirror.
@@ -22,7 +31,10 @@ export function createContentType(): ContentType {
 }
 
 export class ProseMirrorContentType implements ContentType {
-    private readonly schemaCache: Map<SchemaKey, ProseMirrorSchema> = new Map()
+    private readonly registeredSchemas: Map<
+        SchemaKey,
+        ProseMirrorSchema
+    > = new Map()
 
     public validateSchema: Validator<Schema> = validate([
         (schema) =>
@@ -108,7 +120,7 @@ export class ProseMirrorContentType implements ContentType {
         },
         (schema) => {
             try {
-                this.createProseMirrorSchema(schema)
+                createProseMirrorSchema(schema)
                 return undefined
             } catch (error) {
                 return createInvalidEntityError('Schema', schema, 'data', error)
@@ -116,66 +128,136 @@ export class ProseMirrorContentType implements ContentType {
         },
     ])
 
-    /**
-     * Creates a ProseMirror Schema from a SyncOT Schema.
-     */
-    public createProseMirrorSchema({ key, data }: Schema): ProseMirrorSchema {
-        // Return the cached schema, if any.
-        const cachedProseMirrorSchema = this.schemaCache.get(key)
-        if (cachedProseMirrorSchema) return cachedProseMirrorSchema
-
-        // Prepare a schema spec.
-        const { nodes: rawNodes, marks: rawMarks, topNode } = data
-
-        let nodes = OrderedMap.from<NodeSpec>()
-        for (let i = 0; i < rawNodes.length; i += 2) {
-            nodes = nodes.addToEnd(rawNodes[i], rawNodes[i + 1])
-        }
-
-        let marks = OrderedMap.from<MarkSpec>()
-        for (let i = 0; i < rawMarks.length; i += 2) {
-            marks = marks.addToEnd(rawMarks[i], rawMarks[i + 1])
-        }
-
-        // Create a schema.
-        const proseMirrorSchema = new ProseMirrorSchema({
-            nodes,
-            marks,
-            topNode,
-        })
-
-        // Validate the schema.
-        throwError(this.validateProseMirrorSchema(proseMirrorSchema))
-
-        // Cache the schema.
-        this.schemaCache.set(key, proseMirrorSchema)
-
-        return proseMirrorSchema
+    public registerSchema(schema: Schema): void {
+        if (this.registeredSchemas.has(schema.key)) return
+        this.registeredSchemas.set(schema.key, createProseMirrorSchema(schema))
     }
 
-    /**
-     * Validates a ProseMirror schema.
-     * @param schema The schema to validate.
-     * @returns An error, if validation fails, otherwise undefined.
-     */
-    private validateProseMirrorSchema(
-        schema: ProseMirrorSchema,
-    ): Error | undefined {
-        // Check if the required content would cause a stack overflow when filling nodes.
-        for (const type of Object.values(schema.nodes)) {
-            const cycle = findCycle(type, [])
-            if (cycle) {
-                const cycleString = cycle
-                    .map((cycleType) => cycleType.name)
-                    .join(' -> ')
-                return new SyntaxError(
-                    `A cycle of nodes in required positions (see https://prosemirror.net/docs/guide/#schema.content_expressions) (${cycleString})`,
-                )
+    public apply(snapshot: Snapshot | null, operation: Operation): Snapshot {
+        const schema = this.registeredSchemas.get(operation.schema)!
+        assert(schema, 'operation.schema is not registered.')
+
+        if (snapshot == null) {
+            assert(
+                operation.version === 1,
+                'operation.version must equal to 1.',
+            )
+            assert(
+                operation.data != null,
+                'operation.data must contain the initial content.',
+            )
+            return {
+                key: operation.key,
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.schema,
+                data: operation.data,
+                meta: operation.meta,
             }
         }
 
-        return undefined
+        assert(
+            operation.type === snapshot.type,
+            'operation.type must equal to snapshot.type.',
+        )
+        assert(
+            operation.id === snapshot.id,
+            'operation.id must equal to snapshot.id.',
+        )
+        assert(
+            operation.version === snapshot.version + 1,
+            'operation.version must equal to snapshot.version + 1.',
+        )
+
+        if (operation.schema !== snapshot.schema) {
+            assert(operation.data == null, 'operation.data must be null.')
+            return {
+                key: operation.key,
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.schema,
+                data: snapshot.data,
+                meta: operation.meta,
+            }
+        }
+
+        assert(operation.data != null, 'operation.data must not be null.')
+        let doc = Node.fromJSON(schema, snapshot.data)
+        for (const stepJson of operation.data) {
+            const step = Step.fromJSON(schema, stepJson)
+            const result = step.apply(doc)
+            if (result.doc) {
+                doc = result.doc
+            } else {
+                /* istanbul ignore next */
+                const message = result.failed || 'Failed to apply a step.'
+                throw new Error(message)
+            }
+        }
+        return {
+            key: operation.key,
+            type: operation.type,
+            id: operation.id,
+            version: operation.version,
+            schema: operation.schema,
+            data: doc.toJSON(),
+            meta: operation.meta,
+        }
     }
+}
+
+/**
+ * Creates a ProseMirror schema from a SyncOT schema.
+ */
+export function createProseMirrorSchema(schema: Schema): ProseMirrorSchema {
+    // Prepare a schema spec.
+    const { nodes: rawNodes, marks: rawMarks, topNode } = schema.data
+
+    let nodes = OrderedMap.from<NodeSpec>()
+    for (let i = 0; i < rawNodes.length; i += 2) {
+        nodes = nodes.addToEnd(rawNodes[i], rawNodes[i + 1])
+    }
+
+    let marks = OrderedMap.from<MarkSpec>()
+    for (let i = 0; i < rawMarks.length; i += 2) {
+        marks = marks.addToEnd(rawMarks[i], rawMarks[i + 1])
+    }
+
+    // Create a schema.
+    const proseMirrorSchema = new ProseMirrorSchema({
+        nodes,
+        marks,
+        topNode,
+    })
+
+    // Validate the schema.
+    throwError(validateProseMirrorSchema(proseMirrorSchema))
+
+    return proseMirrorSchema
+}
+
+/**
+ * Validates a ProseMirror schema.
+ */
+function validateProseMirrorSchema(
+    schema: ProseMirrorSchema,
+): Error | undefined {
+    // Check if the required content would cause a stack overflow when filling nodes.
+    for (const type of Object.values(schema.nodes)) {
+        const cycle = findCycle(type, [])
+        if (cycle) {
+            const cycleString = cycle
+                .map((cycleType) => cycleType.name)
+                .join(' -> ')
+            return new SyntaxError(
+                `A cycle of nodes in required positions (see https://prosemirror.net/docs/guide/#schema.content_expressions) (${cycleString})`,
+            )
+        }
+    }
+
+    return undefined
 }
 
 /**
