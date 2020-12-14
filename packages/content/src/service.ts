@@ -15,11 +15,12 @@ import {
     operationKeyUser,
     requestNames,
     Schema,
+    SchemaKey,
     Snapshot,
     validateOperation,
     validateSchema,
 } from './content'
-import { isAlreadyExistsError } from './error'
+import { createNotFoundError, isAlreadyExistsError } from './error'
 import { PubSub } from './pubSub'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
@@ -147,8 +148,7 @@ class ProseMirrorContentService
     public async registerSchema(schema: Schema): Promise<void> {
         this.assertOk()
         throwError(validateSchema(schema))
-        this.assertContentType(schema.type)
-        const contentType = this.contentTypes[schema.type]
+        const contentType = this.getContentType(schema.type)
         throwError(contentType.validateSchema(schema))
         return this.contentStore.registerSchema({
             key: schema.key,
@@ -166,7 +166,7 @@ class ProseMirrorContentService
     public async getSchema(key: string): Promise<Schema | null> {
         this.assertOk()
         assert(typeof key === 'string', 'Argument "key" must be a string.')
-        return this.contentStore.getSchema(key)
+        return this.getSchemaInternal(key)
     }
 
     public async getSnapshot(
@@ -177,30 +177,51 @@ class ProseMirrorContentService
         this.assertOk()
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
-        if (!this.authService.mayReadContent(type, id)) {
-            throw createAuthError('Not authorized to read this snapshot.')
-        }
         assert(
             version == null ||
                 (Number.isInteger(version) &&
                     version >= 1 &&
-                    version <= Number.MAX_SAFE_INTEGER),
+                    version < Number.MAX_SAFE_INTEGER),
             'Argument "version" must be a non-negative integer or null.',
         )
-        // TODO implement it properly
-        return null
+        if (!this.authService.mayReadContent(type, id))
+            throw createAuthError('Not authorized to read this snapshot.')
+        return this.getSnapshotInternal(
+            type,
+            id,
+            version || Number.MAX_SAFE_INTEGER - 1,
+        )
     }
 
     public async submitOperation(operation: Operation): Promise<void> {
         this.assertOk()
         throwError(validateOperation(operation))
+
+        const { type, id } = operation
+        if (!this.authService.mayWriteContent(type, id)) {
+            throw createAuthError('Not authorized to submit this operation.')
+        }
+
         assert(
             operationKeyUser(operation.key) === this.authService.userId,
             'Operation.key does not contain the expected userId.',
         )
-        const { type, id } = operation
-        if (!this.authService.mayWriteContent(type, id)) {
-            throw createAuthError('Not authorized to submit this operation.')
+
+        const contentType = this.getContentType(operation.type)
+        const schema = await this.getSchemaInternal(operation.schema)
+        if (!schema) throw createNotFoundError('Schema')
+        contentType.registerSchema(schema)
+        let snapshot: Snapshot | null = null
+        if (operation.version > 1) {
+            snapshot = await this.getSnapshotInternal(
+                operation.type,
+                operation.id,
+                operation.version - 1,
+            )
+            assert(
+                snapshot && snapshot.version === operation.version - 1,
+                'operation.version out of sequence.',
+            )
         }
         const storedOperation: Operation = {
             key: operation.key,
@@ -216,9 +237,12 @@ class ProseMirrorContentService
                 user: this.authService.userId,
             },
         }
+        snapshot = contentType.apply(snapshot, storedOperation)
+
         try {
             await this.contentStore.storeOperation(storedOperation)
             this.pubSub.publish(combine('operation', type, id), storedOperation)
+            // TODO cache snapshot
         } catch (error) {
             if (isAlreadyExistsError(error)) {
                 this.updateStreams(type, id)
@@ -322,9 +346,38 @@ class ProseMirrorContentService
         }
     }
 
-    private assertContentType(type: string): void {
+    private getContentType(type: string): ContentType {
         if (!hasOwnProperty.call(this.contentTypes, type))
             throw new TypeError(`Unsupported document type: ${type}.`)
+        return this.contentTypes[type]
+    }
+
+    private async getSchemaInternal(key: SchemaKey): Promise<Schema | null> {
+        return this.contentStore.getSchema(key)
+    }
+
+    private async getSnapshotInternal(
+        type: string,
+        id: string,
+        version: number,
+    ): Promise<Snapshot | null> {
+        const contentType = this.getContentType(type)
+        let snapshot = await this.contentStore.loadSnapshot(type, id, version)
+        const snapshotVersion = snapshot ? snapshot.version : 0
+
+        if (snapshotVersion < version) {
+            const operations = await this.contentStore.loadOperations(
+                type,
+                id,
+                snapshotVersion + 1,
+                version + 1,
+            )
+            for (const operation of operations) {
+                snapshot = contentType.apply(snapshot, operation)
+            }
+        }
+
+        return snapshot
     }
 
     private updateStreams(type: string, id: string): void {

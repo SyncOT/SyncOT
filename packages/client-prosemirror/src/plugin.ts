@@ -15,7 +15,12 @@ import {
     workLoop,
 } from '@syncot/util'
 import OrderedMap from 'orderedmap'
-import { MarkSpec, NodeSpec, Schema as EditorSchema } from 'prosemirror-model'
+import {
+    MarkSpec,
+    Node,
+    NodeSpec,
+    Schema as EditorSchema,
+} from 'prosemirror-model'
 import {
     EditorState,
     Plugin,
@@ -209,14 +214,32 @@ class PluginLoop {
     }
 
     private async initState(
-        _state: EditorState,
+        state: EditorState<EditorSchema>,
         pluginState: PluginState,
     ): Promise<void> {
+        const userId = this.contentClient.userId!
+        const { type, id } = pluginState
+        const schema = getSchema(type, state.schema)
+
         // Load the latest document snapshot.
-        const snapshot = await this.contentClient.getSnapshot(
-            pluginState.type,
-            pluginState.id,
-        )
+        let snapshot = await this.contentClient.getSnapshot(type, id)
+
+        // Create a new document, if it does not exist yet.
+        if (!snapshot) {
+            await this.contentClient.registerSchema(schema)
+            const operationKey = createOperationKey(userId)
+            const operation: Operation = {
+                key: operationKey,
+                type,
+                id,
+                version: 1,
+                schema: schema.key,
+                data: state.doc.toJSON(),
+                meta: null,
+            }
+            await this.contentClient.submitOperation(operation)
+            snapshot = operation
+        }
 
         // Handle state changed in the meantime.
         if (!this.view) return
@@ -226,20 +249,30 @@ class PluginLoop {
             !newPluginState ||
             newPluginState.type !== pluginState.type ||
             newPluginState.id !== pluginState.id ||
-            newPluginState.version !== pluginState.version
+            newPluginState.version !== pluginState.version ||
+            newState.schema !== state.schema
         )
             return
 
-        // TODO init state.doc from the snapshot
+        if (snapshot.schema !== schema.key) {
+            // TODO Migrate the document to the new schema, if possible.
+            throw new Error('Schema mismatch')
+        }
 
         // Update the state.
-        const newVersion = snapshot ? snapshot.version : 0
         const nextPluginState: PluginState = {
             ...pluginState,
-            version: newVersion,
+            version: snapshot.version,
             pendingSteps: [],
         }
-        this.view.dispatch(this.view.state.tr.setMeta(key, nextPluginState))
+        const nextState = EditorState.create({
+            schema: state.schema,
+            doc: Node.fromJSON(state.schema, snapshot.data),
+            plugins: newState.plugins,
+        })
+        this.view.updateState(
+            nextState.apply(nextState.tr.setMeta(key, nextPluginState)),
+        )
     }
 
     private async initStream(
