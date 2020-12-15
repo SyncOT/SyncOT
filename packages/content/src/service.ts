@@ -333,7 +333,9 @@ class ProseMirrorContentService
     }
 
     private onOperation = (operation: Operation): void => {
-        queueMicrotask(() => this.updateStreams(operation.type, operation.id))
+        queueMicrotask(() =>
+            this.updateStreams(operation.type, operation.id, operation),
+        )
     }
 
     private assertOk(): void {
@@ -377,16 +379,30 @@ class ProseMirrorContentService
         return snapshot
     }
 
-    private updateStreams(type: string, id: string): void {
+    private updateStreams(
+        type: string,
+        id: string,
+        operation?: Operation,
+    ): void {
         const streams = this.streams.get(combine(type, id))
         if (streams) {
             for (const stream of streams) {
-                this.updateStream(stream)
+                this.updateStream(stream, operation)
             }
         }
     }
 
-    private async updateStream(stream: OperationStream): Promise<void> {
+    private async updateStream(
+        stream: OperationStream,
+        newOperation?: Operation,
+    ): Promise<void> {
+        if (!isOpenWritableStream(stream)) return
+
+        if (newOperation && stream.versionNext === newOperation.version) {
+            stream.pushOperation(newOperation)
+            return
+        }
+
         try {
             const operations = await this.contentStore.loadOperations(
                 stream.type,
