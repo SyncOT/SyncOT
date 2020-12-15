@@ -218,34 +218,12 @@ describe('validateSchema', () => {
 })
 
 describe('registerSchema', () => {
-    const operation: Operation = {
-        key: 'key-1',
-        type: 'type-0',
-        id: 'id-1',
-        version: 1,
-        schema: schema.key,
-        data: proseMirrorSchema.topNodeType.createAndFill()!.toJSON(),
-        meta: null,
-    }
-
-    test('apply when not registered', () => {
-        expect(() => contentType.apply(null, operation)).toThrow(
-            expect.objectContaining({
-                name: 'SyncOTError Assert',
-                message: 'operation.schema is not registered.',
-            }),
-        )
-    })
-
-    test('apply when registered', () => {
+    test('register it', () => {
+        expect(contentType.hasSchema(schema.key)).toBe(false)
         contentType.registerSchema(schema)
-        contentType.apply(null, operation)
-    })
-
-    test('apply when registered twice', () => {
+        expect(contentType.hasSchema(schema.key)).toBe(true)
         contentType.registerSchema(schema)
-        contentType.registerSchema(schema)
-        contentType.apply(null, operation)
+        expect(contentType.hasSchema(schema.key)).toBe(true)
     })
 })
 

@@ -207,9 +207,11 @@ class ProseMirrorContentService
         )
 
         const contentType = this.getContentType(operation.type)
-        const schema = await this.contentStore.loadSchema(operation.schema)
-        if (!schema) throw createNotFoundError('Schema')
-        contentType.registerSchema(schema)
+        if (!contentType.hasSchema(operation.schema)) {
+            const schema = await this.contentStore.loadSchema(operation.schema)
+            if (!schema) throw createNotFoundError('Schema')
+            contentType.registerSchema(schema)
+        }
         let snapshot: Snapshot | null = null
         if (operation.version > 1) {
             snapshot = await this.loadSnapshot(

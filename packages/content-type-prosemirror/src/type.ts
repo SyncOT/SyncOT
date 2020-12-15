@@ -133,6 +133,10 @@ export class ProseMirrorContentType implements ContentType {
         this.registeredSchemas.set(schema.key, createProseMirrorSchema(schema))
     }
 
+    public hasSchema(key: SchemaKey): boolean {
+        return this.registeredSchemas.has(key)
+    }
+
     public apply(snapshot: Snapshot | null, operation: Operation): Snapshot {
         const schema = this.registeredSchemas.get(operation.schema)!
         assert(schema, 'operation.schema is not registered.')

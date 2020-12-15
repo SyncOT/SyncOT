@@ -1,4 +1,4 @@
-import { Operation, Schema, Snapshot } from './content'
+import { Operation, Schema, SchemaKey, Snapshot } from './content'
 
 /**
  * An interface for all functionality which varies by content type.
@@ -16,6 +16,13 @@ export interface ContentType {
      * @param schema A schema to register.
      */
     registerSchema(schema: Schema): void
+
+    /**
+     * Indicates, if a schema with the given key is already registered.
+     * @param key The schema key to check.
+     * @returns True, if a schema with the given key is already registered, otherwise false.
+     */
+    hasSchema(key: SchemaKey): boolean
 
     /**
      * Applies the operation to the snapshot to produce a new snapshot.
