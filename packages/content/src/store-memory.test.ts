@@ -42,23 +42,25 @@ beforeEach(() => {
     store = createContentStore()
 })
 
-describe('registerSchema', () => {
+describe('storeSchema', () => {
     test('the same schema twice', async () => {
-        await store.registerSchema(schema)
-        await store.registerSchema(schema)
-        await expect(store.getSchema(schema.key)).resolves.toStrictEqual(schema)
+        await store.storeSchema(schema)
+        await store.storeSchema(schema)
+        await expect(store.loadSchema(schema.key)).resolves.toStrictEqual(
+            schema,
+        )
     })
     test('different meta', async () => {
         const user = 'test-user'
         const time = Date.now()
         const session = 'test-session'
         const schemaWithMeta = { ...schema, meta: { session, time, user } }
-        await store.registerSchema(schemaWithMeta)
-        await store.registerSchema({
+        await store.storeSchema(schemaWithMeta)
+        await store.storeSchema({
             ...schemaWithMeta,
             meta: { ...schemaWithMeta.meta, user: `${user}-different` },
         })
-        await expect(store.getSchema(schema.key)).resolves.toStrictEqual(
+        await expect(store.loadSchema(schema.key)).resolves.toStrictEqual(
             schemaWithMeta,
         )
     })
@@ -70,11 +72,11 @@ describe('registerSchema', () => {
         const key2 = createSchemaKey(type2, data)
         const schema1 = { ...schema, key: key1, type: type1 }
         const schema2 = { ...schema, key: key2, type: type2 }
-        await store.registerSchema(schema1)
-        await store.registerSchema(schema2)
-        await expect(store.getSchema(key1)).resolves.toStrictEqual(schema1)
-        await expect(store.getSchema(key2)).resolves.toStrictEqual(schema2)
-        await expect(store.getSchema('missing-key')).resolves.toBe(null)
+        await store.storeSchema(schema1)
+        await store.storeSchema(schema2)
+        await expect(store.loadSchema(key1)).resolves.toStrictEqual(schema1)
+        await expect(store.loadSchema(key2)).resolves.toStrictEqual(schema2)
+        await expect(store.loadSchema('missing-key')).resolves.toBe(null)
     })
 })
 

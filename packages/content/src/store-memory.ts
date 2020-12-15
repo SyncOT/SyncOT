@@ -23,12 +23,12 @@ class MemoryContentStore implements ContentStore {
     private snapshots: Map<string, Snapshot[]> = new Map()
     private snapshotsByKey: Map<SnapshotKey, Snapshot> = new Map()
 
-    public async registerSchema(schema: Schema): Promise<void> {
+    public async storeSchema(schema: Schema): Promise<void> {
         if (this.schemas.has(schema.key)) return
         this.schemas.set(schema.key, schema)
     }
 
-    public async getSchema(key: string): Promise<Schema | null> {
+    public async loadSchema(key: string): Promise<Schema | null> {
         return this.schemas.get(key) || null
     }
 

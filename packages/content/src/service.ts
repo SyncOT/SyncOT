@@ -15,7 +15,6 @@ import {
     operationKeyUser,
     requestNames,
     Schema,
-    SchemaKey,
     Snapshot,
     validateOperation,
     validateSchema,
@@ -150,7 +149,7 @@ class ProseMirrorContentService
         throwError(validateSchema(schema))
         const contentType = this.getContentType(schema.type)
         throwError(contentType.validateSchema(schema))
-        return this.contentStore.registerSchema({
+        return this.contentStore.storeSchema({
             key: schema.key,
             type: schema.type,
             data: schema.data,
@@ -166,7 +165,7 @@ class ProseMirrorContentService
     public async getSchema(key: string): Promise<Schema | null> {
         this.assertOk()
         assert(typeof key === 'string', 'Argument "key" must be a string.')
-        return this.getSchemaInternal(key)
+        return this.contentStore.loadSchema(key)
     }
 
     public async getSnapshot(
@@ -186,7 +185,7 @@ class ProseMirrorContentService
         )
         if (!this.authService.mayReadContent(type, id))
             throw createAuthError('Not authorized to read this snapshot.')
-        return this.getSnapshotInternal(
+        return this.loadSnapshot(
             type,
             id,
             version || Number.MAX_SAFE_INTEGER - 1,
@@ -208,12 +207,12 @@ class ProseMirrorContentService
         )
 
         const contentType = this.getContentType(operation.type)
-        const schema = await this.getSchemaInternal(operation.schema)
+        const schema = await this.contentStore.loadSchema(operation.schema)
         if (!schema) throw createNotFoundError('Schema')
         contentType.registerSchema(schema)
         let snapshot: Snapshot | null = null
         if (operation.version > 1) {
-            snapshot = await this.getSnapshotInternal(
+            snapshot = await this.loadSnapshot(
                 operation.type,
                 operation.id,
                 operation.version - 1,
@@ -352,11 +351,7 @@ class ProseMirrorContentService
         return this.contentTypes[type]
     }
 
-    private async getSchemaInternal(key: SchemaKey): Promise<Schema | null> {
-        return this.contentStore.getSchema(key)
-    }
-
-    private async getSnapshotInternal(
+    private async loadSnapshot(
         type: string,
         id: string,
         version: number,

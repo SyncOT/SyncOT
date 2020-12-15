@@ -1,21 +1,21 @@
 import { Operation, Schema, Snapshot } from './content'
 
 /**
- * The interface for storing document content.
+ * The interface for storing document content and schemas.
  */
 export interface ContentStore {
     /**
-     * Registers the given schema, if it does not exist yet, otherwise does nothing.
-     * @param schema The schema to register.
+     * Stores the given schema, if it does not exist yet, otherwise does nothing.
+     * @param schema The schema to store.
      */
-    registerSchema(schema: Schema): Promise<void>
+    storeSchema(schema: Schema): Promise<void>
 
     /**
-     * Gets a Schema by key.
+     * Loads a Schema by key.
      * @param key The schema key.
      * @returns An existing Schema with the given `key`, or `null`, if not found.
      */
-    getSchema(key: string): Promise<Schema | null>
+    loadSchema(key: string): Promise<Schema | null>
 
     /**
      * Stores the specified operation.
