@@ -124,9 +124,4 @@ class MemoryContentStore implements ContentStore {
         }
         return null
     }
-
-    public async getVersion(type: string, id: string): Promise<number> {
-        const operations = this.operations.get(combine(type, id))
-        return operations ? operations.length - 1 : 0
-    }
 }

@@ -152,10 +152,6 @@ describe('storeOperation', () => {
                     await store.storeOperation(operation)
                 }
 
-                await expect(store.getVersion(type, id)).resolves.toBe(
-                    modifiedOperations[modifiedOperations.length - 1].version,
-                )
-
                 await expect(
                     store.loadOperations(type, id, 1, Number.MAX_SAFE_INTEGER),
                 ).resolves.toStrictEqual(modifiedOperations)
@@ -301,24 +297,5 @@ describe('loadSnapshot', () => {
                 snapshot.version,
             ),
         ).resolves.toBe(null)
-    })
-})
-
-describe('getVersion', () => {
-    test('existing document', async () => {
-        for (const operation of operations.slice(1)) {
-            await store.storeOperation(operation)
-        }
-        await expect(
-            store.getVersion(operations[0].type, operations[0].id),
-        ).resolves.toBe(operations[operations.length - 1].version)
-    })
-    test('non-existent document', async () => {
-        for (const operation of operations.slice(1)) {
-            await store.storeOperation(operation)
-        }
-        await expect(
-            store.getVersion(operations[0].type, 'different-id'),
-        ).resolves.toBe(0)
     })
 })

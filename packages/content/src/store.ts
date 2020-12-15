@@ -57,12 +57,4 @@ export interface ContentStore {
         id: string,
         version: number,
     ): Promise<Snapshot | null>
-
-    /**
-     * Gets the version number of the specified document.
-     * @param type Document type.
-     * @param id Document ID.
-     * @returns The version number.
-     */
-    getVersion(type: string, id: string): Promise<number>
 }
