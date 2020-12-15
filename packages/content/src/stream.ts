@@ -1,5 +1,5 @@
 import { Duplex } from 'readable-stream'
-import { Operation } from './content'
+import { Operation } from './operation'
 
 /**
  * An Operation object stream which emits data events whenever new Operation objects are added.

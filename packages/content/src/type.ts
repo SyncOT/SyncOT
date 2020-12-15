@@ -1,4 +1,6 @@
-import { Operation, Schema, SchemaKey, Snapshot } from './content'
+import { Operation } from './operation'
+import { Schema, SchemaKey } from './schema'
+import { Snapshot } from './snapshot'
 
 /**
  * An interface for all functionality which varies by content type.

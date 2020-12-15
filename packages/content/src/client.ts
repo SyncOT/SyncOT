@@ -1,17 +1,53 @@
 import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { assert, SyncOTEmitter } from '@syncot/util'
+import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import {
-    ContentClient,
-    ContentClientEvents,
-    ContentService,
-    Operation,
-    requestNames,
-    Schema,
-    Snapshot,
-    SubmitOperationOptions,
-} from './content'
+import { Content, SubmitOperationOptions } from './content'
+import { Operation } from './operation'
+import { requestNames } from './requestNames'
+import { Schema } from './schema'
+import { ContentService } from './service'
+import { Snapshot } from './snapshot'
+
+/**
+ * Events emitted by `ContentClient`.
+ */
+export interface ContentClientEvents {
+    /**
+     * When an error occurs.
+     */
+    error: Error
+    /**
+     * When the ContentClient becomes able to communicate with the ContentService.
+     */
+    active: void
+    /**
+     * When the ContentClient stops being able to communicate with the ContentService.
+     */
+    inactive: void
+}
+
+/**
+ * The client interface for managing content.
+ */
+export interface ContentClient
+    extends Content,
+        EmitterInterface<SyncOTEmitter<ContentClientEvents>> {
+    /**
+     * Indicates if the ContentClient is able to communicate with the ContentService.
+     */
+    readonly active: boolean
+    /**
+     * The read-only `sessionId` from the AuthClient, exposed here for convenience.
+     * It is `undefined` if, and only if, `active` is `false`.
+     */
+    readonly sessionId: string | undefined
+    /**
+     * The read-only `userId` from the AuthClient, exposed here for convenience.
+     * It is `undefined` if, and only if, `active` is `false`.
+     */
+    readonly userId: string | undefined
+}
 
 /**
  * Options expected by `createContentClient`.

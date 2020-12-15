@@ -1,6 +1,7 @@
 import { createAuthService } from '@syncot/auth-service-anonymous'
 import { createConnection } from '@syncot/connection'
 import {
+    createContent,
     createContentService,
     createContentStore,
     createPubSub,
@@ -16,6 +17,13 @@ const server = new WebSocket.Server({ path, port })
 const contentStore = createContentStore()
 const pubSub = createPubSub()
 const proseMirrorContentType = createProseMirrorContentType()
+const content = createContent({
+    contentStore,
+    pubSub,
+    contentTypes: {
+        demo: proseMirrorContentType,
+    },
+})
 
 server.on('connection', (socket) => {
     const stream = new SocketStream(socket)
@@ -28,14 +36,10 @@ server.on('connection', (socket) => {
 
     const authService = createAuthService({ connection })
     const ping = createPingService({ connection })
-    const content = createContentService({
+    const contentService = createContentService({
         connection,
         authService,
-        contentStore,
-        pubSub,
-        contentTypes: {
-            demo: proseMirrorContentType,
-        },
+        content,
     })
 })
 

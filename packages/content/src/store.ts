@@ -1,4 +1,6 @@
-import { Operation, Schema, Snapshot } from './content'
+import { Operation } from './operation'
+import { Schema } from './schema'
+import { Snapshot } from './snapshot'
 
 /**
  * The interface for storing document content and schemas.

@@ -1,10 +1,11 @@
-import { createSchemaKey, Snapshot } from '@syncot/content/src/content'
 import {
     ContentStore,
     createContentStore,
     createOperationKey,
+    createSchemaKey,
     Operation,
     Schema,
+    Snapshot,
 } from '.'
 
 const userId = 'test-user'

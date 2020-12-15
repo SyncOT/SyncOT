@@ -1,12 +1,8 @@
 import { assert, combine } from '@syncot/util'
-import {
-    Operation,
-    OperationKey,
-    Schema,
-    Snapshot,
-    SnapshotKey,
-} from './content'
 import { createAlreadyExistsError } from './error'
+import { Operation, OperationKey } from './operation'
+import { Schema } from './schema'
+import { Snapshot, SnapshotKey } from './snapshot'
 import { ContentStore } from './store'
 
 /**

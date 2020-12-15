@@ -1,6 +1,6 @@
-import { createOperationKey, Operation } from '@syncot/content/src/content'
 import { delay, whenClose } from '@syncot/util'
 import { OperationStream } from './stream'
+import { createOperationKey, Operation } from '.'
 
 const userId = 'test-user'
 const type = 'test-type'
