@@ -3,6 +3,8 @@ import {
     createContentStore,
     createOperationKey,
     createSchemaKey,
+    minVersion,
+    maxVersion,
     Operation,
     Schema,
     Snapshot,
@@ -154,7 +156,7 @@ describe('storeOperation', () => {
                 }
 
                 await expect(
-                    store.loadOperations(type, id, 1, Number.MAX_SAFE_INTEGER),
+                    store.loadOperations(type, id, minVersion, maxVersion + 1),
                 ).resolves.toStrictEqual(modifiedOperations)
             }
         }
@@ -178,8 +180,8 @@ describe('loadOperations', () => {
             store.loadOperations(
                 operations[0].type,
                 operations[0].id,
-                1,
-                Number.MAX_SAFE_INTEGER,
+                minVersion,
+                maxVersion + 1,
             ),
         ).resolves.toStrictEqual(operations.slice(1))
     })
@@ -191,8 +193,8 @@ describe('loadOperations', () => {
             store.loadOperations(
                 operations[0].type,
                 'different-id',
-                1,
-                Number.MAX_SAFE_INTEGER,
+                minVersion,
+                maxVersion + 1,
             ),
         ).resolves.toStrictEqual([])
     })
@@ -282,11 +284,7 @@ describe('loadSnapshot', () => {
             store.loadSnapshot(snapshot.type, snapshot.id, 19),
         ).resolves.toBe(snapshot2)
         await expect(
-            store.loadSnapshot(
-                snapshot.type,
-                snapshot.id,
-                Number.MAX_SAFE_INTEGER,
-            ),
+            store.loadSnapshot(snapshot.type, snapshot.id, maxVersion),
         ).resolves.toBe(snapshot3)
     })
     test('not found', async () => {

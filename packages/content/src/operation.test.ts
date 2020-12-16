@@ -1,5 +1,7 @@
 import {
     createOperationKey,
+    maxVersion,
+    minVersion,
     Operation,
     operationKeyUser,
     validateOperation,
@@ -39,7 +41,8 @@ describe('validateOperation', () => {
     test.each<[any, string | null | undefined]>([
         [operation, undefined],
         [{ ...operation, version: 2 }, undefined],
-        [{ ...operation, version: Number.MAX_SAFE_INTEGER - 1 }, undefined],
+        [{ ...operation, version: minVersion }, undefined],
+        [{ ...operation, version: maxVersion }, undefined],
         [{ ...operation, schema: 'schema-key' }, undefined],
         [{ ...operation, data: 5 }, undefined],
         [{ ...operation, data: {} }, undefined],
@@ -80,7 +83,8 @@ describe('validateOperation', () => {
         [{ ...operation, version: -1 }, 'version'],
         [{ ...operation, version: 0 }, 'version'],
         [{ ...operation, version: 5.5 }, 'version'],
-        [{ ...operation, version: Number.MAX_SAFE_INTEGER }, 'version'],
+        [{ ...operation, version: minVersion - 1 }, 'version'],
+        [{ ...operation, version: maxVersion + 1 }, 'version'],
         [{ ...operation, version: Infinity }, 'version'],
         [{ ...operation, version: NaN }, 'version'],
         [{ ...operation, schema: null }, 'schema'],

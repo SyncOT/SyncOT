@@ -25,7 +25,7 @@ export interface Snapshot {
     id: string
     /**
      * The document version which the snapshot represents.
-     * It must be an integer between 1 (inclusive) and Number.MAX_SAFE_INTEGER (exclusive).
+     * It must be an integer between minVersion and maxVersion inclusive.
      */
     version: number
     /**

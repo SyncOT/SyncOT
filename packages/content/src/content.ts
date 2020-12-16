@@ -8,6 +8,7 @@ import { Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
+import { maxVersion, minVersion } from './version'
 
 /**
  * The options for the Content#submitOperation function.
@@ -77,8 +78,8 @@ export interface Content {
      * Streams the specified operations.
      * @param type The document type.
      * @param id The document ID.
-     * @param versionStart The version number of first operation to include. Defaults to 1.
-     * @param versionEnd The version number of the first operation to exclude. Defaults to Number.MAX_SAFE_INTEGER.
+     * @param versionStart The version number of the first operation to include. Defaults to minVersion.
+     * @param versionEnd The version number of the first operation to exclude. Defaults to maxVersion + 1.
      * @returns A stream of Operation objects.
      */
     streamOperations(
@@ -105,6 +106,16 @@ export interface CreateContentOptions {
      * The content types to support.
      */
     contentTypes: { [key: string]: ContentType }
+    /**
+     * The min number of milliseconds for which to cache operations.
+     * Defaults to 10000.
+     */
+    cacheTTL?: number
+    /**
+     * The max number of operations to cache.
+     * Defaults to 50.
+     */
+    cacheLimit?: number
 }
 
 /**
@@ -114,32 +125,70 @@ export function createContent({
     contentStore,
     pubSub,
     contentTypes,
+    cacheTTL = 10000,
+    cacheLimit = 50,
 }: CreateContentOptions): Content {
-    return new DefaultContent(contentStore, pubSub, contentTypes)
+    return new DefaultContent(
+        contentStore,
+        pubSub,
+        contentTypes,
+        cacheTTL,
+        cacheLimit,
+    )
 }
 
 const { hasOwnProperty } = Object.prototype
 
+/**
+ * Represents per document state, indexed by `combine(type, id)`.
+ */
+interface State {
+    /**
+     * The first cached snapshot.
+     */
+    readonly firstSnapshot: Snapshot | null
+    /**
+     * The last cached snapshot.
+     */
+    readonly lastSnapshot: Snapshot | null
+    /**
+     * Operations which produce `lastSnapshot`, if applied to `firstSnapshot`.
+     */
+    readonly operations: Operation[]
+    /**
+     * Active operation streams.
+     */
+    readonly streams: OperationStream[]
+}
+
 class DefaultContent implements Content {
-    private streams: Map<string, OperationStream[]> = new Map()
+    private state: Map<string, State> = new Map()
     public constructor(
         private readonly contentStore: ContentStore,
         private readonly pubSub: PubSub,
         private readonly contentTypes: { [key: string]: ContentType },
+        private cacheTTL: number,
+        private cacheLimit: number,
     ) {
         assert(
             this.contentStore && typeof this.contentStore === 'object',
             'Argument "contentStore" must be a ContentStore instance.',
         )
-
         assert(
             this.pubSub && typeof this.pubSub === 'object',
             'Argument "pubSub" must be a PubSub instance.',
         )
-
         assert(
             this.contentTypes && typeof this.contentTypes === 'object',
             'Argument "contentTypes" must be an object.',
+        )
+        assert(
+            Number.isInteger(cacheTTL) && cacheTTL >= 0,
+            'Argument "cacheTTL" must be a positive integer or undefined.',
+        )
+        assert(
+            Number.isInteger(cacheLimit) && cacheLimit >= 0,
+            'Argument "cacheLimit" must be a positive integer or undefined.',
         )
     }
 
@@ -161,7 +210,7 @@ class DefaultContent implements Content {
         return this.loadSnapshot(
             type,
             id,
-            version || Number.MAX_SAFE_INTEGER - 1,
+            version == null ? maxVersion : version,
         )
     }
 
@@ -169,26 +218,19 @@ class DefaultContent implements Content {
         const { type, id, version } = operation
 
         const contentType = this.getContentType(operation.type)
-        if (!contentType.hasSchema(operation.schema)) {
-            const schema = await this.contentStore.loadSchema(operation.schema)
-            if (!schema) throw createNotFoundError('Schema')
-            contentType.registerSchema(schema)
-        }
+        await this.ensureSchema(contentType, operation.schema)
 
-        let snapshot: Snapshot | null = null
-        if (version > 1) {
-            snapshot = await this.loadSnapshot(type, id, version - 1)
-            assert(
-                snapshot && snapshot.version === version - 1,
-                'operation.version out of sequence.',
-            )
-        }
+        let snapshot = await this.loadSnapshot(type, id, version - 1)
+        assert(
+            version === (snapshot ? snapshot.version + 1 : minVersion),
+            'operation.version out of sequence.',
+        )
         snapshot = contentType.apply(snapshot, operation)
 
         try {
             await this.contentStore.storeOperation(operation)
+            this.cacheOperations(combine(type, id), [operation], contentType)
             this.pubSub.publish(combine('operation', type, id), operation)
-            // TODO cache snapshot
         } catch (error) {
             if (isAlreadyExistsError(error)) {
                 this.updateStreams(type, id)
@@ -203,20 +245,26 @@ class DefaultContent implements Content {
         versionStart?: number | null | undefined,
         versionEnd?: number | null | undefined,
     ): Promise<Duplex> {
-        const start = versionStart == null ? 1 : versionStart
+        const start = versionStart == null ? minVersion : versionStart
         const end =
-            versionEnd == null
-                ? Number.MAX_SAFE_INTEGER
-                : Math.max(versionEnd, start)
-        const streamKey = combine(type, id)
+            versionEnd == null ? maxVersion + 1 : Math.max(versionEnd, start)
+        const stateKey = combine(type, id)
         const stream = new OperationStream(type, id, start, end)
 
         {
-            const streams = this.streams.get(streamKey)
-            if (streams) {
-                this.streams.set(streamKey, streams.concat(stream))
+            const state = this.state.get(stateKey)
+            if (state) {
+                this.state.set(stateKey, {
+                    ...state,
+                    streams: state.streams.concat(stream),
+                })
             } else {
-                this.streams.set(streamKey, [stream])
+                this.state.set(stateKey, {
+                    firstSnapshot: null,
+                    lastSnapshot: null,
+                    operations: [],
+                    streams: [stream],
+                })
                 this.pubSub.subscribe(
                     combine('operation', type, id),
                     this.onOperation,
@@ -224,20 +272,20 @@ class DefaultContent implements Content {
             }
         }
 
-        stream.on('destroy', () => {
-            const streams = this.streams.get(streamKey)
-            if (streams) {
-                if (streams.length === 1 && streams[0] === stream) {
-                    this.streams.delete(streamKey)
+        stream.on('close', () => {
+            const state = this.state.get(stateKey)
+            if (state) {
+                if (state.streams.length === 1 && state.streams[0] === stream) {
+                    this.state.delete(stateKey)
                     this.pubSub.unsubscribe(
                         combine('operation', type, id),
                         this.onOperation,
                     )
                 } else {
-                    this.streams.set(
-                        streamKey,
-                        streams.filter((s) => s !== stream),
-                    )
+                    this.state.set(stateKey, {
+                        ...state,
+                        streams: state.streams.filter((s) => s !== stream),
+                    })
                 }
             }
         })
@@ -259,20 +307,64 @@ class DefaultContent implements Content {
         return this.contentTypes[type]
     }
 
+    private async ensureSchema(
+        contentType: ContentType,
+        schemaKey: SchemaKey,
+    ): Promise<void> {
+        if (!contentType.hasSchema(schemaKey)) {
+            const schema = await this.contentStore.loadSchema(schemaKey)
+            if (!schema) throw createNotFoundError('Schema')
+            contentType.registerSchema(schema)
+        }
+    }
+
     private async loadSnapshot(
         type: string,
         id: string,
         version: number,
     ): Promise<Snapshot | null> {
+        let snapshot: Snapshot | null = null
+        if (version <= 0) return snapshot
         const contentType = this.getContentType(type)
-        let snapshot = await this.contentStore.loadSnapshot(type, id, version)
-        const snapshotVersion = snapshot ? snapshot.version : 0
+        const stateKey = combine(type, id)
+        const state = this.state.get(stateKey)
 
-        if (snapshotVersion < version) {
-            const operations = await this.contentStore.loadOperations(
+        // Get a snapshot from the cache.
+        if (state) {
+            if (
+                state.lastSnapshot === null ||
+                state.lastSnapshot.version <= version
+            ) {
+                snapshot = state.lastSnapshot
+            } else if (
+                state.firstSnapshot === null ||
+                state.firstSnapshot.version <= version
+            ) {
+                snapshot = state.firstSnapshot
+                let versionNext = snapshot ? snapshot.version + 1 : minVersion
+                if (versionNext <= version) {
+                    for (const operation of state.operations) {
+                        if (operation.version === versionNext) {
+                            snapshot = contentType.apply(snapshot, operation)
+                            versionNext++
+                            if (versionNext > version) break
+                        }
+                    }
+                }
+            }
+        }
+
+        // Get a snapshot from the database.
+        if (!snapshot) {
+            snapshot = await this.contentStore.loadSnapshot(type, id, version)
+        }
+
+        // Get operations from the database.
+        if (!snapshot || snapshot.version < version) {
+            const operations = await this.loadOperations(
                 type,
                 id,
-                snapshotVersion + 1,
+                snapshot ? snapshot.version + 1 : minVersion,
                 version + 1,
             )
             for (const operation of operations) {
@@ -280,7 +372,126 @@ class DefaultContent implements Content {
             }
         }
 
+        // Cache only the latest snapshot.
+        if (snapshot && version === maxVersion)
+            this.cacheSnapshot(stateKey, snapshot)
+
         return snapshot
+    }
+
+    private async loadOperations(
+        type: string,
+        id: string,
+        versionStart: number,
+        versionEnd: number,
+    ): Promise<Operation[]> {
+        const operations: Operation[] = []
+        if (versionEnd <= versionStart) return operations
+        const contentType = this.getContentType(type)
+        const stateKey = combine(type, id)
+        const state = this.state.get(stateKey)
+
+        // Get operations from the cache.
+        if (
+            state &&
+            state.operations.length > 0 &&
+            state.operations[0].version <= versionStart
+        ) {
+            for (const operation of state.operations) {
+                if (
+                    operation.version >= versionStart &&
+                    operation.version < versionEnd
+                ) {
+                    operations.push(operation)
+                }
+            }
+        }
+
+        // Get operations from the database.
+        const versionNext =
+            operations.length === 0
+                ? versionStart
+                : operations[operations.length - 1].version + 1
+        if (versionNext < versionEnd) {
+            const loadedOperations = await this.contentStore.loadOperations(
+                type,
+                id,
+                versionNext,
+                versionEnd,
+            )
+            for (const loadedOperation of loadedOperations) {
+                await this.ensureSchema(contentType, loadedOperation.schema)
+                operations.push(loadedOperation)
+            }
+            this.cacheOperations(stateKey, operations, contentType)
+        }
+
+        return operations
+    }
+
+    private cacheSnapshot(stateKey: string, snapshot: Snapshot): void {
+        // Get state.
+        const state = this.state.get(stateKey)
+        if (!state) return
+
+        // Cache the snapshot only if it is newer
+        // than the snapshot which we have already cached.
+        if (
+            state.lastSnapshot === null ||
+            snapshot.version > state.lastSnapshot.version
+        ) {
+            this.state.set(stateKey, {
+                ...state,
+                firstSnapshot: snapshot,
+                lastSnapshot: snapshot,
+                operations: [],
+            })
+        }
+    }
+
+    private cacheOperations(
+        stateKey: string,
+        newOperations: Operation[],
+        contentType: ContentType,
+    ): void {
+        // Get state.
+        const state = this.state.get(stateKey)
+        if (!state) return
+        let { firstSnapshot, lastSnapshot } = state
+        const operations = state.operations.slice(0)
+        let operation: Operation
+
+        // Add new operations.
+        for (operation of newOperations) {
+            if (
+                operation.version ===
+                (lastSnapshot ? lastSnapshot.version + 1 : minVersion)
+            ) {
+                lastSnapshot = contentType.apply(lastSnapshot, operation)
+                operations.push(operation)
+            }
+        }
+
+        // Remove old operations.
+        const minCacheTime = Date.now() - this.cacheTTL
+        const maxCacheLength = this.cacheLimit
+        while (
+            operations.length > 0 &&
+            ((operation = operations[0]).meta == null ||
+                operation.meta.time == null ||
+                operation.meta.time < minCacheTime ||
+                operations.length > maxCacheLength)
+        ) {
+            firstSnapshot = contentType.apply(firstSnapshot, operation)
+            operations.shift()
+        }
+
+        this.state.set(stateKey, {
+            ...state,
+            firstSnapshot,
+            lastSnapshot,
+            operations,
+        })
     }
 
     private updateStreams(
@@ -288,9 +499,10 @@ class DefaultContent implements Content {
         id: string,
         operation?: Operation,
     ): void {
-        const streams = this.streams.get(combine(type, id))
-        if (streams) {
-            for (const stream of streams) {
+        const stateKey = combine(type, id)
+        const state = this.state.get(stateKey)
+        if (state) {
+            for (const stream of state.streams) {
                 this.updateStream(stream, operation)
             }
         }
@@ -300,15 +512,15 @@ class DefaultContent implements Content {
         stream: OperationStream,
         newOperation?: Operation,
     ): Promise<void> {
-        if (!isOpenWritableStream(stream)) return
-
-        if (newOperation && stream.versionNext === newOperation.version) {
-            stream.pushOperation(newOperation)
-            return
-        }
-
         try {
-            const operations = await this.contentStore.loadOperations(
+            if (!isOpenWritableStream(stream)) return
+
+            if (newOperation && stream.versionNext === newOperation.version) {
+                stream.pushOperation(newOperation)
+                return
+            }
+
+            const operations = await this.loadOperations(
                 stream.type,
                 stream.id,
                 stream.versionNext,

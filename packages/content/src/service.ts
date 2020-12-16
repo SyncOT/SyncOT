@@ -12,6 +12,7 @@ import { Operation, operationKeyUser, validateOperation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema, validateSchema } from './schema'
 import { Snapshot } from './snapshot'
+import { minVersion, maxVersion } from './version'
 
 /**
  * Events emitted by `ContentService`.
@@ -144,8 +145,8 @@ class Service
         assert(
             version == null ||
                 (Number.isInteger(version) &&
-                    version >= 1 &&
-                    version < Number.MAX_SAFE_INTEGER),
+                    version >= minVersion &&
+                    version <= maxVersion),
             'Argument "version" must be a non-negative integer or null.',
         )
 
@@ -196,15 +197,15 @@ class Service
         assert(
             versionStart == null ||
                 (Number.isInteger(versionStart) &&
-                    versionStart > 0 &&
-                    versionStart <= Number.MAX_SAFE_INTEGER),
+                    versionStart >= minVersion &&
+                    versionStart <= maxVersion),
             'Argument "versionStart" must be a positive integer or null.',
         )
         assert(
             versionEnd == null ||
                 (Number.isInteger(versionEnd) &&
-                    versionEnd > 0 &&
-                    versionEnd <= Number.MAX_SAFE_INTEGER),
+                    versionEnd >= minVersion &&
+                    versionEnd <= maxVersion + 1),
             'Argument "versionEnd" must be a positive integer or null.',
         )
 

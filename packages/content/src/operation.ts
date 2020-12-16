@@ -8,6 +8,7 @@ import {
 } from '@syncot/util'
 import { Meta } from './meta'
 import { SchemaKey } from './schema'
+import { maxVersion, minVersion } from './version'
 
 /**
  * A globally unique value suitable as an operation's primary key.
@@ -57,7 +58,7 @@ export interface Operation {
     id: string
     /**
      * The document version created by this operation.
-     * It must be an integer between 1 (inclusive) and Number.MAX_SAFE_INTEGER (exclusive).
+     * It must be an integer between minVersion and maxVersion inclusive.
      */
     version: number
     /**
@@ -98,8 +99,8 @@ export const validateOperation: Validator<Operation> = validate([
             : createInvalidEntityError('Operation', operation, 'id'),
     (operation) =>
         Number.isInteger(operation.version) &&
-        operation.version > 0 &&
-        operation.version < Number.MAX_SAFE_INTEGER
+        operation.version >= minVersion &&
+        operation.version <= maxVersion
             ? undefined
             : createInvalidEntityError('Operation', operation, 'version'),
     (operation) =>
