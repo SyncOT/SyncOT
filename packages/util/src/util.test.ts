@@ -3,6 +3,8 @@ import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import {
     createInvalidEntityError,
     delay,
+    first,
+    last,
     noop,
     randomInteger,
     throwError,
@@ -209,5 +211,31 @@ describe('combine & separate', () => {
         expect(separate(combined)).toStrictEqual(parts)
         expect(combine(...parts)).not.toBe(combined)
         expect(separate(combine(...parts))).toStrictEqual(parts)
+    })
+})
+
+describe('first', () => {
+    test.each<[any[], any]>([
+        [[], undefined],
+        [[null], null],
+        [[1, 2, 3], 1],
+        [[3, 2, 1], 3],
+        [['1', '2', '3'], '1'],
+        ((a) => [[a, 1, 2, 3], a])({}) as [any[], any],
+    ])('first(%p) === %p', (array, result) => {
+        expect(first(array)).toBe(result)
+    })
+})
+
+describe('last', () => {
+    test.each<[any[], any]>([
+        [[], undefined],
+        [[null], null],
+        [[1, 2, 3], 3],
+        [[3, 2, 1], 1],
+        [['1', '2', '3'], '3'],
+        ((a) => [[1, 2, 3, a], a])({}) as [any[], any],
+    ])('last(%p) === %p', (array, result) => {
+        expect(last(array)).toBe(result)
     })
 })

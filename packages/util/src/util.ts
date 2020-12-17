@@ -148,3 +148,17 @@ function combineEscape(value: string): string {
 function separateUnescape(value: string): string {
     return value.replace(/!(.)/g, '$1')
 }
+
+/**
+ * Returns the first array element.
+ */
+export function first<T>(array: T[]): T | undefined {
+    return array[0]
+}
+
+/**
+ * Returns the last array element.
+ */
+export function last<T>(array: T[]): T | undefined {
+    return array[array.length - 1]
+}
