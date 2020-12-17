@@ -1,10 +1,14 @@
 import {
     assert,
     combine,
+    exponentialBackOffStrategy,
     first,
     isOpenWritableStream,
     last,
+    noop,
     throwError,
+    WorkLoop,
+    workLoop,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { createNotFoundError, isAlreadyExistsError } from './error'
@@ -165,13 +169,15 @@ interface State {
 }
 
 class DefaultContent implements Content {
-    private state: Map<string, State> = new Map()
+    private readonly state: Map<string, State> = new Map()
+    private readonly streamsToUpdate: Set<string> = new Set()
+    private triggerStreamsUpdate = noop
     public constructor(
         private readonly contentStore: ContentStore,
         private readonly pubSub: PubSub,
         private readonly contentTypes: { [key: string]: ContentType },
-        private cacheTTL: number,
-        private cacheLimit: number,
+        private readonly cacheTTL: number,
+        private readonly cacheLimit: number,
     ) {
         assert(
             this.contentStore && typeof this.contentStore === 'object',
@@ -193,6 +199,16 @@ class DefaultContent implements Content {
             Number.isInteger(cacheLimit) && cacheLimit >= 0,
             'Argument "cacheLimit" must be a positive integer or undefined.',
         )
+
+        workLoop((triggerStreamsUpdate) => {
+            this.triggerStreamsUpdate = triggerStreamsUpdate
+            return new StreamUpdater(
+                this.streamsToUpdate,
+                this.getStreams,
+                this.loadOperations,
+                triggerStreamsUpdate,
+            )
+        })
     }
 
     public async registerSchema(schema: Schema): Promise<void> {
@@ -219,7 +235,7 @@ class DefaultContent implements Content {
 
     public async submitOperation(operation: Operation): Promise<void> {
         const { type, id, version } = operation
-
+        const stateKey = combine(type, id)
         const contentType = this.getContentType(operation.type)
         await this.ensureSchema(contentType, operation.schema)
 
@@ -232,11 +248,11 @@ class DefaultContent implements Content {
 
         try {
             await this.contentStore.storeOperation(operation)
-            this.cacheOperations(combine(type, id), [operation], contentType)
+            this.cacheOperations(stateKey, [operation], contentType)
             this.pubSub.publish(combine('operation', type, id), operation)
         } catch (error) {
             if (isAlreadyExistsError(error)) {
-                this.updateStreams(type, id)
+                this.updateStreams(stateKey)
             }
             throw error
         }
@@ -292,15 +308,32 @@ class DefaultContent implements Content {
             }
         })
 
-        queueMicrotask(() => this.updateStream(stream))
-
+        this.updateStreams(stateKey)
         return stream
     }
 
+    private getStreams = (stateKey: string) => {
+        const state = this.state.get(stateKey)
+        return state && state.streams
+    }
+
+    private updateStreams(stateKey: string): void {
+        this.streamsToUpdate.add(stateKey)
+        this.triggerStreamsUpdate()
+    }
+
     private onOperation = (operation: Operation): void => {
-        queueMicrotask(() =>
-            this.updateStreams(operation.type, operation.id, operation),
-        )
+        const { type, id, version } = operation
+        const stateKey = combine(type, id)
+        const state = this.state.get(stateKey)
+        if (!state) return
+        for (const stream of state.streams) {
+            if (stream.versionNext === version) {
+                stream.pushOperation(operation)
+            } else {
+                this.updateStreams(stateKey)
+            }
+        }
     }
 
     private getContentType(type: string): ContentType {
@@ -374,12 +407,12 @@ class DefaultContent implements Content {
         return snapshot
     }
 
-    private async loadOperations(
+    private loadOperations = async (
         type: string,
         id: string,
         versionStart: number,
         versionEnd: number,
-    ): Promise<Operation[]> {
+    ): Promise<Operation[]> => {
         const operations: Operation[] = []
         if (versionEnd <= versionStart) return operations
         const contentType = this.getContentType(type)
@@ -497,46 +530,114 @@ class DefaultContent implements Content {
             operations,
         })
     }
+}
 
-    private updateStreams(
-        type: string,
-        id: string,
-        operation?: Operation,
-    ): void {
-        const stateKey = combine(type, id)
-        const state = this.state.get(stateKey)
-        if (state) {
-            for (const stream of state.streams) {
-                this.updateStream(stream, operation)
-            }
-        }
+class StreamUpdater implements WorkLoop {
+    private readonly loadLimit = 50
+    public readonly onError = noop
+    public readonly retryDelay = exponentialBackOffStrategy({
+        minDelay: 1000,
+        maxDelay: 10000,
+        delayFactor: 1.5,
+    })
+
+    public constructor(
+        public jobs: Set<string>,
+        public getStreams: (job: string) => OperationStream[] | undefined,
+        public loadOperations: (
+            type: string,
+            id: string,
+            versionStart: number,
+            versionEnd: number,
+        ) => Promise<Operation[]>,
+        private notify: () => void,
+    ) {}
+
+    public async work(): Promise<void> {
+        const promises = Array.from(this.jobs).map(this.doJob)
+        const results = await Promise.allSettled(promises)
+        const hasErrors = results.some(isResultRejected)
+        // Throw anything to trigger a retry. This error won't be reported.
+        if (hasErrors) throw new Error()
     }
 
-    private async updateStream(
-        stream: OperationStream,
-        newOperation?: Operation,
-    ): Promise<void> {
-        try {
-            if (!isOpenWritableStream(stream)) return
+    private doJob = async (job: string): Promise<void> => {
+        // Claim the job.
+        this.jobs.delete(job)
 
-            if (newOperation && stream.versionNext === newOperation.version) {
-                stream.pushOperation(newOperation)
-                return
+        // Get the streams to update.
+        const maybeStreams = this.getStreams(job)
+        if (!maybeStreams || maybeStreams.length === 0) return
+        const streams = maybeStreams.slice(0).sort(orderStreams)
+
+        // Find the first consecutive range of operations awaited by streams.
+        const { type, id, versionStart } = first(streams)!
+        let { versionEnd } = first(streams)!
+        for (let i = 1; i < streams.length; i++) {
+            const stream = streams[i]
+            if (stream.versionNext <= versionEnd) {
+                versionEnd = Math.max(versionEnd, stream.versionEnd)
             }
+        }
+        versionEnd = Math.min(versionEnd, versionStart + this.loadLimit)
 
+        try {
+            // Load operations.
             const operations = await this.loadOperations(
-                stream.type,
-                stream.id,
-                stream.versionNext,
-                stream.versionEnd,
+                type,
+                id,
+                versionStart,
+                versionEnd,
             )
-            if (isOpenWritableStream(stream)) {
-                for (const operation of operations) {
-                    stream.pushOperation(operation)
+
+            // Update the streams
+            for (const stream of streams) {
+                if (
+                    isOpenWritableStream(stream) &&
+                    stream.versionNext < versionEnd
+                ) {
+                    for (const operation of operations) {
+                        if (stream.versionNext === operation.version) {
+                            stream.pushOperation(operation)
+                        }
+                    }
                 }
             }
+
+            if (
+                operations.length > 0 &&
+                last(operations)!.version === versionEnd - 1
+            ) {
+                // All operations which we had requested were loaded,
+                // so it's possible that more are still available and
+                // we might need to complete the job in the next iteration.
+                this.jobs.add(job)
+                this.notify()
+            }
         } catch (error) {
-            stream.emit('error', error)
+            // Report the error on the first stream, if it is still open.
+            const stream = first(streams)!
+            if (isOpenWritableStream(stream)) stream.emit('error', error)
+
+            // Retry the job later.
+            this.jobs.add(job)
+            throw error
         }
     }
+}
+
+function orderStreams(
+    stream1: OperationStream,
+    stream2: OperationStream,
+): number {
+    return (
+        stream2.versionNext - stream1.versionNext ||
+        stream1.versionEnd - stream2.versionEnd
+    )
+}
+
+function isResultRejected(
+    result: PromiseSettledResult<any>,
+): result is PromiseRejectedResult {
+    return result.status === 'rejected'
 }
