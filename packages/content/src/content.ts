@@ -1,4 +1,11 @@
-import { assert, combine, isOpenWritableStream, throwError } from '@syncot/util'
+import {
+    assert,
+    combine,
+    first,
+    isOpenWritableStream,
+    last,
+    throwError,
+} from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { createNotFoundError, isAlreadyExistsError } from './error'
 import { Operation } from './operation'
@@ -144,15 +151,11 @@ const { hasOwnProperty } = Object.prototype
  */
 interface State {
     /**
-     * The first cached snapshot.
+     * The cached snapshot.
      */
-    readonly firstSnapshot: Snapshot | null
+    readonly snapshot: Snapshot | null
     /**
-     * The last cached snapshot.
-     */
-    readonly lastSnapshot: Snapshot | null
-    /**
-     * Operations which produce `lastSnapshot`, if applied to `firstSnapshot`.
+     * The cache operations which can be applied to the cached snapshot.
      */
     readonly operations: Operation[]
     /**
@@ -260,8 +263,7 @@ class DefaultContent implements Content {
                 })
             } else {
                 this.state.set(stateKey, {
-                    firstSnapshot: null,
-                    lastSnapshot: null,
+                    snapshot: null,
                     operations: [],
                     streams: [stream],
                 })
@@ -330,25 +332,18 @@ class DefaultContent implements Content {
         const state = this.state.get(stateKey)
 
         // Get a snapshot from the cache.
-        if (state) {
-            if (
-                state.lastSnapshot === null ||
-                state.lastSnapshot.version <= version
-            ) {
-                snapshot = state.lastSnapshot
-            } else if (
-                state.firstSnapshot === null ||
-                state.firstSnapshot.version <= version
-            ) {
-                snapshot = state.firstSnapshot
-                let versionNext = snapshot ? snapshot.version + 1 : minVersion
-                if (versionNext <= version) {
-                    for (const operation of state.operations) {
-                        if (operation.version === versionNext) {
-                            snapshot = contentType.apply(snapshot, operation)
-                            versionNext++
-                            if (versionNext > version) break
-                        }
+        if (
+            state &&
+            (state.snapshot === null || state.snapshot.version <= version)
+        ) {
+            snapshot = state.snapshot
+            let versionNext = snapshot ? snapshot.version + 1 : minVersion
+            if (versionNext <= version) {
+                for (const operation of state.operations) {
+                    if (operation.version === versionNext) {
+                        snapshot = contentType.apply(snapshot, operation)
+                        versionNext++
+                        if (versionNext > version) break
                     }
                 }
             }
@@ -409,9 +404,7 @@ class DefaultContent implements Content {
 
         // Get operations from the database.
         const versionNext =
-            operations.length === 0
-                ? versionStart
-                : operations[operations.length - 1].version + 1
+            operations.length > 0 ? last(operations)!.version + 1 : versionStart
         if (versionNext < versionEnd) {
             const loadedOperations = await this.contentStore.loadOperations(
                 type,
@@ -434,16 +427,16 @@ class DefaultContent implements Content {
         const state = this.state.get(stateKey)
         if (!state) return
 
-        // Cache the snapshot only if it is newer
-        // than the snapshot which we have already cached.
+        // Cache the snapshot only if it is newer than what we have already cached.
         if (
-            state.lastSnapshot === null ||
-            snapshot.version > state.lastSnapshot.version
+            state.operations.length > 0
+                ? last(state.operations)!.version < snapshot.version
+                : state.snapshot === null ||
+                  state.snapshot.version < snapshot.version
         ) {
             this.state.set(stateKey, {
                 ...state,
-                firstSnapshot: snapshot,
-                lastSnapshot: snapshot,
+                snapshot,
                 operations: [],
             })
         }
@@ -457,39 +450,50 @@ class DefaultContent implements Content {
         // Get state.
         const state = this.state.get(stateKey)
         if (!state) return
-        let { firstSnapshot, lastSnapshot } = state
+        let { snapshot } = state
         const operations = state.operations.slice(0)
-        let operation: Operation
 
         // Add new operations.
-        for (operation of newOperations) {
+        if (newOperations.length > 0) {
+            let versionNext =
+                operations.length > 0
+                    ? last(operations)!.version + 1
+                    : snapshot
+                    ? snapshot.version + 1
+                    : minVersion
             if (
-                operation.version ===
-                (lastSnapshot ? lastSnapshot.version + 1 : minVersion)
+                first(newOperations)!.version <= versionNext &&
+                versionNext <= last(newOperations)!.version
             ) {
-                lastSnapshot = contentType.apply(lastSnapshot, operation)
-                operations.push(operation)
+                for (const operation of newOperations) {
+                    if (operation.version === versionNext) {
+                        operations.push(operation)
+                        versionNext++
+                    }
+                }
             }
         }
 
         // Remove old operations.
         const minCacheTime = Date.now() - this.cacheTTL
         const maxCacheLength = this.cacheLimit
-        while (
-            operations.length > 0 &&
-            ((operation = operations[0]).meta == null ||
+        while (operations.length > 0) {
+            const operation = first(operations)!
+            if (
+                operation.meta == null ||
                 operation.meta.time == null ||
                 operation.meta.time < minCacheTime ||
-                operations.length > maxCacheLength)
-        ) {
-            firstSnapshot = contentType.apply(firstSnapshot, operation)
-            operations.shift()
+                operations.length > maxCacheLength
+            ) {
+                snapshot = contentType.apply(snapshot, operation)
+                operations.shift()
+            } else break
         }
 
+        // Update state.
         this.state.set(stateKey, {
             ...state,
-            firstSnapshot,
-            lastSnapshot,
+            snapshot,
             operations,
         })
     }
