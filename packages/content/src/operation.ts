@@ -8,7 +8,7 @@ import {
 } from '@syncot/util'
 import { Meta } from './meta'
 import { SchemaKey } from './schema'
-import { maxVersion, minVersion } from './version'
+import { maxVersion, minVersion } from './limits'
 
 /**
  * A globally unique value suitable as an operation's primary key.

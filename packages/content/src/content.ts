@@ -8,7 +8,7 @@ import { Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
-import { maxVersion, minVersion } from './version'
+import { maxVersion, minVersion } from './limits'
 
 /**
  * The options for the Content#submitOperation function.

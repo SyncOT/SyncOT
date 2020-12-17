@@ -12,7 +12,7 @@ import { Operation, operationKeyUser, validateOperation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema, validateSchema } from './schema'
 import { Snapshot } from './snapshot'
-import { minVersion, maxVersion } from './version'
+import { minVersion, maxVersion } from './limits'
 
 /**
  * Events emitted by `ContentService`.
