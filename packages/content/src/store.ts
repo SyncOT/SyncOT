@@ -47,16 +47,11 @@ export interface ContentStore {
     storeSnapshot(snapshot: Snapshot): Promise<void>
 
     /**
-     * Loads a snapshot by type and ID,
-     * with the version equal to or lower than the specified version.
+     * Loads the latest document snapshot at or below the given version.
      * @param type A document type.
      * @param id A document ID.
      * @param version A document version.
-     * @returns A Snapshot, or `null`, if not found.
+     * @returns A Snapshot.
      */
-    loadSnapshot(
-        type: string,
-        id: string,
-        version: number,
-    ): Promise<Snapshot | null>
+    loadSnapshot(type: string, id: string, version: number): Promise<Snapshot>
 }

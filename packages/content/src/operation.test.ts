@@ -1,4 +1,5 @@
 import {
+    createBaseOperation,
     createOperationKey,
     maxVersion,
     minVersion,
@@ -40,8 +41,8 @@ describe('validateOperation', () => {
     }
     test.each<[any, string | null | undefined]>([
         [operation, undefined],
-        [{ ...operation, version: 2 }, undefined],
         [{ ...operation, version: minVersion }, undefined],
+        [{ ...operation, version: minVersion + 1 }, undefined],
         [{ ...operation, version: maxVersion }, undefined],
         [{ ...operation, schema: 'schema-key' }, undefined],
         [{ ...operation, data: 5 }, undefined],
@@ -80,8 +81,7 @@ describe('validateOperation', () => {
         [{ ...operation, type: null }, 'type'],
         [{ ...operation, id: null }, 'id'],
         [{ ...operation, version: null }, 'version'],
-        [{ ...operation, version: -1 }, 'version'],
-        [{ ...operation, version: 0 }, 'version'],
+        [{ ...operation, version: minVersion - 1 }, 'version'],
         [{ ...operation, version: 5.5 }, 'version'],
         [{ ...operation, version: minVersion - 1 }, 'version'],
         [{ ...operation, version: maxVersion + 1 }, 'version'],
@@ -114,5 +114,24 @@ describe('validateOperation', () => {
                 }),
             )
         }
+    })
+})
+
+describe('createBaseOperation', () => {
+    test.each([
+        ['', ''],
+        ['type-1', ''],
+        ['', 'id-1'],
+        ['type-1', 'id-1'],
+    ])('type=%p, id=%p', (type, id) => {
+        expect(createBaseOperation(type, id)).toStrictEqual({
+            key: '',
+            type,
+            id,
+            version: 0,
+            schema: '',
+            data: null,
+            meta: null,
+        })
     })
 })

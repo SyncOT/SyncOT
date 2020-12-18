@@ -28,9 +28,9 @@ export interface ContentType {
 
     /**
      * Applies the operation to the snapshot to produce a new snapshot.
-     * @param snapshot The base snapshot.
+     * @param snapshot The snapshot.
      * @param operation The operation to apply.
      * @returns A snapshot resulting from applying `operation` to `snapshot`.
      */
-    apply(snapshot: Snapshot | null, operation: Operation): Snapshot
+    apply(snapshot: Snapshot, operation: Operation): Snapshot
 }

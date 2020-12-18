@@ -136,17 +136,16 @@ class Service
     public async getSnapshot(
         type: string,
         id: string,
-        version?: number | null | undefined,
-    ): Promise<Snapshot | null> {
+        version: number,
+    ): Promise<Snapshot> {
         this.assertOk()
 
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
         assert(
-            version == null ||
-                (Number.isInteger(version) &&
-                    version >= minVersion &&
-                    version <= maxVersion),
+            Number.isInteger(version) &&
+                version >= minVersion &&
+                version <= maxVersion,
             'Argument "version" must be a non-negative integer or null.',
         )
 
@@ -187,26 +186,24 @@ class Service
     public async streamOperations(
         type: string,
         id: string,
-        versionStart?: number | null | undefined,
-        versionEnd?: number | null | undefined,
+        versionStart: number,
+        versionEnd: number,
     ): Promise<Duplex> {
         this.assertOk()
 
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
         assert(
-            versionStart == null ||
-                (Number.isInteger(versionStart) &&
-                    versionStart >= minVersion &&
-                    versionStart <= maxVersion),
-            'Argument "versionStart" must be a positive integer or null.',
+            Number.isInteger(versionStart) &&
+                versionStart >= minVersion &&
+                versionStart <= maxVersion,
+            'Argument "versionStart" must be an integer between minVersion (inclusive) and maxVersion (inclusive).',
         )
         assert(
-            versionEnd == null ||
-                (Number.isInteger(versionEnd) &&
-                    versionEnd >= minVersion &&
-                    versionEnd <= maxVersion + 1),
-            'Argument "versionEnd" must be a positive integer or null.',
+            Number.isInteger(versionEnd) &&
+                versionEnd >= minVersion &&
+                versionEnd <= maxVersion + 1,
+            'Argument "versionEnd" must be an integer between minVersion (inclusive) and maxVersion (exclusive).',
         )
 
         if (!this.authService.mayReadContent(type, id))

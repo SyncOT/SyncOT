@@ -1,8 +1,9 @@
 import { assert, combine } from '@syncot/util'
 import { createAlreadyExistsError } from './error'
-import { Operation, OperationKey } from './operation'
+import { minVersion } from './limits'
+import { createBaseOperation, Operation, OperationKey } from './operation'
 import { Schema } from './schema'
-import { Snapshot, SnapshotKey } from './snapshot'
+import { createBaseSnapshot, Snapshot, SnapshotKey } from './snapshot'
 import { ContentStore } from './store'
 
 /**
@@ -43,11 +44,14 @@ class MemoryContentStore implements ContentStore {
 
         let operations = this.operations.get(typeAndId)
         if (!operations) {
-            operations = new Array(1)
+            operations = [createBaseOperation(type, id)]
             this.operations.set(typeAndId, operations)
         }
 
-        assert(version > 0, 'Operation.version must be a positive integer.')
+        assert(
+            version > 0,
+            'operation.version must be greater than minVersion.',
+        )
         if (version < operations.length) {
             throw createAlreadyExistsError(
                 'Operation',
@@ -72,12 +76,19 @@ class MemoryContentStore implements ContentStore {
         versionEnd: number,
     ): Promise<Operation[]> {
         const operations = this.operations.get(combine(type, id))
-        return operations ? operations.slice(versionStart, versionEnd) : []
+        return operations
+            ? operations.slice(versionStart, versionEnd)
+            : versionStart === minVersion && versionEnd > versionStart
+            ? [createBaseOperation(type, id)]
+            : []
     }
 
     public async storeSnapshot(snapshot: Snapshot): Promise<void> {
         const { key, type, id, version } = snapshot
-        assert(version > 0, 'Snapshot.version must be a positive integer.')
+        assert(
+            version > minVersion,
+            'snapshot.version must be greater than minVersion.',
+        )
 
         if (this.snapshotsByKey.has(key))
             throw createAlreadyExistsError(
@@ -110,7 +121,7 @@ class MemoryContentStore implements ContentStore {
         type: string,
         id: string,
         version: number,
-    ): Promise<Snapshot | null> {
+    ): Promise<Snapshot> {
         const snapshots = this.snapshots.get(combine(type, id))
         if (snapshots) {
             for (let i = Math.min(version, snapshots.length - 1); i > 0; i--) {
@@ -118,6 +129,6 @@ class MemoryContentStore implements ContentStore {
                 if (snapshot) return snapshot
             }
         }
-        return null
+        return createBaseSnapshot(type, id)
     }
 }

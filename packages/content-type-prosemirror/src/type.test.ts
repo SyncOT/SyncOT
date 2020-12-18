@@ -1,4 +1,10 @@
-import { createSchemaKey, Operation, Schema, Snapshot } from '@syncot/content'
+import {
+    createBaseSnapshot,
+    createSchemaKey,
+    Operation,
+    Schema,
+    Snapshot,
+} from '@syncot/content'
 import { Fragment, NodeSpec, Slice } from 'prosemirror-model'
 import { ReplaceStep } from 'prosemirror-transform'
 import { createContentType } from '.'
@@ -250,65 +256,10 @@ describe('apply', () => {
         meta: null,
     }
 
-    describe('no snapshot', () => {
-        test('schema not registered', () => {
-            expect(() => contentType.apply(null, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.schema is not registered.',
-                }),
-            )
-        })
-
-        test('wrong operation.version', () => {
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(null, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.version must equal to 1.',
-                }),
-            )
-        })
-
-        test('wrong operation.version', () => {
-            contentType.registerSchema(schema)
-            expect(() =>
-                contentType.apply(null, { ...operation, version: 1 }),
-            ).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.data must contain the initial content.',
-                }),
-            )
-        })
-
-        test('success', () => {
-            contentType.registerSchema(schema)
-            const operation1 = {
-                ...operation,
-                version: 1,
-                data: proseMirrorSchema.topNodeType.createAndFill()!.toJSON(),
-            }
-            const snapshot1 = contentType.apply(null, operation1)
-            expect(snapshot1).toStrictEqual(operation1)
-        })
-    })
-
-    describe('operation and snapshot with different schemas', () => {
-        test('schema not registered', () => {
-            const snapshot1 = { ...snapshot, schema: 'different-schema' }
-            expect(() => contentType.apply(snapshot1, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.schema is not registered.',
-                }),
-            )
-        })
-
+    describe('basic validation', () => {
         test('wrong operation.type', () => {
             const snapshot1 = {
                 ...snapshot,
-                schema: 'different-schema',
                 type: 'different-type',
             }
             contentType.registerSchema(schema)
@@ -323,7 +274,6 @@ describe('apply', () => {
         test('wrong operation.id', () => {
             const snapshot1 = {
                 ...snapshot,
-                schema: 'different-schema',
                 id: 'different-id',
             }
             contentType.registerSchema(schema)
@@ -338,7 +288,6 @@ describe('apply', () => {
         test('wrong operation.version', () => {
             const snapshot2 = {
                 ...snapshot,
-                schema: 'different-schema',
                 version: 2,
             }
             contentType.registerSchema(schema)
@@ -351,6 +300,37 @@ describe('apply', () => {
             )
         })
 
+        test('schema not registered', () => {
+            const snapshot1 = {
+                ...snapshot,
+                schema: 'different-schema',
+            }
+            expect(() => contentType.apply(snapshot1, operation)).toThrow(
+                expect.objectContaining({
+                    name: 'SyncOTError Assert',
+                    message: 'operation.schema is not registered.',
+                }),
+            )
+        })
+    })
+
+    describe('base snapshot', () => {
+        test('success', () => {
+            contentType.registerSchema(schema)
+            const operation1 = {
+                ...operation,
+                version: 1,
+                data: proseMirrorSchema.topNodeType.createAndFill()!.toJSON(),
+            }
+            const snapshot1 = contentType.apply(
+                createBaseSnapshot(operation1.type, operation1.id),
+                operation1,
+            )
+            expect(snapshot1).toStrictEqual(operation1)
+        })
+    })
+
+    describe('operation and snapshot with different schemas', () => {
         test('wrong operation.data', () => {
             const snapshot1 = {
                 ...snapshot,
@@ -384,58 +364,6 @@ describe('apply', () => {
     })
 
     describe('operation and snapshot with the same schema', () => {
-        test('schema not registered', () => {
-            expect(() => contentType.apply(snapshot, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.schema is not registered.',
-                }),
-            )
-        })
-
-        test('wrong operation.type', () => {
-            const snapshot1 = {
-                ...snapshot,
-                type: 'different-type',
-            }
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot1, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.type must equal to snapshot.type.',
-                }),
-            )
-        })
-
-        test('wrong operation.id', () => {
-            const snapshot1 = {
-                ...snapshot,
-                id: 'different-id',
-            }
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot1, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.id must equal to snapshot.id.',
-                }),
-            )
-        })
-
-        test('wrong operation.version', () => {
-            const snapshot2 = {
-                ...snapshot,
-                version: 2,
-            }
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot2, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message:
-                        'operation.version must equal to snapshot.version + 1.',
-                }),
-            )
-        })
-
         test('wrong operation.data', () => {
             const snapshot1 = {
                 ...snapshot,

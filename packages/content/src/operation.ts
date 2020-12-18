@@ -42,10 +42,13 @@ export function operationKeyUser(key: OperationKey): string {
 
 /**
  * An operation which can be applied to a document.
+ *
+ * Note that an operation at version `minVersion` exists implicitly for each document and is never stored.
  */
 export interface Operation {
     /**
      * A globally unique ID of this operation.
+     * If `version` is `minVersion`, `key` is an empty string.
      */
     key: OperationKey
     /**
@@ -63,15 +66,18 @@ export interface Operation {
     version: number
     /**
      * The ID of the schema of the content at the version created by this operation.
+     * If `version` is `minVersion`, `schema` is an empty string.
      */
     schema: SchemaKey
     /**
      * The action to apply to the document's content at `operation.version - 1` version
      * in order to produce the document's content at `operation.version` version.
+     * If `version` is `minVersion`, `data` is null.
      */
     data: any
     /**
      * The operation's metadata.
+     * If `version` is `minVersion`, `meta` is null.
      */
     meta: Meta | null
 }
@@ -134,3 +140,21 @@ export const validateOperation: Validator<Operation> = validate([
             ? undefined
             : createInvalidEntityError('Operation', operation, 'meta.session'),
 ])
+
+/**
+ * Creates an operation at version `minVersion` with the specified type and id.
+ * @param type The document type.
+ * @param id The document id.
+ * @returns A new operation.
+ */
+export function createBaseOperation(type: string, id: string): Operation {
+    return {
+        key: '',
+        type,
+        id,
+        version: minVersion,
+        schema: '',
+        data: null,
+        meta: null,
+    }
+}

@@ -15,11 +15,11 @@ import { createNotFoundError, isAlreadyExistsError } from './error'
 import { Operation } from './operation'
 import { PubSub } from './pubSub'
 import { Schema, SchemaKey } from './schema'
-import { Snapshot } from './snapshot'
+import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
-import { maxVersion, minVersion } from './limits'
+import { minVersion } from './limits'
 
 /**
  * The options for the Content#submitOperation function.
@@ -52,18 +52,14 @@ export interface Content {
     getSchema(key: SchemaKey): Promise<Schema | null>
 
     /**
-     * Gets a snapshot of a document at a given version.
+     * Gets the latest document snapshot at or below the given version.
      *
      * @param type The document type.
      * @param id The document ID.
-     * @param version The document version. Defaults to the latest version.
-     * @returns A snapshot matching the params, or null, if not found.
+     * @param version The document version.
+     * @returns A snapshot matching the params.
      */
-    getSnapshot(
-        type: string,
-        id: string,
-        version?: number | null | undefined,
-    ): Promise<Snapshot | null>
+    getSnapshot(type: string, id: string, version: number): Promise<Snapshot>
 
     /**
      * Submits the operation to update a document.
@@ -89,15 +85,15 @@ export interface Content {
      * Streams the specified operations.
      * @param type The document type.
      * @param id The document ID.
-     * @param versionStart The version number of the first operation to include. Defaults to minVersion.
-     * @param versionEnd The version number of the first operation to exclude. Defaults to maxVersion + 1.
+     * @param versionStart The version number of the first operation to include.
+     * @param versionEnd The version number of the first operation to exclude.
      * @returns A stream of Operation objects.
      */
     streamOperations(
         type: string,
         id: string,
-        versionStart?: number | null | undefined,
-        versionEnd?: number | null | undefined,
+        versionStart: number,
+        versionEnd: number,
     ): Promise<Duplex>
 }
 
@@ -157,7 +153,7 @@ interface State {
     /**
      * The cached snapshot.
      */
-    readonly snapshot: Snapshot | null
+    readonly snapshot: Snapshot
     /**
      * The cache operations which can be applied to the cached snapshot.
      */
@@ -224,13 +220,9 @@ class DefaultContent implements Content {
     public async getSnapshot(
         type: string,
         id: string,
-        version?: number | null | undefined,
-    ): Promise<Snapshot | null> {
-        return this.loadSnapshot(
-            type,
-            id,
-            version == null ? maxVersion : version,
-        )
+        version: number,
+    ): Promise<Snapshot> {
+        return this.loadSnapshot(type, id, version)
     }
 
     public async submitOperation(operation: Operation): Promise<void> {
@@ -241,7 +233,7 @@ class DefaultContent implements Content {
 
         let snapshot = await this.loadSnapshot(type, id, version - 1)
         assert(
-            version === (snapshot ? snapshot.version + 1 : minVersion),
+            version === snapshot.version + 1,
             'operation.version out of sequence.',
         )
         snapshot = contentType.apply(snapshot, operation)
@@ -261,14 +253,11 @@ class DefaultContent implements Content {
     public async streamOperations(
         type: string,
         id: string,
-        versionStart?: number | null | undefined,
-        versionEnd?: number | null | undefined,
+        versionStart: number,
+        versionEnd: number,
     ): Promise<Duplex> {
-        const start = versionStart == null ? minVersion : versionStart
-        const end =
-            versionEnd == null ? maxVersion + 1 : Math.max(versionEnd, start)
         const stateKey = combine(type, id)
-        const stream = new OperationStream(type, id, start, end)
+        const stream = new OperationStream(type, id, versionStart, versionEnd)
 
         {
             const state = this.state.get(stateKey)
@@ -279,7 +268,7 @@ class DefaultContent implements Content {
                 })
             } else {
                 this.state.set(stateKey, {
-                    snapshot: null,
+                    snapshot: createBaseSnapshot(type, id),
                     operations: [],
                     streams: [stream],
                 })
@@ -357,18 +346,14 @@ class DefaultContent implements Content {
         type: string,
         id: string,
         version: number,
-    ): Promise<Snapshot | null> {
-        let snapshot: Snapshot | null = null
-        if (version <= 0) return snapshot
+    ): Promise<Snapshot> {
+        let snapshot: Snapshot
         const contentType = this.getContentType(type)
         const stateKey = combine(type, id)
         const state = this.state.get(stateKey)
 
         // Get a snapshot from the cache.
-        if (
-            state &&
-            (state.snapshot === null || state.snapshot.version <= version)
-        ) {
+        if (state && state.snapshot.version <= version) {
             snapshot = state.snapshot
             let versionNext = snapshot ? snapshot.version + 1 : minVersion
             if (versionNext <= version) {
@@ -380,29 +365,34 @@ class DefaultContent implements Content {
                     }
                 }
             }
+        } else {
+            snapshot = createBaseSnapshot(type, id)
         }
 
+        if (snapshot.version === version) return snapshot
+
         // Get a snapshot from the database.
-        if (!snapshot) {
+        if (snapshot.version === 0) {
             snapshot = await this.contentStore.loadSnapshot(type, id, version)
         }
 
         // Get operations from the database.
-        if (!snapshot || snapshot.version < version) {
+        if (snapshot.version < version) {
+            const versionStart = snapshot.version + 1
+            const versionEnd = version + 1
             const operations = await this.loadOperations(
                 type,
                 id,
-                snapshot ? snapshot.version + 1 : minVersion,
-                version + 1,
+                versionStart,
+                versionEnd,
             )
             for (const operation of operations) {
                 snapshot = contentType.apply(snapshot, operation)
             }
         }
 
-        // Cache only the latest snapshot.
-        if (snapshot && version === maxVersion)
-            this.cacheSnapshot(stateKey, snapshot)
+        // Cache only if we have just loaded the latest snapshot.
+        if (snapshot.version < version) this.cacheSnapshot(stateKey, snapshot)
 
         return snapshot
     }

@@ -3,6 +3,8 @@ import {
     createOperationKey,
     createSchemaKey,
     isAlreadyExistsError,
+    maxVersion,
+    minVersion,
     Operation,
     OperationKey,
     Schema,
@@ -222,17 +224,21 @@ class PluginLoop {
         const schema = getSchema(type, state.schema)
 
         // Load the latest document snapshot.
-        let snapshot = await this.contentClient.getSnapshot(type, id)
+        let snapshot = await this.contentClient.getSnapshot(
+            type,
+            id,
+            maxVersion,
+        )
 
         // Create a new document, if it does not exist yet.
-        if (!snapshot) {
+        if (snapshot.version === minVersion) {
             await this.contentClient.registerSchema(schema)
             const operationKey = createOperationKey(userId)
             const operation: Operation = {
                 key: operationKey,
                 type,
                 id,
-                version: 1,
+                version: snapshot.version + 1,
                 schema: schema.key,
                 data: state.doc.toJSON(),
                 meta: null,
@@ -284,6 +290,7 @@ class PluginLoop {
             pluginState.type,
             pluginState.id,
             pluginState.version + 1,
+            maxVersion + 1,
         )
         this.streamType = pluginState.type
         this.streamId = pluginState.id

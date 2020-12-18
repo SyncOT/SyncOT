@@ -4,6 +4,7 @@ import {
     Snapshot,
     Schema,
     SchemaKey,
+    minVersion,
 } from '@syncot/content'
 import {
     assert,
@@ -137,15 +138,23 @@ export class ProseMirrorContentType implements ContentType {
         return this.registeredSchemas.has(key)
     }
 
-    public apply(snapshot: Snapshot | null, operation: Operation): Snapshot {
+    public apply(snapshot: Snapshot, operation: Operation): Snapshot {
+        assert(
+            operation.type === snapshot.type,
+            'operation.type must equal to snapshot.type.',
+        )
+        assert(
+            operation.id === snapshot.id,
+            'operation.id must equal to snapshot.id.',
+        )
+        assert(
+            operation.version === snapshot.version + 1,
+            'operation.version must equal to snapshot.version + 1.',
+        )
         const schema = this.registeredSchemas.get(operation.schema)!
         assert(schema, 'operation.schema is not registered.')
 
-        if (snapshot == null) {
-            assert(
-                operation.version === 1,
-                'operation.version must equal to 1.',
-            )
+        if (snapshot.version === minVersion) {
             assert(
                 operation.data != null,
                 'operation.data must contain the initial content.',
@@ -160,19 +169,6 @@ export class ProseMirrorContentType implements ContentType {
                 meta: operation.meta,
             }
         }
-
-        assert(
-            operation.type === snapshot.type,
-            'operation.type must equal to snapshot.type.',
-        )
-        assert(
-            operation.id === snapshot.id,
-            'operation.id must equal to snapshot.id.',
-        )
-        assert(
-            operation.version === snapshot.version + 1,
-            'operation.version must equal to snapshot.version + 1.',
-        )
 
         if (operation.schema !== snapshot.schema) {
             assert(operation.data == null, 'operation.data must be null.')

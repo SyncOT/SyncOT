@@ -140,8 +140,8 @@ class Client
     public getSnapshot(
         type: string,
         id: string,
-        version?: number | null | undefined,
-    ): Promise<Snapshot | null> {
+        version: number,
+    ): Promise<Snapshot> {
         return this.contentService.getSnapshot(type, id, version)
     }
 
@@ -155,8 +155,8 @@ class Client
     public streamOperations(
         type: string,
         id: string,
-        versionStart?: number | null | undefined,
-        versionEnd?: number | null | undefined,
+        versionStart: number,
+        versionEnd: number,
     ): Promise<Duplex> {
         return this.contentService.streamOperations(
             type,

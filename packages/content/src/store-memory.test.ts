@@ -1,5 +1,7 @@
 import {
     ContentStore,
+    createBaseOperation,
+    createBaseSnapshot,
     createContentStore,
     createOperationKey,
     createSchemaKey,
@@ -11,15 +13,19 @@ import {
 } from '.'
 
 const userId = 'test-user'
-const operations: Operation[] = Array.from(Array(10), (_value, version) => ({
-    key: createOperationKey(userId),
-    type: 'test-type',
-    id: 'test-id',
-    version,
-    schema: 'test-schema',
-    data: version,
-    meta: null,
-}))
+const operations: Operation[] = Array.from(Array(10), (_value, version) =>
+    version === 0
+        ? createBaseOperation('test-type', 'test-id')
+        : {
+              key: createOperationKey(userId),
+              type: 'test-type',
+              id: 'test-id',
+              version,
+              schema: 'test-schema',
+              data: version,
+              meta: null,
+          },
+)
 const schema: Schema = {
     key: createSchemaKey('test-type', 'test-data'),
     type: 'test-type',
@@ -87,7 +93,7 @@ describe('storeOperation', () => {
     test('operation.version === 0', async () => {
         await expect(store.storeOperation(operations[0])).rejects.toEqual(
             expect.objectContaining({
-                message: 'Operation.version must be a positive integer.',
+                message: 'operation.version must be greater than minVersion.',
                 name: 'SyncOTError Assert',
             }),
         )
@@ -142,16 +148,18 @@ describe('storeOperation', () => {
         const ids = ['id-1', 'id-2']
         for (const type of types) {
             for (const id of ids) {
-                const modifiedOperations = operations
-                    .slice(1)
-                    .map((operation) => ({
-                        ...operation,
-                        type,
-                        id,
-                        key: createOperationKey(userId),
-                    }))
+                const modifiedOperations = operations.map((operation) =>
+                    operation.version === 0
+                        ? createBaseOperation(type, id)
+                        : {
+                              ...operation,
+                              type,
+                              id,
+                              key: createOperationKey(userId),
+                          },
+                )
 
-                for (const operation of modifiedOperations) {
+                for (const operation of modifiedOperations.slice(1)) {
                     await store.storeOperation(operation)
                 }
 
@@ -183,9 +191,30 @@ describe('loadOperations', () => {
                 minVersion,
                 maxVersion + 1,
             ),
-        ).resolves.toStrictEqual(operations.slice(1))
+        ).resolves.toStrictEqual(operations)
     })
-    test('load non-existent operations', async () => {
+    test('load no operations', async () => {
+        for (const operation of operations.slice(1)) {
+            await store.storeOperation(operation)
+        }
+        await expect(
+            store.loadOperations(
+                operations[0].type,
+                'different-id',
+                minVersion + 1,
+                maxVersion + 1,
+            ),
+        ).resolves.toStrictEqual([])
+        await expect(
+            store.loadOperations(
+                operations[0].type,
+                'different-id',
+                minVersion,
+                minVersion,
+            ),
+        ).resolves.toStrictEqual([])
+    })
+    test('load base operation', async () => {
         for (const operation of operations.slice(1)) {
             await store.storeOperation(operation)
         }
@@ -196,7 +225,19 @@ describe('loadOperations', () => {
                 minVersion,
                 maxVersion + 1,
             ),
-        ).resolves.toStrictEqual([])
+        ).resolves.toStrictEqual([
+            createBaseOperation(operations[0].type, 'different-id'),
+        ])
+        await expect(
+            store.loadOperations(
+                operations[0].type,
+                'different-id',
+                minVersion,
+                minVersion + 1,
+            ),
+        ).resolves.toStrictEqual([
+            createBaseOperation(operations[0].type, 'different-id'),
+        ])
     })
 })
 
@@ -218,11 +259,11 @@ describe('storeSnapshot', () => {
     })
     test('invalid version', async () => {
         await expect(
-            store.storeSnapshot({ ...snapshot, version: 0 }),
+            store.storeSnapshot({ ...snapshot, version: minVersion }),
         ).rejects.toStrictEqual(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message: 'Snapshot.version must be a positive integer.',
+                message: 'snapshot.version must be greater than minVersion.',
             }),
         )
     })
@@ -287,7 +328,7 @@ describe('loadSnapshot', () => {
             store.loadSnapshot(snapshot.type, snapshot.id, maxVersion),
         ).resolves.toBe(snapshot3)
     })
-    test('not found', async () => {
+    test('fall back to base version', async () => {
         await store.storeSnapshot(snapshot)
         await expect(
             store.loadSnapshot(
@@ -295,6 +336,8 @@ describe('loadSnapshot', () => {
                 snapshot.id + '-different',
                 snapshot.version,
             ),
-        ).resolves.toBe(null)
+        ).resolves.toStrictEqual(
+            createBaseSnapshot(snapshot.type, snapshot.id + '-different'),
+        )
     })
 })

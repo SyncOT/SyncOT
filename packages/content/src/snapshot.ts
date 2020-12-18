@@ -1,3 +1,4 @@
+import { minVersion } from './limits'
 import { Meta } from './meta'
 import { SchemaKey } from './schema'
 
@@ -8,11 +9,14 @@ export type SnapshotKey = string
 
 /**
  * A document snapshot at a specific version.
+ *
+ * Note that a snapshot at version `minVersion` exists implicitly for each document and is never stored.
  */
 export interface Snapshot {
     /**
      * A globally unique ID of this snapshot,
      * equal to the key of the operation with the same type, id and version.
+     * If `version` is `minVersion`, `key` is an empty string.
      */
     key: SnapshotKey
     /**
@@ -30,15 +34,36 @@ export interface Snapshot {
     version: number
     /**
      * The ID of the schema of the document's content at the snapshot's version.
+     * If `version` is `minVersion`, `schema` is an empty string.
      */
     schema: SchemaKey
     /**
      * The document's content at the snapshot's version.
+     * If `version` is `minVersion`, `data` is null.
      */
     data: any
     /**
      * The snapshot's metadata,
      * equal to meta of the operation with the same type, id and version.
+     * If `version` is `minVersion`, `meta` is null.
      */
     meta: Meta | null
+}
+
+/**
+ * Creates a snapshot at version `minVersion` with the specified type and id.
+ * @param type The document type.
+ * @param id The document id.
+ * @returns A new snapshot.
+ */
+export function createBaseSnapshot(type: string, id: string): Snapshot {
+    return {
+        key: '',
+        type,
+        id,
+        version: minVersion,
+        schema: '',
+        data: null,
+        meta: null,
+    }
 }
