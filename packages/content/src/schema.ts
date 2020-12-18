@@ -30,19 +30,19 @@ export interface Schema {
     /**
      * A globally unique ID of this schema, which must be a hash of the type and data fields.
      */
-    key: SchemaKey
+    readonly key: SchemaKey
     /**
      * The document type.
      */
-    type: string
+    readonly type: string
     /**
      * The schema definition.
      */
-    data: any
+    readonly data: any
     /**
      * The schema's metadata.
      */
-    meta: Meta | null
+    readonly meta: Meta | null
 }
 
 /**

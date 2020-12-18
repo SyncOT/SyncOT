@@ -50,36 +50,36 @@ export interface Operation {
      * A globally unique ID of this operation.
      * If `version` is `minVersion`, `key` is an empty string.
      */
-    key: OperationKey
+    readonly key: OperationKey
     /**
      * The document type.
      */
-    type: string
+    readonly type: string
     /**
      * The document ID.
      */
-    id: string
+    readonly id: string
     /**
      * The document version created by this operation.
      * It must be an integer between minVersion and maxVersion inclusive.
      */
-    version: number
+    readonly version: number
     /**
      * The ID of the schema of the content at the version created by this operation.
      * If `version` is `minVersion`, `schema` is an empty string.
      */
-    schema: SchemaKey
+    readonly schema: SchemaKey
     /**
      * The action to apply to the document's content at `operation.version - 1` version
      * in order to produce the document's content at `operation.version` version.
      * If `version` is `minVersion`, `data` is null.
      */
-    data: any
+    readonly data: any
     /**
      * The operation's metadata.
      * If `version` is `minVersion`, `meta` is null.
      */
-    meta: Meta | null
+    readonly meta: Meta | null
 }
 
 /**

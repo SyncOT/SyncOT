@@ -11,24 +11,25 @@ import { createContentType } from '.'
 import { createProseMirrorSchema, ProseMirrorContentType } from './type'
 
 let contentType: ProseMirrorContentType
+const schemaType = 'type-0'
+const schemaData = {
+    nodes: [
+        'doc',
+        { content: 'paragraph+' },
+        'paragraph',
+        { content: 'text*' },
+        'text',
+        {},
+    ],
+    marks: ['strong', {}, 'em', {}],
+    topNode: 'doc',
+}
 const schema: Schema = {
-    key: '',
+    key: createSchemaKey(schemaType, schemaData),
     type: 'type-0',
-    data: {
-        nodes: [
-            'doc',
-            { content: 'paragraph+' },
-            'paragraph',
-            { content: 'text*' },
-            'text',
-            {},
-        ],
-        marks: ['strong', {}, 'em', {}],
-        topNode: 'doc',
-    },
+    data: schemaData,
     meta: null,
 }
-schema.key = createSchemaKey(schema.type, schema.data)
 const proseMirrorSchema = createProseMirrorSchema(schema)
 
 beforeEach(() => {
@@ -360,22 +361,25 @@ describe('apply', () => {
                 ...operation,
                 data: snapshot1.data,
             })
+
+            // Apply the same operation again to excercise the internal cache.
+            const snapshot2copy1 = contentType.apply(snapshot1, operation)
+            expect(snapshot2copy1).toStrictEqual(snapshot2)
+            expect(snapshot2copy1).not.toBe(snapshot2)
+
+            // Make sure .data caches the object on first access.
+            const snapshot2copy2 = contentType.apply(snapshot1, operation)
+            expect(snapshot2copy2.data).toBe(snapshot2copy2.data)
         })
     })
 
     describe('operation and snapshot with the same schema', () => {
         test('wrong operation.data', () => {
-            const snapshot1 = {
-                ...snapshot,
-            }
-            const operation2 = {
-                ...operation,
-            }
             contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+            expect(() => contentType.apply(snapshot, operation)).toThrow(
                 expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.data must not be null.',
+                    name: 'TypeError',
+                    message: "Cannot read property 'length' of null",
                 }),
             )
         })
@@ -424,6 +428,15 @@ describe('apply', () => {
                     ],
                 },
             })
+
+            // Apply the same operation again to excercise the internal cache.
+            const snapshot2copy1 = contentType.apply(snapshot, operation2)
+            expect(snapshot2copy1).toStrictEqual(snapshot2)
+            expect(snapshot2copy1).not.toBe(snapshot2)
+
+            // Make sure .data caches the object on first access.
+            const snapshot2copy2 = contentType.apply(snapshot, operation2)
+            expect(snapshot2copy2.data).toBe(snapshot2copy2.data)
         })
 
         test('step.apply throws', () => {

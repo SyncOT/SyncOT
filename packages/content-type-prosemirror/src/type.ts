@@ -32,10 +32,9 @@ export function createContentType(): ContentType {
 }
 
 export class ProseMirrorContentType implements ContentType {
-    private readonly registeredSchemas: Map<
-        SchemaKey,
-        ProseMirrorSchema
-    > = new Map()
+    private readonly schemas: Map<SchemaKey, ProseMirrorSchema> = new Map()
+    private readonly nodes: WeakMap<Snapshot, Node> = new WeakMap()
+    private readonly steps: WeakMap<Operation, Step[]> = new WeakMap()
 
     public validateSchema: Validator<Schema> = validate([
         (schema) =>
@@ -130,12 +129,12 @@ export class ProseMirrorContentType implements ContentType {
     ])
 
     public registerSchema(schema: Schema): void {
-        if (this.registeredSchemas.has(schema.key)) return
-        this.registeredSchemas.set(schema.key, createProseMirrorSchema(schema))
+        if (this.schemas.has(schema.key)) return
+        this.schemas.set(schema.key, createProseMirrorSchema(schema))
     }
 
     public hasSchema(key: SchemaKey): boolean {
-        return this.registeredSchemas.has(key)
+        return this.schemas.has(key)
     }
 
     public apply(snapshot: Snapshot, operation: Operation): Snapshot {
@@ -151,23 +150,31 @@ export class ProseMirrorContentType implements ContentType {
             operation.version === snapshot.version + 1,
             'operation.version must equal to snapshot.version + 1.',
         )
-        const schema = this.registeredSchemas.get(operation.schema)!
+        const schema = this.schemas.get(operation.schema)!
         assert(schema, 'operation.schema is not registered.')
 
         if (snapshot.version === minVersion) {
-            assert(
-                operation.data != null,
-                'operation.data must contain the initial content.',
-            )
-            return {
+            const node = this.getNode(operation)
+            const newSnapshot: Snapshot = {
                 key: operation.key,
                 type: operation.type,
                 id: operation.id,
                 version: operation.version,
                 schema: operation.schema,
-                data: operation.data,
+                get data() {
+                    const data = node.toJSON()
+                    // Cache the data.
+                    Object.defineProperty(this, 'data', {
+                        value: data,
+                        enumerable: true,
+                        configurable: true,
+                    })
+                    return data
+                },
                 meta: operation.meta,
             }
+            this.nodes.set(newSnapshot, node)
+            return newSnapshot
         }
 
         if (operation.schema !== snapshot.schema) {
@@ -183,28 +190,65 @@ export class ProseMirrorContentType implements ContentType {
             }
         }
 
-        assert(operation.data != null, 'operation.data must not be null.')
-        let doc = Node.fromJSON(schema, snapshot.data)
-        for (const stepJson of operation.data) {
-            const step = Step.fromJSON(schema, stepJson)
-            const result = step.apply(doc)
-            if (result.doc) {
-                doc = result.doc
-            } else {
-                /* istanbul ignore next */
-                const message = result.failed || 'Failed to apply a step.'
-                throw new Error(message)
+        {
+            let node = this.getNode(snapshot)
+            const steps = this.getSteps(operation)
+            for (const step of steps) {
+                const result = step.apply(node)
+                if (result.doc) {
+                    node = result.doc
+                } else {
+                    /* istanbul ignore next */
+                    const message = result.failed || 'Failed to apply a step.'
+                    throw new Error(message)
+                }
             }
+            const newSnapshot: Snapshot = {
+                key: operation.key,
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.schema,
+                get data() {
+                    const data = node.toJSON()
+                    // Cache the data.
+                    Object.defineProperty(this, 'data', {
+                        value: data,
+                        enumerable: true,
+                        configurable: true,
+                    })
+                    return data
+                },
+                meta: operation.meta,
+            }
+            this.nodes.set(newSnapshot, node)
+            return newSnapshot
         }
-        return {
-            key: operation.key,
-            type: operation.type,
-            id: operation.id,
-            version: operation.version,
-            schema: operation.schema,
-            data: doc.toJSON(),
-            meta: operation.meta,
+    }
+
+    private getSteps(operation: Operation): Step[] {
+        let steps = this.steps.get(operation)
+        if (!steps) {
+            const schema = this.schemas.get(operation.schema)!
+            const jsonSteps = operation.data as any[]
+            steps = new Array(jsonSteps.length)
+            for (let i = 0; i < jsonSteps.length; i++) {
+                steps[i] = Step.fromJSON(schema, jsonSteps[i])
+            }
+            this.steps.set(operation, steps)
         }
+        return steps
+    }
+
+    private getNode(entity: Snapshot | Operation): Node {
+        let node = this.nodes.get(entity)
+        if (!node) {
+            const schema = this.schemas.get(entity.schema)!
+            const jsonNode = entity.data
+            node = Node.fromJSON(schema, jsonNode)
+            this.nodes.set(entity, node)
+        }
+        return node
     }
 }
 

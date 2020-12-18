@@ -18,36 +18,36 @@ export interface Snapshot {
      * equal to the key of the operation with the same type, id and version.
      * If `version` is `minVersion`, `key` is an empty string.
      */
-    key: SnapshotKey
+    readonly key: SnapshotKey
     /**
      * The document type.
      */
-    type: string
+    readonly type: string
     /**
      * The document ID.
      */
-    id: string
+    readonly id: string
     /**
      * The document version which the snapshot represents.
      * It must be an integer between minVersion and maxVersion inclusive.
      */
-    version: number
+    readonly version: number
     /**
      * The ID of the schema of the document's content at the snapshot's version.
      * If `version` is `minVersion`, `schema` is an empty string.
      */
-    schema: SchemaKey
+    readonly schema: SchemaKey
     /**
      * The document's content at the snapshot's version.
      * If `version` is `minVersion`, `data` is null.
      */
-    data: any
+    readonly data: any
     /**
      * The snapshot's metadata,
      * equal to meta of the operation with the same type, id and version.
      * If `version` is `minVersion`, `meta` is null.
      */
-    meta: Meta | null
+    readonly meta: Meta | null
 }
 
 /**
