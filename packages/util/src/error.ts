@@ -194,6 +194,33 @@ export function isInvalidEntityError(error: any): error is InvalidEntityError {
     return isCustomError(error) && error.name === 'SyncOTError InvalidEntity'
 }
 
+export interface EntityTooLargeError extends Error {
+    name: 'SyncOTError EntityTooLarge'
+    entityName: string
+}
+/**
+ * Creates a new EntityTooLarge error.
+ * @param entityName The entity name.
+ */
+export function createEntityTooLargeError(
+    entityName: string,
+): EntityTooLargeError {
+    assert(
+        typeof entityName === 'string',
+        'Argument "entityName" must be a string.',
+    )
+    return createError({
+        entityName,
+        message: `"${entityName}" too large.`,
+        name: 'SyncOTError EntityTooLarge',
+    }) as EntityTooLargeError
+}
+export function isEntityTooLargeError(
+    error: any,
+): error is EntityTooLargeError {
+    return isCustomError(error) && error.name === 'SyncOTError EntityTooLarge'
+}
+
 export interface CompositeError extends Error {
     errors: Error[]
     name: 'SyncOTError Composite'

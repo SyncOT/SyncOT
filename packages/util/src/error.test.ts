@@ -3,12 +3,14 @@ import {
     assertUnreachable,
     createAssertError,
     createCompositeError,
+    createEntityTooLargeError,
     createError,
     createInvalidEntityError,
     CustomError,
     fromJSON,
     isAssertError,
     isCompositeError,
+    isEntityTooLargeError,
     isCustomError,
     isInvalidEntityError,
     isSyncOTError,
@@ -383,6 +385,32 @@ describe('InvalidEntityError', () => {
         expect(isInvalidEntityError(error)).toBeTrue()
         expect(isInvalidEntityError(new Error())).toBeFalse()
         expect(isInvalidEntityError({})).toBeFalse()
+    })
+})
+
+describe('EntityTooLargeError', () => {
+    test('createEntityTooLargeError with invalid entityName', () => {
+        expect(() => createEntityTooLargeError(5 as any)).toThrow(
+            expect.objectContaining({
+                message: 'Argument "entityName" must be a string.',
+                name: 'SyncOTError Assert',
+            }),
+        )
+    })
+    test('createInvalidEntityError with valid entityName', () => {
+        const name = 'MyEntity'
+        const error = createEntityTooLargeError(name)
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOTError EntityTooLarge')
+        expect(error.message).toBe(`"${name}" too large.`)
+        expect(error.entityName).toBe(name)
+    })
+    test('isEntityTooLargeError', () => {
+        const error = createEntityTooLargeError('Entity')
+        expect(isSyncOTError(error)).toBeTrue()
+        expect(isEntityTooLargeError(error)).toBeTrue()
+        expect(isEntityTooLargeError(new Error())).toBeFalse()
+        expect(isEntityTooLargeError({})).toBeFalse()
     })
 })
 
