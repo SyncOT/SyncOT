@@ -1,6 +1,7 @@
 import {
     assert,
     combine,
+    createEntityTooLargeError,
     exponentialBackOffStrategy,
     first,
     isOpenWritableStream,
@@ -19,7 +20,12 @@ import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
-import { minVersion } from './limits'
+import {
+    maxOperationSize,
+    maxSchemaSize,
+    maxSnapshotSize,
+    minVersion,
+} from './limits'
 
 /**
  * The options for the Content#submitOperation function.
@@ -208,6 +214,7 @@ class DefaultContent implements Content {
     }
 
     public async registerSchema(schema: Schema): Promise<void> {
+        this.checkSchemaSize(schema)
         const contentType = this.getContentType(schema.type)
         throwError(contentType.validateSchema(schema))
         return this.contentStore.storeSchema(schema)
@@ -226,6 +233,7 @@ class DefaultContent implements Content {
     }
 
     public async submitOperation(operation: Operation): Promise<void> {
+        this.checkOperationSize(operation)
         const { type, id, version } = operation
         const stateKey = combine(type, id)
         const contentType = this.getContentType(operation.type)
@@ -237,6 +245,7 @@ class DefaultContent implements Content {
             'operation.version out of sequence.',
         )
         snapshot = contentType.apply(snapshot, operation)
+        this.checkSnapshotSize(snapshot)
 
         try {
             await this.contentStore.storeOperation(operation)
@@ -519,6 +528,21 @@ class DefaultContent implements Content {
             snapshot,
             operations,
         })
+    }
+
+    private checkSchemaSize(schema: Schema): void {
+        if (JSON.stringify(schema).length > maxSchemaSize)
+            throw createEntityTooLargeError('Schema')
+    }
+
+    private checkOperationSize(operation: Operation): void {
+        if (JSON.stringify(operation).length > maxOperationSize)
+            throw createEntityTooLargeError('Operation')
+    }
+
+    private checkSnapshotSize(snapshot: Snapshot): void {
+        if (JSON.stringify(snapshot).length > maxSnapshotSize)
+            throw createEntityTooLargeError('Snapshot')
     }
 }
 
