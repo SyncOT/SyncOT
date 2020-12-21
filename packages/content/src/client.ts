@@ -2,7 +2,7 @@ import { AuthClient } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { Content, SubmitOperationOptions } from './content'
+import { Content } from './content'
 import { Operation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema } from './schema'
@@ -145,11 +145,8 @@ class Client
         return this.contentService.getSnapshot(type, id, version)
     }
 
-    public submitOperation(
-        operation: Operation,
-        options?: SubmitOperationOptions,
-    ): Promise<void> {
-        return this.contentService.submitOperation(operation, options)
+    public submitOperation(operation: Operation): Promise<void> {
+        return this.contentService.submitOperation(operation)
     }
 
     public streamOperations(

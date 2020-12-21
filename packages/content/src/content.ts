@@ -28,19 +28,6 @@ import {
 } from './limits'
 
 /**
- * The options for the Content#submitOperation function.
- */
-export interface SubmitOperationOptions {
-    /**
-     * Determines, if Content is allowed to rebase the operation internally,
-     * if the version of the submitted operation conflicts with an existing operation.
-     * This option is effective only if the ContentType, as determined by `Operation.type`, supports rebasing.
-     * Defaults to `false`.
-     */
-    allowRebase?: boolean
-}
-
-/**
  * Content and schema management interface.
  */
 export interface Content {
@@ -80,12 +67,8 @@ export interface Content {
      *   the operation was submitted in.
      *
      * @param operation The operation to submit.
-     * @param options The options providing additional control over the submition process.
      */
-    submitOperation(
-        operation: Operation,
-        options?: SubmitOperationOptions,
-    ): Promise<void>
+    submitOperation(operation: Operation): Promise<void>
 
     /**
      * Streams the specified operations.
