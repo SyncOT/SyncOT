@@ -1,9 +1,8 @@
 {
   "name": "@syncot/auth",
   "version": "0.1.0",
-  "description": "Interfaces and type definitions related to authentication and authorization.",
+  "description": "Authentication and authorization for SyncOT.",
   "keywords": [
-    "interface",
     "auth"
   ],
   "sideEffects": false,
@@ -27,6 +26,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/connection": "file:../connection",
     "@syncot/presence": "file:../presence",
     "@syncot/util": "file:../util",
     "tslib": "^2.0.3"

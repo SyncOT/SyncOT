@@ -11,6 +11,11 @@ export interface AuthEvents {
 }
 
 /**
+ * Request names supported by AuthService.
+ */
+export const requestNames = new Set(['logIn'])
+
+/**
  * Manages authentication and authorization on the client side.
  *
  * @event active The AuthClient has an authenticated user.
