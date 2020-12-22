@@ -6,7 +6,6 @@
   },
   "references": [
     { "path": "../auth" },
-    { "path": "../auth-client" },
     { "path": "../connection" },
     { "path": "../util" }
   ]

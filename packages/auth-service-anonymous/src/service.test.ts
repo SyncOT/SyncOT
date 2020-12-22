@@ -1,5 +1,5 @@
 import { AuthClient, AuthService } from '@syncot/auth'
-import { createAuthClient } from '@syncot/auth-client'
+import { createAuthClient } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence } from '@syncot/presence'
 import { delay, invertedStreams, whenEvent } from '@syncot/util'
