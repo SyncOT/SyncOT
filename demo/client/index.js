@@ -1,7 +1,7 @@
 import './polyfill'
 import './index.css'
 import 'prosemirror-view/style/prosemirror.css'
-import { createAuthClient } from '@syncot/auth-client'
+import { createAuthClient } from '@syncot/auth'
 import { createConnection, createStreamManager } from '@syncot/connection'
 import { createContentClient } from '@syncot/content'
 import { syncOT } from '@syncot/client-prosemirror'
