@@ -12,6 +12,7 @@ import {
     validate,
     Validator,
 } from '@syncot/util'
+import { EventEmitter } from 'events'
 import { Duplex } from 'readable-stream'
 import { createDisconnectedError } from './error'
 
@@ -29,7 +30,9 @@ type RequestMap = Map<RequestId, ProxyRequest>
 type StreamMap = Map<RequestId, Duplex>
 type Callback = (error: null | Error) => undefined
 
-export type Service = object
+export interface Service extends EventEmitter {
+    [key: string]: any
+}
 export interface ServiceDescriptor {
     name: ServiceName
     eventNames?: Set<EventName>
@@ -40,7 +43,9 @@ interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {
     streams: StreamMap
 }
 
-export type Proxy = object
+export interface Proxy extends EventEmitter {
+    [key: string]: any
+}
 export interface ProxyDescriptor {
     name: ProxyName
     eventNames?: Set<EventName>
@@ -93,7 +98,7 @@ interface EventMessage {
     service: ServiceName | ProxyName
     name: EventName | RequestName
     id: RequestId
-    data: any
+    data: any[]
 }
 interface RequestMessage {
     type: MessageType.REQUEST
@@ -174,7 +179,10 @@ const validateMessage: Validator<Message> = validate([
             ? undefined
             : createInvalidEntityError('Message', message, 'id'),
     (message) => {
-        if (message.type === MessageType.REQUEST) {
+        if (
+            message.type === MessageType.REQUEST ||
+            message.type === MessageType.EVENT
+        ) {
             return Array.isArray(message.data)
                 ? undefined
                 : createInvalidEntityError('Message', message, 'data')
@@ -331,12 +339,24 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             !this.services.has(serviceName),
             `Service "${serviceName}" has been already registered.`,
         )
-        assert(eventNames.size === 0, 'Connection events not implemented')
         requestNames.forEach((requestName) => {
             assert(
                 typeof (instance as any)[requestName] === 'function',
                 `Service.${requestName} must be a function.`,
             )
+        })
+        eventNames.forEach((eventName) => {
+            instance.on(eventName, (...args: any[]) => {
+                if (this.stream) {
+                    this.send({
+                        data: args,
+                        id: 0,
+                        name: eventName,
+                        service: serviceName,
+                        type: MessageType.EVENT,
+                    })
+                }
+            })
         })
 
         this.services.set(serviceName, {
@@ -367,9 +387,8 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             !this.proxies.has(proxyName),
             `Proxy "${proxyName}" has been already registered.`,
         )
-        assert(eventNames.size === 0, 'Connection events not implemented')
 
-        const instance = {}
+        const instance = new EventEmitter()
         let nextRequestId = 1
         const proxyRequests: RequestMap = new Map()
         const proxyStreams: StreamMap = new Map()
@@ -418,7 +437,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
         return Array.from(this.proxies.keys())
     }
 
-    public getProxy(name: ProxyName): Proxy | undefined {
+    public getProxy(name: ProxyName): EmitterInterface<Proxy> | undefined {
         const descriptor = this.proxies.get(name)
         return descriptor && descriptor.instance
     }
@@ -710,6 +729,8 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
 
     private onProxyMessage(
         {
+            eventNames,
+            instance,
             requests: proxyRequests,
             streams: proxyStreams,
         }: RegisteredProxyDescriptor,
@@ -822,6 +843,14 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
                 const serviceStream = proxyStreams.get(message.id)
                 if (serviceStream) {
                     serviceStream.destroy()
+                }
+                break
+            }
+
+            case MessageType.EVENT: {
+                const { name, data } = message
+                if (eventNames.has(name)) {
+                    queueMicrotask(() => instance.emit(name, ...data))
                 }
                 break
             }

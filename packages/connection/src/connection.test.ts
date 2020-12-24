@@ -1,4 +1,5 @@
 import { delay, invertedStreams, noop, whenNextTick } from '@syncot/util'
+import { EventEmitter } from 'events'
 import { Duplex, Readable, Stream } from 'readable-stream'
 import {
     Connection,
@@ -38,10 +39,11 @@ const invalidStreamMatcher = expect.objectContaining({
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
-let instance: {
+interface Instance extends Service {
     testMethod?: (..._args: any) => any
     anotherMethod?: (..._args: any) => any
 }
+let instance: Instance
 
 const whenClose = (stream: Duplex) =>
     new Promise((resolve) => stream.once('close', resolve))
@@ -70,7 +72,7 @@ beforeEach(() => {
         allowHalfOpen: false,
         objectMode: true,
     })
-    instance = {}
+    instance = new EventEmitter()
 })
 
 describe('connection', () => {
@@ -316,20 +318,6 @@ describe('service registration', () => {
             ),
         )
     })
-    test('register with events - currently unimplemented', () => {
-        expect(() =>
-            connection.registerService({
-                eventNames: new Set(['eventName']),
-                instance,
-                name,
-            }),
-        ).toThrow(
-            errorMatcher(
-                'SyncOTError Assert',
-                'Connection events not implemented',
-            ),
-        )
-    })
     test('register with a missing method', () => {
         instance.testMethod = () => null
         expect(() =>
@@ -349,6 +337,7 @@ describe('service registration', () => {
         instance.anotherMethod = () => null
         instance.testMethod = () => null
         connection.registerService({
+            eventNames: new Set(['event-1', 'event-2']),
             instance,
             name,
             requestNames: new Set(['testMethod', 'anotherMethod']),
@@ -361,7 +350,7 @@ describe('service registration', () => {
         })
         expect(() =>
             connection.registerService({
-                instance: {},
+                instance: new EventEmitter(),
                 name,
             }),
         ).toThrow(
@@ -374,7 +363,9 @@ describe('service registration', () => {
     test('get registered services', () => {
         const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
-        const anotherInstance = { test: () => undefined }
+        const anotherInstance = Object.assign(new EventEmitter(), {
+            test: () => undefined,
+        })
         instance.anotherMethod = () => null
         instance.testMethod = () => null
         connection.registerService({
@@ -403,19 +394,6 @@ describe('service registration', () => {
 })
 
 describe('proxy registration', () => {
-    test('register with events - currently unimplemented', () => {
-        expect(() =>
-            connection.registerProxy({
-                eventNames: new Set(['eventName']),
-                name,
-            }),
-        ).toThrow(
-            errorMatcher(
-                'SyncOTError Assert',
-                'Connection events not implemented',
-            ),
-        )
-    })
     test('register with a method conflict', () => {
         expect(() =>
             connection.registerProxy({
@@ -431,6 +409,7 @@ describe('proxy registration', () => {
     })
     test('register', () => {
         connection.registerProxy({
+            eventNames: new Set(['event-1', 'event-2']),
             name,
             requestNames: new Set(['testMethod', 'anotherMethod']),
         })
@@ -449,7 +428,7 @@ describe('proxy registration', () => {
         instance.anotherMethod = expect.any(Function)
         const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
-        const anotherInstance = {}
+        const anotherInstance = new EventEmitter()
         connection.registerProxy({ requestNames, name })
         connection.registerProxy({ name: anotherName })
         expect(connection.getProxyNames()).toEqual([name, anotherName])
@@ -480,7 +459,19 @@ describe('message validation', () => {
     })
     test.each<[string, any, string | null]>([
         ['invalid message', true, null],
-        ['invalid data (missing)', omit(message, 'data'), 'data'],
+        [
+            'invalid data (missing)',
+            omit(
+                { ...message, name: null, type: MessageType.REPLY_VALUE },
+                'data',
+            ),
+            'data',
+        ],
+        [
+            'invalid data ({}; message type: EVENT)',
+            { ...message, data: {}, type: MessageType.EVENT },
+            'data',
+        ],
         [
             'invalid data ({}; message type: REQUEST)',
             { ...message, data: {}, type: MessageType.REQUEST },
@@ -747,16 +738,48 @@ describe('message validation', () => {
                 type: MessageType.STREAM_OUTPUT_DESTROY,
             },
         ],
-        ['valid data (null)', { ...message, data: null }],
-        ['valid data (object)', { ...message, data: {} }],
-        ['valid data (Array)', { ...message, data: [] }],
+        [
+            'valid data (null)',
+            {
+                ...message,
+                data: null,
+                name: null,
+                type: MessageType.REPLY_VALUE,
+            },
+        ],
+        [
+            'valid data (object)',
+            { ...message, data: {}, name: null, type: MessageType.REPLY_VALUE },
+        ],
+        [
+            'valid data (Array)',
+            { ...message, data: [], name: null, type: MessageType.REPLY_VALUE },
+        ],
         [
             'valid data (Array; type: REQUEST)',
             { ...message, data: [], type: MessageType.REQUEST },
         ],
-        ['valid data (string)', { ...message, data: '' }],
-        ['valid data (number)', { ...message, data: 0 }],
-        ['valid data (boolean)', { ...message, data: false }],
+        [
+            'valid data (Array; type: EVENT)',
+            { ...message, data: [], type: MessageType.EVENT },
+        ],
+        [
+            'valid data (string)',
+            { ...message, data: '', name: null, type: MessageType.REPLY_VALUE },
+        ],
+        [
+            'valid data (number)',
+            { ...message, data: 0, name: null, type: MessageType.REPLY_VALUE },
+        ],
+        [
+            'valid data (boolean)',
+            {
+                ...message,
+                data: false,
+                name: null,
+                type: MessageType.REPLY_VALUE,
+            },
+        ],
     ])('%s', async (_, validMessage) => {
         const onDisconnect = jest.fn()
         const onError = jest.fn()
@@ -798,7 +821,7 @@ describe('no service', () => {
     beforeEach(() => {
         connection.connect(stream1)
         connection.registerService({
-            instance: {},
+            instance: new EventEmitter(),
             name: 'a-service',
         })
     })
@@ -886,6 +909,7 @@ describe('service and proxy', () => {
         'rejectErrorMethod',
         'rejectNonErrorMethod',
     ])
+    const eventNames = new Set(['testEvent', 'anotherTestEvent'])
     const params = ['abc', 5, true, { key: 'value' }, [1, 2, 3]]
     const replyData = {
         anotherKey: 'value',
@@ -902,7 +926,7 @@ describe('service and proxy', () => {
         returnedInvalidStream = new Readable()
         resolvedInvalidStream = new Readable()
 
-        service = {
+        service = Object.assign(new EventEmitter(), {
             rejectErrorMethod: jest.fn((..._args: any[]) =>
                 Promise.reject(error),
             ),
@@ -929,14 +953,16 @@ describe('service and proxy', () => {
             throwNonErrorMethod: jest.fn((..._args: any[]) => {
                 throw invalidErrorObject
             }),
-        }
+        })
         connection.connect(stream1)
         connection.registerService({
+            eventNames,
             instance: service,
             name: serviceName,
             requestNames,
         })
         connection.registerProxy({
+            eventNames,
             name: serviceName,
             requestNames,
         })
@@ -1664,6 +1690,136 @@ describe('service and proxy', () => {
         })
     })
 
+    describe('service events', () => {
+        test('no params', async () => {
+            const onMessage = jest.fn()
+            stream2.on('data', onMessage)
+            service.emit('testEvent')
+            await whenNextTick()
+            expect(onMessage).toHaveBeenCalledTimes(1)
+            expect(onMessage).toHaveBeenCalledWith({
+                data: [],
+                id: 0,
+                name: 'testEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+        })
+        test('some params', async () => {
+            const data = [1, 'test', true, [1, 2, 3], { key: 'value' }]
+            const onMessage = jest.fn()
+            stream2.on('data', onMessage)
+            service.emit('anotherTestEvent', ...data)
+            await whenNextTick()
+            expect(onMessage).toHaveBeenCalledTimes(1)
+            expect(onMessage).toHaveBeenCalledWith({
+                data,
+                id: 0,
+                name: 'anotherTestEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+        })
+        test('unregistered event', async () => {
+            const onMessage = jest.fn()
+            stream2.on('data', onMessage)
+            service.emit('testEvent')
+            service.emit('unregisteredEvent')
+            service.emit('anotherTestEvent')
+            await whenNextTick()
+            expect(onMessage).toHaveBeenCalledTimes(2)
+            expect(onMessage).toHaveBeenNthCalledWith(1, {
+                data: [],
+                id: 0,
+                name: 'testEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            expect(onMessage).toHaveBeenNthCalledWith(2, {
+                data: [],
+                id: 0,
+                name: 'anotherTestEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+        })
+        test('when disconnected', async () => {
+            const onMessage = jest.fn()
+            stream2.on('data', onMessage)
+            connection.disconnect()
+            service.emit('testEvent')
+            await whenNextTick()
+            expect(onMessage).toHaveBeenCalledTimes(0)
+        })
+    })
+
+    describe('proxy events', () => {
+        test('no params', async () => {
+            const onTestEvent = jest.fn()
+            proxy.on('testEvent', onTestEvent)
+            stream2.write({
+                data: [],
+                id: 0,
+                name: 'testEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            await whenNextTick()
+            expect(onTestEvent).toHaveBeenCalledTimes(1)
+            expect(onTestEvent).toHaveBeenCalledWith()
+        })
+        test('some params', async () => {
+            const data = [1, 'test', true, [1, 2, 3], { key: 'value' }]
+            const onTestEvent = jest.fn()
+            proxy.on('testEvent', onTestEvent)
+            stream2.write({
+                data,
+                id: 0,
+                name: 'testEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            await whenNextTick()
+            expect(onTestEvent).toHaveBeenCalledTimes(1)
+            expect(onTestEvent).toHaveBeenCalledWith(...data)
+        })
+        test('unregistered event', async () => {
+            const onTestEvent = jest.fn()
+            const onAnotherTestEvent = jest.fn()
+            const onUnregisteredEvent = jest.fn()
+            proxy.on('testEvent', onTestEvent)
+            proxy.on('unregisteredEvent', onUnregisteredEvent)
+            proxy.on('anotherTestEvent', onAnotherTestEvent)
+            stream2.write({
+                data: [1],
+                id: 0,
+                name: 'testEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            stream2.write({
+                data: [2],
+                id: 0,
+                name: 'unregisteredEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            stream2.write({
+                data: [3],
+                id: 0,
+                name: 'anotherTestEvent',
+                service: serviceName,
+                type: MessageType.EVENT,
+            })
+            await whenNextTick()
+            expect(onTestEvent).toHaveBeenCalledTimes(1)
+            expect(onTestEvent).toHaveBeenCalledWith(1)
+            expect(onUnregisteredEvent).toHaveBeenCalledTimes(0)
+            expect(onAnotherTestEvent).toHaveBeenCalledTimes(1)
+            expect(onAnotherTestEvent).toHaveBeenCalledWith(3)
+        })
+    })
+
     describe('service/proxy interaction', () => {
         let connection2: Connection
         let proxy2: TestProxy
@@ -1672,12 +1828,22 @@ describe('service and proxy', () => {
             connection2 = createConnection()
             connection2.connect(stream2)
             connection2.registerProxy({
+                eventNames,
                 name: serviceName,
                 requestNames,
             })
             proxy2 = connection2.getProxy(serviceName) as TestProxy
         })
 
+        test('event', async () => {
+            const data = [1, 'test', true, [1, 2, 3], { key: 'value' }]
+            const onTestEvent = jest.fn()
+            proxy2.on('testEvent', onTestEvent)
+            service.emit('testEvent', ...data)
+            await whenNextTick()
+            expect(onTestEvent).toHaveBeenCalledTimes(1)
+            expect(onTestEvent).toHaveBeenCalledWith(...data)
+        })
         test('request, reply', async () => {
             service.returnMethod.mockReturnValue(replyData)
             await expect(proxy2.returnMethod(...params)).resolves.toEqual(
