@@ -3,8 +3,10 @@ import { Connection } from '@syncot/connection'
 import {
     assert,
     createTaskRunner,
+    EmitterInterface,
     SyncOTEmitter,
     TaskRunner,
+    TypedEventEmitter,
 } from '@syncot/util'
 
 /**
@@ -72,7 +74,8 @@ export interface LoginResponse {
     sessionId: string
     userId: string
 }
-export interface InternalAuthService {
+export interface InternalAuthService
+    extends EmitterInterface<TypedEventEmitter<{}>> {
     logIn(loginDetails: any): Promise<LoginResponse>
 }
 

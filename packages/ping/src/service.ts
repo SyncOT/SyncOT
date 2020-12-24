@@ -1,5 +1,10 @@
 import { Connection } from '@syncot/connection'
-import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
+import {
+    assert,
+    EmitterInterface,
+    SyncOTEmitter,
+    TypedEventEmitter,
+} from '@syncot/util'
 import { createPingError } from './error'
 
 export const requestNames = new Set(['ping'])
@@ -72,7 +77,8 @@ export function createPingService({
 /**
  * The interface that the PingService exposes over Connection.
  */
-export interface InternalPingService {
+export interface InternalPingService
+    extends EmitterInterface<TypedEventEmitter<{}>> {
     ping(): Promise<void>
 }
 
