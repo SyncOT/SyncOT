@@ -1,4 +1,4 @@
-import { createAuthService } from '@syncot/auth-service-anonymous'
+import { BaseSession, createAuthService } from '@syncot/auth'
 import { createConnection } from '@syncot/connection'
 import {
     createContent,
@@ -24,6 +24,20 @@ const content = createContent({
         demo: proseMirrorContentType,
     },
 })
+class DemoSession extends BaseSession {
+    mayReadContent() {
+        return true
+    }
+    mayWriteContent() {
+        return true
+    }
+    mayReadPresence() {
+        return true
+    }
+    mayWritePresence() {
+        return true
+    }
+}
 
 server.on('connection', (socket) => {
     const stream = new SocketStream(socket)
@@ -34,7 +48,12 @@ server.on('connection', (socket) => {
         connection.destroy()
     })
 
-    const authService = createAuthService({ connection })
+    const authService = createAuthService({
+        connection,
+        createSession() {
+            return new DemoSession()
+        },
+    })
     const ping = createPingService({ connection })
     const contentService = createContentService({
         connection,
