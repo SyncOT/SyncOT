@@ -1,98 +1,93 @@
-import { AuthClient, AuthEvents, requestNames } from './auth'
 import { Connection } from '@syncot/connection'
 import {
     assert,
-    createTaskRunner,
-    EmitterInterface,
+    BackOffStrategy,
+    exponentialBackOffStrategy,
     SyncOTEmitter,
-    TaskRunner,
-    TypedEventEmitter,
+    workLoop,
 } from '@syncot/util'
+import { Auth, AuthEvents, eventNames, requestNames } from './auth'
+import { createAuthError } from './error'
+
+/**
+ * The type of functions which return login credentials.
+ */
+export type GetCredentials<Credentials> = () =>
+    | Credentials
+    | Promise<Credentials>
 
 /**
  * Options expected by `createAuthClient`.
  */
-export interface CreateAuthClientOptions {
+export interface CreateAuthClientOptions<Credentials> {
     /**
-     * A `Connection` instance for communication with an `AuthService`.
+     * A `Connection` instance for communication with an Auth service.
      */
     connection: Connection
     /**
-     * The name of the `AuthService` on the `connection`.
-     * Default is `'auth'`.
+     * The name of the `Auth` service on the `connection`.
+     * Default is "auth".
      */
     serviceName?: string
     /**
-     * A function which returns login details,
-     * or a `Promise` which resolves to login details,
-     * to submit to the `AuthService`.
-     * Default is `() => null`.
+     * Determines if the Auth client should attempt to be always in the `active` state.
+     * If set to `true`, a `getCredentials` function must be provided too,
+     * so that `logIn` would have a chance to succeed.
+     * Defaults to `false`.
      */
-    getLoginDetails?: () => any
+    autoLogIn?: boolean
     /**
-     * Min retry delay for login attempts in milliseconds.
-     * Default is 10000.
+     * A function which returns the default login credentials for `logIn`.
+     * If omitted, credentials must be provided explicitly in the calls to `logIn`.
+     * If `autoLogIn` is `true`, `getCredentials` must also be provided.
      */
-    minDelay?: number
+    getCredentials?: GetCredentials<Credentials>
     /**
-     * Max retry delay for login attempts in milliseconds.
-     * Default is 60000.
+     * If `autoLogIn` is `true` and `logIn` fails,
+     * the back-off strategy determines the retry delay.
+     * Defaults to an exponential back-off strategy with:
+     * - minDelay: 10000
+     * - maxDelay: 60000
+     * - delayFactor: 1.5
      */
-    maxDelay?: number
-    /**
-     * If >= 1, then how many times longer to wait before retrying after each failed login attempt.
-     * If === 0, then retry after a random delay.
-     * Default is 1.5.
-     */
-    delayFactor?: number
+    backOffStrategy?: BackOffStrategy
 }
 
 /**
  * Creates a new generic auth client.
  */
-export function createAuthClient({
+export function createAuthClient<Credentials, Presence>({
     connection,
-    getLoginDetails = returnNull,
     serviceName = 'auth',
-    minDelay = 10000,
-    maxDelay = 60000,
-    delayFactor = 1.5,
-}: CreateAuthClientOptions): AuthClient {
+    autoLogIn = false,
+    getCredentials,
+    backOffStrategy,
+}: CreateAuthClientOptions<Credentials>): Auth<Credentials, Presence> {
     return new Client(
         connection,
-        getLoginDetails,
         serviceName,
-        minDelay,
-        maxDelay,
-        delayFactor,
+        autoLogIn,
+        getCredentials,
+        backOffStrategy,
     )
 }
 
-const returnNull = () => null
-
-export interface LoginResponse {
-    sessionId: string
-    userId: string
-}
-export interface InternalAuthService
-    extends EmitterInterface<TypedEventEmitter<{}>> {
-    logIn(loginDetails: any): Promise<LoginResponse>
-}
-
-class Client extends SyncOTEmitter<AuthEvents> implements AuthClient {
+class Client<Credentials, Presence>
+    extends SyncOTEmitter<AuthEvents>
+    implements Auth<Credentials, Presence> {
     public active: boolean = false
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
-    private readonly authService: InternalAuthService
-    private readonly taskRunner: TaskRunner<LoginResponse>
+    private readonly authService: Auth<Credentials, Presence>
 
     public constructor(
         private readonly connection: Connection,
-        getLoginDetails: () => any,
         serviceName: string,
-        minDelay: number,
-        maxDelay: number,
-        delayFactor: number,
+        autoLogIn: boolean,
+        private readonly getCredentials:
+            | GetCredentials<Credentials>
+            | undefined,
+        backOffStrategy: BackOffStrategy | undefined,
     ) {
         super()
 
@@ -101,78 +96,130 @@ class Client extends SyncOTEmitter<AuthEvents> implements AuthClient {
             'Argument "connection" must be a non-destroyed Connection.',
         )
 
-        this.taskRunner = createTaskRunner(
-            async () => this.authService.logIn(await getLoginDetails()),
-            {
-                delayFactor,
-                maxDelay,
-                minDelay,
-            },
+        assert(
+            !autoLogIn || typeof this.getCredentials === 'function',
+            'Argument "getCredentials" must be a function, as "autoLogIn" is true.',
         )
 
         this.connection.registerProxy({
             name: serviceName,
             requestNames,
+            eventNames,
         })
-        this.authService = this.connection.getProxy(
-            serviceName,
-        ) as InternalAuthService
+        this.authService = this.connection.getProxy(serviceName) as Auth<
+            Credentials,
+            Presence
+        >
 
-        this.connection.on('destroy', this.onDestroy)
-        this.connection.on('connect', this.onConnect)
+        this.authService.on('active', this.onActive)
+        this.authService.on('inactive', this.onInactive)
         this.connection.on('disconnect', this.onDisconnect)
-        this.taskRunner.on('error', this.onError)
-        this.taskRunner.on('done', this.onLogin)
+        this.connection.on('destroy', this.onDestroy)
 
-        if (this.connection.isConnected()) {
-            this.taskRunner.run()
-        }
+        if (autoLogIn)
+            workLoop((notify) => {
+                this.on('destroy', notify)
+                this.on('inactive', notify)
+                this.connection.on('connect', notify)
+                return {
+                    destroy: () => {
+                        this.off('destroy', notify)
+                        this.off('inactive', notify)
+                        this.connection.off('connect', notify)
+                    },
+                    isDone: () => this.destroyed,
+                    onError: this.onError,
+                    retryDelay:
+                        backOffStrategy ||
+                        exponentialBackOffStrategy({
+                            minDelay: 10000,
+                            maxDelay: 60000,
+                            delayFactor: 1.5,
+                        }),
+                    work: async () => {
+                        if (this.active) return
+                        if (!this.connection.isConnected()) return
+                        await this.logIn()
+                    },
+                }
+            })
     }
 
     public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
+        if (this.destroyed) return
 
-        this.connection.off('destroy', this.onDestroy)
-        this.connection.off('connect', this.onConnect)
+        this.authService.off('active', this.onActive)
+        this.authService.off('inactive', this.onInactive)
         this.connection.off('disconnect', this.onDisconnect)
-        this.taskRunner.off('error', this.onError)
-        this.taskRunner.off('done', this.onLogin)
+        this.connection.off('destroy', this.onDestroy)
 
+        this.deactivate()
+        super.destroy()
+    }
+
+    public async logIn(credentials?: Credentials): Promise<void> {
+        if (credentials == null) {
+            if (this.getCredentials == null)
+                throw createAuthError('Credentials missing.')
+            // tslint:disable-next-line:no-parameter-reassignment
+            credentials = await this.getCredentials.call(null)
+        }
+        return this.authService.logIn(credentials)
+    }
+
+    public async logOut(): Promise<void> {
+        return this.authService.logOut()
+    }
+
+    mayReadContent(type: string, id: string): boolean | Promise<boolean> {
+        return this.authService.mayReadContent(type, id)
+    }
+
+    mayWriteContent(type: string, id: string): boolean | Promise<boolean> {
+        return this.authService.mayWriteContent(type, id)
+    }
+
+    mayReadPresence(presence: Presence): boolean | Promise<boolean> {
+        return this.authService.mayReadPresence(presence)
+    }
+
+    mayWritePresence(presence: Presence): boolean | Promise<boolean> {
+        return this.authService.mayWritePresence(presence)
+    }
+
+    private activate(userId: string, sessionId: string): void {
+        if (this.active) this.emitAsync('inactive')
+        this.active = true
+        this.userId = userId
+        this.sessionId = sessionId
+        this.emitAsync('active', { userId, sessionId })
+    }
+
+    private deactivate(): void {
+        if (!this.active) return
         this.active = false
         this.sessionId = undefined
         this.userId = undefined
-        this.taskRunner.destroy()
-        super.destroy()
+        this.emitAsync('inactive')
+    }
+
+    private onActive = (event: AuthEvents['active']): void => {
+        this.activate(event.userId, event.sessionId)
+    }
+
+    private onInactive = (): void => {
+        this.deactivate()
+    }
+
+    private onDisconnect = (): void => {
+        this.deactivate()
     }
 
     private onDestroy = (): void => {
         this.destroy()
     }
 
-    private onConnect = (): void => {
-        this.taskRunner.run()
-    }
-
-    private onDisconnect = (): void => {
-        this.taskRunner.cancel()
-        if (this.active) {
-            this.active = false
-            this.sessionId = undefined
-            this.userId = undefined
-            this.emitAsync('inactive')
-        }
-    }
-
     private onError = (error: Error): void => {
         this.emitAsync('error', error)
-    }
-
-    private onLogin = ({ sessionId, userId }: LoginResponse): void => {
-        this.active = true
-        this.sessionId = sessionId
-        this.userId = userId
-        this.emitAsync('active')
     }
 }

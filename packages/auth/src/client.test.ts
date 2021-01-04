@@ -2,58 +2,47 @@ import { Connection, createConnection } from '@syncot/connection'
 import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex } from 'readable-stream'
-import { AuthClient, AuthEvents, AuthService, requestNames } from './auth'
-import { createAuthClient, LoginResponse } from './client'
+import { Auth, AuthEvents, createAuthClient, eventNames, requestNames } from '.'
 
+interface Credentials {
+    userName: string
+    password: string
+}
 let clock: InstalledClock
 let clientStream: Duplex
 let serverStream: Duplex
 let clientConnection: Connection
 let serverConnection: Connection
-let authClient: AuthClient
+let authClient: Auth<Credentials>
 let authService: MockAuthService
 const sessionId = 'test-session-id'
 const userId = 'test-user-id'
-const loginResponse = {
-    sessionId,
-    userId,
-}
+const userName = 'test-user-name'
+const password = 'test-password'
+const credentials = { userName, password }
+let getCredentials: jest.Mock<Credentials>
 const invalidConnectionMatcher = expect.objectContaining({
     message: 'Argument "connection" must be a non-destroyed Connection.',
     name: 'SyncOTError Assert',
 })
 const testError = new Error('test-error')
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
+class MockAuthService
+    extends SyncOTEmitter<AuthEvents>
+    implements Auth<Credentials> {
     public active: boolean = false
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
-    public logIn: jest.Mock<
-        Promise<LoginResponse>
-    > = jest.fn().mockResolvedValue(loginResponse)
-    public mayReadContent = () => false
-    public mayWriteContent = () => false
-    public mayReadPresence = () => false
-    public mayWritePresence = () => false
+    public logIn: jest.Mock<Promise<void>> = jest.fn()
+    public logOut: jest.Mock<Promise<void>> = jest.fn()
+    public mayReadContent = jest.fn(() => true)
+    public mayWriteContent = jest.fn(() => true)
+    public mayReadPresence = jest.fn(() => true)
+    public mayWritePresence = jest.fn(() => true)
 }
 
-const whenActive = () =>
-    new Promise((resolve) => authClient.once('active', resolve))
-const whenInactive = () =>
-    new Promise((resolve) => authClient.once('inactive', resolve))
 const whenDestroy = () =>
     new Promise((resolve) => authClient.once('destroy', resolve))
-const whenError = () =>
-    new Promise((resolve, reject) =>
-        authClient.once('error', (error) => {
-            try {
-                expect(error).toEqual(testError)
-                resolve()
-            } catch (error) {
-                reject(error)
-            }
-        }),
-    )
 
 beforeEach(async () => {
     clock = installClock()
@@ -67,11 +56,12 @@ beforeEach(async () => {
     serverConnection.connect(serverStream)
     authService = new MockAuthService()
     serverConnection.registerService({
+        eventNames,
         instance: authService,
         name: 'auth',
         requestNames,
     })
-    await whenNextTick() // Wait for "connect" events.
+    getCredentials = jest.fn(() => credentials)
 })
 
 afterEach(() => {
@@ -79,6 +69,7 @@ afterEach(() => {
     serverConnection.destroy()
     // Ensure instances are not reused between tests.
     authClient = undefined as any
+    authService = undefined as any
     expect(clock.countTimers()).toBe(0)
     clock.uninstall()
 })
@@ -94,124 +85,333 @@ test('invalid connection (destroyed)', () => {
         invalidConnectionMatcher,
     )
 })
+test('invalid getCredentials when autoLogIn is true', () => {
+    expect(() =>
+        createAuthClient({ connection: clientConnection, autoLogIn: true }),
+    ).toThrow(
+        expect.objectContaining({
+            message:
+                'Argument "getCredentials" must be a function, as "autoLogIn" is true.',
+            name: 'SyncOTError Assert',
+        }),
+    )
+})
+test('destroy', async () => {
+    authClient = createAuthClient({ connection: clientConnection })
+    authService.emit('active', { sessionId, userId })
+    await whenNextTick()
+    expect(authClient.active).toBeTrue()
+    expect(authClient.sessionId).toBe(sessionId)
+    expect(authClient.userId).toBe(userId)
+    authClient.destroy()
+    expect(authClient.active).toBeFalse()
+    expect(authClient.sessionId).toBeUndefined()
+    expect(authClient.userId).toBeUndefined()
+    await whenDestroy()
+    authClient.destroy()
+})
 test('destroy on connection destroy', async () => {
     authClient = createAuthClient({ connection: clientConnection })
     clientConnection.destroy()
     await whenDestroy()
 })
 
-test('log in on startup with default params', async () => {
-    authClient = createAuthClient({ connection: clientConnection })
-    expect(authClient.active).toBeFalse()
-    expect(authClient.sessionId).toBeUndefined()
-    expect(authClient.userId).toBeUndefined()
-    await whenActive()
-    expect(authService.logIn).toHaveBeenCalledTimes(1)
-    expect(authService.logIn).toHaveBeenCalledWith(null)
-    expect(authClient.active).toBeTrue()
-    expect(authClient.sessionId).toBe(sessionId)
-    expect(authClient.userId).toBe(userId)
-})
-
-test('log in on startup with custom params', async () => {
-    const accessToken = 'test-access-token'
-    const serviceName = 'test-auth'
-    const customAuthService = new MockAuthService()
-    serverConnection.registerService({
-        instance: customAuthService,
-        name: serviceName,
-        requestNames,
-    })
-    authClient = createAuthClient({
-        connection: clientConnection,
-        getLoginDetails: async () => accessToken,
-        serviceName,
-    })
-    expect(authClient.active).toBeFalse()
-    expect(authClient.sessionId).toBeUndefined()
-    expect(authClient.userId).toBeUndefined()
-    await whenActive()
-    expect(customAuthService.logIn).toHaveBeenCalledTimes(1)
-    expect(customAuthService.logIn).toHaveBeenCalledWith(accessToken)
-    expect(authService.logIn).toHaveBeenCalledTimes(0)
-    expect(authClient.active).toBeTrue()
-    expect(authClient.sessionId).toBe(sessionId)
-    expect(authClient.userId).toBe(userId)
-})
-
-test('log in on "connect"', async () => {
-    clientConnection.disconnect()
-    await whenNextTick() // Wait for "disconnect" event.
-    authClient = createAuthClient({ connection: clientConnection })
-    await whenNextTick()
-    await whenNextTick()
-    expect(authService.logIn).toHaveBeenCalledTimes(0)
-    ;[clientStream, serverStream] = invertedStreams({
-        allowHalfOpen: false,
-        objectMode: true,
-    })
-    clientConnection.connect(clientStream)
-    serverConnection.connect(serverStream)
-    expect(authClient.active).toBeFalse()
-    expect(authClient.sessionId).toBeUndefined()
-    expect(authClient.userId).toBeUndefined()
-    await whenActive()
-    expect(authService.logIn).toHaveBeenCalledTimes(1)
-    expect(authService.logIn).toHaveBeenCalledWith(null)
-    expect(authClient.active).toBeTrue()
-    expect(authClient.sessionId).toBe(sessionId)
-    expect(authClient.userId).toBe(userId)
-})
-
-test('destroy before activating', async () => {
+test('on active', async () => {
+    const sessionId2 = sessionId + '-2'
+    const userId2 = userId + '-2'
     const onActive = jest.fn()
+    const onInactive = jest.fn()
     authClient = createAuthClient({ connection: clientConnection })
     authClient.on('active', onActive)
-    authClient.destroy()
-    await whenDestroy()
-    await whenNextTick()
-    await whenNextTick()
+    authClient.on('inactive', onInactive)
+
     expect(authClient.active).toBeFalse()
     expect(authClient.sessionId).toBeUndefined()
     expect(authClient.userId).toBeUndefined()
-    expect(onActive).not.toHaveBeenCalled()
+    authService.emit('active', { sessionId, userId })
+    await whenNextTick()
+    expect(authClient.active).toBeTrue()
+    expect(authClient.sessionId).toBe(sessionId)
+    expect(authClient.userId).toBe(userId)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(1)
+    expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
+    expect(onInactive).toHaveBeenCalledTimes(0)
+    onActive.mockReset()
+    authService.emit('active', { sessionId: sessionId2, userId: userId2 })
+    await whenNextTick()
+    expect(authClient.active).toBeTrue()
+    expect(authClient.sessionId).toBe(sessionId2)
+    expect(authClient.userId).toBe(userId2)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(1)
+    expect(onActive).toHaveBeenCalledWith({
+        sessionId: sessionId2,
+        userId: userId2,
+    })
+    expect(onInactive).toHaveBeenCalledTimes(1)
+    expect(onInactive).toHaveBeenCalledBefore(onActive)
 })
 
-test('destroy when active', async () => {
+test('on inactive', async () => {
+    const onActive = jest.fn()
+    const onInactive = jest.fn()
     authClient = createAuthClient({ connection: clientConnection })
-    await whenActive()
-    authClient.destroy()
+    authClient.on('active', onActive)
+    authClient.on('inactive', onInactive)
+
     expect(authClient.active).toBeFalse()
     expect(authClient.sessionId).toBeUndefined()
     expect(authClient.userId).toBeUndefined()
-    await whenDestroy()
+    authService.emit('active', { sessionId, userId })
+    await whenNextTick()
+    expect(authClient.active).toBeTrue()
+    expect(authClient.sessionId).toBe(sessionId)
+    expect(authClient.userId).toBe(userId)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(1)
+    expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
+    expect(onInactive).toHaveBeenCalledTimes(0)
+    onActive.mockReset()
+    authService.emit('inactive')
+    await whenNextTick()
+    expect(authClient.active).toBeFalse()
+    expect(authClient.sessionId).toBe(undefined)
+    expect(authClient.userId).toBe(undefined)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(0)
+    expect(onInactive).toHaveBeenCalledTimes(1)
+    onInactive.mockReset()
+    authService.emit('inactive')
+    await whenNextTick()
+    expect(authClient.active).toBeFalse()
+    expect(authClient.sessionId).toBe(undefined)
+    expect(authClient.userId).toBe(undefined)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(0)
+    expect(onInactive).toHaveBeenCalledTimes(0)
 })
 
-test('destroy twice', () => {
+test('on disconnect', async () => {
+    const onActive = jest.fn()
+    const onInactive = jest.fn()
     authClient = createAuthClient({ connection: clientConnection })
-    authClient.destroy()
-    authClient.destroy()
-})
+    authClient.on('active', onActive)
+    authClient.on('inactive', onInactive)
 
-test('handle disconnect when active', async () => {
-    authClient = createAuthClient({ connection: clientConnection })
-    await whenActive()
+    expect(authClient.active).toBeFalse()
+    expect(authClient.sessionId).toBeUndefined()
+    expect(authClient.userId).toBeUndefined()
+    authService.emit('active', { sessionId, userId })
+    await whenNextTick()
+    expect(authClient.active).toBeTrue()
+    expect(authClient.sessionId).toBe(sessionId)
+    expect(authClient.userId).toBe(userId)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(1)
+    expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
+    expect(onInactive).toHaveBeenCalledTimes(0)
+    onActive.mockReset()
     clientConnection.disconnect()
-    await whenInactive()
+    await whenNextTick()
     expect(authClient.active).toBeFalse()
-    expect(authClient.sessionId).toBeUndefined()
-    expect(authClient.userId).toBeUndefined()
+    expect(authClient.sessionId).toBe(undefined)
+    expect(authClient.userId).toBe(undefined)
+    await whenNextTick()
+    expect(onActive).toHaveBeenCalledTimes(0)
+    expect(onInactive).toHaveBeenCalledTimes(1)
 })
 
-test('handle disconnect when login is scheduled', async () => {
-    authService.logIn.mockRejectedValue(testError)
-    authClient = createAuthClient({ connection: clientConnection })
-    await whenError()
-    expect(clock.countTimers()).toBe(1)
-    clientConnection.disconnect()
-    await whenNextTick()
-    expect(clock.countTimers()).toBe(0)
-    expect(authClient.active).toBeFalse()
-    expect(authClient.sessionId).toBeUndefined()
-    expect(authClient.userId).toBeUndefined()
+describe('logIn', () => {
+    test('with credentials and with getCredentials', async () => {
+        const otherCredentials = {
+            userName: 'other-user',
+            password: 'other-password',
+        }
+        authClient = createAuthClient({
+            connection: clientConnection,
+            getCredentials,
+        })
+        await authClient.logIn(otherCredentials)
+        expect(getCredentials).toHaveBeenCalledTimes(0)
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledWith(otherCredentials)
+    })
+    test('with credentials and without getCredentials', async () => {
+        const otherCredentials = {
+            userName: 'other-user',
+            password: 'other-password',
+        }
+        authClient = createAuthClient({
+            connection: clientConnection,
+        })
+        await authClient.logIn(otherCredentials)
+        expect(getCredentials).toHaveBeenCalledTimes(0)
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledWith(otherCredentials)
+    })
+    test('without credentials and with getCredentials', async () => {
+        authClient = createAuthClient({
+            connection: clientConnection,
+            getCredentials,
+        })
+        await authClient.logIn()
+        expect(getCredentials).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledWith(credentials)
+    })
+    test('without credentials and without getCredentials', async () => {
+        authClient = createAuthClient({
+            connection: clientConnection,
+        })
+        await expect(authClient.logIn()).rejects.toStrictEqual(
+            expect.objectContaining({
+                name: 'SyncOTError Auth',
+                message: 'Credentials missing.',
+            }),
+        )
+        expect(getCredentials).toHaveBeenCalledTimes(0)
+        expect(authService.logIn).toHaveBeenCalledTimes(0)
+    })
+})
+
+test('logOut', async () => {
+    authClient = createAuthClient({
+        connection: clientConnection,
+    })
+    await authClient.logOut()
+    expect(authService.logOut).toHaveBeenCalledTimes(1)
+})
+
+test('mayReadContent', async () => {
+    authClient = createAuthClient({
+        connection: clientConnection,
+    })
+    await expect(authClient.mayReadContent('type-1', 'id-1')).resolves.toBe(
+        true,
+    )
+    expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
+    expect(authService.mayReadContent).toHaveBeenCalledWith('type-1', 'id-1')
+})
+
+test('mayWriteContent', async () => {
+    authClient = createAuthClient({
+        connection: clientConnection,
+    })
+    await expect(authClient.mayWriteContent('type-1', 'id-1')).resolves.toBe(
+        true,
+    )
+    expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
+    expect(authService.mayWriteContent).toHaveBeenCalledWith('type-1', 'id-1')
+})
+
+test('mayReadPresence', async () => {
+    authClient = createAuthClient({
+        connection: clientConnection,
+    })
+    await expect(authClient.mayReadPresence('presence-1')).resolves.toBe(true)
+    expect(authService.mayReadPresence).toHaveBeenCalledTimes(1)
+    expect(authService.mayReadPresence).toHaveBeenCalledWith('presence-1')
+})
+
+test('mayWritePresence', async () => {
+    authClient = createAuthClient({
+        connection: clientConnection,
+    })
+    await expect(authClient.mayWritePresence('presence-1')).resolves.toBe(true)
+    expect(authService.mayWritePresence).toHaveBeenCalledTimes(1)
+    expect(authService.mayWritePresence).toHaveBeenCalledWith('presence-1')
+})
+
+describe.each([
+    ['default', undefined, 10000],
+    ['custom', () => 123, 123],
+])('autoLogIn (BackOffStrategy=%s)', (_, backOffStrategy, firstDelay) => {
+    beforeEach(async () => {
+        ;[clientStream, serverStream] = invertedStreams({
+            allowHalfOpen: false,
+            objectMode: true,
+        })
+        clientConnection.disconnect()
+        serverConnection.disconnect()
+        serverConnection.connect(serverStream)
+        // clientConnection.connect(clientStream) // Start each tests when disconnected.
+        // await whenNextTick()
+        authClient = createAuthClient({
+            connection: clientConnection,
+            getCredentials,
+            autoLogIn: true,
+            backOffStrategy,
+        })
+    })
+    afterEach(() => {
+        authClient.destroy()
+    })
+    test('logIn on connect', async () => {
+        clientConnection.connect(clientStream)
+        await whenNextTick() // Wait for connection.
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledWith(credentials)
+    })
+    test('logIn error', async () => {
+        const onError = jest.fn()
+        authClient.on('error', onError)
+        authService.logIn.mockRejectedValueOnce(testError)
+        clientConnection.connect(clientStream)
+        await whenNextTick() // Wait for connection.
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        expect(authService.logIn).toHaveBeenCalledWith(credentials)
+        await whenNextTick() // Wait for error.
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(testError)
+        expect(clock.countTimers()).toBe(1)
+        clock.reset()
+    })
+    test('skip logIn if already active', async () => {
+        const onError = jest.fn()
+        authClient.on('error', onError)
+        authService.logIn.mockRejectedValueOnce(testError)
+        clientConnection.connect(clientStream)
+        await whenNextTick() // Wait for connection.
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        authService.logIn.mockReset()
+        await whenNextTick() // Wait for error.
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(testError)
+        onError.mockReset()
+        authService.emit('active', { sessionId, userId })
+        await whenNextTick() // Wait until active.
+        expect(authClient.active).toBeTrue()
+        expect(clock.countTimers()).toBe(1)
+        clock.next()
+        expect(clock.now).toBe(firstDelay)
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(0)
+        expect(onError).toHaveBeenCalledTimes(0)
+    })
+    test('skip logIn if not connected', async () => {
+        const onError = jest.fn()
+        authClient.on('error', onError)
+        authService.logIn.mockRejectedValueOnce(testError)
+        clientConnection.connect(clientStream)
+        await whenNextTick() // Wait for connection.
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(1)
+        authService.logIn.mockReset()
+        await whenNextTick() // Wait for error.
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(testError)
+        onError.mockReset()
+        clientConnection.disconnect()
+        await whenNextTick() // Wait for disconnection.
+        expect(clock.countTimers()).toBe(1)
+        clock.next()
+        expect(clock.now).toBe(firstDelay)
+        await whenNextTick() // Wait for request.
+        expect(authService.logIn).toHaveBeenCalledTimes(0)
+        expect(onError).toHaveBeenCalledTimes(0)
+    })
 })

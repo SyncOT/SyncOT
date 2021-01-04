@@ -1,80 +1,87 @@
 import { EmitterInterface, SyncOTEmitter } from '@syncot/util'
-import { Presence } from '@syncot/presence'
 
 /**
- * Events emitted by `AuthService` and `AuthClient`.
+ * Events emitted by `Auth`.
  */
 export interface AuthEvents {
-    active: void
+    /**
+     * Emitted when a user becomes authenticated.
+     */
+    active: { userId: string; sessionId: string }
+    /**
+     * Emitted when a user stops being authenticated.
+     */
     inactive: void
+    /**
+     * Emitted on error.
+     */
     error: Error
 }
 
 /**
- * Request names supported by AuthService.
+ * Request names supported by Auth over Connection.
  */
-export const requestNames = new Set(['logIn'])
+export const requestNames = new Set([
+    'logIn',
+    'logOut',
+    'mayReadContent',
+    'mayWriteContent',
+    'mayReadPresence',
+    'mayWritePresence',
+])
 
 /**
- * Manages authentication and authorization on the client side.
- *
- * @event active The AuthClient has an authenticated user.
- * @event inactive The AuthClient no longer has an authenticated.
- * @event error The AuthClient has experienced an error.
- * @event destroy The AuthClient has been destroyed.
+ * Event names supported by Auth over Connection.
  */
-export interface AuthClient
+export const eventNames = new Set(['active', 'inactive'])
+
+/**
+ * Manages authentication and authorization.
+ */
+export interface Auth<Credentials = any, Presence = any>
     extends EmitterInterface<SyncOTEmitter<AuthEvents>> {
     /**
      * If a user is authenticated, then `true`, otherwise `false`.
      */
     readonly active: boolean
     /**
-     * If `active===true`, then a session ID, otherwise `undefined`.
+     * If `active` is `true`, then a session ID, otherwise `undefined`.
+     * It is intended for uniquely identifying sessions only and must not be used for security.
+     * The `sessionId` is public and may be freely shared with connected clients.
      */
     readonly sessionId: string | undefined
     /**
-     * If `active===true`, then the ID of the authenticated user, otherwise `undefined`.
+     * If `active` is `true`, then the ID of the authenticated user, otherwise `undefined`.
      */
     readonly userId: string | undefined
-}
 
-/**
- * Manages authentication and authorization on the server side.
- *
- * @event active The AuthService has an authenticated user.
- * @event inactive The AuthService no longer has an authenticated user.
- * @event error The AuthService has experienced an error.
- * @event destroy The AuthService has been destroyed.
- */
-export interface AuthService
-    extends EmitterInterface<SyncOTEmitter<AuthEvents>> {
     /**
-     * If a user is authenticated, then `true`, otherwise `false`.
+     * Logs in using the specified credentials to create a new session.
+     * @param credentials The credentials to use.
+     *   If omitted, an Auth implementation may attempt to retrieve credentials internally.
+     *   If credentials are not provided and cannot be obtained internally, the function fails.
      */
-    readonly active: boolean
+    logIn(credentials?: Credentials): Promise<void>
+
     /**
-     * If `active===true`, then a session ID, otherwise `undefined`.
+     * Logs out to terminate the current session.
      */
-    readonly sessionId: string | undefined
+    logOut(): Promise<void>
+
     /**
-     * If `active===true`, then the ID of the authenticated user, otherwise `undefined`.
+     * Determines if the user may read the specified document's content.
      */
-    readonly userId: string | undefined
+    mayReadContent(type: string, id: string): boolean | Promise<boolean>
     /**
-     * Determines if the user may read from the specified document's content.
+     * Determines if the user may write the specified document's content.
      */
-    mayReadContent(typeName: string, id: string): boolean | Promise<boolean>
+    mayWriteContent(type: string, id: string): boolean | Promise<boolean>
     /**
-     * Determines if the user may write to the specified document's content.
+     * Determines if the user may read the specified presence object.
      */
-    mayWriteContent(typeName: string, id: string): boolean | Promise<boolean>
+    mayReadPresence(presence: Presence): boolean | Promise<boolean>
     /**
-     * Determines if the user may read/load the specified presence object.
+     * Determines if the user may write the specified presence object.
      */
-    mayReadPresence(presence: Presence): boolean
-    /**
-     * Determines if the user may write/store the specified presence object.
-     */
-    mayWritePresence(presence: Presence): boolean
+    mayWritePresence(presence: Presence): boolean | Promise<boolean>
 }
