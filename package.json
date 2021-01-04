@@ -85,7 +85,6 @@
   },
   "dependencies": {
     "@syncot/auth": "file:packages/auth",
-    "@syncot/auth-service-anonymous": "file:packages/auth-service-anonymous",
     "@syncot/client-prosemirror": "file:packages/client-prosemirror",
     "@syncot/connection": "file:packages/connection",
     "@syncot/content": "file:packages/content",
