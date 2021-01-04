@@ -1,4 +1,4 @@
-import { AuthClient } from '@syncot/auth'
+import { Auth } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
@@ -38,12 +38,12 @@ export interface ContentClient
      */
     readonly active: boolean
     /**
-     * The read-only `sessionId` from the AuthClient, exposed here for convenience.
+     * The read-only `sessionId` from the Auth client, exposed here for convenience.
      * It is `undefined` if, and only if, `active` is `false`.
      */
     readonly sessionId: string | undefined
     /**
-     * The read-only `userId` from the AuthClient, exposed here for convenience.
+     * The read-only `userId` from the Auth client, exposed here for convenience.
      * It is `undefined` if, and only if, `active` is `false`.
      */
     readonly userId: string | undefined
@@ -63,9 +63,9 @@ export interface CreateContentClientOptions {
      */
     serviceName?: string
     /**
-     * The AuthClient used for authentication and authorization.
+     * The Auth client used for authentication and authorization.
      */
-    authClient: AuthClient
+    authClient: Auth
 }
 
 /**
@@ -89,7 +89,7 @@ class Client
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authClient: AuthClient,
+        private readonly authClient: Auth,
         serviceName: string,
     ) {
         super()
@@ -100,7 +100,7 @@ class Client
         )
         assert(
             this.authClient && !this.authClient.destroyed,
-            'Argument "authClient" must be a non-destroyed AuthClient.',
+            'Argument "authClient" must be a non-destroyed Auth client.',
         )
 
         this.connection.registerProxy({

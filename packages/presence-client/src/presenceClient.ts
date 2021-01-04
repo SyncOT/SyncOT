@@ -1,4 +1,4 @@
-import { AuthClient } from '@syncot/auth'
+import { Auth } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import {
     createPresenceError,
@@ -19,9 +19,9 @@ export interface CreatePresenceClientOptions {
      */
     connection: Connection
     /**
-     * The AuthClient used for authentication and authorization.
+     * The Auth client used for authentication and authorization.
      */
-    authClient: AuthClient
+    authClient: Auth
     /**
      * The name of the PresenceService on the Connection.
      * Default is `presence`.
@@ -83,7 +83,7 @@ class Client
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authClient: AuthClient,
+        private readonly authClient: Auth,
         serviceName: string,
     ) {
         super()
@@ -94,7 +94,7 @@ class Client
         )
         assert(
             this.authClient && !this.authClient.destroyed,
-            'Argument "authClient" must be a non-destroyed AuthClient.',
+            'Argument "authClient" must be a non-destroyed Auth client.',
         )
 
         this.connection.registerProxy({

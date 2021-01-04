@@ -1,4 +1,4 @@
-import { AuthClient, AuthEvents } from '@syncot/auth'
+import { Auth, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import {
     Presence,
@@ -46,10 +46,16 @@ let authClient: MockAuthClient
 let presenceService: MockPresenceService
 let presenceClient: PresenceClient
 
-class MockAuthClient extends SyncOTEmitter<AuthEvents> implements AuthClient {
+class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
     public active = true
     public sessionId = sessionId
     public userId = userId
+    public logIn = jest.fn()
+    public logOut = jest.fn()
+    public mayReadContent = jest.fn()
+    public mayWriteContent = jest.fn()
+    public mayReadPresence = jest.fn()
+    public mayWritePresence = jest.fn()
 }
 
 class MockPresenceService
@@ -201,7 +207,7 @@ test('invalid authClient (missing)', () => {
     ).toThrow(
         expect.objectContaining({
             message:
-                'Argument "authClient" must be a non-destroyed AuthClient.',
+                'Argument "authClient" must be a non-destroyed Auth client.',
             name: 'SyncOTError Assert',
         }),
     )
@@ -217,7 +223,7 @@ test('invalid authClient (destroyed)', () => {
     ).toThrow(
         expect.objectContaining({
             message:
-                'Argument "authClient" must be a non-destroyed AuthClient.',
+                'Argument "authClient" must be a non-destroyed Auth client.',
             name: 'SyncOTError Assert',
         }),
     )
@@ -321,7 +327,7 @@ test('initially inactive', async () => {
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
-test('handle AuthClient "active" event without presence', async () => {
+test('handle Auth client "active" event without presence', async () => {
     authClient.active = false
     initPresenceClient()
     authClient.active = true
@@ -329,7 +335,7 @@ test('handle AuthClient "active" event without presence', async () => {
     expect(presenceClient.sessionId).toBeUndefined()
     expect(presenceClient.userId).toBeUndefined()
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emitAsync('active')
+    authClient.emitAsync('active', { sessionId, userId })
     await whenActive()
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
@@ -339,7 +345,7 @@ test('handle AuthClient "active" event without presence', async () => {
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
-test('handle AuthClient "active" event with presence', async () => {
+test('handle Auth client "active" event with presence', async () => {
     authClient.active = false
     initPresenceClient()
     presenceClient.locationId = locationId
@@ -349,7 +355,7 @@ test('handle AuthClient "active" event with presence', async () => {
     expect(presenceClient.sessionId).toBeUndefined()
     expect(presenceClient.userId).toBeUndefined()
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emitAsync('active')
+    authClient.emitAsync('active', { sessionId, userId })
     await whenActive()
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
@@ -360,7 +366,7 @@ test('handle AuthClient "active" event with presence', async () => {
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
-test('handle AuthClient "inactive" event without presence', async () => {
+test('handle Auth client "inactive" event without presence', async () => {
     initPresenceClient()
     authClient.active = false
     expect(presenceClient.active).toBeTrue()
@@ -377,7 +383,7 @@ test('handle AuthClient "inactive" event without presence', async () => {
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
-test('handle AuthClient "inactive" event with presence', async () => {
+test('handle Auth client "inactive" event with presence', async () => {
     initPresenceClient()
     presenceClient.locationId = locationId
     presenceClient.data = data

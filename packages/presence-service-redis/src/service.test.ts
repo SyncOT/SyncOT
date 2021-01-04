@@ -1,4 +1,4 @@
-import { AuthEvents, AuthService } from '@syncot/auth'
+import { Auth, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceService } from '@syncot/presence'
 import {
@@ -95,10 +95,12 @@ let connection2: Connection
 let presenceService: PresenceService
 let presenceProxy: PresenceService
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
+class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = sessionId
     public userId: string | undefined = userId
+    public logIn = jest.fn()
+    public logOut = jest.fn()
     public mayReadContent = jest.fn().mockResolvedValue(true)
     public mayWriteContent = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockReturnValue(true)
@@ -364,7 +366,7 @@ test('invalid authService (missing)', () => {
     ).toThrow(
         expect.objectContaining({
             message:
-                'Argument "authService" must be a non-destroyed AuthService.',
+                'Argument "authService" must be a non-destroyed Auth service.',
             name: 'SyncOTError Assert',
         }),
     )
@@ -383,7 +385,7 @@ test('invalid authService (destroyed)', () => {
     ).toThrow(
         expect.objectContaining({
             message:
-                'Argument "authService" must be a non-destroyed AuthService.',
+                'Argument "authService" must be a non-destroyed Auth service.',
             name: 'SyncOTError Assert',
         }),
     )
@@ -466,7 +468,7 @@ test('remove presence on destroy', async () => {
     expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
-test('remove presence on AuthService "inactive" event', async () => {
+test('remove presence on Auth service "inactive" event', async () => {
     await presenceService.submitPresence(presence)
 
     await whenMessage(sessionKey, sessionId)

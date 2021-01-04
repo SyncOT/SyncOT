@@ -1,4 +1,4 @@
-import { AuthService, createAuthError } from '@syncot/auth'
+import { Auth, createAuthError } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import {
     assert,
@@ -40,9 +40,9 @@ export interface CreateContentServiceOptions {
      */
     connection: Connection
     /**
-     * The AuthService used to verify user permissions.
+     * The Auth service used to verify user permissions.
      */
-    authService: AuthService
+    authService: Auth
     /**
      * The Content instance to use for managing content.
      */
@@ -71,7 +71,7 @@ class Service
     implements ContentService {
     public constructor(
         private readonly connection: Connection,
-        private readonly authService: AuthService,
+        private readonly authService: Auth,
         private readonly content: Content,
         serviceName: string,
     ) {
@@ -83,7 +83,7 @@ class Service
         )
         assert(
             this.authService && !this.authService.destroyed,
-            'Argument "authService" must be a non-destroyed AuthService.',
+            'Argument "authService" must be a non-destroyed Auth service.',
         )
         assert(
             this.content && typeof this.content === 'object',

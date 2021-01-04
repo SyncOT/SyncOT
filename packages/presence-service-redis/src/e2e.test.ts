@@ -1,4 +1,4 @@
-import { AuthClient, AuthEvents, AuthService } from '@syncot/auth'
+import { Auth, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import { Presence, PresenceClient, PresenceService } from '@syncot/presence'
 import { createPresenceClient } from '@syncot/presence-client'
@@ -20,11 +20,12 @@ let redisServer: RedisServer
 let session1: Session
 let session2: Session
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
+class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
-    public hasAuthenticatedUserId = jest.fn().mockReturnValue(true)
+    public logIn = jest.fn()
+    public logOut = jest.fn()
     public mayReadContent = jest.fn().mockResolvedValue(true)
     public mayWriteContent = jest.fn().mockResolvedValue(true)
     public mayReadPresence = jest.fn().mockResolvedValue(true)
@@ -36,10 +37,16 @@ class MockAuthService extends SyncOTEmitter<AuthEvents> implements AuthService {
     }
 }
 
-class MockAuthClient extends SyncOTEmitter<AuthEvents> implements AuthClient {
+class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
+    public logIn = jest.fn()
+    public logOut = jest.fn()
+    public mayReadContent = jest.fn().mockResolvedValue(true)
+    public mayWriteContent = jest.fn().mockResolvedValue(true)
+    public mayReadPresence = jest.fn().mockResolvedValue(true)
+    public mayWritePresence = jest.fn().mockResolvedValue(true)
     public constructor(sessionId: string, userId: string) {
         super()
         this.sessionId = sessionId

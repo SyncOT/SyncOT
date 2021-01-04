@@ -1,4 +1,4 @@
-import { createAuthError, AuthService } from '@syncot/auth'
+import { Auth, createAuthError } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { globalEventLoop } from '@syncot/event-loop'
 import {
@@ -29,7 +29,7 @@ import { PresenceStream } from './stream'
 
 export interface CreatePresenceServiceOptions {
     connection: Connection
-    authService: AuthService
+    authService: Auth
     redis: Redis.Redis
     redisSubscriber: Redis.Redis
 }
@@ -96,7 +96,7 @@ class RedisPresenceService
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authService: AuthService,
+        private readonly authService: Auth,
         redis: Redis.Redis,
         redisSubscriber: Redis.Redis,
     ) {
@@ -133,7 +133,7 @@ class RedisPresenceService
         )
         assert(
             this.authService && !this.authService.destroyed,
-            'Argument "authService" must be a non-destroyed AuthService.',
+            'Argument "authService" must be a non-destroyed Auth service.',
         )
 
         this.connection.registerService({
