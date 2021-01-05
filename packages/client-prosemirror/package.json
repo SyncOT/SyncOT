@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@syncot/content": "file:../content",
+    "@syncot/content-type-prosemirror": "file:../content-type-prosemirror",
     "@syncot/util": "file:../util",
     "@types/prosemirror-model": "^1.11.1",
     "@types/prosemirror-state": "^1.2.5",

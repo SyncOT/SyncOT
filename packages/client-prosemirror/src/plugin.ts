@@ -9,6 +9,7 @@ import {
     OperationKey,
     Schema,
 } from '@syncot/content'
+// import { createProseMirrorSchema } from '@syncot/content-type-prosemirror'
 import {
     assert,
     exponentialBackOffStrategy,
@@ -132,7 +133,7 @@ export function syncOT({
     } as PluginSpec<PluginState>)
 }
 
-const key = new PluginKey<PluginState>('syncOT')
+export const key = new PluginKey<PluginState>('syncOT')
 
 class PluginLoop {
     private get view(): EditorView | undefined {
@@ -247,6 +248,15 @@ class PluginLoop {
             snapshot = operation
         }
 
+        // Migrate the document to the new schema, if necessary.
+        if (snapshot.schema !== schema.key) {
+            // const oldSchema = (await this.contentClient.getSchema(
+            //     snapshot.schema,
+            // ))!
+            // const oldEditorSchema = createProseMirrorSchema(oldSchema)
+            throw new Error('Schema mismatch')
+        }
+
         // Handle state changed in the meantime.
         if (!this.view) return
         const newState = this.view.state
@@ -259,11 +269,6 @@ class PluginLoop {
             newState.schema !== state.schema
         )
             return
-
-        if (snapshot.schema !== schema.key) {
-            // TODO Migrate the document to the new schema, if possible.
-            throw new Error('Schema mismatch')
-        }
 
         // Update the state.
         const nextPluginState: PluginState = {

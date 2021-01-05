@@ -5,5 +5,9 @@
     "outDir": "./lib",
     "lib": ["ES2020", "dom"]
   },
-  "references": [{ "path": "../content" }, { "path": "../util" }]
+  "references": [
+    { "path": "../content" },
+    { "path": "../content-type-prosemirror" },
+    { "path": "../util" }
+  ]
 }
