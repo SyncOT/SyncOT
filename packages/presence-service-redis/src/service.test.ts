@@ -179,11 +179,10 @@ beforeEach(async () => {
         redis,
         redisSubscriber,
     })
-    connection2.registerProxy({
+    presenceProxy = connection2.registerProxy({
         name: 'presence',
         requestNames,
-    })
-    presenceProxy = connection2.getProxy('presence') as PresenceService
+    }) as PresenceService
 })
 
 afterEach(async () => {

@@ -97,13 +97,10 @@ class Client
             'Argument "authClient" must be a non-destroyed Auth client.',
         )
 
-        this.connection.registerProxy({
+        this.presenceService = this.connection.registerProxy({
             name: serviceName,
             requestNames,
-        })
-        this.presenceService = this.connection.getProxy(
-            'presence',
-        ) as PresenceService
+        }) as PresenceService
 
         this.connection.on('destroy', this.onDestroy)
         this.authClient.on('destroy', this.onDestroy)

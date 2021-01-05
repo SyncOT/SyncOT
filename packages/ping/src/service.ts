@@ -111,13 +111,10 @@ class SimplePingService
             name: 'ping',
             requestNames,
         })
-        this.connection.registerProxy({
+        this.peerService = this.connection.registerProxy({
             name: 'ping',
             requestNames,
-        })
-        this.peerService = this.connection.getProxy(
-            'ping',
-        ) as InternalPingService
+        }) as InternalPingService
 
         this.connection.on('destroy', this.onDestroy)
         this.connection.on('connect', this.onConnect)

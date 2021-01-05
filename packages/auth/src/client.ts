@@ -101,15 +101,11 @@ class Client<Credentials, Presence>
             'Argument "getCredentials" must be a function, as "autoLogIn" is true.',
         )
 
-        this.connection.registerProxy({
+        this.authService = this.connection.registerProxy({
             name: serviceName,
             requestNames,
             eventNames,
-        })
-        this.authService = this.connection.getProxy(serviceName) as Auth<
-            Credentials,
-            Presence
-        >
+        }) as Auth<Credentials, Presence>
 
         this.authService.on('active', this.onActive)
         this.authService.on('inactive', this.onInactive)

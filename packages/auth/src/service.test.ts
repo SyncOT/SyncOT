@@ -56,12 +56,11 @@ beforeEach(async () => {
     serverConnection = createConnection()
     clientConnection.connect(clientStream)
     serverConnection.connect(serverStream)
-    clientConnection.registerProxy({
+    authClient = clientConnection.registerProxy({
         eventNames,
         name: 'auth',
         requestNames,
-    })
-    authClient = clientConnection.getProxy('auth') as Auth<Credentials>
+    }) as Auth<Credentials>
 })
 
 afterEach(() => {
