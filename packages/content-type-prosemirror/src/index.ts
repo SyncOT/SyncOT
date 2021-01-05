@@ -1,1 +1,1 @@
-export { createContentType } from './type'
+export { createContentType, createProseMirrorSchema } from './type'
