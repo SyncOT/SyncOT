@@ -408,11 +408,12 @@ describe('proxy registration', () => {
         )
     })
     test('register', () => {
-        connection.registerProxy({
+        const proxy = connection.registerProxy({
             eventNames: new Set(['event-1', 'event-2']),
             name,
             requestNames: new Set(['testMethod', 'anotherMethod']),
         })
+        expect(proxy).toBe(connection.getProxy(name))
     })
     test('register twice', () => {
         connection.registerProxy({ name })
@@ -429,11 +430,13 @@ describe('proxy registration', () => {
         const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
         const anotherInstance = new EventEmitter()
-        connection.registerProxy({ requestNames, name })
-        connection.registerProxy({ name: anotherName })
+        const proxy1 = connection.registerProxy({ requestNames, name })
+        const proxy2 = connection.registerProxy({ name: anotherName })
         expect(connection.getProxyNames()).toEqual([name, anotherName])
         expect(connection.getProxy(name)).toEqual(instance)
+        expect(connection.getProxy(name)).toBe(proxy1)
         expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
+        expect(connection.getProxy(anotherName)).toBe(proxy2)
         expect(connection.getProxy('missing')).toBe(undefined)
     })
     test('after destroy', () => {

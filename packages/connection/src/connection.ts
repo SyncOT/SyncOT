@@ -381,7 +381,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
         name: proxyName,
         requestNames = new Set(),
         eventNames = new Set(),
-    }: ProxyDescriptor): void {
+    }: ProxyDescriptor): EmitterInterface<Proxy> {
         this.assertNotDestroyed()
         assert(
             !this.proxies.has(proxyName),
@@ -431,6 +431,8 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             requests: proxyRequests,
             streams: proxyStreams,
         })
+
+        return instance
     }
 
     public getProxyNames(): ProxyName[] {
