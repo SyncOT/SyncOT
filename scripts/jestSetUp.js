@@ -20,3 +20,8 @@ Object.defineProperty(Error, Symbol.hasInstance, {
         }
     },
 })
+
+// queueMicrotask is not defined in jsdom.
+if (typeof queueMicrotask === 'undefined') {
+    global.queueMicrotask = (callback) => Promise.resolve().then(callback)
+}
