@@ -1,6 +1,6 @@
 import {
     createBaseSnapshot,
-    createSchemaKey,
+    createSchemaHash,
     Operation,
     Schema,
     Snapshot,
@@ -25,7 +25,7 @@ const schemaData = {
     topNode: 'doc',
 }
 const schema: Schema = {
-    key: createSchemaKey(schemaType, schemaData),
+    hash: createSchemaHash(schemaType, schemaData),
     type: 'type-0',
     data: schemaData,
     meta: null,
@@ -226,11 +226,11 @@ describe('validateSchema', () => {
 
 describe('registerSchema', () => {
     test('register it', () => {
-        expect(contentType.hasSchema(schema.key)).toBe(false)
+        expect(contentType.hasSchema(schema.hash)).toBe(false)
         contentType.registerSchema(schema)
-        expect(contentType.hasSchema(schema.key)).toBe(true)
+        expect(contentType.hasSchema(schema.hash)).toBe(true)
         contentType.registerSchema(schema)
-        expect(contentType.hasSchema(schema.key)).toBe(true)
+        expect(contentType.hasSchema(schema.hash)).toBe(true)
     })
 })
 
@@ -240,7 +240,7 @@ describe('apply', () => {
         type: 'type-0',
         id: 'id-1',
         version: 1,
-        schema: schema.key,
+        schema: schema.hash,
         data: createProseMirrorSchema(schema)
             .topNodeType.createAndFill()!
             .toJSON(),
@@ -252,7 +252,7 @@ describe('apply', () => {
         type: 'type-0',
         id: 'id-1',
         version: 2,
-        schema: schema.key,
+        schema: schema.hash,
         data: null,
         meta: null,
     }
@@ -517,9 +517,9 @@ describe('createProseMirrorSchema', () => {
             marks: Object.keys(marks).flatMap((name) => [name, marks[name]]),
             topNode,
         }
-        const key = createSchemaKey(type, data)
+        const hash = createSchemaHash(type, data)
         return {
-            key,
+            hash,
             type,
             data,
             meta: null,

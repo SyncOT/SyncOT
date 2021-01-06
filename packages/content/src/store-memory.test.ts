@@ -4,7 +4,7 @@ import {
     createBaseSnapshot,
     createContentStore,
     createOperationKey,
-    createSchemaKey,
+    createSchemaHash,
     minVersion,
     maxVersion,
     Operation,
@@ -27,7 +27,7 @@ const operations: Operation[] = Array.from(Array(10), (_value, version) =>
           },
 )
 const schema: Schema = {
-    key: createSchemaKey('test-type', 'test-data'),
+    hash: createSchemaHash('test-type', 'test-data'),
     type: 'test-type',
     data: 'test-data',
     meta: null,
@@ -55,7 +55,7 @@ describe('storeSchema', () => {
     test('the same schema twice', async () => {
         await store.storeSchema(schema)
         await store.storeSchema(schema)
-        await expect(store.loadSchema(schema.key)).resolves.toStrictEqual(
+        await expect(store.loadSchema(schema.hash)).resolves.toStrictEqual(
             schema,
         )
     })
@@ -69,23 +69,23 @@ describe('storeSchema', () => {
             ...schemaWithMeta,
             meta: { ...schemaWithMeta.meta, user: `${user}-different` },
         })
-        await expect(store.loadSchema(schema.key)).resolves.toStrictEqual(
+        await expect(store.loadSchema(schema.hash)).resolves.toStrictEqual(
             schemaWithMeta,
         )
     })
-    test('different key', async () => {
+    test('different hash', async () => {
         const data = { a: 5 }
         const type1 = 'type-1'
         const type2 = 'type-2'
-        const key1 = createSchemaKey(type1, data)
-        const key2 = createSchemaKey(type2, data)
-        const schema1 = { ...schema, key: key1, type: type1 }
-        const schema2 = { ...schema, key: key2, type: type2 }
+        const hash1 = createSchemaHash(type1, data)
+        const hash2 = createSchemaHash(type2, data)
+        const schema1 = { ...schema, hash: hash1, type: type1 }
+        const schema2 = { ...schema, hash: hash2, type: type2 }
         await store.storeSchema(schema1)
         await store.storeSchema(schema2)
-        await expect(store.loadSchema(key1)).resolves.toStrictEqual(schema1)
-        await expect(store.loadSchema(key2)).resolves.toStrictEqual(schema2)
-        await expect(store.loadSchema('missing-key')).resolves.toBe(null)
+        await expect(store.loadSchema(hash1)).resolves.toStrictEqual(schema1)
+        await expect(store.loadSchema(hash2)).resolves.toStrictEqual(schema2)
+        await expect(store.loadSchema('missing-hash')).resolves.toBe(null)
     })
 })
 

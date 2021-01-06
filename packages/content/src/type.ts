@@ -1,5 +1,5 @@
 import { Operation } from './operation'
-import { Schema, SchemaKey } from './schema'
+import { Schema, SchemaHash } from './schema'
 import { Snapshot } from './snapshot'
 
 /**
@@ -20,11 +20,11 @@ export interface ContentType {
     registerSchema(schema: Schema): void
 
     /**
-     * Indicates, if a schema with the given key is already registered.
-     * @param key The schema key to check.
-     * @returns True, if a schema with the given key is already registered, otherwise false.
+     * Indicates, if a schema with the given hash is already registered.
+     * @param hash The schema hash to check.
+     * @returns True, if a schema with the given hash is already registered, otherwise false.
      */
-    hasSchema(key: SchemaKey): boolean
+    hasSchema(hash: SchemaHash): boolean
 
     /**
      * Applies the operation to the snapshot to produce a new snapshot.

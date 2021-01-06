@@ -1,7 +1,7 @@
 import {
     ContentClient,
     createOperationKey,
-    createSchemaKey,
+    createSchemaHash,
     isAlreadyExistsError,
     maxVersion,
     minVersion,
@@ -240,7 +240,7 @@ class PluginLoop {
                 type,
                 id,
                 version: snapshot.version + 1,
-                schema: schema.key,
+                schema: schema.hash,
                 data: state.doc.toJSON(),
                 meta: null,
             }
@@ -249,7 +249,7 @@ class PluginLoop {
         }
 
         // Migrate the document to the new schema, if necessary.
-        if (snapshot.schema !== schema.key) {
+        if (snapshot.schema !== schema.hash) {
             // const oldSchema = (await this.contentClient.getSchema(
             //     snapshot.schema,
             // ))!
@@ -354,7 +354,7 @@ class PluginLoop {
                 type: pluginState.type,
                 id: pluginState.id,
                 version: operationVersion,
-                schema: getSchema(pluginState.type, state.schema).key,
+                schema: getSchema(pluginState.type, state.schema).hash,
                 data: operationSteps,
                 meta: null,
             })
@@ -553,7 +553,7 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
     return rebaseableSteps
 }
 
-const cachedSchemas: Map<EditorSchema, Map<string, Schema>> = new Map()
+const cachedSchemas: WeakMap<EditorSchema, Map<string, Schema>> = new WeakMap()
 /**
  * Gets a SyncOT Schema for the given type and EditorSchema.
  */
@@ -581,7 +581,7 @@ export function getSchema(type: string, editorSchema: EditorSchema): Schema {
     )
     const data = { nodes, marks, topNode }
     const schema = {
-        key: createSchemaKey(type, data),
+        hash: createSchemaHash(type, data),
         type,
         data,
         meta: null,

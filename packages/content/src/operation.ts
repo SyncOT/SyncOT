@@ -7,7 +7,7 @@ import {
     Validator,
 } from '@syncot/util'
 import { Meta } from './meta'
-import { SchemaKey } from './schema'
+import { SchemaHash } from './schema'
 import { maxVersion, minVersion } from './limits'
 
 /**
@@ -68,7 +68,7 @@ export interface Operation {
      * The ID of the schema of the content at the version created by this operation.
      * If `version` is `minVersion`, `schema` is an empty string.
      */
-    readonly schema: SchemaKey
+    readonly schema: SchemaHash
     /**
      * The action to apply to the document's content at `operation.version - 1` version
      * in order to produce the document's content at `operation.version` version.

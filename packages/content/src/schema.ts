@@ -7,19 +7,17 @@ import {
 import { Meta } from './meta'
 
 /**
- * A globally unique value suitable as a schema's primary key.
- *
- * The schema key is a hash of `Schema.type` and `Schema.data`.
+ * A hash of `Schema.type` and `Schema.data`.
  */
-export type SchemaKey = string
+export type SchemaHash = string
 
 /**
- * Creates a SchemaKey from the given `Schema.type` and `Schema.data`.
+ * Creates a SchemaHash from the given `Schema.type` and `Schema.data`.
  * @param type A `Schema.type`.
  * @param data A `Schema.data`.
- * @returns A `Schema.key`.
+ * @returns A `Schema.hash`.
  */
-export function createSchemaKey(type: string, data: any): SchemaKey {
+export function createSchemaHash(type: string, data: any): SchemaHash {
     return hash([type, data])
 }
 
@@ -28,9 +26,9 @@ export function createSchemaKey(type: string, data: any): SchemaKey {
  */
 export interface Schema {
     /**
-     * A globally unique ID of this schema, which must be a hash of the type and data fields.
+     * A hash of the type and data fields.
      */
-    readonly key: SchemaKey
+    readonly hash: SchemaHash
     /**
      * The document type.
      */
@@ -63,9 +61,9 @@ export const validateSchema: Validator<Schema> = validate([
             ? undefined
             : createInvalidEntityError('Schema', schema, 'data'),
     (schema) =>
-        schema.key === createSchemaKey(schema.type, schema.data)
+        schema.hash === createSchemaHash(schema.type, schema.data)
             ? undefined
-            : createInvalidEntityError('Schema', schema, 'key'),
+            : createInvalidEntityError('Schema', schema, 'hash'),
     (schema) =>
         typeof schema.meta === 'object'
             ? undefined

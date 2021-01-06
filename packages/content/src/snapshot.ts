@@ -1,6 +1,6 @@
 import { minVersion } from './limits'
 import { Meta } from './meta'
-import { SchemaKey } from './schema'
+import { SchemaHash } from './schema'
 
 /**
  * A Snapshot key which must be the same as the key of the corresponding operation.
@@ -36,7 +36,7 @@ export interface Snapshot {
      * The ID of the schema of the document's content at the snapshot's version.
      * If `version` is `minVersion`, `schema` is an empty string.
      */
-    readonly schema: SchemaKey
+    readonly schema: SchemaHash
     /**
      * The document's content at the snapshot's version.
      * If `version` is `minVersion`, `data` is null.

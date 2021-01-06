@@ -3,7 +3,7 @@ import {
     Operation,
     Snapshot,
     Schema,
-    SchemaKey,
+    SchemaHash,
     minVersion,
 } from '@syncot/content'
 import {
@@ -32,7 +32,7 @@ export function createContentType(): ContentType {
 }
 
 export class ProseMirrorContentType implements ContentType {
-    private readonly schemas: Map<SchemaKey, ProseMirrorSchema> = new Map()
+    private readonly schemas: Map<SchemaHash, ProseMirrorSchema> = new Map()
     private readonly nodes: WeakMap<Snapshot, Node> = new WeakMap()
     private readonly steps: WeakMap<Operation, Step[]> = new WeakMap()
 
@@ -129,12 +129,12 @@ export class ProseMirrorContentType implements ContentType {
     ])
 
     public registerSchema(schema: Schema): void {
-        if (this.schemas.has(schema.key)) return
-        this.schemas.set(schema.key, createProseMirrorSchema(schema))
+        if (this.schemas.has(schema.hash)) return
+        this.schemas.set(schema.hash, createProseMirrorSchema(schema))
     }
 
-    public hasSchema(key: SchemaKey): boolean {
-        return this.schemas.has(key)
+    public hasSchema(hash: SchemaHash): boolean {
+        return this.schemas.has(hash)
     }
 
     public apply(snapshot: Snapshot, operation: Operation): Snapshot {

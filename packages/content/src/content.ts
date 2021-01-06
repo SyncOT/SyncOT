@@ -15,7 +15,7 @@ import { Duplex } from 'readable-stream'
 import { createNotFoundError, isAlreadyExistsError } from './error'
 import { Operation } from './operation'
 import { PubSub } from './pubSub'
-import { Schema, SchemaKey } from './schema'
+import { Schema, SchemaHash } from './schema'
 import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
@@ -38,11 +38,11 @@ export interface Content {
     registerSchema(schema: Schema): Promise<void>
 
     /**
-     * Gets a Schema by key.
-     * @param key The schema key.
-     * @returns An existing Schema with the given `key`, or `null`, if not found.
+     * Gets a Schema by hash.
+     * @param hash The schema hash.
+     * @returns An existing Schema with the given `hash`, or `null`, if not found.
      */
-    getSchema(key: SchemaKey): Promise<Schema | null>
+    getSchema(hash: SchemaHash): Promise<Schema | null>
 
     /**
      * Gets the latest document snapshot at or below the given version.
@@ -325,10 +325,10 @@ class DefaultContent implements Content {
 
     private async ensureSchema(
         contentType: ContentType,
-        schemaKey: SchemaKey,
+        schemaHash: SchemaHash,
     ): Promise<void> {
-        if (!contentType.hasSchema(schemaKey)) {
-            const schema = await this.contentStore.loadSchema(schemaKey)
+        if (!contentType.hasSchema(schemaHash)) {
+            const schema = await this.contentStore.loadSchema(schemaHash)
             if (!schema) throw createNotFoundError('Schema')
             contentType.registerSchema(schema)
         }

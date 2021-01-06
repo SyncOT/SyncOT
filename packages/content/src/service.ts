@@ -113,7 +113,7 @@ class Service
         throwError(validateSchema(schema))
 
         return this.content.registerSchema({
-            key: schema.key,
+            hash: schema.hash,
             type: schema.type,
             data: schema.data,
             meta: {
