@@ -553,18 +553,18 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
     return rebaseableSteps
 }
 
-const cachedSchemas: Map<string, Map<EditorSchema, Schema>> = new Map()
+const cachedSchemas: Map<EditorSchema, Map<string, Schema>> = new Map()
 /**
  * Gets a SyncOT Schema for the given type and EditorSchema.
  */
 export function getSchema(type: string, editorSchema: EditorSchema): Schema {
-    let schemasByType = cachedSchemas.get(type)
-    if (!schemasByType) {
-        schemasByType = new Map()
-        cachedSchemas.set(type, schemasByType)
+    let nestedCachedSchemas = cachedSchemas.get(editorSchema)
+    if (!nestedCachedSchemas) {
+        nestedCachedSchemas = new Map()
+        cachedSchemas.set(editorSchema, nestedCachedSchemas)
     }
 
-    const cachedSchema = schemasByType.get(editorSchema)
+    const cachedSchema = nestedCachedSchemas.get(type)
     if (cachedSchema) return cachedSchema
 
     const { spec } = editorSchema
@@ -586,6 +586,6 @@ export function getSchema(type: string, editorSchema: EditorSchema): Schema {
         data,
         meta: null,
     }
-    schemasByType.set(editorSchema, schema)
+    nestedCachedSchemas.set(type, schema)
     return schema
 }
