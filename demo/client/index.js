@@ -23,7 +23,13 @@ const streamManager = createStreamManager({
     }),
 })
 const pingClient = createPingService({ connection })
-const authClient = createAuthClient({ connection })
+const authClient = createAuthClient({
+    connection,
+    autoLogIn: true,
+    getCredentials() {
+        return 'secret'
+    },
+})
 const contentClient = createContentClient({ connection, authClient })
 
 const isWin = /Win/.test(navigator.platform)
