@@ -4,7 +4,7 @@ import { Schema } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
 import { Duplex } from 'readable-stream'
 import { syncOT } from '.'
-import { key, PluginState, Rebaseable } from './plugin'
+import { key, PluginState, Rebaseable, rebaseableStepsFrom } from './plugin'
 
 const sessionId = 'test-session'
 const userId = 'test-user'
@@ -169,5 +169,35 @@ describe('syncOT', () => {
                 })
             })
         })
+    })
+})
+
+describe('rebaseableStepsFrom', () => {
+    let state: EditorState
+
+    beforeEach(() => {
+        state = EditorState.create({
+            schema: editorSchema,
+        })
+    })
+
+    test('no steps', () => {
+        const tr = state.tr
+        expect(rebaseableStepsFrom(tr)).toStrictEqual([])
+    })
+
+    test('some steps', () => {
+        const tr = state.tr.insertText('some test text', 0, 0).replace(4, 9)
+        expect(tr.steps.length).toBe(2)
+        expect(rebaseableStepsFrom(tr)).toStrictEqual(
+            tr.steps.map(
+                (step, index) =>
+                    new Rebaseable(
+                        step,
+                        step.invert(tr.docs[index]),
+                        undefined,
+                    ),
+            ),
+        )
     })
 })
