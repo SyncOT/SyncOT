@@ -173,9 +173,11 @@ class PluginLoop {
     }
 
     async work() {
+        /* istanbul ignore if */
         if (!this.view) return
         const { state } = this.view
         const pluginState = key.getState(state)
+        /* istanbul ignore if */
         if (!pluginState) return
 
         const { previousState } = this

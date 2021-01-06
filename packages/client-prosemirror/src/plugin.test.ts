@@ -1,17 +1,33 @@
-import { ContentClient, ContentClientEvents } from '@syncot/content'
-import { SyncOTEmitter } from '@syncot/util'
-import { Schema } from 'prosemirror-model'
+/**
+ * @jest-environment jsdom
+ */
+import {
+    ContentClient,
+    ContentClientEvents,
+    createSchemaHash,
+    maxVersion,
+    minVersion,
+} from '@syncot/content'
+import { SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { Schema as EditorSchema } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
+import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
 import { syncOT } from '.'
-import { key, PluginState, Rebaseable, rebaseableStepsFrom } from './plugin'
+import {
+    getSchema,
+    key,
+    PluginState,
+    Rebaseable,
+    rebaseableStepsFrom,
+} from './plugin'
 
 const sessionId = 'test-session'
 const userId = 'test-user'
 const type = 'test-type'
 const id = 'test-id'
 let contentClient: MockContentClient
-const editorSchema = new Schema({
+const editorSchema = new EditorSchema({
     nodes: {
         doc: { content: 'text*' },
         text: {},
@@ -36,11 +52,14 @@ class MockContentClient
         meta: null,
     }))
     submitOperation = jest.fn(async () => undefined)
-    streamOperations = jest.fn(async () => {
-        const stream = new Duplex()
-        queueMicrotask(() => stream.destroy())
-        return stream
-    })
+    streamOperations = jest.fn(
+        async () =>
+            new Duplex({
+                read() {
+                    // Do nothing.
+                },
+            }),
+    )
 }
 
 beforeEach(() => {
@@ -170,6 +189,131 @@ describe('syncOT', () => {
             })
         })
     })
+
+    describe('view', () => {
+        const views: EditorView[] = []
+        function createView({
+            onError,
+        }: {
+            onError?: (error: Error) => void
+        } = {}): EditorView {
+            const view = new EditorView(undefined, {
+                state: EditorState.create({
+                    schema: editorSchema,
+                    doc: editorSchema.topNodeType.create(
+                        null,
+                        editorSchema.text('test text'),
+                    ),
+                    plugins: [
+                        syncOT({
+                            type,
+                            id,
+                            contentClient,
+                            onError,
+                        }),
+                    ],
+                }),
+            })
+            views.push(view)
+            return view
+        }
+        afterEach(() => {
+            for (const view of views) {
+                view.destroy()
+            }
+            views.length = 0
+        })
+
+        test('destroy non-initialized', async () => {
+            const view = createView()
+            view.destroy()
+            await whenNextTick()
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        })
+
+        test('destroy initialized', async () => {
+            const view = createView()
+            await whenNextTick()
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            expect(stream.destroyed).toBe(false)
+            await whenNextTick()
+            expect(stream.destroyed).toBe(false)
+            view.destroy()
+            await whenNextTick()
+            expect(stream.destroyed).toBe(true)
+        })
+
+        test('init with a new document', async () => {
+            const view = createView()
+            const schema = getSchema(type, editorSchema)
+            const expectedDocJson = {
+                type: 'doc',
+                content: [
+                    {
+                        type: 'text',
+                        text: 'test text',
+                    },
+                ],
+            }
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: -1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(expectedDocJson)
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(expectedDocJson)
+
+            // Verify that the document is created.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    key: expect.toBeString(),
+                    type,
+                    id,
+                    version: minVersion + 1,
+                    schema: schema.hash,
+                    data: expectedDocJson,
+                    meta: null,
+                }),
+            )
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 2,
+                maxVersion + 1,
+            )
+        })
+    })
 })
 
 describe('rebaseableStepsFrom', () => {
@@ -199,5 +343,84 @@ describe('rebaseableStepsFrom', () => {
                     ),
             ),
         )
+    })
+})
+
+describe('getSchema', () => {
+    test('create a schema', () => {
+        const editorSchema1 = new EditorSchema({
+            nodes: {
+                doc: { content: 'p+' },
+                p: { content: 'text*' },
+                text: {},
+            },
+            marks: {
+                bold: {},
+                color: { colorCode: 'red' },
+            },
+            topNode: 'doc',
+        })
+        const schema1 = getSchema(type, editorSchema1)
+        expect(schema1.type).toBe(type)
+        expect(schema1.meta).toBe(null)
+        expect(schema1.data).toStrictEqual({
+            nodes: [
+                'doc',
+                { content: 'p+' },
+                'p',
+                { content: 'text*' },
+                'text',
+                {},
+            ],
+            marks: ['bold', {}, 'color', { colorCode: 'red' }],
+            topNode: 'doc',
+        })
+        expect(schema1.hash).toBe(createSchemaHash(schema1.type, schema1.data))
+    })
+    describe('caching', () => {
+        test('the same editor schema and the same type', () => {
+            const schema1 = getSchema(type, editorSchema)
+            const schema2 = getSchema(type, editorSchema)
+            expect(schema2).toBe(schema1)
+        })
+        test('the same editor schema and different type', () => {
+            const schema1 = getSchema(type, editorSchema)
+            const schema2 = getSchema(type + '-2', editorSchema)
+            expect(schema2).not.toBe(schema1)
+        })
+        test('different editor schema and the same type', () => {
+            const editorSchema1 = new EditorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const editorSchema2 = new EditorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const schema1 = getSchema(type, editorSchema1)
+            const schema2 = getSchema(type + '-2', editorSchema2)
+            expect(schema2).not.toBe(schema1)
+        })
+        test('different editor schema and different type', () => {
+            const editorSchema1 = new EditorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const editorSchema2 = new EditorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const schema1 = getSchema(type, editorSchema1)
+            const schema2 = getSchema(type + '-2', editorSchema2)
+            expect(schema2).not.toBe(schema1)
+        })
     })
 })
