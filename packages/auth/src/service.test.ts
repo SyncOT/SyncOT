@@ -140,8 +140,8 @@ describe('logIn', () => {
         expect(onInactive).toHaveBeenCalledTimes(0)
         expect(onActive).toHaveBeenCalledTimes(1)
         expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
-        createSession.mockReset()
-        onActive.mockReset()
+        createSession.mockClear()
+        onActive.mockClear()
 
         // Activate again.
         createSession.mockReturnValueOnce(
@@ -319,7 +319,7 @@ describe('logOut', () => {
         await whenNextTick()
         expect(onInactive).toHaveBeenCalledTimes(0)
         expect(onActive).toHaveBeenCalledTimes(1)
-        onActive.mockReset()
+        onActive.mockClear()
 
         await authClient.logOut()
         expect(authService.active).toBeFalse()
@@ -386,7 +386,7 @@ describe('logOut', () => {
         await whenNextTick()
         expect(onInactive).toHaveBeenCalledTimes(0)
         expect(onActive).toHaveBeenCalledTimes(1)
-        onActive.mockReset()
+        onActive.mockClear()
 
         serverConnection.disconnect()
         await whenNextTick()
@@ -410,7 +410,7 @@ describe('logOut', () => {
         await whenNextTick()
         expect(onInactive).toHaveBeenCalledTimes(0)
         expect(onActive).toHaveBeenCalledTimes(1)
-        onActive.mockReset()
+        onActive.mockClear()
 
         authService.destroy()
         expect(authService.active).toBeFalse()

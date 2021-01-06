@@ -137,7 +137,7 @@ test('on active', async () => {
     expect(onActive).toHaveBeenCalledTimes(1)
     expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
     expect(onInactive).toHaveBeenCalledTimes(0)
-    onActive.mockReset()
+    onActive.mockClear()
     authService.emit('active', { sessionId: sessionId2, userId: userId2 })
     await whenNextTick()
     expect(authClient.active).toBeTrue()
@@ -172,7 +172,7 @@ test('on inactive', async () => {
     expect(onActive).toHaveBeenCalledTimes(1)
     expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
     expect(onInactive).toHaveBeenCalledTimes(0)
-    onActive.mockReset()
+    onActive.mockClear()
     authService.emit('inactive')
     await whenNextTick()
     expect(authClient.active).toBeFalse()
@@ -181,7 +181,7 @@ test('on inactive', async () => {
     await whenNextTick()
     expect(onActive).toHaveBeenCalledTimes(0)
     expect(onInactive).toHaveBeenCalledTimes(1)
-    onInactive.mockReset()
+    onInactive.mockClear()
     authService.emit('inactive')
     await whenNextTick()
     expect(authClient.active).toBeFalse()
@@ -211,7 +211,7 @@ test('on disconnect', async () => {
     expect(onActive).toHaveBeenCalledTimes(1)
     expect(onActive).toHaveBeenCalledWith({ sessionId, userId })
     expect(onInactive).toHaveBeenCalledTimes(0)
-    onActive.mockReset()
+    onActive.mockClear()
     clientConnection.disconnect()
     await whenNextTick()
     expect(authClient.active).toBeFalse()
@@ -377,11 +377,11 @@ describe.each([
         await whenNextTick() // Wait for connection.
         await whenNextTick() // Wait for request.
         expect(authService.logIn).toHaveBeenCalledTimes(1)
-        authService.logIn.mockReset()
+        authService.logIn.mockClear()
         await whenNextTick() // Wait for error.
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(testError)
-        onError.mockReset()
+        onError.mockClear()
         authService.emit('active', { sessionId, userId })
         await whenNextTick() // Wait until active.
         expect(authClient.active).toBeTrue()
@@ -400,11 +400,11 @@ describe.each([
         await whenNextTick() // Wait for connection.
         await whenNextTick() // Wait for request.
         expect(authService.logIn).toHaveBeenCalledTimes(1)
-        authService.logIn.mockReset()
+        authService.logIn.mockClear()
         await whenNextTick() // Wait for error.
         expect(onError).toHaveBeenCalledTimes(1)
         expect(onError).toHaveBeenCalledWith(testError)
-        onError.mockReset()
+        onError.mockClear()
         clientConnection.disconnect()
         await whenNextTick() // Wait for disconnection.
         expect(clock.countTimers()).toBe(1)
