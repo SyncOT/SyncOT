@@ -7,9 +7,10 @@ import {
     createSchemaHash,
     maxVersion,
     minVersion,
+    Snapshot,
 } from '@syncot/content'
 import { SyncOTEmitter, whenNextTick } from '@syncot/util'
-import { Schema as EditorSchema } from 'prosemirror-model'
+import { Schema as EditorSchema, Node } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
@@ -33,6 +34,11 @@ const editorSchema = new EditorSchema({
         text: {},
     },
 })
+const schema = getSchema(type, editorSchema)
+const defaultDoc = editorSchema.topNodeType.createChecked(
+    null,
+    editorSchema.text('test text'),
+)
 
 class MockContentClient
     extends SyncOTEmitter<ContentClientEvents>
@@ -42,15 +48,17 @@ class MockContentClient
     public userId = userId
     registerSchema = jest.fn(async () => undefined)
     getSchema = jest.fn(async () => Promise.resolve(null))
-    getSnapshot = jest.fn(async (snapshotType, snapshotId) => ({
-        key: '',
-        type: snapshotType,
-        id: snapshotId,
-        version: 0,
-        schema: '',
-        data: null,
-        meta: null,
-    }))
+    getSnapshot = jest.fn<Promise<Snapshot>, [string, string, number?]>(
+        async (snapshotType, snapshotId) => ({
+            key: '',
+            type: snapshotType,
+            id: snapshotId,
+            version: 0,
+            schema: '',
+            data: null,
+            meta: null,
+        }),
+    )
     submitOperation = jest.fn(async () => undefined)
     streamOperations = jest.fn(
         async () =>
@@ -194,16 +202,14 @@ describe('syncOT', () => {
         const views: EditorView[] = []
         function createView({
             onError,
+            doc = defaultDoc,
         }: {
             onError?: (error: Error) => void
+            doc?: Node
         } = {}): EditorView {
             const view = new EditorView(undefined, {
                 state: EditorState.create({
-                    schema: editorSchema,
-                    doc: editorSchema.topNodeType.create(
-                        null,
-                        editorSchema.text('test text'),
-                    ),
+                    doc,
                     plugins: [
                         syncOT({
                             type,
@@ -249,16 +255,6 @@ describe('syncOT', () => {
 
         test('init with a new document', async () => {
             const view = createView()
-            const schema = getSchema(type, editorSchema)
-            const expectedDocJson = {
-                type: 'doc',
-                content: [
-                    {
-                        type: 'text',
-                        text: 'test text',
-                    },
-                ],
-            }
 
             // Verify the initial state.
             expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
@@ -269,7 +265,7 @@ describe('syncOT', () => {
                 version: -1,
                 pendingSteps: [],
             })
-            expect(view.state.doc.toJSON()).toStrictEqual(expectedDocJson)
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify the new state.
             await whenNextTick()
@@ -279,9 +275,9 @@ describe('syncOT', () => {
                 version: 1,
                 pendingSteps: [],
             })
-            expect(view.state.doc.toJSON()).toStrictEqual(expectedDocJson)
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
-            // Verify that the document is created.
+            // Verify contentClient usage.
             expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
             expect(contentClient.getSnapshot).toHaveBeenCalledWith(
                 type,
@@ -300,7 +296,7 @@ describe('syncOT', () => {
                     id,
                     version: minVersion + 1,
                     schema: schema.hash,
-                    data: expectedDocJson,
+                    data: defaultDoc.toJSON(),
                     meta: null,
                 }),
             )
@@ -312,6 +308,197 @@ describe('syncOT', () => {
                 minVersion + 2,
                 maxVersion + 1,
             )
+        })
+
+        test('init with an existing document', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    key: 'key-1',
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: null,
+                }),
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+        })
+
+        test.skip.each<
+            [
+                () => {
+                    serverInitialDoc: Node
+                    clientInitialDoc: Node
+                },
+            ]
+        >([
+            [
+                () => {
+                    const serverEditorSchema = new EditorSchema({
+                        nodes: {
+                            doc: { content: 'block+' },
+                            paragraph: {
+                                group: 'block',
+                                content: 'text*',
+                                toDOM() {
+                                    return ['p', 0]
+                                },
+                            },
+                            text: {},
+                        },
+                    })
+                    const serverInitialDoc = serverEditorSchema.topNodeType.createChecked(
+                        null,
+                        serverEditorSchema.node('paragraph', undefined, [
+                            serverEditorSchema.text(
+                                'content which will be overridden',
+                            ),
+                        ]),
+                    )
+                    const clientEditorSchema = new EditorSchema({
+                        nodes: {
+                            doc: { content: 'block+' },
+                            paragraph: {
+                                group: 'block',
+                                content: 'text*',
+                                toDOM() {
+                                    return ['p', 0]
+                                },
+                            },
+                            blockquote: {
+                                group: 'block',
+                                content: 'block+',
+                                toDOM() {
+                                    return ['blockquote', 0]
+                                },
+                            },
+                            text: {},
+                        },
+                    })
+                    const clientInitialDoc = clientEditorSchema.topNodeType.createChecked(
+                        null,
+                        clientEditorSchema.node('paragraph', undefined, [
+                            clientEditorSchema.text(
+                                'content which will be overridden',
+                            ),
+                        ]),
+                    )
+                    return {
+                        serverInitialDoc,
+                        clientInitialDoc,
+                    }
+                },
+            ],
+        ])('init with a mismatched schema', async (getConfig) => {
+            const { serverInitialDoc, clientInitialDoc } = getConfig()
+            const serverEditorSchema = serverInitialDoc.type.schema
+            const serverSchema = getSchema(type, serverEditorSchema)
+            const clientEditorSchema = clientInitialDoc.type.schema
+            // const clientSchema = getSchema(type, clientEditorSchema)
+            const view = createView({ doc: clientInitialDoc })
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    key: 'key-1',
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: serverSchema.hash,
+                    data: serverInitialDoc.toJSON(),
+                    meta: null,
+                }),
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                clientInitialDoc.toJSON(),
+            )
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.schema).toBe(clientEditorSchema)
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                serverInitialDoc.toJSON(),
+            )
+
+            // // Verify contentClient usage.
+            // expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            // expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+            //     type,
+            //     id,
+            //     maxVersion,
+            // )
+
+            // expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+
+            // expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+
+            // expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            // expect(contentClient.streamOperations).toHaveBeenCalledWith(
+            //     type,
+            //     id,
+            //     minVersion + 4,
+            //     maxVersion + 1,
+            // )
         })
     })
 })
