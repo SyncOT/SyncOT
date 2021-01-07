@@ -8,7 +8,6 @@ describe('createBaseSnapshot', () => {
         ['type-1', 'id-1'],
     ])('type=%p, id=%p', (type, id) => {
         expect(createBaseSnapshot(type, id)).toStrictEqual({
-            key: '',
             type,
             id,
             version: 0,

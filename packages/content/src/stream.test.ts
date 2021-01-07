@@ -1,14 +1,13 @@
-import { delay, whenClose } from '@syncot/util'
+import { createId, delay, whenClose } from '@syncot/util'
 import { OperationStream } from './stream'
-import { createOperationKey, Operation } from '.'
+import { Operation } from '.'
 
-const userId = 'test-user'
 const type = 'test-type'
 const id = 'test-id'
 const versionStart = 4
 const versionEnd = 7
 const operations: Operation[] = Array.from(Array(10), (_value, version) => ({
-    key: createOperationKey(userId),
+    key: createId(),
     type,
     id,
     version,

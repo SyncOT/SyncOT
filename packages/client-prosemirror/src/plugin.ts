@@ -1,17 +1,16 @@
 import {
     ContentClient,
-    createOperationKey,
     createSchemaHash,
     isAlreadyExistsError,
     maxVersion,
     minVersion,
     Operation,
-    OperationKey,
     Schema,
 } from '@syncot/content'
 // import { createProseMirrorSchema } from '@syncot/content-type-prosemirror'
 import {
     assert,
+    createId,
     exponentialBackOffStrategy,
     noop,
     throwError,
@@ -222,7 +221,6 @@ class PluginLoop {
         state: EditorState<EditorSchema>,
         pluginState: PluginState,
     ): Promise<void> {
-        const userId = this.contentClient.userId!
         const { type, id } = pluginState
         const schema = getSchema(type, state.schema)
 
@@ -236,9 +234,8 @@ class PluginLoop {
         // Create a new document, if it does not exist yet.
         if (snapshot.version === minVersion) {
             await this.contentClient.registerSchema(schema)
-            const operationKey = createOperationKey(userId)
             const operation: Operation = {
-                key: operationKey,
+                key: createId(),
                 type,
                 id,
                 version: snapshot.version + 1,
@@ -318,9 +315,7 @@ class PluginLoop {
         // Make sure that some steps have an operationKey assigned.
         const { operationKey } = pluginState.pendingSteps[0]
         if (operationKey == null) {
-            const newOperationKey = createOperationKey(
-                this.contentClient.userId!,
-            )
+            const newOperationKey = createId()
             const nextPluginState = {
                 ...pluginState,
                 pendingSteps: pluginState.pendingSteps.map(
@@ -513,7 +508,7 @@ export class Rebaseable {
     constructor(
         public step: Step,
         public invertedStep: Step,
-        public operationKey: OperationKey | undefined,
+        public operationKey: string | undefined,
     ) {}
 }
 

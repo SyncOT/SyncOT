@@ -156,7 +156,6 @@ export class ProseMirrorContentType implements ContentType {
         if (snapshot.version === minVersion) {
             const node = this.getNode(operation)
             const newSnapshot: Snapshot = {
-                key: operation.key,
                 type: operation.type,
                 id: operation.id,
                 version: operation.version,
@@ -180,7 +179,6 @@ export class ProseMirrorContentType implements ContentType {
         if (operation.schema !== snapshot.schema) {
             assert(operation.data == null, 'operation.data must be null.')
             return {
-                key: operation.key,
                 type: operation.type,
                 id: operation.id,
                 version: operation.version,
@@ -204,7 +202,6 @@ export class ProseMirrorContentType implements ContentType {
                 }
             }
             const newSnapshot: Snapshot = {
-                key: operation.key,
                 type: operation.type,
                 id: operation.id,
                 version: operation.version,

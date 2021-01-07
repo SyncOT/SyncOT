@@ -1,33 +1,10 @@
 import {
     createBaseOperation,
-    createOperationKey,
     maxVersion,
     minVersion,
     Operation,
-    operationKeyUser,
     validateOperation,
 } from '.'
-
-describe('OperationKey', () => {
-    test.each([
-        '',
-        '!',
-        '~',
-        'abc',
-        'abc~def~',
-        'abc!def!',
-        '!~123456!~',
-        '!!123456!!',
-    ])('createOperationKey(%s)', (userId) => {
-        const key1 = createOperationKey(userId)
-        const key2 = createOperationKey(userId)
-        expect(key1).toBeString()
-        expect(key2).toBeString()
-        expect(key1).not.toBe(key2)
-        expect(operationKeyUser(key1)).toBe(userId)
-        expect(operationKeyUser(key2)).toBe(userId)
-    })
-})
 
 describe('validateOperation', () => {
     const operation: Operation = {

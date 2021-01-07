@@ -8,7 +8,7 @@ import {
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Content } from './content'
-import { Operation, operationKeyUser, validateOperation } from './operation'
+import { Operation, validateOperation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema, validateSchema } from './schema'
 import { Snapshot } from './snapshot'
@@ -157,12 +157,7 @@ class Service
 
     public async submitOperation(operation: Operation): Promise<void> {
         this.assertOk()
-
         throwError(validateOperation(operation))
-        assert(
-            operationKeyUser(operation.key) === this.authService.userId,
-            'Operation.key does not contain the expected userId.',
-        )
 
         if (!this.authService.mayWriteContent(operation.type, operation.id))
             throw createAuthError('Not authorized to submit this operation.')

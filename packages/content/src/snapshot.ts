@@ -3,22 +3,11 @@ import { Meta } from './meta'
 import { SchemaHash } from './schema'
 
 /**
- * A Snapshot key which must be the same as the key of the corresponding operation.
- */
-export type SnapshotKey = string
-
-/**
  * A document snapshot at a specific version.
  *
  * Note that a snapshot at version `minVersion` exists implicitly for each document and is never stored.
  */
 export interface Snapshot {
-    /**
-     * A globally unique ID of this snapshot,
-     * equal to the key of the operation with the same type, id and version.
-     * If `version` is `minVersion`, `key` is an empty string.
-     */
-    readonly key: SnapshotKey
     /**
      * The document type.
      */
@@ -58,7 +47,6 @@ export interface Snapshot {
  */
 export function createBaseSnapshot(type: string, id: string): Snapshot {
     return {
-        key: '',
         type,
         id,
         version: minVersion,

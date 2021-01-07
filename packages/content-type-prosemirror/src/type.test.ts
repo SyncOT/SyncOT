@@ -236,7 +236,6 @@ describe('registerSchema', () => {
 
 describe('apply', () => {
     const snapshot: Snapshot = {
-        key: 'key-1',
         type: 'type-0',
         id: 'id-1',
         version: 1,
@@ -327,7 +326,14 @@ describe('apply', () => {
                 createBaseSnapshot(operation1.type, operation1.id),
                 operation1,
             )
-            expect(snapshot1).toStrictEqual(operation1)
+            expect(snapshot1).toStrictEqual({
+                type: operation1.type,
+                id: operation1.id,
+                version: operation1.version,
+                schema: operation1.schema,
+                data: operation1.data,
+                meta: operation1.meta,
+            })
         })
     })
 
@@ -358,8 +364,12 @@ describe('apply', () => {
             contentType.registerSchema(schema)
             const snapshot2 = contentType.apply(snapshot1, operation)
             expect(snapshot2).toStrictEqual({
-                ...operation,
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.schema,
                 data: snapshot1.data,
+                meta: operation.meta,
             })
 
             // Apply the same operation again to excercise the internal cache.
@@ -412,7 +422,10 @@ describe('apply', () => {
             }
             const snapshot2 = contentType.apply(snapshot, operation2)
             expect(snapshot2).toStrictEqual({
-                ...operation,
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.schema,
                 data: {
                     type: 'doc',
                     content: [
@@ -427,6 +440,7 @@ describe('apply', () => {
                         },
                     ],
                 },
+                meta: operation.meta,
             })
 
             // Apply the same operation again to excercise the internal cache.

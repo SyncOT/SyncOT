@@ -200,7 +200,12 @@ class DefaultContent implements Content {
         this.checkSchemaSize(schema)
         const contentType = this.getContentType(schema.type)
         throwError(contentType.validateSchema(schema))
-        return this.contentStore.storeSchema(schema)
+        try {
+            return this.contentStore.storeSchema(schema)
+        } catch (error) {
+            if (isAlreadyExistsError(error)) return
+            throw error
+        }
     }
 
     public async getSchema(key: string): Promise<Schema | null> {

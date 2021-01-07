@@ -1,9 +1,9 @@
 import { assert, combine } from '@syncot/util'
 import { createAlreadyExistsError } from './error'
 import { minVersion } from './limits'
-import { createBaseOperation, Operation, OperationKey } from './operation'
+import { createBaseOperation, Operation } from './operation'
 import { Schema } from './schema'
-import { createBaseSnapshot, Snapshot, SnapshotKey } from './snapshot'
+import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 
 /**
@@ -16,21 +16,30 @@ export function createContentStore(): ContentStore {
 class MemoryContentStore implements ContentStore {
     private schemas: Map<string, Schema> = new Map()
     private operations: Map<string, Operation[]> = new Map()
-    private operationsByKey: Map<OperationKey, Operation> = new Map()
+    private operationsByUserAndKey: Map<string, Operation> = new Map()
     private snapshots: Map<string, Snapshot[]> = new Map()
-    private snapshotsByKey: Map<SnapshotKey, Snapshot> = new Map()
 
     public async storeSchema(schema: Schema): Promise<void> {
-        if (this.schemas.has(schema.hash)) return
+        if (this.schemas.has(schema.hash))
+            throw createAlreadyExistsError(
+                'Schema',
+                schema,
+                'hash',
+                schema.hash,
+            )
         this.schemas.set(schema.hash, schema)
     }
 
-    public async loadSchema(key: string): Promise<Schema | null> {
-        return this.schemas.get(key) || null
+    public async loadSchema(hash: string): Promise<Schema | null> {
+        return this.schemas.get(hash) || null
     }
 
     public async storeOperation(operation: Operation): Promise<void> {
-        if (this.operationsByKey.has(operation.key)) {
+        const { key, type, id, version, meta } = operation
+        const user = (meta && meta.user) || ''
+
+        const userAndKey = combine(type, id, user, key)
+        if (this.operationsByUserAndKey.has(userAndKey)) {
             throw createAlreadyExistsError(
                 'Operation',
                 operation,
@@ -39,9 +48,7 @@ class MemoryContentStore implements ContentStore {
             )
         }
 
-        const { type, id, version } = operation
         const typeAndId = combine(type, id)
-
         let operations = this.operations.get(typeAndId)
         if (!operations) {
             operations = [createBaseOperation(type, id)]
@@ -66,7 +73,7 @@ class MemoryContentStore implements ContentStore {
         )
 
         operations[version] = operation
-        this.operationsByKey.set(operation.key, operation)
+        this.operationsByUserAndKey.set(userAndKey, operation)
     }
 
     public async loadOperations(
@@ -75,7 +82,8 @@ class MemoryContentStore implements ContentStore {
         versionStart: number,
         versionEnd: number,
     ): Promise<Operation[]> {
-        const operations = this.operations.get(combine(type, id))
+        const typeAndId = combine(type, id)
+        const operations = this.operations.get(typeAndId)
         return operations
             ? operations.slice(versionStart, versionEnd)
             : versionStart === minVersion && versionEnd > versionStart
@@ -84,19 +92,11 @@ class MemoryContentStore implements ContentStore {
     }
 
     public async storeSnapshot(snapshot: Snapshot): Promise<void> {
-        const { key, type, id, version } = snapshot
+        const { type, id, version } = snapshot
         assert(
             version > minVersion,
             'snapshot.version must be greater than minVersion.',
         )
-
-        if (this.snapshotsByKey.has(key))
-            throw createAlreadyExistsError(
-                'Snapshot',
-                snapshot,
-                'key',
-                snapshot.key,
-            )
 
         const typeAndId = combine(type, id)
         let snapshots = this.snapshots.get(typeAndId)
@@ -113,7 +113,6 @@ class MemoryContentStore implements ContentStore {
                 snapshot.version,
             )
 
-        this.snapshotsByKey.set(key, snapshot)
         snapshots[version] = snapshot
     }
 
@@ -122,7 +121,8 @@ class MemoryContentStore implements ContentStore {
         id: string,
         version: number,
     ): Promise<Snapshot> {
-        const snapshots = this.snapshots.get(combine(type, id))
+        const typeAndId = combine(type, id)
+        const snapshots = this.snapshots.get(typeAndId)
         if (snapshots) {
             for (let i = Math.min(version, snapshots.length - 1); i > 0; i--) {
                 const snapshot = snapshots[i]

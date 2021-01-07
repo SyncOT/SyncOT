@@ -7,7 +7,7 @@ import { Snapshot } from './snapshot'
  */
 export interface ContentStore {
     /**
-     * Stores the given schema, if it does not exist yet, otherwise does nothing.
+     * Stores the given schema.
      * @param schema The schema to store.
      */
     storeSchema(schema: Schema): Promise<void>

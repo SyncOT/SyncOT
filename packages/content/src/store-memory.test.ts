@@ -1,9 +1,9 @@
+import { createId } from '@syncot/util'
 import {
     ContentStore,
     createBaseOperation,
     createBaseSnapshot,
     createContentStore,
-    createOperationKey,
     createSchemaHash,
     minVersion,
     maxVersion,
@@ -12,12 +12,11 @@ import {
     Snapshot,
 } from '.'
 
-const userId = 'test-user'
 const operations: Operation[] = Array.from(Array(10), (_value, version) =>
     version === 0
         ? createBaseOperation('test-type', 'test-id')
         : {
-              key: createOperationKey(userId),
+              key: createId(),
               type: 'test-type',
               id: 'test-id',
               version,
@@ -33,7 +32,6 @@ const schema: Schema = {
     meta: null,
 }
 const snapshot: Snapshot = {
-    key: 's-1',
     type: 't-1',
     id: 'i-1',
     version: 1,
@@ -54,23 +52,17 @@ beforeEach(() => {
 describe('storeSchema', () => {
     test('the same schema twice', async () => {
         await store.storeSchema(schema)
-        await store.storeSchema(schema)
+        await expect(store.storeSchema(schema)).rejects.toStrictEqual(
+            expect.objectContaining({
+                name: 'SyncOTError AlreadyExists',
+                message: '"Schema" already exists.',
+                entity: schema,
+                key: 'hash',
+                value: schema.hash,
+            }),
+        )
         await expect(store.loadSchema(schema.hash)).resolves.toStrictEqual(
             schema,
-        )
-    })
-    test('different meta', async () => {
-        const user = 'test-user'
-        const time = Date.now()
-        const session = 'test-session'
-        const schemaWithMeta = { ...schema, meta: { session, time, user } }
-        await store.storeSchema(schemaWithMeta)
-        await store.storeSchema({
-            ...schemaWithMeta,
-            meta: { ...schemaWithMeta.meta, user: `${user}-different` },
-        })
-        await expect(store.loadSchema(schema.hash)).resolves.toStrictEqual(
-            schemaWithMeta,
         )
     })
     test('different hash', async () => {
@@ -108,16 +100,47 @@ describe('storeOperation', () => {
         )
     })
 
-    test('duplicate operation.key', async () => {
-        await store.storeOperation(operations[1])
-        await expect(store.storeOperation(operations[1])).rejects.toEqual(
+    test('duplicate operation.key with operation.meta undefined', async () => {
+        const operation = operations[1]
+        await store.storeOperation(operation)
+        await expect(store.storeOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 message: '"Operation" already exists.',
                 name: 'SyncOTError AlreadyExists',
-                entity: operations[1],
+                entity: operation,
                 entityName: 'Operation',
                 key: 'key',
-                value: operations[1].key,
+                value: operation.key,
+            }),
+        )
+    })
+
+    test('duplicate operation.key with operation.meta.user undefined', async () => {
+        const operation = { ...operations[1], meta: {} }
+        await store.storeOperation(operation)
+        await expect(store.storeOperation(operation)).rejects.toEqual(
+            expect.objectContaining({
+                message: '"Operation" already exists.',
+                name: 'SyncOTError AlreadyExists',
+                entity: operation,
+                entityName: 'Operation',
+                key: 'key',
+                value: operation.key,
+            }),
+        )
+    })
+
+    test('duplicate operation.key with operation.meta.user defined', async () => {
+        const operation = { ...operations[1], meta: { user: 'user-1' } }
+        await store.storeOperation(operation)
+        await expect(store.storeOperation(operation)).rejects.toEqual(
+            expect.objectContaining({
+                message: '"Operation" already exists.',
+                name: 'SyncOTError AlreadyExists',
+                entity: operation,
+                entityName: 'Operation',
+                key: 'key',
+                value: operation.key,
             }),
         )
     })
@@ -129,7 +152,7 @@ describe('storeOperation', () => {
         await store.storeOperation(operations[4])
         const operation = {
             ...operations[2],
-            key: createOperationKey(userId),
+            key: createId(),
         }
         await expect(store.storeOperation(operation)).rejects.toEqual(
             expect.objectContaining({
@@ -155,7 +178,7 @@ describe('storeOperation', () => {
                               ...operation,
                               type,
                               id,
-                              key: createOperationKey(userId),
+                              key: createId(),
                           },
                 )
 
@@ -264,24 +287,6 @@ describe('storeSnapshot', () => {
             expect.objectContaining({
                 name: 'SyncOTError Assert',
                 message: 'snapshot.version must be greater than minVersion.',
-            }),
-        )
-    })
-    test('duplicate key', async () => {
-        const snapshot2 = {
-            ...snapshot,
-            version: snapshot.version + 5,
-            data: 'd-2',
-        }
-        await store.storeSnapshot(snapshot)
-        await expect(store.storeSnapshot(snapshot2)).rejects.toStrictEqual(
-            expect.objectContaining({
-                message: '"Snapshot" already exists.',
-                name: 'SyncOTError AlreadyExists',
-                entity: snapshot2,
-                entityName: 'Snapshot',
-                key: 'key',
-                value: snapshot2.key,
             }),
         )
     })
