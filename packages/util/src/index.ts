@@ -1,5 +1,6 @@
 export * from './backOff'
 export * from './error'
+export * from './equal'
 export * from './events'
 export { hash } from './hash'
 export * from './id'
