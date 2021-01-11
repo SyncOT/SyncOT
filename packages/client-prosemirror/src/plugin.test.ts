@@ -4,24 +4,19 @@
 import {
     ContentClient,
     ContentClientEvents,
-    createSchemaHash,
     maxVersion,
     minVersion,
+    Schema,
     Snapshot,
 } from '@syncot/content'
+import { fromProseMirrorSchema } from '@syncot/content-type-prosemirror'
 import { SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Schema as EditorSchema, Node } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
 import { syncOT } from '.'
-import {
-    getSchema,
-    key,
-    PluginState,
-    Rebaseable,
-    rebaseableStepsFrom,
-} from './plugin'
+import { key, PluginState, Rebaseable, rebaseableStepsFrom } from './plugin'
 
 const sessionId = 'test-session'
 const userId = 'test-user'
@@ -34,7 +29,7 @@ const editorSchema = new EditorSchema({
         text: {},
     },
 })
-const schema = getSchema(type, editorSchema)
+const schema = fromProseMirrorSchema(type, editorSchema)
 const defaultDoc = editorSchema.topNodeType.createChecked(
     null,
     editorSchema.text('test text'),
@@ -47,7 +42,9 @@ class MockContentClient
     public sessionId = sessionId
     public userId = userId
     registerSchema = jest.fn(async () => undefined)
-    getSchema = jest.fn(async () => Promise.resolve(null))
+    getSchema = jest.fn<Promise<Schema | null>, [string]>(async () =>
+        Promise.resolve(null),
+    )
     getSnapshot = jest.fn<Promise<Snapshot>, [string, string, number?]>(
         async (snapshotType, snapshotId) => ({
             key: '',
@@ -370,6 +367,7 @@ describe('syncOT', () => {
             )
         })
 
+        // TODO do not use test.each here
         test.skip.each<
             [
                 () => {
@@ -438,10 +436,11 @@ describe('syncOT', () => {
         ])('init with a mismatched schema', async (getConfig) => {
             const { serverInitialDoc, clientInitialDoc } = getConfig()
             const serverEditorSchema = serverInitialDoc.type.schema
-            const serverSchema = getSchema(type, serverEditorSchema)
+            const serverSchema = fromProseMirrorSchema(type, serverEditorSchema)
             const clientEditorSchema = clientInitialDoc.type.schema
-            // const clientSchema = getSchema(type, clientEditorSchema)
+            // const clientSchema = fromProseMirrorSchema(type, clientEditorSchema)
             const view = createView({ doc: clientInitialDoc })
+
             contentClient.getSnapshot.mockImplementationOnce(
                 async (snapshotType, snapshotId) => ({
                     key: 'key-1',
@@ -452,6 +451,9 @@ describe('syncOT', () => {
                     data: serverInitialDoc.toJSON(),
                     meta: null,
                 }),
+            )
+            contentClient.getSchema.mockImplementationOnce(
+                async () => serverSchema,
             )
 
             // Verify the initial state.
@@ -530,84 +532,5 @@ describe('rebaseableStepsFrom', () => {
                     ),
             ),
         )
-    })
-})
-
-describe('getSchema', () => {
-    test('create a schema', () => {
-        const editorSchema1 = new EditorSchema({
-            nodes: {
-                doc: { content: 'p+' },
-                p: { content: 'text*' },
-                text: {},
-            },
-            marks: {
-                bold: {},
-                color: { colorCode: 'red' },
-            },
-            topNode: 'doc',
-        })
-        const schema1 = getSchema(type, editorSchema1)
-        expect(schema1.type).toBe(type)
-        expect(schema1.meta).toBe(null)
-        expect(schema1.data).toStrictEqual({
-            nodes: [
-                'doc',
-                { content: 'p+' },
-                'p',
-                { content: 'text*' },
-                'text',
-                {},
-            ],
-            marks: ['bold', {}, 'color', { colorCode: 'red' }],
-            topNode: 'doc',
-        })
-        expect(schema1.hash).toBe(createSchemaHash(schema1.type, schema1.data))
-    })
-    describe('caching', () => {
-        test('the same editor schema and the same type', () => {
-            const schema1 = getSchema(type, editorSchema)
-            const schema2 = getSchema(type, editorSchema)
-            expect(schema2).toBe(schema1)
-        })
-        test('the same editor schema and different type', () => {
-            const schema1 = getSchema(type, editorSchema)
-            const schema2 = getSchema(type + '-2', editorSchema)
-            expect(schema2).not.toBe(schema1)
-        })
-        test('different editor schema and the same type', () => {
-            const editorSchema1 = new EditorSchema({
-                nodes: {
-                    doc: { content: 'text*' },
-                    text: {},
-                },
-            })
-            const editorSchema2 = new EditorSchema({
-                nodes: {
-                    doc: { content: 'text*' },
-                    text: {},
-                },
-            })
-            const schema1 = getSchema(type, editorSchema1)
-            const schema2 = getSchema(type + '-2', editorSchema2)
-            expect(schema2).not.toBe(schema1)
-        })
-        test('different editor schema and different type', () => {
-            const editorSchema1 = new EditorSchema({
-                nodes: {
-                    doc: { content: 'text*' },
-                    text: {},
-                },
-            })
-            const editorSchema2 = new EditorSchema({
-                nodes: {
-                    doc: { content: 'text*' },
-                    text: {},
-                },
-            })
-            const schema1 = getSchema(type, editorSchema1)
-            const schema2 = getSchema(type + '-2', editorSchema2)
-            expect(schema2).not.toBe(schema1)
-        })
     })
 })

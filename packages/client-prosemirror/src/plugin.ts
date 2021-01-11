@@ -1,13 +1,11 @@
 import {
     ContentClient,
-    createSchemaHash,
     isAlreadyExistsError,
     maxVersion,
     minVersion,
     Operation,
-    Schema,
 } from '@syncot/content'
-// import { createProseMirrorSchema } from '@syncot/content-type-prosemirror'
+import { fromProseMirrorSchema } from '@syncot/content-type-prosemirror'
 import {
     assert,
     createId,
@@ -16,13 +14,7 @@ import {
     throwError,
     workLoop,
 } from '@syncot/util'
-import OrderedMap from 'orderedmap'
-import {
-    MarkSpec,
-    Node,
-    NodeSpec,
-    Schema as EditorSchema,
-} from 'prosemirror-model'
+import { Node, Schema as EditorSchema } from 'prosemirror-model'
 import {
     EditorState,
     Plugin,
@@ -179,12 +171,9 @@ class PluginLoop {
         /* istanbul ignore if */
         if (!pluginState) return
 
-        const { previousState } = this
-        this.previousState = state
-
         // Allow any operation version on submit,
         // if the new state is not derived from the previous state.
-        const previousPluginState = key.getState(previousState)
+        const previousPluginState = key.getState(this.previousState)
         if (
             !pluginState ||
             !previousPluginState ||
@@ -205,16 +194,19 @@ class PluginLoop {
         if (!hasValidStream && this.stream) {
             this.stream.destroy()
         }
-        if (!this.contentClient.active) {
-            return
+        if (this.contentClient.active) {
+            if (
+                pluginState.version < minVersion ||
+                state.schema !== this.previousState.schema
+            ) {
+                await this.initState(state, pluginState)
+            } else if (!hasValidStream) {
+                await this.initStream(state, pluginState)
+            } else {
+                await this.submitOperation(state, pluginState)
+            }
         }
-        if (pluginState.version < 0) {
-            return this.initState(state, pluginState)
-        }
-        if (!hasValidStream) {
-            return this.initStream(state, pluginState)
-        }
-        return this.submitOperation(state, pluginState)
+        this.previousState = state
     }
 
     private async initState(
@@ -222,7 +214,7 @@ class PluginLoop {
         pluginState: PluginState,
     ): Promise<void> {
         const { type, id } = pluginState
-        const schema = getSchema(type, state.schema)
+        const schema = fromProseMirrorSchema(type, state.schema)
 
         // Load the latest document snapshot.
         let snapshot = await this.contentClient.getSnapshot(
@@ -233,6 +225,7 @@ class PluginLoop {
 
         // Create a new document, if it does not exist yet.
         if (snapshot.version === minVersion) {
+            // TODO check that the topNode does not have any attributes nor marks.
             await this.contentClient.registerSchema(schema)
             const operation: Operation = {
                 key: createId(),
@@ -351,7 +344,8 @@ class PluginLoop {
                 type: pluginState.type,
                 id: pluginState.id,
                 version: operationVersion,
-                schema: getSchema(pluginState.type, state.schema).hash,
+                schema: fromProseMirrorSchema(pluginState.type, state.schema)
+                    .hash,
                 data: operationSteps,
                 meta: null,
             })
@@ -548,41 +542,4 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
             ),
         )
     return rebaseableSteps
-}
-
-const cachedSchemas: WeakMap<EditorSchema, Map<string, Schema>> = new WeakMap()
-/**
- * Gets a SyncOT Schema for the given type and EditorSchema.
- */
-export function getSchema(type: string, editorSchema: EditorSchema): Schema {
-    let nestedCachedSchemas = cachedSchemas.get(editorSchema)
-    if (!nestedCachedSchemas) {
-        nestedCachedSchemas = new Map()
-        cachedSchemas.set(editorSchema, nestedCachedSchemas)
-    }
-
-    const cachedSchema = nestedCachedSchemas.get(type)
-    if (cachedSchema) return cachedSchema
-
-    const { spec } = editorSchema
-    const { topNode } = spec
-    const nodesMap = spec.nodes as OrderedMap<NodeSpec>
-    const nodes: any[] = []
-    nodesMap.forEach((nodeName, { parseDOM, ...nodeSpec }) =>
-        nodes.push(nodeName, nodeSpec),
-    )
-    const marksMap = spec.marks as OrderedMap<MarkSpec>
-    const marks: any[] = []
-    marksMap.forEach((markName, { parseDOM, ...markSpec }) =>
-        marks.push(markName, markSpec),
-    )
-    const data = { nodes, marks, topNode }
-    const schema = {
-        hash: createSchemaHash(type, data),
-        type,
-        data,
-        meta: null,
-    }
-    nestedCachedSchemas.set(type, schema)
-    return schema
 }
