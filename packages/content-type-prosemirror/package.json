@@ -33,7 +33,7 @@
     "@types/prosemirror-model": "^1.11.1",
     "@types/prosemirror-transform": "^1.1.1",
     "orderedmap": "^1.1.1",
-    "prosemirror-model": "^1.12.0",
+    "prosemirror-model": "^1.13.1",
     "prosemirror-transform": "^1.2.8",
     "tslib": "^2.0.3"
   }
