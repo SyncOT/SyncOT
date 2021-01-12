@@ -52,7 +52,65 @@ export interface SyncOTConfig {
 
 /**
  * Creates an instance of the `syncOT` ProseMirror plugin
- * which synchronizes the document content and presence with the server and peer clients.
+ * which synchronizes the document schema, content and presence with the server and peer clients.
+ *
+ * IMPORTANT!!!
+ * As documents may be persisted on the server indefinitely,
+ * it is critical to plan for the inevitable occasions when the schema needs to change.
+ *
+ * This plugin supports schema changes as follows:
+ *
+ * 1. If new node or mark attributes with default values are added to the schema,
+ *    those attributes are added with the default values to the appropriate content nodes and marks.
+ * 2. If existing node or mark attributes are removed from the schema,
+ *    those attributes are removed from the appropriate content nodes and marks.
+ * 3. If the content contains node or mark placeholders (see below) AND
+ *    the new schema contains the declarations for the nodes or marks they replaced, THEN
+ *    those nodes or marks are restored and the placeholders are removed.
+ * 4. If the new schema contains node and mark placeholders (see below) AND
+ *    node or mark attributes required by the new schema are missing in the existing content OR
+ *    node or mark declarations are missing in the new schema but exist in the content, THEN
+ *    the appropriate nodes and marks are replaced with the placeholders.
+ * 5. If any content marks violate the new schema constraints,
+ *    they are removed.
+ * 6. If thus processed content is not valid according to the new schema,
+ *    an error is reported and content is not synchronized.
+ *
+ * The node and mark placeholders mentioned above make it possible to remove node and mark
+ * schema declarations while preserving all information in the content and maintaining backwards compatibility.
+ * Additionally, if the previously removed schema declarations are restored, the previous content is also
+ * automatically restored, provided it was not removed in the meantime.
+ *
+ * Up to 4 node placeholders can be declared to cover all the ways in which they can be used.
+ * The node placeholders:
+ * - MUST have one of the following names:
+ *   - "placeholderBlockBranch" - a block node with content
+ *   - "placeholderBlockLeaf" - a block node without content
+ *   - "placeholderInlineBranch" - an inline node with content
+ *   - "placeholderInlineLeft" - an inline node without content
+ * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
+ * - MUST be allowed to appear in all the places where the nodes they may replace are allowed.
+ *   Consider adding the node placeholders to the groups containing nodes they may replace and
+ *   always using those group names in content expressions instead of the node names.
+ * - MUST allow all content allowed by the nodes they may replace.
+ *   Consider adding all nodes to groups called "block" and "inline" as appropriate and
+ *   setting the placeholders' "content" to "block*" or "inline*" respectively.
+ * - SHOULD allow all marks allowed by the nodes they may replace.
+ *   Consider setting the placeholder's "marks" to "_" (allow all).
+ * - SHOULD support "name", "attrs" and "marks" attributes,
+ *   which the plugin will populate with the corresponding node data.
+ * - SHOULD have the "atom" property set to true.
+ *
+ * The mark placeholder:
+ * - MUST be called "placeholderMark".
+ * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
+ * - SHOULD be valid in all nodes where the marks it replaces are valid.
+ *   If you need to allow specific marks in some nodes,
+ *   consider adding them to groups along with the placeholder mark and
+ *   always specifying allowed marks using group names instead of mark names.
+ * - SHOULD support "name" and "attrs" attributes,
+ *   which the plugin will populate with the corresponding mark data.
+ * - SHOULD have the "excludes" property set to an empty string (does not exclude any marks).
  */
 export function syncOT({
     type,
