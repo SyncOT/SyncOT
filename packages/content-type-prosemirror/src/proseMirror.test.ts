@@ -379,3 +379,19 @@ describe('fromJSON allows marks violating "excludes" - check does not verify it 
         expect(doc.toJSON()).toEqual(json)
     })
 })
+
+test('does not allow nodes and marks to have the same name', () => {
+    expect(
+        () =>
+            new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    a: {},
+                },
+                marks: {
+                    a: {},
+                },
+            }),
+    ).toThrow('a can not be both a node and a mark')
+})
