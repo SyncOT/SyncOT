@@ -395,3 +395,31 @@ test('does not allow nodes and marks to have the same name', () => {
             }),
     ).toThrow('a can not be both a node and a mark')
 })
+
+test('allows node and mark groups to have the same name', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'c*', marks: 'c' },
+            text: {},
+            a: { group: 'c' },
+        },
+        marks: {
+            b: { group: 'c' },
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'a',
+            },
+        ],
+        marks: [
+            {
+                type: 'b',
+            },
+        ],
+    }
+    const doc = schema.nodeFromJSON(json)
+    doc.check()
+})
