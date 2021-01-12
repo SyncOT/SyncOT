@@ -206,6 +206,56 @@ test('fromJSON fails on undeclared marks', () => {
     )
 })
 
+test('fromJSON fails on node attributes without values', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'n*' },
+            text: {},
+            n: { attrs: { a: {} } },
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'n',
+            },
+        ],
+    }
+    expect(() => schema.nodeFromJSON(json)).toThrow(
+        'No value supplied for attribute a',
+    )
+})
+
+test('fromJSON fails on mark attributes without values', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'text*', marks: 'm' },
+            text: {},
+        },
+        marks: {
+            m: { attrs: { a: {} } },
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'text',
+                text: 'TEST',
+                marks: [
+                    {
+                        type: 'm',
+                    },
+                ],
+            },
+        ],
+    }
+    expect(() => schema.nodeFromJSON(json)).toThrow(
+        'No value supplied for attribute a',
+    )
+})
+
 test('fromJSON allows invalid content - must use check', () => {
     const schema = new Schema({
         nodes: {
