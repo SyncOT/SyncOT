@@ -422,4 +422,64 @@ test('allows node and mark groups to have the same name', () => {
     }
     const doc = schema.nodeFromJSON(json)
     doc.check()
+    expect(doc.toJSON()).toEqual(json)
+})
+
+test('allows block nodes to appear in inline nodes', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'i' },
+            i: { inline: true, content: 'b' },
+            b: { inline: false, content: 'text*' },
+            text: {},
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'i',
+                content: [
+                    {
+                        type: 'b',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'TEST',
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    const doc = schema.nodeFromJSON(json)
+    doc.check()
+    expect(doc.toJSON()).toEqual(json)
+})
+
+test('does not allow mixing block and inline content in a content expression', () => {
+    expect(
+        () =>
+            new Schema({
+                nodes: {
+                    doc: { content: 'i b' },
+                    i: { inline: true, content: 'text*' },
+                    b: { inline: false, content: 'text*' },
+                    text: {},
+                },
+            }),
+    ).toThrow("Mixing inline and block content (in content expression 'i b')")
+
+    expect(
+        () =>
+            new Schema({
+                nodes: {
+                    doc: { content: 'i | b' },
+                    i: { inline: true, content: 'text*' },
+                    b: { inline: false, content: 'text*' },
+                    text: {},
+                },
+            }),
+    ).toThrow("Mixing inline and block content (in content expression 'i | b')")
 })
