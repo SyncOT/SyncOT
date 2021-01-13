@@ -1,6 +1,8 @@
 // These tests verify certain assumptions about ProseMirror
 // which the ProseMirror-SyncOT integration is based on.
-import { Schema } from 'prosemirror-model'
+import { Fragment, Schema, Slice } from 'prosemirror-model'
+import { EditorState } from 'prosemirror-state'
+import { ReplaceStep } from 'prosemirror-transform'
 
 describe('content rules support nesting', () => {
     test.each<[object, string | undefined]>([
@@ -482,4 +484,117 @@ test('does not allow mixing block and inline content in a content expression', (
                 },
             }),
     ).toThrow("Mixing inline and block content (in content expression 'i | b')")
+})
+
+// I would not recommend using EditorState.reconfigure for changing the schema as it results
+// in state.schema and state.doc.type.schema being different, which is a major inconsistency
+// which could easily result in bugs.
+test('EditorState.reconfigure does not update the schema in nodes and marks', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'text*', marks: '_' },
+            text: {},
+        },
+        marks: {
+            m: {},
+        },
+    })
+    const differentSchema = new Schema({
+        nodes: {
+            doc: { content: 'text*' },
+            text: {},
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'text',
+                text: 'TEXT',
+                marks: [{ type: 'm' }],
+            },
+        ],
+    }
+    const doc = schema.nodeFromJSON(json)
+    doc.check()
+    expect(doc.toJSON()).toEqual(json)
+
+    const state = EditorState.create({ schema, doc })
+    expect(state.schema).toBe(schema)
+    expect(state.doc).toBe(doc)
+    expect(state.doc.type.schema).toBe(state.schema)
+
+    const reconfiguredState = state.reconfigure({ schema: differentSchema })
+    expect(reconfiguredState.schema).toBe(differentSchema)
+    expect(reconfiguredState.doc).toBe(doc)
+    expect(reconfiguredState.doc.type.schema).not.toBe(reconfiguredState.schema)
+
+    expect(() =>
+        reconfiguredState.tr.step(
+            new ReplaceStep(
+                2,
+                2,
+                new Slice(
+                    Fragment.from(reconfiguredState.schema.text('-added-')),
+                    0,
+                    0,
+                ),
+            ),
+        ),
+    ).toThrow('Invalid content for node doc')
+
+    const updatedState = reconfiguredState.apply(
+        reconfiguredState.tr.insertText('-added-', 2, 2),
+    )
+    updatedState.doc.check()
+    expect(updatedState.doc.toJSON()).toEqual({
+        type: 'doc',
+        content: [
+            {
+                type: 'text',
+                text: 'TE-added-XT',
+                marks: [{ type: 'm' }],
+            },
+        ],
+    })
+    expect(updatedState.schema).toBe(reconfiguredState.schema)
+    expect(updatedState.doc.type.schema).toBe(reconfiguredState.doc.type.schema)
+})
+
+test('EditorState.schema may differ from EditorState.doc.type.schema', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { content: 'text*', marks: '_' },
+            text: {},
+        },
+        marks: {
+            m: {},
+        },
+    })
+    const differentSchema = new Schema({
+        nodes: {
+            doc: { content: 'text*' },
+            text: {},
+        },
+    })
+    const json = {
+        type: 'doc',
+        content: [
+            {
+                type: 'text',
+                text: 'TEXT',
+                marks: [{ type: 'm' }],
+            },
+        ],
+    }
+    const doc = schema.nodeFromJSON(json)
+    doc.check()
+    expect(doc.toJSON()).toEqual(json)
+    const state = EditorState.create({
+        schema: differentSchema,
+        doc,
+    })
+    expect(state.schema).toBe(differentSchema)
+    expect(state.doc).toBe(doc)
+    expect(state.schema).not.toBe(state.doc.type.schema)
 })
