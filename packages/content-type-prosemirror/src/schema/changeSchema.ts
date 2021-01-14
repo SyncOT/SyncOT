@@ -1,4 +1,4 @@
-import { Node, Schema } from 'prosemirror-model'
+import { Fragment, Mark, Node, Schema } from 'prosemirror-model'
 
 /**
  * Changes the schema of `node` to `schema` using the following algorithm.
@@ -64,8 +64,97 @@ export function changeSchema<
     NewNodes extends string,
     NewMarks extends string
 >(
-    _node: Node<Schema<OldNodes, OldMarks>>,
+    node: Node<Schema<OldNodes, OldMarks>>,
     schema: Schema<NewNodes, NewMarks>,
 ): Node<Schema<NewNodes, NewMarks>> {
-    return schema.topNodeType.createAndFill()!
+    const newNode = convertNode(node, schema, null)
+    newNode.check()
+    return newNode
+}
+
+/**
+ * The names of the placeholder node and mark types which should be defined in a ProseMirror schema.
+ */
+export enum PlaceholderNames {
+    /**
+     * A block node with content.
+     */
+    blockBranch = 'placeholderBlockBranch',
+    /**
+     * A block node without content.
+     */
+    blockLeaf = 'placeholderBlockLeaf',
+    /**
+     * An inline node with content.
+     */
+    inlineBranch = 'placeholderInlineBranch',
+    /**
+     * An inline node without content.
+     */
+    inlineLeaf = 'placeholderInlineLeaf',
+    /**
+     * A mark.
+     */
+    mark = 'placeholderMark',
+}
+
+function convertNode(node: Node, schema: Schema, parent: Node | null): Node {
+    // TODO handle placeholders
+    const newType = schema.nodes[node.type.name]
+    const newContent = convertFragment(node.content, schema, node)
+    const newMarks = convertMarks(node.marks, schema, parent)
+    const newNode = newType.createChecked(node.attrs, newContent, newMarks)
+    return newNode
+}
+
+function convertFragment(
+    fragment: Fragment,
+    schema: Schema,
+    parent: Node,
+): Fragment {
+    const newFragmentArray = new Array(fragment.childCount)
+    fragment.forEach((node, _offset, index) => {
+        newFragmentArray[index] = convertNode(node, schema, parent)
+    })
+    return Fragment.fromArray(newFragmentArray)
+}
+
+function convertMarks(
+    marks: Mark[],
+    schema: Schema,
+    parent: Node | null,
+): Mark[] {
+    let newMarks = Mark.none
+    for (const mark of marks) {
+        const newMark = convertMark(mark, schema)
+        if (newMark && (!parent || parent.type.allowsMarkType(newMark.type)))
+            newMarks = newMark.addToSet(newMarks)
+    }
+    return newMarks
+}
+
+function convertMark(mark: Mark, schema: Schema): Mark | null {
+    try {
+        if (mark.type.name === PlaceholderNames.mark) {
+            return schema.marks[mark.attrs.name].create(mark.attrs.attrs)
+        }
+    } catch (_error) {
+        // Do nothing.
+    }
+    try {
+        return schema.marks[mark.type.name].create(mark.attrs)
+    } catch (_error) {
+        // Do nothing.
+    }
+    try {
+        if (mark.type.name !== PlaceholderNames.mark) {
+            return schema.marks[PlaceholderNames.mark].create({
+                name: mark.type.name,
+                attrs: mark.attrs,
+            })
+        }
+    } catch (_error) {
+        // Do nothing.
+    }
+    return null
 }
