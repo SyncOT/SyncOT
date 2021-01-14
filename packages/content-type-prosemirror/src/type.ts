@@ -14,7 +14,7 @@ import {
 } from '@syncot/util'
 import { Node, Schema as ProseMirrorSchema } from 'prosemirror-model'
 import { Step } from 'prosemirror-transform'
-import { toProseMirrorSchema } from './schema'
+import { fromSyncOTSchema } from './schema'
 
 /**
  * Creates a ContentType instance supporting ProseMirror.
@@ -112,7 +112,7 @@ export class ProseMirrorContentType implements ContentType {
         },
         (schema) => {
             try {
-                toProseMirrorSchema(schema)
+                fromSyncOTSchema(schema)
                 return undefined
             } catch (error) {
                 return createInvalidEntityError('Schema', schema, 'data', error)
@@ -122,7 +122,7 @@ export class ProseMirrorContentType implements ContentType {
 
     public registerSchema(schema: Schema): void {
         if (this.schemas.has(schema.hash)) return
-        this.schemas.set(schema.hash, toProseMirrorSchema(schema))
+        this.schemas.set(schema.hash, fromSyncOTSchema(schema))
     }
 
     public hasSchema(hash: SchemaHash): boolean {

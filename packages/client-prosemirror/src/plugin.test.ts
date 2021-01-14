@@ -9,7 +9,7 @@ import {
     Schema,
     Snapshot,
 } from '@syncot/content'
-import { fromProseMirrorSchema } from '@syncot/content-type-prosemirror'
+import { toSyncOTSchema } from '@syncot/content-type-prosemirror'
 import { SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Schema as EditorSchema, Node } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
@@ -29,7 +29,7 @@ const editorSchema = new EditorSchema({
         text: {},
     },
 })
-const schema = fromProseMirrorSchema(type, editorSchema)
+const schema = toSyncOTSchema(type, editorSchema)
 const defaultDoc = editorSchema.topNodeType.createChecked(
     null,
     editorSchema.text('test text'),
@@ -436,9 +436,9 @@ describe('syncOT', () => {
         ])('init with a mismatched schema', async (getConfig) => {
             const { serverInitialDoc, clientInitialDoc } = getConfig()
             const serverEditorSchema = serverInitialDoc.type.schema
-            const serverSchema = fromProseMirrorSchema(type, serverEditorSchema)
+            const serverSchema = toSyncOTSchema(type, serverEditorSchema)
             const clientEditorSchema = clientInitialDoc.type.schema
-            // const clientSchema = fromProseMirrorSchema(type, clientEditorSchema)
+            // const clientSchema = toSyncOTSchema(type, clientEditorSchema)
             const view = createView({ doc: clientInitialDoc })
 
             contentClient.getSnapshot.mockImplementationOnce(

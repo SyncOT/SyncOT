@@ -5,7 +5,7 @@ import {
     minVersion,
     Operation,
 } from '@syncot/content'
-import { fromProseMirrorSchema } from '@syncot/content-type-prosemirror'
+import { toSyncOTSchema } from '@syncot/content-type-prosemirror'
 import {
     assert,
     createId,
@@ -220,7 +220,7 @@ class PluginLoop {
         pluginState: PluginState,
     ): Promise<void> {
         const { type, id } = pluginState
-        const schema = fromProseMirrorSchema(type, state.schema)
+        const schema = toSyncOTSchema(type, state.schema)
 
         // Load the latest document snapshot.
         let snapshot = await this.contentClient.getSnapshot(
@@ -350,8 +350,7 @@ class PluginLoop {
                 type: pluginState.type,
                 id: pluginState.id,
                 version: operationVersion,
-                schema: fromProseMirrorSchema(pluginState.type, state.schema)
-                    .hash,
+                schema: toSyncOTSchema(pluginState.type, state.schema).hash,
                 data: operationSteps,
                 meta: null,
             })

@@ -1,2 +1,2 @@
-export { fromProseMirrorSchema, toProseMirrorSchema } from './schema'
+export * from './schema'
 export { createContentType } from './type'

@@ -1,4 +1,6 @@
 import { Fragment, Mark, Node, Schema } from 'prosemirror-model'
+import { PlaceholderNames } from './placeholderNames'
+import { validateSchema } from './validateSchema'
 
 /**
  * Changes the schema of `node` to `schema` using the following algorithm.
@@ -67,35 +69,7 @@ export function changeSchema<
     node: Node<Schema<OldNodes, OldMarks>>,
     schema: Schema<NewNodes, NewMarks>,
 ): Node<Schema<NewNodes, NewMarks>> {
-    const newNode = convertNode(node, schema, null)
-    newNode.check()
-    return newNode
-}
-
-/**
- * The names of the placeholder node and mark types which should be defined in a ProseMirror schema.
- */
-export enum PlaceholderNames {
-    /**
-     * A block node with content.
-     */
-    blockBranch = 'placeholderBlockBranch',
-    /**
-     * A block node without content.
-     */
-    blockLeaf = 'placeholderBlockLeaf',
-    /**
-     * An inline node with content.
-     */
-    inlineBranch = 'placeholderInlineBranch',
-    /**
-     * An inline node without content.
-     */
-    inlineLeaf = 'placeholderInlineLeaf',
-    /**
-     * A mark.
-     */
-    mark = 'placeholderMark',
+    return convertNode(node, validateSchema(schema), null)
 }
 
 function convertNode(node: Node, schema: Schema, parent: Node | null): Node {

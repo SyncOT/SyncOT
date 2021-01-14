@@ -9,7 +9,7 @@ import {
 import { Fragment, Slice } from 'prosemirror-model'
 import { ReplaceStep } from 'prosemirror-transform'
 import { createContentType } from '.'
-import { toProseMirrorSchema } from '.'
+import { fromSyncOTSchema } from '.'
 
 let contentType: ContentType
 const schemaType = 'type-0'
@@ -31,7 +31,7 @@ const schema: Schema = {
     data: schemaData,
     meta: null,
 }
-const proseMirrorSchema = toProseMirrorSchema(schema)
+const proseMirrorSchema = fromSyncOTSchema(schema)
 
 beforeEach(() => {
     contentType = createContentType()
@@ -241,7 +241,7 @@ describe('apply', () => {
         id: 'id-1',
         version: 1,
         schema: schema.hash,
-        data: toProseMirrorSchema(schema).topNodeType.createAndFill()!.toJSON(),
+        data: fromSyncOTSchema(schema).topNodeType.createAndFill()!.toJSON(),
         meta: null,
     }
 
