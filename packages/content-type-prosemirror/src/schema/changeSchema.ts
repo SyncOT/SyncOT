@@ -32,6 +32,8 @@ import { validateSchema } from './validateSchema'
  *   - "placeholderBlockLeaf" - a block node without content
  *   - "placeholderInlineBranch" - an inline node with content
  *   - "placeholderInlineLeft" - an inline node without content
+ * - MUST support "name", "group", "attrs" and "marks" attributes,
+ *   which the plugin will populate with the corresponding node data.
  * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
  * - MUST be allowed to appear in all the places where the nodes they may replace are allowed.
  *   Consider adding the node placeholders to the groups containing nodes they may replace and
@@ -41,19 +43,17 @@ import { validateSchema } from './validateSchema'
  *   setting the placeholders' "content" to "block*" or "inline*" respectively.
  * - SHOULD allow all marks allowed by the nodes they may replace.
  *   Consider setting the placeholder's "marks" to "_" (allow all).
- * - SHOULD support "name", "attrs" and "marks" attributes,
- *   which the plugin will populate with the corresponding node data.
  * - SHOULD have the "atom" property set to true.
  *
  * The mark placeholder:
  * - MUST be called "placeholderMark".
+ * - MUST support "name", "group" and "attrs" attributes,
+ *   which the plugin will populate with the corresponding mark data.
  * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
  * - SHOULD be valid in all nodes where the marks it replaces are valid.
  *   If you need to allow specific marks in some nodes,
  *   consider adding them to groups along with the placeholder mark and
  *   always specifying allowed marks using group names instead of mark names.
- * - SHOULD support "name" and "attrs" attributes,
- *   which the plugin will populate with the corresponding mark data.
  * - SHOULD have the "excludes" property set to an empty string (does not exclude any marks).
  *
  * @param node A node whose content should be migrated to the new schema.

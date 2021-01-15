@@ -1,5 +1,5 @@
 import { Schema } from 'prosemirror-model'
-import { validateSchema } from '..'
+import { PlaceholderNames, validateSchema } from '..'
 
 const attrs = {
     attrNull: { default: null },
@@ -973,5 +973,247 @@ describe('spec', () => {
                     key: property,
                 }),
             )
+    })
+})
+
+describe('placeholders', () => {
+    test('no placeholders', () => {
+        validateSchema(
+            new Schema({
+                nodes: { doc: {}, text: {} },
+            }),
+        )
+    })
+
+    describe(PlaceholderNames.mark, () => {
+        test('valid', () => {
+            validateSchema(
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PlaceholderNames.mark]: {
+                            attrs: { name: {}, group: {}, attrs: {} },
+                        },
+                    },
+                }),
+            )
+        })
+        test.each<[string, Schema]>([
+            [
+                `spec.marks.${PlaceholderNames.mark}.attrs`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PlaceholderNames.mark]: {},
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PlaceholderNames.mark}.attrs.name`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PlaceholderNames.mark]: {
+                            attrs: { group: {}, attrs: {} },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PlaceholderNames.mark}.attrs.group`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PlaceholderNames.mark]: {
+                            attrs: { name: {}, attrs: {} },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PlaceholderNames.mark}.attrs.attrs`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PlaceholderNames.mark]: {
+                            attrs: { name: {}, group: {} },
+                        },
+                    },
+                }),
+            ],
+        ])('invalid: %s', (property, schema) => {
+            expect(() => validateSchema(schema)).toThrow(
+                expect.objectContaining({
+                    name: 'SyncOTError InvalidEntity',
+                    message: `Invalid "ProseMirrorSchema.${property}".`,
+                    entityName: 'ProseMirrorSchema',
+                    entity: schema,
+                    key: property,
+                }),
+            )
+        })
+    })
+
+    describe.each([
+        [PlaceholderNames.blockBranch, false, false],
+        [PlaceholderNames.blockLeaf, false, true],
+        [PlaceholderNames.inlineBranch, true, false],
+        [PlaceholderNames.inlineLeaf, true, true],
+    ])('%s', (placeholderName, isInline, isLeaf) => {
+        test('valid', () => {
+            validateSchema(
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                name: {},
+                                group: {},
+                                attrs: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            )
+        })
+        test.each<[string, Schema]>([
+            [
+                `spec.nodes.${placeholderName}.attrs`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.attrs.name`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                group: {},
+                                attrs: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.attrs.group`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                name: {},
+                                attrs: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.attrs.attrs`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                name: {},
+                                group: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.attrs.marks`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                name: {},
+                                group: {},
+                                attrs: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.inline`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: !isInline,
+                            content: isLeaf ? '' : 'text*',
+                            attrs: {
+                                name: {},
+                                group: {},
+                                attrs: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${placeholderName}.content`,
+                new Schema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                        [placeholderName]: {
+                            inline: isInline,
+                            content: isLeaf ? 'text*' : '',
+                            attrs: {
+                                name: {},
+                                group: {},
+                                attrs: {},
+                                marks: {},
+                            },
+                        },
+                    },
+                }),
+            ],
+        ])('invalid: %s', (property, schema) => {
+            expect(() => validateSchema(schema)).toThrow(
+                expect.objectContaining({
+                    name: 'SyncOTError InvalidEntity',
+                    message: `Invalid "ProseMirrorSchema.${property}".`,
+                    entityName: 'ProseMirrorSchema',
+                    entity: schema,
+                    key: property,
+                }),
+            )
+        })
     })
 })

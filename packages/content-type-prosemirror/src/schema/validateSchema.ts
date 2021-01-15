@@ -8,6 +8,7 @@ import {
     NodeType,
     Schema,
 } from 'prosemirror-model'
+import { PlaceholderNames } from './placeholderNames'
 
 /**
  * Checks if the specified ProseMirror Schema is compatible with SyncOT.
@@ -48,6 +49,9 @@ export function validateSchema(schema: Schema): Schema {
         validateExcludes(spec.excludes, schema, key)
         validateGroup(spec.group, schema, key)
     })
+
+    // Validate the placeholders.
+    validatePlaceholders(schema)
 
     return schema
 }
@@ -202,4 +206,123 @@ function validateExcludes(
             schema,
             `${key}.excludes`,
         )
+}
+
+const placeholderMarkAttrNames = ['name', 'group', 'attrs']
+const placeholderNodeAttrNames = ['name', 'group', 'attrs', 'marks']
+function validatePlaceholders(schema: Schema): void {
+    const mark = schema.marks[PlaceholderNames.mark]
+    if (mark) {
+        validatePlaceholderAttrs(
+            mark.spec.attrs,
+            placeholderMarkAttrNames,
+            schema,
+            `spec.marks.${PlaceholderNames.mark}.attrs`,
+        )
+    }
+
+    const blockBranch = schema.nodes[PlaceholderNames.blockBranch]
+    if (blockBranch) {
+        validatePlaceholderAttrs(
+            blockBranch.spec.attrs,
+            placeholderNodeAttrNames,
+            schema,
+            `spec.nodes.${PlaceholderNames.blockBranch}.attrs`,
+        )
+        if (!blockBranch.isBlock)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.blockBranch}.inline`,
+            )
+        if (blockBranch.isLeaf)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.blockBranch}.content`,
+            )
+    }
+
+    const blockLeaf = schema.nodes[PlaceholderNames.blockLeaf]
+    if (blockLeaf) {
+        validatePlaceholderAttrs(
+            blockLeaf.spec.attrs,
+            placeholderNodeAttrNames,
+            schema,
+            `spec.nodes.${PlaceholderNames.blockLeaf}.attrs`,
+        )
+        if (!blockLeaf.isBlock)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.blockLeaf}.inline`,
+            )
+        if (!blockLeaf.isLeaf)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.blockLeaf}.content`,
+            )
+    }
+
+    const inlineBranch = schema.nodes[PlaceholderNames.inlineBranch]
+    if (inlineBranch) {
+        validatePlaceholderAttrs(
+            inlineBranch.spec.attrs,
+            placeholderNodeAttrNames,
+            schema,
+            `spec.nodes.${PlaceholderNames.inlineBranch}.attrs`,
+        )
+        if (!inlineBranch.isInline)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.inlineBranch}.inline`,
+            )
+        if (inlineBranch.isLeaf)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.inlineBranch}.content`,
+            )
+    }
+
+    const inlineLeaf = schema.nodes[PlaceholderNames.inlineLeaf]
+    if (inlineLeaf) {
+        validatePlaceholderAttrs(
+            inlineLeaf.spec.attrs,
+            placeholderNodeAttrNames,
+            schema,
+            `spec.nodes.${PlaceholderNames.inlineLeaf}.attrs`,
+        )
+        if (!inlineLeaf.isInline)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.inlineLeaf}.inline`,
+            )
+        if (!inlineLeaf.isLeaf)
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `spec.nodes.${PlaceholderNames.inlineLeaf}.content`,
+            )
+    }
+}
+
+function validatePlaceholderAttrs(
+    attrs: { [key: string]: AttributeSpec } | null | undefined,
+    attrNames: string[],
+    schema: Schema,
+    key: string,
+): void {
+    if (!attrs) throw createInvalidEntityError('ProseMirrorSchema', schema, key)
+    for (const attrName of attrNames) {
+        if (!attrs[attrName])
+            throw createInvalidEntityError(
+                'ProseMirrorSchema',
+                schema,
+                `${key}.${attrName}`,
+            )
+    }
 }
