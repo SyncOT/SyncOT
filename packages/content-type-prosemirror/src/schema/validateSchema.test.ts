@@ -992,7 +992,7 @@ describe('placeholders', () => {
                     nodes: { doc: {}, text: {} },
                     marks: {
                         [PlaceholderNames.mark]: {
-                            attrs: { name: {}, group: {}, attrs: {} },
+                            attrs: { name: {}, attrs: {} },
                         },
                     },
                 }),
@@ -1014,18 +1014,7 @@ describe('placeholders', () => {
                     nodes: { doc: {}, text: {} },
                     marks: {
                         [PlaceholderNames.mark]: {
-                            attrs: { group: {}, attrs: {} },
-                        },
-                    },
-                }),
-            ],
-            [
-                `spec.marks.${PlaceholderNames.mark}.attrs.group`,
-                new Schema({
-                    nodes: { doc: {}, text: {} },
-                    marks: {
-                        [PlaceholderNames.mark]: {
-                            attrs: { name: {}, attrs: {} },
+                            attrs: { attrs: {} },
                         },
                     },
                 }),
@@ -1036,7 +1025,7 @@ describe('placeholders', () => {
                     nodes: { doc: {}, text: {} },
                     marks: {
                         [PlaceholderNames.mark]: {
-                            attrs: { name: {}, group: {} },
+                            attrs: { name: {} },
                         },
                     },
                 }),
@@ -1069,12 +1058,7 @@ describe('placeholders', () => {
                         [placeholderName]: {
                             inline: isInline,
                             content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                group: {},
-                                attrs: {},
-                                marks: {},
-                            },
+                            attrs: { name: {}, attrs: {} },
                         },
                     },
                 }),
@@ -1103,29 +1087,7 @@ describe('placeholders', () => {
                         [placeholderName]: {
                             inline: isInline,
                             content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                group: {},
-                                attrs: {},
-                                marks: {},
-                            },
-                        },
-                    },
-                }),
-            ],
-            [
-                `spec.nodes.${placeholderName}.attrs.group`,
-                new Schema({
-                    nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                attrs: {},
-                                marks: {},
-                            },
+                            attrs: { attrs: {} },
                         },
                     },
                 }),
@@ -1139,29 +1101,7 @@ describe('placeholders', () => {
                         [placeholderName]: {
                             inline: isInline,
                             content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                group: {},
-                                marks: {},
-                            },
-                        },
-                    },
-                }),
-            ],
-            [
-                `spec.nodes.${placeholderName}.attrs.marks`,
-                new Schema({
-                    nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                group: {},
-                                attrs: {},
-                            },
+                            attrs: { name: {} },
                         },
                     },
                 }),
@@ -1175,12 +1115,7 @@ describe('placeholders', () => {
                         [placeholderName]: {
                             inline: !isInline,
                             content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                group: {},
-                                attrs: {},
-                                marks: {},
-                            },
+                            attrs: { name: {}, attrs: {} },
                         },
                     },
                 }),
@@ -1194,12 +1129,7 @@ describe('placeholders', () => {
                         [placeholderName]: {
                             inline: isInline,
                             content: isLeaf ? 'text*' : '',
-                            attrs: {
-                                name: {},
-                                group: {},
-                                attrs: {},
-                                marks: {},
-                            },
+                            attrs: { name: {}, attrs: {} },
                         },
                     },
                 }),

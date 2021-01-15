@@ -208,14 +208,11 @@ function validateExcludes(
         )
 }
 
-const placeholderMarkAttrNames = ['name', 'group', 'attrs']
-const placeholderNodeAttrNames = ['name', 'group', 'attrs', 'marks']
 function validatePlaceholders(schema: Schema): void {
     const mark = schema.marks[PlaceholderNames.mark]
     if (mark) {
         validatePlaceholderAttrs(
             mark.spec.attrs,
-            placeholderMarkAttrNames,
             schema,
             `spec.marks.${PlaceholderNames.mark}.attrs`,
         )
@@ -225,7 +222,6 @@ function validatePlaceholders(schema: Schema): void {
     if (blockBranch) {
         validatePlaceholderAttrs(
             blockBranch.spec.attrs,
-            placeholderNodeAttrNames,
             schema,
             `spec.nodes.${PlaceholderNames.blockBranch}.attrs`,
         )
@@ -247,7 +243,6 @@ function validatePlaceholders(schema: Schema): void {
     if (blockLeaf) {
         validatePlaceholderAttrs(
             blockLeaf.spec.attrs,
-            placeholderNodeAttrNames,
             schema,
             `spec.nodes.${PlaceholderNames.blockLeaf}.attrs`,
         )
@@ -269,7 +264,6 @@ function validatePlaceholders(schema: Schema): void {
     if (inlineBranch) {
         validatePlaceholderAttrs(
             inlineBranch.spec.attrs,
-            placeholderNodeAttrNames,
             schema,
             `spec.nodes.${PlaceholderNames.inlineBranch}.attrs`,
         )
@@ -291,7 +285,6 @@ function validatePlaceholders(schema: Schema): void {
     if (inlineLeaf) {
         validatePlaceholderAttrs(
             inlineLeaf.spec.attrs,
-            placeholderNodeAttrNames,
             schema,
             `spec.nodes.${PlaceholderNames.inlineLeaf}.attrs`,
         )
@@ -312,17 +305,20 @@ function validatePlaceholders(schema: Schema): void {
 
 function validatePlaceholderAttrs(
     attrs: { [key: string]: AttributeSpec } | null | undefined,
-    attrNames: string[],
     schema: Schema,
     key: string,
 ): void {
     if (!attrs) throw createInvalidEntityError('ProseMirrorSchema', schema, key)
-    for (const attrName of attrNames) {
-        if (!attrs[attrName])
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                schema,
-                `${key}.${attrName}`,
-            )
-    }
+    if (!attrs.name)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            schema,
+            `${key}.name`,
+        )
+    if (!attrs.attrs)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            schema,
+            `${key}.attrs`,
+        )
 }

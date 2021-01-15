@@ -1,5 +1,6 @@
 /**
  * The names of the placeholder node and mark types which should be defined in a ProseMirror Schema.
+ * They are used by `changeSchema` to represent content which is not valid in a new schema.
  */
 export enum PlaceholderNames {
     /**

@@ -1,9 +1,15 @@
-import { Fragment, Mark, Node, Schema } from 'prosemirror-model'
+import { assert } from '@syncot/util'
+import { Fragment, Mark, Node, NodeType, Schema } from 'prosemirror-model'
+import { equalShape } from './util'
 import { PlaceholderNames } from './placeholderNames'
 import { validateSchema } from './validateSchema'
 
 /**
- * Changes the schema of `node` to `schema` using the following algorithm.
+ * Changes the schema of `node` to `schema`. It guarantees to keep the "shape" of the content,
+ * meaning that all nodes from `node` are represented in the output with the original nodeSize,
+ * isLeaf and isInline/isBlock properties.
+ *
+ * It uses the following algorithm:
  *
  * 1. If new node or mark attributes with default values are added to the `schema` relative to `node.type.schema`,
  *    those attributes are added with the default values to the appropriate content nodes and marks.
@@ -18,7 +24,7 @@ import { validateSchema } from './validateSchema'
  *    the appropriate nodes and marks are replaced with the placeholders.
  * 5. If any content marks violate the new schema constraints,
  *    they are removed.
- * 6. If thus processed content is not valid according to the new `schema`, an error is thrown.
+ * 6. Returns null, if thus processed content is not valid according to the new `schema`.
  * 7. Returns a new node with the specified `schema` and content from the specified `node`.
  *
  * The node and mark placeholders mentioned above make it possible to remove node and mark
@@ -32,7 +38,7 @@ import { validateSchema } from './validateSchema'
  *   - "placeholderBlockLeaf" - a block node without content
  *   - "placeholderInlineBranch" - an inline node with content
  *   - "placeholderInlineLeft" - an inline node without content
- * - MUST support "name", "group", "attrs" and "marks" attributes,
+ * - MUST support "name" and "attrs" attributes,
  *   which the plugin will populate with the corresponding node data.
  * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
  * - MUST be allowed to appear in all the places where the nodes they may replace are allowed.
@@ -47,7 +53,7 @@ import { validateSchema } from './validateSchema'
  *
  * The mark placeholder:
  * - MUST be called "placeholderMark".
- * - MUST support "name", "group" and "attrs" attributes,
+ * - MUST support "name" and "attrs" attributes,
  *   which the plugin will populate with the corresponding mark data.
  * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
  * - SHOULD be valid in all nodes where the marks it replaces are valid.
@@ -58,7 +64,8 @@ import { validateSchema } from './validateSchema'
  *
  * @param node A node whose content should be migrated to the new schema.
  * @param schema The schema for the new node.
- * @returns A new node with the specified `schema` and content from the specified `node`.
+ * @returns A new node with the specified `schema` and content from the specified `node`,
+ *   or null, if the `node` is not compatible with `schema`.
  */
 export function changeSchema<
     OldNodes extends string,
@@ -68,67 +75,137 @@ export function changeSchema<
 >(
     node: Node<Schema<OldNodes, OldMarks>>,
     schema: Schema<NewNodes, NewMarks>,
-): Node<Schema<NewNodes, NewMarks>> {
-    return convertNode(node, validateSchema(schema), null)
-}
-
-function convertNode(node: Node, schema: Schema, parent: Node | null): Node {
-    // TODO handle placeholders
-    const newType = schema.nodes[node.type.name]
-    const newContent = convertFragment(node.content, schema, node)
-    const newMarks = convertMarks(node.marks, schema, parent)
-    const newNode = newType.createChecked(node.attrs, newContent, newMarks)
+): Node<Schema<NewNodes, NewMarks>> | null {
+    const newNode = convertNode(node, validateSchema(schema))
+    assert(
+        newNode == null || equalShape(node, newNode),
+        'changeSchema produced a node of a different shape.',
+    )
     return newNode
 }
 
-function convertFragment(
-    fragment: Fragment,
-    schema: Schema,
-    parent: Node,
-): Fragment {
-    const newFragmentArray = new Array(fragment.childCount)
-    fragment.forEach((node, _offset, index) => {
-        newFragmentArray[index] = convertNode(node, schema, parent)
-    })
-    return Fragment.fromArray(newFragmentArray)
+function getPlaceholderName(type: NodeType): PlaceholderNames {
+    if (type.isInline) {
+        return type.isLeaf
+            ? PlaceholderNames.inlineLeaf
+            : PlaceholderNames.inlineBranch
+    } else {
+        return type.isLeaf
+            ? PlaceholderNames.blockLeaf
+            : PlaceholderNames.blockBranch
+    }
 }
 
-function convertMarks(
-    marks: Mark[],
-    schema: Schema,
-    parent: Node | null,
-): Mark[] {
+function convertNode(node: Node, schema: Schema): Node | null {
+    const {
+        type: { name },
+        attrs,
+    } = node
+    const placeholderName = getPlaceholderName(node.type)
+    const newContent = convertContent(node.content, schema)
+    const newMarks = convertMarks(node.marks, schema)
+
+    // Try to convert a placeholder to the original node.
+    try {
+        if (name === placeholderName) {
+            const type = schema.nodes[attrs.name]
+            if (getPlaceholderName(type) === placeholderName) {
+                return type.createChecked(
+                    attrs.attrs,
+                    fixContentMarks(newContent, type),
+                    newMarks,
+                )
+            }
+        }
+    } catch (_error) {
+        // Do nothing.
+    }
+
+    // Try to keep the same node type.
+    try {
+        const type = schema.nodes[name]
+        if (getPlaceholderName(type) === placeholderName) {
+            return type.createChecked(
+                attrs,
+                fixContentMarks(newContent, type),
+                newMarks,
+            )
+        }
+    } catch (_error) {
+        // Do nothing.
+    }
+
+    // Try to replace the node with a placeholder.
+    try {
+        if (name !== placeholderName) {
+            const type = schema.nodes[placeholderName]
+            return type.createChecked(
+                { name, attrs },
+                fixContentMarks(newContent, type),
+                newMarks,
+            )
+        }
+    } catch (_error) {
+        // Do nothing.
+    }
+
+    return null
+}
+
+function convertContent(content: Fragment, schema: Schema): Node[] {
+    const newContent = new Array(content.childCount)
+    content.forEach((node, _offset, index) => {
+        newContent[index] = convertNode(node, schema)
+    })
+    return newContent
+}
+
+function fixContentMarks(content: Node[], parentType: NodeType): Node[] {
+    return content.map((node) => node.mark(parentType.allowedMarks(node.marks)))
+}
+
+function convertMarks(marks: Mark[], schema: Schema): Mark[] {
     let newMarks = Mark.none
     for (const mark of marks) {
         const newMark = convertMark(mark, schema)
-        if (newMark && (!parent || parent.type.allowsMarkType(newMark.type)))
-            newMarks = newMark.addToSet(newMarks)
+        if (newMark) newMarks = newMark.addToSet(newMarks)
     }
     return newMarks
 }
 
 function convertMark(mark: Mark, schema: Schema): Mark | null {
+    const {
+        type: { name },
+        attrs,
+    } = mark
+
+    // Try to convert a placeholder to the original mark.
     try {
-        if (mark.type.name === PlaceholderNames.mark) {
-            return schema.marks[mark.attrs.name].create(mark.attrs.attrs)
+        if (name === PlaceholderNames.mark) {
+            const type = schema.marks[attrs.name]
+            return type.create(attrs.attrs)
         }
     } catch (_error) {
         // Do nothing.
     }
+
+    // Try to keep the same mark type.
     try {
-        return schema.marks[mark.type.name].create(mark.attrs)
+        const type = schema.marks[name]
+        return type.create(attrs)
     } catch (_error) {
         // Do nothing.
     }
+
+    // Try to replace the mark with a placeholder.
     try {
-        if (mark.type.name !== PlaceholderNames.mark) {
-            return schema.marks[PlaceholderNames.mark].create({
-                name: mark.type.name,
-                attrs: mark.attrs,
-            })
+        if (name !== PlaceholderNames.mark) {
+            const type = schema.marks[PlaceholderNames.mark]
+            return type.create({ name, attrs })
         }
     } catch (_error) {
         // Do nothing.
     }
+
     return null
 }
