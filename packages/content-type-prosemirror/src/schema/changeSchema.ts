@@ -105,11 +105,16 @@ function convertNode(node: Node, schema: Schema): Node | null {
     const newContent = convertContent(node.content, schema)
     const newMarks = convertMarks(node.marks, schema)
 
+    // Convert a text node.
+    if (node.isText) {
+        return schema.text(node.text!, newMarks)
+    }
+
     // Try to convert a placeholder to the original node.
     try {
         if (name === placeholderName) {
             const type = schema.nodes[attrs.name]
-            if (getPlaceholderName(type) === placeholderName) {
+            if (getPlaceholderName(type) === placeholderName && !type.isText) {
                 return type.createChecked(
                     attrs.attrs,
                     fixContentMarks(newContent, type),
