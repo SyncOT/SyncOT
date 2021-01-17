@@ -77,6 +77,15 @@ test('valid complex schema', () => {
     validateSchema(schema)
 })
 
+test('check if instance of Schema', () => {
+    expect(() => validateSchema({} as any)).toThrow(
+        expect.objectContaining({
+            name: 'TypeError',
+            message: '"schema" is not an instance of Schema.',
+        }),
+    )
+})
+
 describe('cycle', () => {
     test('cycle in required position (minimal cycle)', () => {
         expect(() =>
@@ -969,7 +978,7 @@ describe('spec', () => {
                     name: 'SyncOTError InvalidEntity',
                     message: `Invalid "ProseMirrorSchema.${property}".`,
                     entityName: 'ProseMirrorSchema',
-                    entity: schema,
+                    entity: { spec: schema.spec },
                     key: property,
                 }),
             )
@@ -1036,7 +1045,7 @@ describe('placeholders', () => {
                     name: 'SyncOTError InvalidEntity',
                     message: `Invalid "ProseMirrorSchema.${property}".`,
                     entityName: 'ProseMirrorSchema',
-                    entity: schema,
+                    entity: { spec: schema.spec },
                     key: property,
                 }),
             )
@@ -1140,7 +1149,7 @@ describe('placeholders', () => {
                     name: 'SyncOTError InvalidEntity',
                     message: `Invalid "ProseMirrorSchema.${property}".`,
                     entityName: 'ProseMirrorSchema',
-                    entity: schema,
+                    entity: { spec: schema.spec },
                     key: property,
                 }),
             )

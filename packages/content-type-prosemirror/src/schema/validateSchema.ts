@@ -16,6 +16,10 @@ import { PlaceholderNames } from './placeholderNames'
  * Returns the validated schema.
  */
 export function validateSchema(schema: Schema): Schema {
+    if (!(schema instanceof Schema)) {
+        throw new TypeError('"schema" is not an instance of Schema.')
+    }
+
     // Check if the required content would cause a stack overflow when filling nodes.
     for (const type of Object.values(schema.nodes)) {
         const cycle = findCycle(type, [])
@@ -87,7 +91,7 @@ function validateTopNode(
     if (typeof topNode !== 'string' && topNode != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `spec.topNode`,
         )
 }
@@ -100,7 +104,7 @@ function validateAttrs(
     if (typeof attrs !== 'object' && attrs != null) {
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.attrs`,
         )
     }
@@ -109,7 +113,7 @@ function validateAttrs(
         if (!Object.prototype.hasOwnProperty.call(attrs, name))
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `${key}.attrs.${name}`,
             )
 
@@ -117,7 +121,7 @@ function validateAttrs(
         if (attr == null || typeof attr !== 'object')
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `${key}.attrs.${name}`,
             )
 
@@ -131,7 +135,7 @@ function validateAttrs(
             ) {
                 throw createInvalidEntityError(
                     'ProseMirrorSchema',
-                    schema,
+                    { spec: schema.spec },
                     `${key}.attrs.${name}.default`,
                 )
             }
@@ -148,7 +152,7 @@ function validateContent(
     if (typeof content !== 'string' && content != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.content`,
         )
 }
@@ -162,7 +166,7 @@ function validateGroup(
     if (typeof group !== 'string' && group != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.group`,
         )
 }
@@ -175,7 +179,7 @@ function validateInline(
     if (typeof inline !== 'boolean' && inline != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.inline`,
         )
 }
@@ -189,7 +193,7 @@ function validateMarks(
     if (typeof marks !== 'string' && marks != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.marks`,
         )
 }
@@ -203,7 +207,7 @@ function validateExcludes(
     if (typeof excludes !== 'string' && excludes != null)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.excludes`,
         )
 }
@@ -228,13 +232,13 @@ function validatePlaceholders(schema: Schema): void {
         if (!blockBranch.isBlock)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.blockBranch}.inline`,
             )
         if (blockBranch.isLeaf)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.blockBranch}.content`,
             )
     }
@@ -249,13 +253,13 @@ function validatePlaceholders(schema: Schema): void {
         if (!blockLeaf.isBlock)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.blockLeaf}.inline`,
             )
         if (!blockLeaf.isLeaf)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.blockLeaf}.content`,
             )
     }
@@ -270,13 +274,13 @@ function validatePlaceholders(schema: Schema): void {
         if (!inlineBranch.isInline)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.inlineBranch}.inline`,
             )
         if (inlineBranch.isLeaf)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.inlineBranch}.content`,
             )
     }
@@ -291,13 +295,13 @@ function validatePlaceholders(schema: Schema): void {
         if (!inlineLeaf.isInline)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.inlineLeaf}.inline`,
             )
         if (!inlineLeaf.isLeaf)
             throw createInvalidEntityError(
                 'ProseMirrorSchema',
-                schema,
+                { spec: schema.spec },
                 `spec.nodes.${PlaceholderNames.inlineLeaf}.content`,
             )
     }
@@ -308,17 +312,22 @@ function validatePlaceholderAttrs(
     schema: Schema,
     key: string,
 ): void {
-    if (!attrs) throw createInvalidEntityError('ProseMirrorSchema', schema, key)
+    if (!attrs)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            { spec: schema.spec },
+            key,
+        )
     if (!attrs.name)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.name`,
         )
     if (!attrs.attrs)
         throw createInvalidEntityError(
             'ProseMirrorSchema',
-            schema,
+            { spec: schema.spec },
             `${key}.attrs`,
         )
 }
