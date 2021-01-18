@@ -23,6 +23,24 @@ test('create a schema', () => {
     )
 })
 
+test('validates input', () => {
+    const schema = new Schema({
+        nodes: {
+            doc: { attrs: { a: { default: undefined } } },
+            text: {},
+        },
+    })
+    expect(() => toSyncOTSchema(type, schema)).toThrow(
+        expect.objectContaining({
+            name: 'SyncOTError InvalidEntity',
+            message: `Invalid "ProseMirrorSchema.spec.nodes.doc.attrs.a.default".`,
+            entityName: 'ProseMirrorSchema',
+            entity: { spec: schema.spec },
+            key: 'spec.nodes.doc.attrs.a.default',
+        }),
+    )
+})
+
 describe('caching', () => {
     const proseMirrorSchema = new Schema({
         nodes: {

@@ -1,44 +1,40 @@
 import {
     ContentType,
     createBaseSnapshot,
-    createSchemaHash,
     Operation,
-    Schema,
     Snapshot,
 } from '@syncot/content'
-import { Fragment, Slice } from 'prosemirror-model'
+import { CustomError } from '@syncot/util'
+import { Fragment, Schema as ProseMirrorSchema, Slice } from 'prosemirror-model'
 import { ReplaceStep } from 'prosemirror-transform'
-import { createContentType } from '.'
-import { fromSyncOTSchema } from '.'
+import { createContentType, PlaceholderNames, toSyncOTSchema } from '.'
 
 let contentType: ContentType
-const schemaType = 'type-0'
-const schemaData = {
-    nodes: [
-        'doc',
-        { content: 'paragraph+' },
-        'paragraph',
-        { content: 'text*' },
-        'text',
-        {},
-    ],
-    marks: ['strong', {}, 'em', {}],
-    topNode: 'doc',
-}
-const schema: Schema = {
-    hash: createSchemaHash(schemaType, schemaData),
-    type: 'type-0',
-    data: schemaData,
-    meta: null,
-}
-const proseMirrorSchema = fromSyncOTSchema(schema)
+const type = 'type-0'
 
 beforeEach(() => {
     contentType = createContentType()
 })
 
 describe('validateSchema', () => {
-    test.each<[string, any, string | null | undefined, Error | undefined]>([
+    const schema = toSyncOTSchema(
+        type,
+        new ProseMirrorSchema({
+            nodes: {
+                doc: { content: 'paragraph+' },
+                text: {},
+                paragraph: { content: 'text*' },
+                image: { inline: true },
+            },
+            marks: {
+                strong: {},
+                em: {},
+            },
+        }),
+    )
+    test.each<
+        [string, any, string | null | undefined, CustomError | undefined]
+    >([
         ['schema: valid', schema, undefined, undefined],
         ['schema: invalid (null)', null, null, undefined],
         ['schema: invalid (function)', () => undefined, null, undefined],
@@ -55,10 +51,33 @@ describe('validateSchema', () => {
             undefined,
         ],
         [
-            'schema.data: invalid (createProseMirrorSchema throws)',
+            'schema.data: invalid (fromSyncOTSchema throws a ProseMirror error)',
             { ...schema, data: { ...schema.data, topNode: 'root' } },
             'data',
             new RangeError("Schema is missing its top node type ('root')"),
+        ],
+        [
+            'schema.data: invalid (fromSyncOTSchema throws a validateSchema error)',
+            {
+                ...schema,
+                data: {
+                    ...schema.data,
+                    nodes: [
+                        ...schema.data.nodes,
+                        'blockqoute',
+                        { attrs: { a: { default: undefined } } },
+                    ],
+                },
+            },
+            'data',
+            {
+                name: 'SyncOTError InvalidEntity',
+                message:
+                    'Invalid "ProseMirrorSchema.spec.nodes.blockqoute.attrs.a.default".',
+                entityName: 'ProseMirrorSchema',
+                entity: expect.objectContaining({ spec: expect.toBeObject() }),
+                key: 'spec.nodes.blockqoute.attrs.a.default',
+            },
         ],
 
         [
@@ -218,7 +237,8 @@ describe('validateSchema', () => {
                             : `Invalid "Schema.${invalidProperty}".`) +
                         (cause ? ` => ${cause.name}: ${cause.message}` : ''),
                     name: 'SyncOTError InvalidEntity',
-                    cause,
+                    cause:
+                        cause != null ? expect.objectContaining(cause) : cause,
                 }),
             )
         }
@@ -226,7 +246,16 @@ describe('validateSchema', () => {
 })
 
 describe('registerSchema', () => {
-    test('register it', () => {
+    test('success', () => {
+        const schema = toSyncOTSchema(
+            type,
+            new ProseMirrorSchema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                },
+            }),
+        )
         expect(contentType.hasSchema(schema.hash)).toBe(false)
         contentType.registerSchema(schema)
         expect(contentType.hasSchema(schema.hash)).toBe(true)
@@ -236,27 +265,34 @@ describe('registerSchema', () => {
 })
 
 describe('apply', () => {
-    const snapshot: Snapshot = {
-        type: 'type-0',
-        id: 'id-1',
-        version: 1,
-        schema: schema.hash,
-        data: fromSyncOTSchema(schema).topNodeType.createAndFill()!.toJSON(),
-        meta: null,
-    }
-
-    const operation: Operation = {
-        key: 'key-1',
-        type: 'type-0',
-        id: 'id-1',
-        version: 2,
-        schema: schema.hash,
-        data: null,
-        meta: null,
-    }
-
     describe('basic validation', () => {
-        test('wrong operation.type', () => {
+        const schema = toSyncOTSchema(
+            type,
+            new ProseMirrorSchema({
+                nodes: { doc: {}, text: {} },
+            }),
+        )
+        const snapshot: Snapshot = {
+            type: 'type-0',
+            id: 'id-1',
+            version: 1,
+            schema: schema.hash,
+            data: {
+                type: 'doc',
+            },
+            meta: null,
+        }
+        const operation: Operation = {
+            key: 'key-1',
+            type: 'type-0',
+            id: 'id-1',
+            version: 2,
+            schema: schema.hash,
+            data: null,
+            meta: null,
+        }
+
+        test('invalid operation.type', () => {
             const snapshot1 = {
                 ...snapshot,
                 type: 'different-type',
@@ -270,7 +306,7 @@ describe('apply', () => {
             )
         })
 
-        test('wrong operation.id', () => {
+        test('invalid operation.id', () => {
             const snapshot1 = {
                 ...snapshot,
                 id: 'different-id',
@@ -284,7 +320,7 @@ describe('apply', () => {
             )
         })
 
-        test('wrong operation.version', () => {
+        test('invalid operation.version', () => {
             const snapshot2 = {
                 ...snapshot,
                 version: 2,
@@ -299,7 +335,7 @@ describe('apply', () => {
             )
         })
 
-        test('schema not registered', () => {
+        test('invalid operation.schema (not registered)', () => {
             const snapshot1 = {
                 ...snapshot,
                 schema: 'different-schema',
@@ -315,16 +351,32 @@ describe('apply', () => {
 
     describe('base snapshot', () => {
         test('success', () => {
-            contentType.registerSchema(schema)
-            const operation1 = {
-                ...operation,
-                version: 1,
-                data: proseMirrorSchema.topNodeType.createAndFill()!.toJSON(),
-            }
-            const snapshot1 = contentType.apply(
-                createBaseSnapshot(operation1.type, operation1.id),
-                operation1,
+            const schema = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: { doc: { content: 'text*' }, text: {} },
+                }),
             )
+            contentType.registerSchema(schema)
+            const snapshot0 = createBaseSnapshot('type-0', 'id-1')
+            const operation1 = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'TEST',
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const snapshot1 = contentType.apply(snapshot0, operation1)
             expect(snapshot1).toStrictEqual({
                 type: operation1.type,
                 id: operation1.id,
@@ -334,130 +386,558 @@ describe('apply', () => {
                 meta: operation1.meta,
             })
         })
-    })
 
-    describe('operation and snapshot with different schemas', () => {
-        test('wrong operation.data', () => {
-            const snapshot1 = {
-                ...snapshot,
-                schema: 'different-schema',
-            }
-            const operation2 = {
-                ...operation,
-                data: {},
-            }
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
-                expect.objectContaining({
-                    name: 'SyncOTError Assert',
-                    message: 'operation.data must be null.',
+        test('invalid operation.data (null)', () => {
+            const schema = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: { doc: {}, text: {} },
                 }),
+            )
+            contentType.registerSchema(schema)
+            const snapshot0 = createBaseSnapshot('type-0', 'id-1')
+            const operation1: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: null,
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot0, operation1)).toThrow(
+                'Invalid input for Node.fromJSON',
             )
         })
 
-        test('success', () => {
-            const snapshot1 = {
-                ...snapshot,
-                schema: 'different-schema',
-            }
-            contentType.registerSchema(schema)
-            const snapshot2 = contentType.apply(snapshot1, operation)
-            expect(snapshot2).toStrictEqual({
-                type: operation.type,
-                id: operation.id,
-                version: operation.version,
-                schema: operation.schema,
-                data: snapshot1.data,
-                meta: operation.meta,
-            })
-
-            // Apply the same operation again to excercise the internal cache.
-            const snapshot2copy1 = contentType.apply(snapshot1, operation)
-            expect(snapshot2copy1).toStrictEqual(snapshot2)
-            expect(snapshot2copy1).not.toBe(snapshot2)
-
-            // Make sure .data caches the object on first access.
-            const snapshot2copy2 = contentType.apply(snapshot1, operation)
-            expect(snapshot2copy2.data).toBe(snapshot2copy2.data)
-        })
-    })
-
-    describe('operation and snapshot with the same schema', () => {
-        test('wrong operation.data', () => {
-            contentType.registerSchema(schema)
-            expect(() => contentType.apply(snapshot, operation)).toThrow(
-                expect.objectContaining({
-                    name: 'TypeError',
-                    message: "Cannot read property 'length' of null",
+        test('invalid operation.data (check)', () => {
+            const schema = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: {
+                        doc: { content: 'text*' },
+                        text: {},
+                        image: { inline: true },
+                    },
                 }),
             )
-        })
-
-        test('success', () => {
             contentType.registerSchema(schema)
-            const steps = [
-                new ReplaceStep(
-                    1,
-                    1,
-                    new Slice(
-                        Fragment.from(proseMirrorSchema.text('abc')),
-                        0,
-                        0,
-                    ),
-                ),
-                new ReplaceStep(
-                    4,
-                    4,
-                    new Slice(
-                        Fragment.from(proseMirrorSchema.text('123')),
-                        0,
-                        0,
-                    ),
-                ),
-            ]
-            const operation2 = {
-                ...operation,
-                data: steps.map((step) => step.toJSON()),
-            }
-            const snapshot2 = contentType.apply(snapshot, operation2)
-            expect(snapshot2).toStrictEqual({
-                type: operation.type,
-                id: operation.id,
-                version: operation.version,
-                schema: operation.schema,
+            const snapshot0 = createBaseSnapshot('type-0', 'id-1')
+            const operation1: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
                 data: {
                     type: 'doc',
                     content: [
                         {
-                            type: 'paragraph',
+                            type: 'text',
+                            text: 'TEST',
+                        },
+                        {
+                            type: 'image',
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot0, operation1)).toThrow(
+                'Invalid content for node doc: <"TEST", image>',
+            )
+        })
+    })
+
+    describe('operation and snapshot with different schemas', () => {
+        test('success', () => {
+            const proseMirrorSchema1 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    h: { group: 'block', content: 'inline*' },
+                    p: { group: 'block', content: 'inline*' },
+                },
+            })
+            const schema1 = toSyncOTSchema(type, proseMirrorSchema1)
+            contentType.registerSchema(schema1)
+
+            const proseMirrorSchema2 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    h: { group: 'block', content: 'inline*' },
+                    [PlaceholderNames.blockBranch]: {
+                        group: 'block',
+                        content: 'inline*',
+                        attrs: {
+                            name: {},
+                            attrs: {},
+                        },
+                    },
+                },
+            })
+            const schema2 = toSyncOTSchema(type, proseMirrorSchema2)
+            contentType.registerSchema(schema2)
+
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema1.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'p',
                             content: [
                                 {
                                     type: 'text',
-                                    text: 'abc123',
+                                    text: 'TEST',
                                 },
                             ],
                         },
                     ],
                 },
-                meta: operation.meta,
+                meta: null,
+            }
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema2.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: PlaceholderNames.blockBranch,
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: 'TEST',
+                                },
+                            ],
+                            attrs: {
+                                name: 'p',
+                                attrs: {},
+                            },
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const snapshot2 = contentType.apply(snapshot1, operation2)
+            expect(snapshot2).toEqual({
+                type: operation2.type,
+                id: operation2.id,
+                version: operation2.version,
+                schema: operation2.schema,
+                data: operation2.data,
+                meta: operation2.meta,
             })
 
             // Apply the same operation again to excercise the internal cache.
-            const snapshot2copy1 = contentType.apply(snapshot, operation2)
+            const snapshot2copy1 = contentType.apply(snapshot1, operation2)
             expect(snapshot2copy1).toStrictEqual(snapshot2)
             expect(snapshot2copy1).not.toBe(snapshot2)
 
             // Make sure .data caches the object on first access.
-            const snapshot2copy2 = contentType.apply(snapshot, operation2)
+            const snapshot2copy2 = contentType.apply(snapshot1, operation2)
             expect(snapshot2copy2.data).toBe(snapshot2copy2.data)
         })
 
-        test('step.apply throws', () => {
+        test('invalid operation.data (null)', () => {
+            const schema1 = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: {
+                        doc: { content: 'text*' },
+                        text: { group: 'inline' },
+                        image: { group: 'inline', inline: true },
+                    },
+                }),
+            )
+            contentType.registerSchema(schema1)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema1.hash,
+                data: {
+                    type: 'doc',
+                },
+                meta: null,
+            }
+
+            const schema2 = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: {
+                        doc: { content: 'inline*' },
+                        text: { group: 'inline' },
+                        image: { group: 'inline', inline: true },
+                    },
+                }),
+            )
+            contentType.registerSchema(schema2)
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema1.hash,
+                data: null,
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                "Cannot read property 'length' of null",
+            )
+        })
+
+        test('invalid operation.data (check)', () => {
+            const proseMirrorSchema1 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    image: { inline: true },
+                    h: { group: 'block', content: 'inline*' },
+                    p: { group: 'block', content: 'inline*' },
+                },
+            })
+            const schema1 = toSyncOTSchema(type, proseMirrorSchema1)
+            contentType.registerSchema(schema1)
+
+            const proseMirrorSchema2 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    image: { inline: true },
+                    h: { group: 'block', content: 'inline*' },
+                    p: { group: 'block', content: 'text*' },
+                },
+            })
+            const schema2 = toSyncOTSchema(type, proseMirrorSchema2)
+            contentType.registerSchema(schema2)
+
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema1.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'p',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: 'A',
+                                },
+                            ],
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema2.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'p',
+                            content: [
+                                {
+                                    type: 'image',
+                                },
+                            ],
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                'Invalid content for node p: <image>',
+            )
+        })
+
+        test('invalid operation.data (equalShape)', () => {
+            const proseMirrorSchema1 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    image: { inline: true },
+                    h: { group: 'block', content: 'inline*' },
+                    p: { group: 'block', content: 'inline*' },
+                },
+            })
+            const schema1 = toSyncOTSchema(type, proseMirrorSchema1)
+            contentType.registerSchema(schema1)
+
+            const proseMirrorSchema2 = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: { group: 'inline' },
+                    image: { inline: true },
+                    h: { group: 'block', content: 'inline*' },
+                    p: { group: 'block', content: 'text*' },
+                },
+            })
+            const schema2 = toSyncOTSchema(type, proseMirrorSchema2)
+            contentType.registerSchema(schema2)
+
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema1.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'p',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: 'A',
+                                },
+                            ],
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema2.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'p',
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: 'AB',
+                                },
+                            ],
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                'The content "shape" must not change when changing the document schema.',
+            )
+        })
+    })
+
+    describe('operation and snapshot with the same schema', () => {
+        test('success', () => {
+            const proseMirrorSchema = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const schema = toSyncOTSchema(type, proseMirrorSchema)
             contentType.registerSchema(schema)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'HelloWorld',
+                        },
+                    ],
+                },
+                meta: null,
+            }
+
             const steps = [
                 new ReplaceStep(
-                    3,
-                    3,
+                    5,
+                    5,
+                    new Slice(
+                        Fragment.from(proseMirrorSchema.text('-abc')),
+                        0,
+                        0,
+                    ),
+                ),
+                new ReplaceStep(
+                    9,
+                    9,
+                    new Slice(
+                        Fragment.from(proseMirrorSchema.text('123-')),
+                        0,
+                        0,
+                    ),
+                ),
+            ]
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema.hash,
+                data: steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            const snapshot2 = contentType.apply(snapshot1, operation2)
+            expect(snapshot2).toStrictEqual({
+                type: operation2.type,
+                id: operation2.id,
+                version: operation2.version,
+                schema: operation2.schema,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'Hello-abc123-World',
+                        },
+                    ],
+                },
+                meta: operation2.meta,
+            })
+
+            // Apply the same operation again to excercise the internal cache.
+            const snapshot2copy1 = contentType.apply(snapshot1, operation2)
+            expect(snapshot2copy1).toStrictEqual(snapshot2)
+            expect(snapshot2copy1).not.toBe(snapshot2)
+
+            // Make sure .data caches the object on first access.
+            const snapshot2copy2 = contentType.apply(snapshot1, operation2)
+            expect(snapshot2copy2.data).toBe(snapshot2copy2.data)
+        })
+
+        test('invalid operation.data (null)', () => {
+            const schema = toSyncOTSchema(
+                type,
+                new ProseMirrorSchema({
+                    nodes: {
+                        doc: {},
+                        text: {},
+                    },
+                }),
+            )
+            contentType.registerSchema(schema)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: { type: 'doc' },
+                meta: null,
+            }
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema.hash,
+                data: null,
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                "Cannot read property 'length' of null",
+            )
+        })
+
+        test('invalid operation.data (check)', () => {
+            const proseMirrorSchema = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                    image: { inline: true },
+                },
+            })
+            const schema = toSyncOTSchema(type, proseMirrorSchema)
+            contentType.registerSchema(schema)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'HelloWorld',
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const steps = [
+                new ReplaceStep(
+                    5,
+                    5,
+                    new Slice(
+                        Fragment.from(proseMirrorSchema.node('image')),
+                        0,
+                        0,
+                    ),
+                ),
+            ]
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema.hash,
+                data: steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                'Invalid content for node doc',
+            )
+        })
+
+        test('invalid operation.data (step.apply throws)', () => {
+            const proseMirrorSchema = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const schema = toSyncOTSchema(type, proseMirrorSchema)
+            contentType.registerSchema(schema)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'HelloWorld',
+                        },
+                    ],
+                },
+                meta: null,
+            }
+            const steps = [
+                new ReplaceStep(
+                    11,
+                    11,
                     new Slice(
                         Fragment.from(proseMirrorSchema.text('abc')),
                         0,
@@ -465,50 +945,69 @@ describe('apply', () => {
                     ),
                 ),
             ]
-            const operation2 = {
-                ...operation,
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema.hash,
                 data: steps.map((step) => step.toJSON()),
+                meta: null,
             }
-            expect(() => contentType.apply(snapshot, operation2)).toThrow(
-                expect.objectContaining({
-                    name: 'RangeError',
-                    message: 'Position 3 out of range',
-                }),
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                'Position 11 out of range',
             )
         })
 
-        test('step.apply fails', () => {
+        test('invalid operation.data (step.apply fails)', () => {
+            const proseMirrorSchema = new ProseMirrorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+            const schema = toSyncOTSchema(type, proseMirrorSchema)
             contentType.registerSchema(schema)
+            const snapshot1: Snapshot = {
+                type: 'type-0',
+                id: 'id-1',
+                version: 1,
+                schema: schema.hash,
+                data: {
+                    type: 'doc',
+                    content: [
+                        {
+                            type: 'text',
+                            text: 'HelloWorld',
+                        },
+                    ],
+                },
+                meta: null,
+            }
             const steps = [
                 new ReplaceStep(
-                    1,
+                    0,
                     1,
                     new Slice(
                         Fragment.from(proseMirrorSchema.text('abc')),
-                        0,
-                        0,
-                    ),
-                ),
-                new ReplaceStep(
-                    1,
-                    4,
-                    new Slice(
-                        Fragment.from(proseMirrorSchema.text('123')),
                         0,
                         0,
                     ),
                     true,
                 ),
             ]
-            const operation2 = {
-                ...operation,
+            const operation2: Operation = {
+                key: 'key-1',
+                type: 'type-0',
+                id: 'id-1',
+                version: 2,
+                schema: schema.hash,
                 data: steps.map((step) => step.toJSON()),
+                meta: null,
             }
-            expect(() => contentType.apply(snapshot, operation2)).toThrow(
-                expect.objectContaining({
-                    name: 'Error',
-                    message: 'Structure replace would overwrite content',
-                }),
+
+            expect(() => contentType.apply(snapshot1, operation2)).toThrow(
+                'Structure replace would overwrite content',
             )
         })
     })

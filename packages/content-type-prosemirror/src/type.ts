@@ -14,7 +14,7 @@ import {
 } from '@syncot/util'
 import { Node, Schema as ProseMirrorSchema } from 'prosemirror-model'
 import { Step } from 'prosemirror-transform'
-import { fromSyncOTSchema } from './schema'
+import { equalShape, fromSyncOTSchema } from './schema'
 
 /**
  * Creates a ContentType instance supporting ProseMirror.
@@ -144,44 +144,18 @@ export class ProseMirrorContentType implements ContentType {
         )
         const schema = this.schemas.get(operation.schema)!
         assert(schema, 'operation.schema is not registered.')
-
-        if (snapshot.version === minVersion) {
-            const node = this.getNode(operation)
-            const newSnapshot: Snapshot = {
-                type: operation.type,
-                id: operation.id,
-                version: operation.version,
-                schema: operation.schema,
-                get data() {
-                    const data = node.toJSON()
-                    // Cache the data.
-                    Object.defineProperty(this, 'data', {
-                        value: data,
-                        enumerable: true,
-                        configurable: true,
-                    })
-                    return data
-                },
-                meta: operation.meta,
-            }
-            this.nodes.set(newSnapshot, node)
-            return newSnapshot
-        }
+        let node: Node
 
         if (operation.schema !== snapshot.schema) {
-            assert(operation.data == null, 'operation.data must be null.')
-            return {
-                type: operation.type,
-                id: operation.id,
-                version: operation.version,
-                schema: operation.schema,
-                data: snapshot.data,
-                meta: operation.meta,
+            node = this.getNode(operation)
+            if (snapshot.version !== minVersion) {
+                assert(
+                    equalShape(node, this.getNode(snapshot)),
+                    'The content "shape" must not change when changing the document schema.',
+                )
             }
-        }
-
-        {
-            let node = this.getNode(snapshot)
+        } else {
+            node = this.getNode(snapshot)
             const steps = this.getSteps(operation)
             for (const step of steps) {
                 const result = step.apply(node)
@@ -193,26 +167,28 @@ export class ProseMirrorContentType implements ContentType {
                     throw new Error(message)
                 }
             }
-            const newSnapshot: Snapshot = {
-                type: operation.type,
-                id: operation.id,
-                version: operation.version,
-                schema: operation.schema,
-                get data() {
-                    const data = node.toJSON()
-                    // Cache the data.
-                    Object.defineProperty(this, 'data', {
-                        value: data,
-                        enumerable: true,
-                        configurable: true,
-                    })
-                    return data
-                },
-                meta: operation.meta,
-            }
-            this.nodes.set(newSnapshot, node)
-            return newSnapshot
         }
+
+        node.check()
+        const newSnapshot: Snapshot = {
+            type: operation.type,
+            id: operation.id,
+            version: operation.version,
+            schema: operation.schema,
+            get data() {
+                const data = node.toJSON()
+                // Cache the data.
+                Object.defineProperty(this, 'data', {
+                    value: data,
+                    enumerable: true,
+                    configurable: true,
+                })
+                return data
+            },
+            meta: operation.meta,
+        }
+        this.nodes.set(newSnapshot, node)
+        return newSnapshot
     }
 
     private getSteps(operation: Operation): Step[] {

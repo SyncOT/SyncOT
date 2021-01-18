@@ -23,7 +23,7 @@ test('validates input', () => {
             name: 'SyncOTError InvalidEntity',
             message: `Invalid "ProseMirrorSchema.spec.nodes.doc.attrs.a.default".`,
             entityName: 'ProseMirrorSchema',
-            entity: schema,
+            entity: { spec: schema.spec },
             key: 'spec.nodes.doc.attrs.a.default',
         }),
     )
