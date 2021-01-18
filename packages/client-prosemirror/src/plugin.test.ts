@@ -13,8 +13,13 @@ import {
     PlaceholderNames,
     toSyncOTSchema,
 } from '@syncot/content-type-prosemirror'
-import { SyncOTEmitter, whenNextTick } from '@syncot/util'
-import { Schema as EditorSchema, Node } from 'prosemirror-model'
+import { noop, SyncOTEmitter, whenNextTick } from '@syncot/util'
+import {
+    Fragment,
+    Node,
+    Schema as EditorSchema,
+    Slice,
+} from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
@@ -50,7 +55,6 @@ class MockContentClient
     )
     getSnapshot = jest.fn<Promise<Snapshot>, [string, string, number?]>(
         async (snapshotType, snapshotId) => ({
-            key: '',
             type: snapshotType,
             id: snapshotId,
             version: 0,
@@ -251,6 +255,156 @@ describe('syncOT', () => {
             view.destroy()
             await whenNextTick()
             expect(stream.destroyed).toBe(true)
+        })
+
+        test('destroy during state initialization', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            let resolveLoadSnapshot = noop
+            const loadSnapshotPromise = new Promise<Snapshot>(
+                (resolve) =>
+                    (resolveLoadSnapshot = () =>
+                        resolve({
+                            type,
+                            id,
+                            version: minVersion + 3,
+                            schema: schema.hash,
+                            data: defaultDoc.toJSON(),
+                            meta: null,
+                        })),
+            )
+            contentClient.getSnapshot.mockImplementationOnce(
+                () => loadSnapshotPromise,
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the state has not changed while waiting for the snapshot.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Destroy the view during initialization.
+            view.destroy()
+            resolveLoadSnapshot()
+            expect(key.getState(view.state)).toEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        })
+
+        // Note that "removing" the plugin from the state destroys the plugin view.
+        test('remove plugin during state initialization', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            let resolveLoadSnapshot = noop
+            const loadSnapshotPromise = new Promise<Snapshot>(
+                (resolve) =>
+                    (resolveLoadSnapshot = () =>
+                        resolve({
+                            type,
+                            id,
+                            version: minVersion + 3,
+                            schema: schema.hash,
+                            data: defaultDoc.toJSON(),
+                            meta: null,
+                        })),
+            )
+            contentClient.getSnapshot.mockImplementationOnce(
+                () => loadSnapshotPromise,
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the state has not changed while waiting for the snapshot.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Remove the plugin during initialization.
+            const newState = EditorState.create({ doc: defaultDoc })
+            view.updateState(newState)
+            resolveLoadSnapshot()
+            expect(key.getState(view.state)).toBe(undefined)
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toBe(undefined)
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
         })
 
         test('init with a new document', async () => {
@@ -577,6 +731,439 @@ describe('syncOT', () => {
                 type,
                 id,
                 minVersion + 5,
+                maxVersion + 1,
+            )
+        })
+
+        test('init with a mismatched incompatible schema', async () => {
+            const serverEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'p+' },
+                    text: {},
+                    p: {
+                        content: 'text*',
+                        toDOM() {
+                            return ['p', 0]
+                        },
+                    },
+                },
+            })
+            const serverSchema = toSyncOTSchema(type, serverEditorSchema)
+
+            const clientEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'text*' },
+                    text: {},
+                },
+            })
+
+            const serverInitialDoc = serverEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'p',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'server content',
+                            },
+                        ],
+                    },
+                ],
+            })
+            const clientInitialDoc = clientEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'text',
+                        text: 'client content',
+                    },
+                ],
+            })
+
+            const onError = jest.fn()
+            const view = createView({ doc: clientInitialDoc, onError })
+
+            contentClient.getSnapshot.mockImplementation(
+                async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: serverSchema.hash,
+                    data: serverInitialDoc.toJSON(),
+                    meta: {
+                        session: sessionId,
+                        time: Date.now() - 1,
+                        user: userId,
+                    },
+                }),
+            )
+            contentClient.getSchema.mockImplementation(async () => serverSchema)
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                clientInitialDoc.toJSON(),
+            )
+
+            // Verify the state has not changed because the schemas are incompatible.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.schema).toBe(clientEditorSchema)
+            expect(view.state.doc.toJSON()).toEqual(clientInitialDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'SyncOTError Assert',
+                    message:
+                        'Failed to convert the existing content to the new schema.',
+                }),
+            )
+        })
+
+        test('init with an existing document and version change in the meantime', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            let resolveLoadSnapshot = noop
+            const loadSnapshotPromise = new Promise<Snapshot>(
+                (resolve) =>
+                    (resolveLoadSnapshot = () =>
+                        resolve({
+                            type,
+                            id,
+                            version: minVersion + 3,
+                            schema: schema.hash,
+                            data: defaultDoc.toJSON(),
+                            meta: null,
+                        })),
+            )
+            contentClient.getSnapshot.mockImplementationOnce(
+                () => loadSnapshotPromise,
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the state has not changed while waiting for loadSnapshot.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Update the state.
+            const stateWithChangedContent = view.state.apply(
+                view.state.tr.replace(
+                    0,
+                    view.state.doc.nodeSize - 2,
+                    new Slice(
+                        Fragment.from(editorSchema.text('some new content')),
+                        0,
+                        0,
+                    ),
+                ),
+            )
+            const newState = stateWithChangedContent.apply(
+                stateWithChangedContent.tr.setMeta(key, {
+                    ...key.getState(stateWithChangedContent),
+                    version: 20,
+                    pendingSteps: [],
+                }),
+            )
+            expect(newState.doc.toJSON()).toEqual({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'text',
+                        text: 'some new content',
+                    },
+                ],
+            })
+            view.updateState(newState)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 20,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
+
+            // Verify the state has not changed because it was already initialized.
+            resolveLoadSnapshot()
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 20,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 21,
+                maxVersion + 1,
+            )
+        })
+
+        test('init with an existing document and change state later', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: null,
+                }),
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+
+            // Reset mocks.
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            // Update the state.
+            const stateWithChangedContent = view.state.apply(
+                view.state.tr.replace(
+                    0,
+                    view.state.doc.nodeSize - 2,
+                    new Slice(
+                        Fragment.from(editorSchema.text('some new content')),
+                        0,
+                        0,
+                    ),
+                ),
+            )
+            const newState = stateWithChangedContent.apply(
+                stateWithChangedContent.tr.setMeta(key, {
+                    ...key.getState(stateWithChangedContent),
+                    version: 20,
+                    pendingSteps: [],
+                }),
+            )
+            expect(newState.doc.toJSON()).toEqual({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'text',
+                        text: 'some new content',
+                    },
+                ],
+            })
+            view.updateState(newState)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 20,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
+            expect(stream.destroyed).toBe(false)
+
+            // Verify that the state does not change and the old stream is destroyed.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 20,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
+            expect(stream.destroyed).toBe(true)
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 21,
+                maxVersion + 1,
+            )
+        })
+
+        test('init with an existing document once contentClient becomes active', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('content which will be overridden'),
+            )
+            const view = createView({ doc: initialDoc })
+            contentClient.active = false
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: null,
+                }),
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Check that the state does not change as contentClient is not active.
+            await whenNextTick()
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion - 1,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Active contentClient.
+            contentClient.active = true
+            contentClient.emit('active')
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
                 maxVersion + 1,
             )
         })

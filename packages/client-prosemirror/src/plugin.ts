@@ -282,11 +282,11 @@ class PluginLoop {
         const newState = this.view.state
         const newPluginState = key.getState(newState)
         if (
+            newState.schema !== state.schema ||
             !newPluginState ||
             newPluginState.type !== pluginState.type ||
             newPluginState.id !== pluginState.id ||
-            newPluginState.version !== pluginState.version ||
-            newState.schema !== state.schema
+            newPluginState.version !== pluginState.version
         )
             return
 
@@ -407,6 +407,8 @@ class PluginLoop {
      * @param operation The operation to apply.
      */
     private receiveOperation = (operation: Operation): void => {
+        // TODO handle schema mismatch
+
         this.streamVersion = operation.version
 
         if (!this.view) return
