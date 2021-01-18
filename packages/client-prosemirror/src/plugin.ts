@@ -357,10 +357,10 @@ class PluginLoop {
 
         try {
             // Prepare the steps.
-            const operationSteps: Step[] = []
+            const operationSteps: any[] = []
             for (const pendingStep of pluginState.pendingSteps) {
                 if (pendingStep.operationKey === operationKey) {
-                    operationSteps.push(pendingStep.step)
+                    operationSteps.push(pendingStep.step.toJSON())
                 } else {
                     break
                 }

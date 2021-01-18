@@ -1167,6 +1167,102 @@ describe('syncOT', () => {
                 maxVersion + 1,
             )
         })
+
+        test('submit an operation', async () => {
+            const initialDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const modifiedDoc = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const view = createView({ doc: initialDoc })
+            view.dispatch(
+                view.state.tr.setMeta(key, {
+                    ...key.getState(view.state),
+                    version: minVersion + 3,
+                }),
+            )
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+            // Update the state.
+            const tr = view.state.tr.insertText(' new', 4, 4)
+            view.dispatch(tr)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: rebaseableStepsFrom(tr),
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(modifiedDoc.toJSON())
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+
+            // Verify submitted.
+            await whenNextTick()
+            const { operationKey } = key.getState(view.state)!.pendingSteps[0]
+            expect(operationKey).toBeString()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: rebaseableStepsFrom(tr).map(
+                    (rebaseable) =>
+                        new Rebaseable(
+                            rebaseable.step,
+                            rebaseable.invertedStep,
+                            operationKey,
+                        ),
+                ),
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(modifiedDoc.toJSON())
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 4,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+        })
+
+        // TOOD test:
+        // submit an operation containing a subset of pendingSteps
+        // minVersionForSubmit
+        // error handling
     })
 })
 
