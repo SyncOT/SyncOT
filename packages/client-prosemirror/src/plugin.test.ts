@@ -9,7 +9,10 @@ import {
     Schema,
     Snapshot,
 } from '@syncot/content'
-import { toSyncOTSchema } from '@syncot/content-type-prosemirror'
+import {
+    PlaceholderNames,
+    toSyncOTSchema,
+} from '@syncot/content-type-prosemirror'
 import { SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Schema as EditorSchema, Node } from 'prosemirror-model'
 import { EditorState, Plugin } from 'prosemirror-state'
@@ -256,6 +259,8 @@ describe('syncOT', () => {
             // Verify the initial state.
             expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
             expect(key.getState(view.state)).toStrictEqual({
                 type,
                 id,
@@ -294,7 +299,11 @@ describe('syncOT', () => {
                     version: minVersion + 1,
                     schema: schema.hash,
                     data: defaultDoc.toJSON(),
-                    meta: null,
+                    meta: {
+                        session: sessionId,
+                        time: expect.toBeNumber(),
+                        user: userId,
+                    },
                 }),
             )
 
@@ -315,7 +324,6 @@ describe('syncOT', () => {
             const view = createView({ doc: initialDoc })
             contentClient.getSnapshot.mockImplementationOnce(
                 async (snapshotType, snapshotId) => ({
-                    key: 'key-1',
                     type: snapshotType,
                     id: snapshotId,
                     version: minVersion + 3,
@@ -328,6 +336,8 @@ describe('syncOT', () => {
             // Verify the initial state.
             expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
             expect(key.getState(view.state)).toStrictEqual({
                 type,
                 id,
@@ -367,89 +377,139 @@ describe('syncOT', () => {
             )
         })
 
-        // TODO do not use test.each here
-        test.skip.each<
-            [
-                () => {
-                    serverInitialDoc: Node
-                    clientInitialDoc: Node
-                },
-            ]
-        >([
-            [
-                () => {
-                    const serverEditorSchema = new EditorSchema({
-                        nodes: {
-                            doc: { content: 'block+' },
-                            paragraph: {
-                                group: 'block',
-                                content: 'text*',
-                                toDOM() {
-                                    return ['p', 0]
-                                },
-                            },
-                            text: {},
+        test('init with a mismatched schema', async () => {
+            const serverEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: {},
+                    h: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['h1', 0]
                         },
-                    })
-                    const serverInitialDoc = serverEditorSchema.topNodeType.createChecked(
-                        null,
-                        serverEditorSchema.node('paragraph', undefined, [
-                            serverEditorSchema.text(
-                                'content which will be overridden',
-                            ),
-                        ]),
-                    )
-                    const clientEditorSchema = new EditorSchema({
-                        nodes: {
-                            doc: { content: 'block+' },
-                            paragraph: {
-                                group: 'block',
-                                content: 'text*',
-                                toDOM() {
-                                    return ['p', 0]
-                                },
-                            },
-                            blockquote: {
-                                group: 'block',
-                                content: 'block+',
-                                toDOM() {
-                                    return ['blockquote', 0]
-                                },
-                            },
-                            text: {},
+                    },
+                    [PlaceholderNames.blockBranch]: {
+                        group: 'block',
+                        content: 'text*',
+                        attrs: { name: {}, attrs: {} },
+                        toDOM() {
+                            return ['placeholder-block-branch', 0]
                         },
-                    })
-                    const clientInitialDoc = clientEditorSchema.topNodeType.createChecked(
-                        null,
-                        clientEditorSchema.node('paragraph', undefined, [
-                            clientEditorSchema.text(
-                                'content which will be overridden',
-                            ),
-                        ]),
-                    )
-                    return {
-                        serverInitialDoc,
-                        clientInitialDoc,
-                    }
+                    },
+                    p: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['p', 0]
+                        },
+                    },
                 },
-            ],
-        ])('init with a mismatched schema', async (getConfig) => {
-            const { serverInitialDoc, clientInitialDoc } = getConfig()
-            const serverEditorSchema = serverInitialDoc.type.schema
+            })
             const serverSchema = toSyncOTSchema(type, serverEditorSchema)
-            const clientEditorSchema = clientInitialDoc.type.schema
-            // const clientSchema = toSyncOTSchema(type, clientEditorSchema)
+
+            const clientEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'block*' },
+                    text: {},
+                    h: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['h1', 0]
+                        },
+                    },
+                    [PlaceholderNames.blockBranch]: {
+                        group: 'block',
+                        content: 'text*',
+                        attrs: { name: {}, attrs: {} },
+                        toDOM() {
+                            return ['placeholder-block-branch', 0]
+                        },
+                    },
+                },
+            })
+            const clientSchema = toSyncOTSchema(type, clientEditorSchema)
+
+            const serverInitialDoc = serverEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'h',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a heading',
+                            },
+                        ],
+                    },
+                    {
+                        type: 'p',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a paragraph',
+                            },
+                        ],
+                    },
+                ],
+            })
+            const serverConvertedDoc = {
+                type: 'doc',
+                content: [
+                    {
+                        type: 'h',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a heading',
+                            },
+                        ],
+                    },
+                    {
+                        type: PlaceholderNames.blockBranch,
+                        attrs: {
+                            name: 'p',
+                            attrs: {},
+                        },
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a paragraph',
+                            },
+                        ],
+                    },
+                ],
+            }
+            const clientInitialDoc = clientEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'h',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'this whole document will be overridden',
+                            },
+                        ],
+                    },
+                ],
+            })
+
             const view = createView({ doc: clientInitialDoc })
 
             contentClient.getSnapshot.mockImplementationOnce(
                 async (snapshotType, snapshotId) => ({
-                    key: 'key-1',
                     type: snapshotType,
                     id: snapshotId,
                     version: minVersion + 3,
                     schema: serverSchema.hash,
                     data: serverInitialDoc.toJSON(),
-                    meta: null,
+                    meta: {
+                        session: sessionId,
+                        time: Date.now() - 1,
+                        user: userId,
+                    },
                 }),
             )
             contentClient.getSchema.mockImplementationOnce(
@@ -459,6 +519,8 @@ describe('syncOT', () => {
             // Verify the initial state.
             expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
             expect(key.getState(view.state)).toStrictEqual({
                 type,
                 id,
@@ -474,33 +536,49 @@ describe('syncOT', () => {
             expect(key.getState(view.state)).toStrictEqual({
                 type,
                 id,
-                version: minVersion + 3,
+                version: minVersion + 4,
                 pendingSteps: [],
             })
             expect(view.state.schema).toBe(clientEditorSchema)
-            expect(view.state.doc.toJSON()).toStrictEqual(
-                serverInitialDoc.toJSON(),
+            expect(view.state.doc.toJSON()).toEqual(serverConvertedDoc)
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
             )
 
-            // // Verify contentClient usage.
-            // expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
-            // expect(contentClient.getSnapshot).toHaveBeenCalledWith(
-            //     type,
-            //     id,
-            //     maxVersion,
-            // )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledWith(
+                clientSchema,
+            )
 
-            // expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    key: expect.toBeString(),
+                    type,
+                    id,
+                    version: minVersion + 4,
+                    schema: clientSchema.hash,
+                    data: serverConvertedDoc,
+                    meta: {
+                        session: sessionId,
+                        time: expect.toBeNumber(),
+                        user: userId,
+                    },
+                }),
+            )
 
-            // expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-
-            // expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            // expect(contentClient.streamOperations).toHaveBeenCalledWith(
-            //     type,
-            //     id,
-            //     minVersion + 4,
-            //     maxVersion + 1,
-            // )
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 5,
+                maxVersion + 1,
+            )
         })
     })
 })

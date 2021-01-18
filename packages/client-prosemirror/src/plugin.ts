@@ -5,7 +5,11 @@ import {
     minVersion,
     Operation,
 } from '@syncot/content'
-import { toSyncOTSchema } from '@syncot/content-type-prosemirror'
+import {
+    changeSchema,
+    fromSyncOTSchema,
+    toSyncOTSchema,
+} from '@syncot/content-type-prosemirror'
 import {
     assert,
     createId,
@@ -229,9 +233,25 @@ class PluginLoop {
             maxVersion,
         )
 
-        // Create a new document, if it does not exist yet.
-        if (snapshot.version === minVersion) {
-            // TODO check that the topNode does not have any attributes nor marks.
+        // Handle schema change.
+        if (snapshot.schema !== schema.hash) {
+            let node: Node
+            if (snapshot.version === minVersion) {
+                node = state.doc
+            } else {
+                const oldSchema = (await this.contentClient.getSchema(
+                    snapshot.schema,
+                ))!
+                const oldNode = fromSyncOTSchema(oldSchema).nodeFromJSON(
+                    snapshot.data,
+                )
+                node = changeSchema(oldNode, state.schema)!
+                assert(
+                    node,
+                    'Failed to convert the existing content to the new schema.',
+                )
+            }
+
             await this.contentClient.registerSchema(schema)
             const operation: Operation = {
                 key: createId(),
@@ -239,20 +259,22 @@ class PluginLoop {
                 id,
                 version: snapshot.version + 1,
                 schema: schema.hash,
-                data: state.doc.toJSON(),
-                meta: null,
+                data: node.toJSON(),
+                meta: {
+                    user: this.contentClient.userId,
+                    session: this.contentClient.sessionId,
+                    time: Date.now(),
+                },
             }
             await this.contentClient.submitOperation(operation)
-            snapshot = operation
-        }
-
-        // Migrate the document to the new schema, if necessary.
-        if (snapshot.schema !== schema.hash) {
-            // const oldSchema = (await this.contentClient.getSchema(
-            //     snapshot.schema,
-            // ))!
-            // const oldEditorSchema = createProseMirrorSchema(oldSchema)
-            throw new Error('Schema mismatch')
+            snapshot = {
+                type: operation.type,
+                id: operation.id,
+                version: operation.version,
+                schema: operation.type,
+                data: operation.data,
+                meta: operation.meta,
+            }
         }
 
         // Handle state changed in the meantime.
@@ -276,7 +298,7 @@ class PluginLoop {
         }
         const nextState = EditorState.create({
             schema: state.schema,
-            doc: Node.fromJSON(state.schema, snapshot.data),
+            doc: state.schema.nodeFromJSON(snapshot.data),
             plugins: newState.plugins,
         })
         this.view.updateState(
