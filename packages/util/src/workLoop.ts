@@ -79,8 +79,9 @@ export async function workLoop<T extends WorkLoop>(
                 await change
                 retryAttempt = 0
             } catch (error) {
-                if (instance.onError)
-                    queueMicrotask(instance.onError.bind(instance, error))
+                const { onError } = instance
+                if (typeof onError === 'function')
+                    queueMicrotask(() => onError.call(instance, error))
                 else throw error
                 if (instance.retryDelay)
                     await Promise.race([
