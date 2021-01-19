@@ -1,8 +1,13 @@
+/**
+ * @jest-environment jsdom
+ */
+
 // These tests verify certain assumptions about ProseMirror
 // which the ProseMirror-SyncOT integration is based on.
 import { Fragment, Schema, Slice } from 'prosemirror-model'
-import { EditorState } from 'prosemirror-state'
+import { EditorState, Plugin } from 'prosemirror-state'
 import { ReplaceStep } from 'prosemirror-transform'
+import { EditorView } from 'prosemirror-view'
 
 describe('content rules support nesting', () => {
     test.each<[object, string | undefined]>([
@@ -597,4 +602,77 @@ test('EditorState.schema may differ from EditorState.doc.type.schema', () => {
     expect(state.schema).toBe(differentSchema)
     expect(state.doc).toBe(doc)
     expect(state.schema).not.toBe(state.doc.type.schema)
+})
+
+describe('plugin view life cycle', () => {
+    const schema = new Schema({
+        nodes: { doc: { content: 'text*' }, text: {} },
+    })
+    const doc = schema.node('doc')
+    let create: jest.Mock
+    let destroy: jest.Mock
+    let plugins: Plugin[]
+    let state: EditorState
+    let view: EditorView
+
+    beforeEach(() => {
+        destroy = jest.fn()
+        create = jest.fn(() => ({ destroy }))
+        plugins = [new Plugin({ view: create })]
+        state = EditorState.create({ doc, plugins })
+        view = new EditorView(undefined, { state })
+        expect(create).toHaveBeenCalledTimes(1)
+        expect(destroy).toHaveBeenCalledTimes(0)
+    })
+
+    afterEach(() => {
+        view.destroy()
+    })
+
+    test('not destroyed when receiving a new state created using apply', () => {
+        const newState = view.state.apply(
+            view.state.tr.insertText('TEST', 0, 0),
+        )
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(0)
+    })
+
+    test('destroyed when receiving a new state created using EditorState.create({doc,plugins})', () => {
+        const newState = EditorState.create({ doc, plugins })
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(1)
+    })
+
+    test('destroyed when receiving a new state created using EditorState.create({doc,plugins:view.state.plugins})', () => {
+        const newState = EditorState.create({
+            doc,
+            plugins: view.state.plugins,
+        })
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(1)
+    })
+
+    test('destroyed when receiving a new state created using view.state.reconfigure({})', () => {
+        const newState = view.state.reconfigure({})
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(1)
+    })
+
+    test('destroyed when receiving a new state created using view.state.reconfigure({plugins})', () => {
+        const newState = view.state.reconfigure({ plugins })
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(1)
+    })
+
+    test('destroyed when receiving a new state created using view.state.reconfigure({plugins:view.state.plugins})', () => {
+        const newState = view.state.reconfigure({ plugins: view.state.plugins })
+        expect(destroy).toHaveBeenCalledTimes(0)
+        view.updateState(newState)
+        expect(destroy).toHaveBeenCalledTimes(1)
+    })
 })
