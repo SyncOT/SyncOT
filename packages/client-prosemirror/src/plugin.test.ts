@@ -4,8 +4,10 @@
 import {
     ContentClient,
     ContentClientEvents,
+    createAlreadyExistsError,
     maxVersion,
     minVersion,
+    Operation,
     Schema,
     Snapshot,
 } from '@syncot/content'
@@ -13,7 +15,7 @@ import {
     PlaceholderNames,
     toSyncOTSchema,
 } from '@syncot/content-type-prosemirror'
-import { noop, SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { createId, noop, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import {
     Fragment,
     Node,
@@ -63,7 +65,9 @@ class MockContentClient
             meta: null,
         }),
     )
-    submitOperation = jest.fn(async () => undefined)
+    submitOperation = jest.fn<Promise<undefined>, [Operation]>(
+        async () => undefined,
+    )
     streamOperations = jest.fn(
         async () =>
             new Duplex({
@@ -1259,10 +1263,656 @@ describe('syncOT', () => {
             })
         })
 
-        // TOOD test:
-        // submit an operation containing a subset of pendingSteps
-        // minVersionForSubmit
-        // error handling
+        test('submit an operation containing a subset of pendingSteps', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const someMoreNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some more new content'),
+            )
+            const error = new Error('test error')
+            const onError = jest.fn()
+            const view = createView({ doc: someContent, onError })
+            view.dispatch(
+                view.state.tr.setMeta(key, {
+                    ...key.getState(view.state),
+                    version: minVersion + 3,
+                }),
+            )
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+
+            // Add some pendingSteps.
+            const tr1 = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr1)
+            view.dispatch(tr1)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+            contentClient.streamOperations.mockClear()
+            // Make submitOperation fail, so that we could add more pendingSteps.
+            contentClient.submitOperation.mockRejectedValueOnce(error)
+
+            // Verify submitted.
+            await whenNextTick()
+            const { operationKey } = key.getState(view.state)!.pendingSteps[0]
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (rebaseable) =>
+                    new Rebaseable(
+                        rebaseable.step,
+                        rebaseable.invertedStep,
+                        operationKey,
+                    ),
+            )
+            expect(operationKey).toBeString()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1WithOperationKey,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 4,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+            contentClient.submitOperation.mockClear()
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(error)
+            onError.mockClear()
+
+            // Add some more pendingSteps.
+            const tr2 = view.state.tr.insertText(' more', 4, 4)
+            const pendingSteps2 = rebaseableStepsFrom(tr2)
+            const pendingStepsAll = pendingSteps1WithOperationKey.concat(
+                pendingSteps2,
+            )
+            view.dispatch(tr2)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+
+            // Verify that a subset of pendingSteps is submitted again.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 4,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+            contentClient.submitOperation.mockClear()
+            expect(onError).toHaveBeenCalledTimes(0)
+        })
+
+        test('submit an operation with operation.key conflict', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const someMoreNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some more new content'),
+            )
+            const onError = jest.fn()
+            const view = createView({ doc: someContent, onError })
+            view.dispatch(
+                view.state.tr.setMeta(key, {
+                    ...key.getState(view.state),
+                    version: minVersion + 3,
+                }),
+            )
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+
+            // Add some pendingSteps.
+            const tr1 = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr1)
+            view.dispatch(tr1)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.streamOperations.mockClear()
+            // Make submitOperation fail, so that we could update the state and submit again.
+            contentClient.submitOperation.mockImplementationOnce(
+                (operation: Operation) =>
+                    Promise.reject(
+                        createAlreadyExistsError(
+                            'Operation',
+                            operation,
+                            'key',
+                            operation.key,
+                        ),
+                    ),
+            )
+
+            // Verify submitted.
+            await whenNextTick()
+            const { operationKey } = key.getState(view.state)!.pendingSteps[0]
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (rebaseable) =>
+                    new Rebaseable(
+                        rebaseable.step,
+                        rebaseable.invertedStep,
+                        operationKey,
+                    ),
+            )
+            expect(operationKey).toBeString()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1WithOperationKey,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 4,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+            const operation1: Operation =
+                contentClient.submitOperation.mock.calls[0][0]
+            contentClient.submitOperation.mockClear()
+            expect(onError).toHaveBeenCalledTimes(0)
+
+            // Add some more pendingSteps.
+            const tr2 = view.state.tr.insertText(' more', 4, 4)
+            const pendingSteps2 = rebaseableStepsFrom(tr2)
+            const pendingStepsAll = pendingSteps1WithOperationKey.concat(
+                pendingSteps2,
+            )
+            view.dispatch(tr2)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+
+            // Verify that nothing is submitted until we receive some operations.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(0)
+
+            // Receive the operation which caused the conflict earlier.
+            stream.emit('data', operation1)
+
+            // Verify that the remaining steps are submitted.
+            await whenNextTick()
+            const operationKey2 = key.getState(view.state)!.pendingSteps[0]
+                .operationKey
+            const pendingSteps2WithOperationKey = pendingSteps2.map(
+                (pendingStep) =>
+                    new Rebaseable(
+                        pendingStep.step,
+                        pendingStep.invertedStep,
+                        operationKey2,
+                    ),
+            )
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 4,
+                pendingSteps: pendingSteps2WithOperationKey,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey2,
+                type,
+                id,
+                version: minVersion + 5,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' more',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+        })
+
+        test('submit an operation with operation.version conflict', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const someMoreNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some more new content'),
+            )
+            const onError = jest.fn()
+            const view = createView({ doc: someContent, onError })
+            view.dispatch(
+                view.state.tr.setMeta(key, {
+                    ...key.getState(view.state),
+                    version: minVersion + 3,
+                }),
+            )
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: [],
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+
+            // Add some pendingSteps.
+            const tr1 = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr1)
+            view.dispatch(tr1)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 4,
+                maxVersion + 1,
+            )
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.streamOperations.mockClear()
+            // Make submitOperation fail, so that we could update the state and submit again.
+            contentClient.submitOperation.mockImplementationOnce(
+                (operation: Operation) =>
+                    Promise.reject(
+                        createAlreadyExistsError(
+                            'Operation',
+                            operation,
+                            'version',
+                            minVersion + 7,
+                        ),
+                    ),
+            )
+
+            // Verify submitted.
+            await whenNextTick()
+            const { operationKey } = key.getState(view.state)!.pendingSteps[0]
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (rebaseable) =>
+                    new Rebaseable(
+                        rebaseable.step,
+                        rebaseable.invertedStep,
+                        operationKey,
+                    ),
+            )
+            expect(operationKey).toBeString()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingSteps1WithOperationKey,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 4,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+            contentClient.submitOperation.mockClear()
+            expect(onError).toHaveBeenCalledTimes(0)
+
+            // Add some more pendingSteps.
+            const tr2 = view.state.tr.insertText(' more', 4, 4)
+            const pendingSteps2 = rebaseableStepsFrom(tr2)
+            const pendingStepsAll = pendingSteps1WithOperationKey.concat(
+                pendingSteps2,
+            )
+            view.dispatch(tr2)
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+
+            // Verify that nothing is submitted until we receive some operations.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 3,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(0)
+
+            // Receive the missing operations.
+            const createOperation = (version: number): Operation => ({
+                key: createId(),
+                type,
+                id,
+                version,
+                schema: schema.hash,
+                data: [],
+                meta: null,
+            })
+            stream.emit('data', createOperation(minVersion + 4))
+            stream.emit('data', createOperation(minVersion + 5))
+            stream.emit('data', createOperation(minVersion + 6))
+            stream.emit('data', createOperation(minVersion + 7))
+
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 7,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+
+            // Verify that the first steps is resubmitted.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 7,
+                pendingSteps: pendingStepsAll,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey,
+                type,
+                id,
+                version: minVersion + 8,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' new',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+            const operation1: Operation =
+                contentClient.submitOperation.mock.calls[0][0]
+            contentClient.submitOperation.mockClear()
+            expect(onError).toHaveBeenCalledTimes(0)
+
+            // Receive the confirmation of the last operation.
+            stream.emit('data', operation1)
+
+            // Verify that the remaining steps are submitted.
+            await whenNextTick()
+            const operationKey2 = key.getState(view.state)!.pendingSteps[0]
+                .operationKey
+            const pendingSteps2WithOperationKey = pendingSteps2.map(
+                (pendingStep) =>
+                    new Rebaseable(
+                        pendingStep.step,
+                        pendingStep.invertedStep,
+                        operationKey2,
+                    ),
+            )
+            expect(key.getState(view.state)).toStrictEqual({
+                type,
+                id,
+                version: minVersion + 8,
+                pendingSteps: pendingSteps2WithOperationKey,
+            })
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someMoreNewContent.toJSON(),
+            )
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith({
+                key: operationKey2,
+                type,
+                id,
+                version: minVersion + 9,
+                schema: schema.hash,
+                data: [
+                    {
+                        stepType: 'replace',
+                        from: 4,
+                        to: 4,
+                        slice: {
+                            content: [
+                                {
+                                    type: 'text',
+                                    text: ' more',
+                                },
+                            ],
+                        },
+                    },
+                ],
+                meta: null,
+            })
+        })
     })
 })
 

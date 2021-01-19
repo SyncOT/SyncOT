@@ -145,7 +145,7 @@ class PluginLoop {
     private streamType: string = ''
     private streamId: string = ''
     private streamVersion: number = -1
-    private minVersionForSubmit: number = 0
+    private minVersionForSubmit: number = minVersion + 1
     public retryDelay = exponentialBackOffStrategy({
         minDelay: 1000,
         maxDelay: 10000,
@@ -174,25 +174,8 @@ class PluginLoop {
     }
 
     async work() {
-        /* istanbul ignore if */
-        if (!this.view) return
-        const { state } = this.view
-        const pluginState = key.getState(state)
-        /* istanbul ignore if */
-        if (!pluginState) return
-
-        // Allow any operation version on submit,
-        // if the new state is not derived from the previous state.
-        const previousPluginState = key.getState(this.previousState)
-        if (
-            !pluginState ||
-            !previousPluginState ||
-            pluginState.type !== previousPluginState.type ||
-            pluginState.id !== previousPluginState.id ||
-            pluginState.version < previousPluginState.version
-        ) {
-            this.minVersionForSubmit = 0
-        }
+        const { state } = this.view!
+        const pluginState = key.getState(state)!
 
         const hasValidStream =
             !!this.stream &&
@@ -280,10 +263,9 @@ class PluginLoop {
         // Handle state changed in the meantime.
         if (!this.view) return
         const newState = this.view.state
-        const newPluginState = key.getState(newState)
+        const newPluginState = key.getState(newState)!
         if (
             newState.schema !== state.schema ||
-            !newPluginState ||
             newPluginState.type !== pluginState.type ||
             newPluginState.id !== pluginState.id ||
             newPluginState.version !== pluginState.version
