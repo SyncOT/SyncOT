@@ -59,3 +59,20 @@ export function createNotFoundError(entityName: string): NotFoundError {
 export function isNotFoundError(error: any): error is NotFoundError {
     return isCustomError(error) && error.name === 'SyncOTError NotFound'
 }
+
+export interface SchemaConflictError extends Error {
+    name: 'SyncOTError SchemaConflict'
+}
+export function createSchemaConflictError(
+    message: string,
+): SchemaConflictError {
+    return createError({
+        message,
+        name: 'SyncOTError SchemaConflict',
+    }) as SchemaConflictError
+}
+export function isSchemaConflictError(
+    error: any,
+): error is SchemaConflictError {
+    return isCustomError(error) && error.name === 'SyncOTError SchemaConflict'
+}

@@ -2,8 +2,10 @@ import { isSyncOTError } from '@syncot/util'
 import {
     createAlreadyExistsError,
     createNotFoundError,
+    createSchemaConflictError,
     isAlreadyExistsError,
     isNotFoundError,
+    isSchemaConflictError,
 } from '.'
 
 describe('AlreadyExistsError', () => {
@@ -106,5 +108,21 @@ describe('NotFoundError', () => {
         expect(isNotFoundError(error)).toBeTrue()
         expect(isNotFoundError(new Error())).toBeFalse()
         expect(isNotFoundError({})).toBeFalse()
+    })
+})
+
+describe('SchemaConflictError', () => {
+    test('createSchemaConflictError', () => {
+        const error = createSchemaConflictError('test')
+        expect(error).toBeInstanceOf(Error)
+        expect(error.name).toBe('SyncOTError SchemaConflict')
+        expect(error.message).toBe('test')
+    })
+    test('isSchemaConflictError', () => {
+        const error = createSchemaConflictError('test')
+        expect(isSyncOTError(error)).toBeTrue()
+        expect(isSchemaConflictError(error)).toBeTrue()
+        expect(isSchemaConflictError(new Error())).toBeFalse()
+        expect(isSchemaConflictError({})).toBeFalse()
     })
 })
