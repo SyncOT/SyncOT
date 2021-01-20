@@ -2199,6 +2199,118 @@ describe('syncOT', () => {
                 maxVersion + 1,
             )
         })
+
+        test('receive own operation', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            // Update the content.
+            const tr = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr)
+            view.dispatch(tr)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            // Submit an operation.
+            await whenNextTick()
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            const operation: Operation =
+                contentClient.submitOperation.mock.calls[0][0]
+            contentClient.submitOperation.mockClear()
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (step) =>
+                    new Rebaseable(step.step, step.invertedStep, operation.key),
+            )
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            // Receive the same operation.
+            stream.push(operation)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+        })
+
+        test('receive a foreign operation without pendingSteps', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some very new content'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            // Reveive an operation.
+            const tr = view.state.tr
+                .insertText(' new', 4, 4)
+                .insertText(' very', 4, 4)
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: schema.hash,
+                data: tr.steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(operation)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+        })
     })
 })
 
