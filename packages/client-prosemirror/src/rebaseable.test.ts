@@ -1,13 +1,6 @@
-import { Schema } from 'prosemirror-model'
 import { EditorState } from 'prosemirror-state'
+import { schema } from 'prosemirror-test-builder'
 import { Rebaseable, rebaseableStepsFrom } from './rebaseable'
-
-const schema = new Schema({
-    nodes: {
-        doc: { content: 'text*' },
-        text: {},
-    },
-})
 
 describe('rebaseableStepsFrom', () => {
     let state: EditorState
