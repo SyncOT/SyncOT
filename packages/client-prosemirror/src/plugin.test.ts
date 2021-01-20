@@ -2135,6 +2135,70 @@ describe('syncOT', () => {
             )
             expect(onError).toHaveBeenCalledTimes(0)
         })
+
+        test('receive an operation with an unexpected version', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            // Receive an operation with an unexpected version.
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 10,
+                schema: schema.hash,
+                data: null,
+                meta: null,
+            }
+            stream.push(operation)
+
+            // Verify that the state has not changed.
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(stream.destroyed).toBe(false)
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+
+            // Verify that the stream is recreated.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(stream.destroyed).toBe(true)
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 2,
+                maxVersion + 1,
+            )
+        })
     })
 })
 

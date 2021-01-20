@@ -400,6 +400,10 @@ class PluginLoop {
             if (this.isDone()) return
             this.streamVersion = operation.version
             const { dispatch, state } = this.view!
+            const pluginState = key.getState(state)!
+            const { version, pendingSteps } = pluginState
+            const nextVersion = version + 1
+            if (operation.version !== nextVersion) return this.notify()
 
             if (operation.schema !== this.schema.hash) {
                 // Receiving an operation with a different schema indicates that
@@ -414,13 +418,6 @@ class PluginLoop {
                 )
             }
 
-            const pluginState = key.getState(state)!
-            const { version, pendingSteps } = pluginState
-            const nextVersion = version + 1
-            assert(
-                operation.version === nextVersion,
-                'Unexpected operation.version.',
-            )
             const { tr } = state
 
             // Handle our own operation being confirmed by the authority.
