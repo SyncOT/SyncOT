@@ -1659,7 +1659,7 @@ describe('syncOT', () => {
             expect(onError).toHaveBeenCalledTimes(0)
 
             // Receive the operation which caused the conflict earlier.
-            stream.emit('data', operation1)
+            stream.push(operation1)
 
             // Verify that the remaining steps are submitted.
             await whenNextTick()
@@ -1843,10 +1843,10 @@ describe('syncOT', () => {
                 data: [],
                 meta: null,
             })
-            stream.emit('data', createOperation(minVersion + 2))
-            stream.emit('data', createOperation(minVersion + 3))
-            stream.emit('data', createOperation(minVersion + 4))
-            stream.emit('data', createOperation(minVersion + 5))
+            stream.push(createOperation(minVersion + 2))
+            stream.push(createOperation(minVersion + 3))
+            stream.push(createOperation(minVersion + 4))
+            stream.push(createOperation(minVersion + 5))
 
             expect(key.getState(view.state)).toStrictEqual(
                 new PluginState(minVersion + 5, pendingStepsAll),
@@ -1893,7 +1893,7 @@ describe('syncOT', () => {
             expect(onError).toHaveBeenCalledTimes(0)
 
             // Receive the confirmation of the last operation.
-            stream.emit('data', operation1)
+            stream.push(operation1)
 
             // Verify that the remaining steps are submitted.
             await whenNextTick()
@@ -2055,7 +2055,7 @@ describe('syncOT', () => {
 
             // Verify that the state is not reinitialized with the local out-of-date schema.
             contentClient.getSnapshot.mockImplementationOnce(
-            async (snapshotType, snapshotId) => ({
+                async (snapshotType, snapshotId) => ({
                     type: snapshotType,
                     id: snapshotId,
                     version: minVersion + 1,
