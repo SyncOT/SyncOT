@@ -23,7 +23,7 @@ module.exports = {
                     '\\.[jt]sx?$': 'babel-jest',
                 },
                 testEnvironment: 'node',
-                testMatch: [`<rootDir>/packages/${name}/src/**/*.test.ts`],
+                testMatch: [`<rootDir>/packages/${name}/src/**/*.test.[jt]s`],
             }
         }),
     ],
