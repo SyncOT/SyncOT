@@ -154,6 +154,7 @@ class PluginLoop {
         delayFactor: 1.5,
     })
     private initialized: boolean
+    private allowSchemaChangeBefore: number = Date.now()
 
     public constructor(
         private readonly type: string,
@@ -232,6 +233,15 @@ class PluginLoop {
             if (snapshot.version === minVersion) {
                 node = state.doc
             } else {
+                if (
+                    snapshot.meta != null &&
+                    snapshot.meta.time != null &&
+                    snapshot.meta.time >= this.allowSchemaChangeBefore
+                ) {
+                    throw createSchemaConflictError(
+                        "Cannot convert the snapshot's schema because the local schema is out of date.",
+                    )
+                }
                 const oldSchema = (await this.contentClient.getSchema(
                     snapshot.schema,
                 ))!
@@ -387,10 +397,22 @@ class PluginLoop {
      */
     private receiveOperation = (operation: Operation): void => {
         if (this.isDone()) return
-        // TODO handle schema mismatch
-
         this.streamVersion = operation.version
         const { dispatch, state } = this.view!
+
+        if (operation.schema !== this.schema.hash) {
+            // Receiving an operation with a different schema indicates that
+            // another client uses a more recent schema. For that reason we
+            // block changing the remote schema to our local schema.
+            this.allowSchemaChangeBefore = -Infinity
+            // Reset the plugin's state and report an error because we cannot
+            // represent the remote document using our local schema.
+            dispatch(state.tr.setMeta(key, new PluginState(minVersion, [])))
+            throw createSchemaConflictError(
+                'Cannot process the operation because the local schema is out of date.',
+            )
+        }
+
         const pluginState = key.getState(state)!
         const { version, pendingSteps } = pluginState
         const nextVersion = version + 1

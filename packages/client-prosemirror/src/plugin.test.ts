@@ -807,7 +807,7 @@ describe('syncOT', () => {
                     data: serverInitialDoc.toJSON(),
                     meta: {
                         session: sessionId,
-                        time: Date.now() - 1,
+                        time: Date.now() - 1000,
                         user: userId,
                     },
                 }),
@@ -933,7 +933,7 @@ describe('syncOT', () => {
                     data: serverInitialDoc.toJSON(),
                     meta: {
                         session: sessionId,
-                        time: Date.now() - 1,
+                        time: Date.now() - 1000,
                         user: userId,
                     },
                 }),
@@ -978,6 +978,155 @@ describe('syncOT', () => {
                         'Failed to convert the existing content to the new schema.',
                 }),
             )
+        })
+
+        test('init with a mismatched out-of-date schema', async () => {
+            const serverEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'block+' },
+                    text: {},
+                    h: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['h1', 0]
+                        },
+                    },
+                    [PlaceholderNames.blockBranch]: {
+                        group: 'block',
+                        content: 'text*',
+                        attrs: { name: {}, attrs: {} },
+                        toDOM() {
+                            return ['placeholder-block-branch', 0]
+                        },
+                    },
+                    p: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['p', 0]
+                        },
+                    },
+                },
+            })
+            const serverSchema = toSyncOTSchema(type, serverEditorSchema)
+
+            const clientEditorSchema = new EditorSchema({
+                nodes: {
+                    doc: { content: 'block*' },
+                    text: {},
+                    h: {
+                        group: 'block',
+                        content: 'text*',
+                        toDOM() {
+                            return ['h1', 0]
+                        },
+                    },
+                    [PlaceholderNames.blockBranch]: {
+                        group: 'block',
+                        content: 'text*',
+                        attrs: { name: {}, attrs: {} },
+                        toDOM() {
+                            return ['placeholder-block-branch', 0]
+                        },
+                    },
+                },
+            })
+
+            const serverInitialDoc = serverEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'h',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a heading',
+                            },
+                        ],
+                    },
+                    {
+                        type: 'p',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'a paragraph',
+                            },
+                        ],
+                    },
+                ],
+            })
+            const clientInitialDoc = clientEditorSchema.nodeFromJSON({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'h',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'this whole document will be overridden',
+                            },
+                        ],
+                    },
+                ],
+            })
+
+            const onError = jest.fn()
+            const view = createView({ doc: clientInitialDoc, onError })
+
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 3,
+                    schema: serverSchema.hash,
+                    data: serverInitialDoc.toJSON(),
+                    meta: {
+                        session: sessionId,
+                        time: Date.now(),
+                        user: userId,
+                    },
+                }),
+            )
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                clientInitialDoc.toJSON(),
+            )
+
+            // Verify that the state has not changed.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                clientInitialDoc.toJSON(),
+            )
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'SyncOTError SchemaConflict',
+                    message:
+                        "Cannot convert the snapshot's schema because the local schema is out of date.",
+                }),
+            )
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.getSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
         })
 
         test('init with an existing document and change state later', async () => {
