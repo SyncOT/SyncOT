@@ -28,6 +28,7 @@ import {
     Plugin,
     TextSelection,
 } from 'prosemirror-state'
+import { ReplaceStep } from 'prosemirror-transform'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
 import { syncOT } from '.'
@@ -2214,6 +2215,10 @@ describe('syncOT', () => {
                 null,
                 editorSchema.text('some new content'),
             )
+            const someVeryNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some very new content'),
+            )
             const view = createView({ doc: someContent })
             await whenNextTick()
             expect(key.getState(view.state)).toStrictEqual(
@@ -2232,9 +2237,9 @@ describe('syncOT', () => {
             contentClient.streamOperations.mockClear()
 
             // Update the content.
-            const tr = view.state.tr.insertText(' new', 4, 4)
-            const pendingSteps1 = rebaseableStepsFrom(tr)
-            view.dispatch(tr)
+            const tr1 = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr1)
+            view.dispatch(tr1)
             expect(key.getState(view.state)).toStrictEqual(
                 new PluginState(minVersion + 1, pendingSteps1),
             )
@@ -2259,13 +2264,203 @@ describe('syncOT', () => {
                 someNewContent.toJSON(),
             )
 
+            // Update the content again.
+            const tr2 = view.state.tr.insertText(' very', 4, 4)
+            const pendingSteps2 = rebaseableStepsFrom(tr2)
+            view.dispatch(tr2)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(
+                    minVersion + 1,
+                    pendingSteps1WithOperationKey.concat(pendingSteps2),
+                ),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someVeryNewContent.toJSON(),
+            )
+
             // Receive the same operation.
             stream.push(operation)
             expect(key.getState(view.state)).toStrictEqual(
-                new PluginState(minVersion + 2, []),
+                new PluginState(minVersion + 2, pendingSteps2),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someVeryNewContent.toJSON(),
+            )
+        })
+
+        test('receive a foreign operation with pendingSteps', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const someVeryNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some very new content'),
+            )
+            const mergedContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('STARTsome very new contentEND'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+            const state1 = view.state
+
+            // Update the content.
+            const tr1 = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr1)
+            view.dispatch(tr1)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
             )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
+            )
+
+            // Submit an operation.
+            await whenNextTick()
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            const operation1: Operation =
+                contentClient.submitOperation.mock.calls[0][0]
+            contentClient.submitOperation.mockClear()
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (step) =>
+                    new Rebaseable(
+                        step.step,
+                        step.invertedStep,
+                        operation1.key,
+                    ),
+            )
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+
+            // Update the content again.
+            const tr2 = view.state.tr.insertText(' very', 4, 4)
+            const pendingSteps2 = rebaseableStepsFrom(tr2)
+            view.dispatch(tr2)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(
+                    minVersion + 1,
+                    pendingSteps1WithOperationKey.concat(pendingSteps2),
+                ),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someVeryNewContent.toJSON(),
+            )
+
+            // Receive a foreign operation.
+            const tr = state1.tr
+                .insertText('END', 12, 12)
+                .insertText('START', 0, 0)
+            const foreignOperation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: schema.hash,
+                data: tr.steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(foreignOperation)
+            const rebasedSteps = [
+                new Rebaseable(
+                    new ReplaceStep(
+                        9,
+                        9,
+                        new Slice(
+                            Fragment.from(editorSchema.text(' new')),
+                            0,
+                            0,
+                        ),
+                    ),
+                    new ReplaceStep(9, 13, new Slice(Fragment.empty, 0, 0)),
+                    operation1.key,
+                ),
+                new Rebaseable(
+                    new ReplaceStep(
+                        9,
+                        9,
+                        new Slice(
+                            Fragment.from(editorSchema.text(' very')),
+                            0,
+                            0,
+                        ),
+                    ),
+                    new ReplaceStep(9, 14, new Slice(Fragment.empty, 0, 0)),
+                    undefined,
+                ),
+            ]
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, rebasedSteps),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                mergedContent.toJSON(),
+            )
+
+            // Receive own operation.
+            stream.push({
+                ...operation1,
+                version: minVersion + 3,
+                data: [rebasedSteps[0].step.toJSON()],
+            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, rebasedSteps.slice(1)),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                mergedContent.toJSON(),
+            )
+
+            // Send the second operation.
+            await whenNextTick()
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            const operation2: Operation =
+                contentClient.submitOperation.mock.calls[0][0]
+            contentClient.submitOperation.mockClear()
+            const pendingSteps2WithOperationKey = rebasedSteps
+                .slice(1)
+                .map(
+                    (step) =>
+                        new Rebaseable(
+                            step.step,
+                            step.invertedStep,
+                            operation2.key,
+                        ),
+                )
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, pendingSteps2WithOperationKey),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                mergedContent.toJSON(),
+            )
+
+            // Receive the second own operation.
+            stream.push(operation2)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 4, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                mergedContent.toJSON(),
             )
         })
 

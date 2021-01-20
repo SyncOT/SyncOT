@@ -418,8 +418,6 @@ class PluginLoop {
                 )
             }
 
-            const { tr } = state
-
             // Handle our own operation being confirmed by the authority.
             if (
                 pendingSteps.length > 0 &&
@@ -430,7 +428,7 @@ class PluginLoop {
                     nextVersion,
                     pendingSteps.filter((step) => step.operationKey == null),
                 )
-                return dispatch(tr.setMeta(key, nextPluginState))
+                return dispatch(state.tr.setMeta(key, nextPluginState))
             }
 
             // Deserialize the steps from the operation.
@@ -438,47 +436,13 @@ class PluginLoop {
                 (step) => Step.fromJSON(state.schema, step),
             )
 
-            const rebasedPendingSteps: Rebaseable[] = []
-            if (pendingSteps.length === 0) {
-                // No pending steps, so just apply `operationSteps`.
-                for (const step of operationSteps) {
-                    tr.step(step)
-                }
-            } else {
-                // Undo `pendingSteps`.
-                for (let i = pendingSteps.length - 1; i >= 0; i--) {
-                    tr.step(pendingSteps[i].invertedStep)
-                }
-
-                // Apply `operationSteps`.
-                for (const step of operationSteps) {
-                    tr.step(step)
-                }
-
-                // Rebase and apply `pendingSteps`.
-                let mapFrom = pendingSteps.length
-                for (const pendingStep of pendingSteps) {
-                    const mappedStep = pendingStep.step.map(
-                        tr.mapping.slice(mapFrom),
-                    )
-                    mapFrom--
-                    if (mappedStep && !tr.maybeStep(mappedStep).failed) {
-                        // It might be an omission that `setMirror` is not declared in typings.
-                        // It is definitely there though and also used in the "prosemirror-collab" plugin.
-                        ;(tr.mapping as any).setMirror(
-                            mapFrom,
-                            tr.steps.length - 1,
-                        )
-                        rebasedPendingSteps.push(
-                            new Rebaseable(
-                                mappedStep,
-                                mappedStep.invert(tr.docs[tr.docs.length - 1]),
-                                pendingStep.operationKey,
-                            ),
-                        )
-                    }
-                }
-            }
+            // Rebase pendingSteps.
+            const { tr } = state
+            const rebasedPendingSteps = rebaseSteps(
+                tr,
+                pendingSteps,
+                operationSteps,
+            )
 
             // Map the selection to positions before the characters which were inserted
             // at the initial selection positions.
@@ -565,4 +529,52 @@ export function rebaseableStepsFrom(transform: Transform): Rebaseable[] {
             ),
         )
     return rebaseableSteps
+}
+
+/**
+ * Updates `tr` to
+ * - undo `steps`
+ * - apply `otherSteps`
+ * - rebase and apply `steps`
+ * @param tr An empty transaction.
+ * @param steps Steps to rebase.
+ * @param otherSteps Other steps to apply.
+ * @returns Rebased `steps`.
+ */
+export function rebaseSteps(
+    tr: Transaction,
+    steps: Rebaseable[],
+    otherSteps: Step[],
+): Rebaseable[] {
+    const rebasedSteps: Rebaseable[] = []
+
+    // Undo `steps`.
+    for (let i = steps.length - 1; i >= 0; i--) {
+        tr.step(steps[i].invertedStep)
+    }
+
+    // Apply `otherSteps`.
+    for (const step of otherSteps) {
+        tr.step(step)
+    }
+
+    // Rebase and apply `steps`.
+    let mapFrom = steps.length
+    for (const step of steps) {
+        const mappedStep = step.step.map(tr.mapping.slice(mapFrom))
+        mapFrom--
+        if (mappedStep && !tr.maybeStep(mappedStep).failed) {
+            // It might be an omission that `setMirror` is not declared in typings.
+            // It is definitely there though and also used in the "prosemirror-collab" plugin.
+            ;(tr.mapping as any).setMirror(mapFrom, tr.steps.length - 1)
+            rebasedSteps.push(
+                new Rebaseable(
+                    mappedStep,
+                    mappedStep.invert(tr.docs[tr.docs.length - 1]),
+                    step.operationKey,
+                ),
+            )
+        }
+    }
+    return rebasedSteps
 }
