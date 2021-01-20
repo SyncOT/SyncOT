@@ -396,121 +396,132 @@ class PluginLoop {
      * @param operation The operation to apply.
      */
     private receiveOperation = (operation: Operation): void => {
-        if (this.isDone()) return
-        this.streamVersion = operation.version
-        const { dispatch, state } = this.view!
+        try {
+            if (this.isDone()) return
+            this.streamVersion = operation.version
+            const { dispatch, state } = this.view!
 
-        if (operation.schema !== this.schema.hash) {
-            // Receiving an operation with a different schema indicates that
-            // another client uses a more recent schema. For that reason we
-            // block changing the remote schema to our local schema.
-            this.allowSchemaChangeBefore = -Infinity
-            // Reset the plugin's state and report an error because we cannot
-            // represent the remote document using our local schema.
-            dispatch(state.tr.setMeta(key, new PluginState(minVersion, [])))
-            throw createSchemaConflictError(
-                'Cannot process the operation because the local schema is out of date.',
-            )
-        }
-
-        const pluginState = key.getState(state)!
-        const { version, pendingSteps } = pluginState
-        const nextVersion = version + 1
-        assert(
-            operation.version === nextVersion,
-            'Unexpected operation.version.',
-        )
-        const { tr } = state
-
-        // Handle our own operation being confirmed by the authority.
-        if (
-            pendingSteps.length > 0 &&
-            pendingSteps[0].operationKey === operation.key
-        ) {
-            // Update the "syncOT" plugin's state.
-            const nextPluginState = new PluginState(
-                nextVersion,
-                pendingSteps.filter((step) => step.operationKey == null),
-            )
-            return dispatch(tr.setMeta(key, nextPluginState))
-        }
-
-        // Deserialize the steps from the operation.
-        const operationSteps = (operation.data as JsonObject[]).map((step) =>
-            Step.fromJSON(state.schema, step),
-        )
-
-        const rebasedPendingSteps: Rebaseable[] = []
-        if (pendingSteps.length === 0) {
-            // No pending steps, so just apply `operationSteps`.
-            for (const step of operationSteps) {
-                tr.step(step)
-            }
-        } else {
-            // Undo `pendingSteps`.
-            for (let i = pendingSteps.length - 1; i >= 0; i--) {
-                tr.step(pendingSteps[i].invertedStep)
-            }
-
-            // Apply `operationSteps`.
-            for (const step of operationSteps) {
-                tr.step(step)
-            }
-
-            // Rebase and apply `pendingSteps`.
-            let mapFrom = pendingSteps.length
-            for (const pendingStep of pendingSteps) {
-                const mappedStep = pendingStep.step.map(
-                    tr.mapping.slice(mapFrom),
+            if (operation.schema !== this.schema.hash) {
+                // Receiving an operation with a different schema indicates that
+                // another client uses a more recent schema. For that reason we
+                // block changing the remote schema to our local schema.
+                this.allowSchemaChangeBefore = -Infinity
+                // Reset the plugin's state and report an error because we cannot
+                // represent the remote document using our local schema.
+                dispatch(state.tr.setMeta(key, new PluginState(minVersion, [])))
+                throw createSchemaConflictError(
+                    'Cannot process the operation because the local schema is out of date.',
                 )
-                mapFrom--
-                if (mappedStep && !tr.maybeStep(mappedStep).failed) {
-                    // It might be an omission that `setMirror` is not declared in typings.
-                    // It is definitely there though and also used in the "prosemirror-collab" plugin.
-                    ;(tr.mapping as any).setMirror(mapFrom, tr.steps.length - 1)
-                    rebasedPendingSteps.push(
-                        new Rebaseable(
-                            mappedStep,
-                            mappedStep.invert(tr.docs[tr.docs.length - 1]),
-                            pendingStep.operationKey,
-                        ),
+            }
+
+            const pluginState = key.getState(state)!
+            const { version, pendingSteps } = pluginState
+            const nextVersion = version + 1
+            assert(
+                operation.version === nextVersion,
+                'Unexpected operation.version.',
+            )
+            const { tr } = state
+
+            // Handle our own operation being confirmed by the authority.
+            if (
+                pendingSteps.length > 0 &&
+                pendingSteps[0].operationKey === operation.key
+            ) {
+                // Update the "syncOT" plugin's state.
+                const nextPluginState = new PluginState(
+                    nextVersion,
+                    pendingSteps.filter((step) => step.operationKey == null),
+                )
+                return dispatch(tr.setMeta(key, nextPluginState))
+            }
+
+            // Deserialize the steps from the operation.
+            const operationSteps = (operation.data as JsonObject[]).map(
+                (step) => Step.fromJSON(state.schema, step),
+            )
+
+            const rebasedPendingSteps: Rebaseable[] = []
+            if (pendingSteps.length === 0) {
+                // No pending steps, so just apply `operationSteps`.
+                for (const step of operationSteps) {
+                    tr.step(step)
+                }
+            } else {
+                // Undo `pendingSteps`.
+                for (let i = pendingSteps.length - 1; i >= 0; i--) {
+                    tr.step(pendingSteps[i].invertedStep)
+                }
+
+                // Apply `operationSteps`.
+                for (const step of operationSteps) {
+                    tr.step(step)
+                }
+
+                // Rebase and apply `pendingSteps`.
+                let mapFrom = pendingSteps.length
+                for (const pendingStep of pendingSteps) {
+                    const mappedStep = pendingStep.step.map(
+                        tr.mapping.slice(mapFrom),
                     )
+                    mapFrom--
+                    if (mappedStep && !tr.maybeStep(mappedStep).failed) {
+                        // It might be an omission that `setMirror` is not declared in typings.
+                        // It is definitely there though and also used in the "prosemirror-collab" plugin.
+                        ;(tr.mapping as any).setMirror(
+                            mapFrom,
+                            tr.steps.length - 1,
+                        )
+                        rebasedPendingSteps.push(
+                            new Rebaseable(
+                                mappedStep,
+                                mappedStep.invert(tr.docs[tr.docs.length - 1]),
+                                pendingStep.operationKey,
+                            ),
+                        )
+                    }
                 }
             }
-        }
 
-        // Map the selection to positions before the characters which were inserted
-        // at the initial selection positions.
-        if (state.selection instanceof TextSelection) {
-            tr.setSelection(
-                TextSelection.between(
-                    tr.doc.resolve(tr.mapping.map(state.selection.anchor, -1)),
-                    tr.doc.resolve(tr.mapping.map(state.selection.head, -1)),
-                    -1,
-                ),
-            )
-            // Reset the "selection updated" flag.
-            // There's no official API to do it and
-            // the same hack is used in the "prosemirror-collab" plugin.
-            // tslint:disable-next-line:no-bitwise
-            ;(tr as any).updated &= ~1
-        }
+            // Map the selection to positions before the characters which were inserted
+            // at the initial selection positions.
+            if (state.selection instanceof TextSelection) {
+                tr.setSelection(
+                    TextSelection.between(
+                        tr.doc.resolve(
+                            tr.mapping.map(state.selection.anchor, -1),
+                        ),
+                        tr.doc.resolve(
+                            tr.mapping.map(state.selection.head, -1),
+                        ),
+                        -1,
+                    ),
+                )
+                // Reset the "selection updated" flag.
+                // There's no official API to do it and
+                // the same hack is used in the "prosemirror-collab" plugin.
+                // tslint:disable-next-line:no-bitwise
+                ;(tr as any).updated &= ~1
+            }
 
-        {
-            const nextPluginState = new PluginState(
-                nextVersion,
-                rebasedPendingSteps,
-            )
-            return dispatch(
-                tr
-                    // Tell the "prosemirror-history" plugin to rebase its items.
-                    // This is based on the "prosemirror-collab" plugin.
-                    .setMeta('rebased', pendingSteps.length)
-                    // Tell the "prosemirror-history" plugin to not add this transaction to the undo list.
-                    .setMeta('addToHistory', false)
-                    // Update the "syncOT" plugin's state.
-                    .setMeta(key, nextPluginState),
-            )
+            {
+                const nextPluginState = new PluginState(
+                    nextVersion,
+                    rebasedPendingSteps,
+                )
+                return dispatch(
+                    tr
+                        // Tell the "prosemirror-history" plugin to rebase its items.
+                        // This is based on the "prosemirror-collab" plugin.
+                        .setMeta('rebased', pendingSteps.length)
+                        // Tell the "prosemirror-history" plugin to not add this transaction to the undo list.
+                        .setMeta('addToHistory', false)
+                        // Update the "syncOT" plugin's state.
+                        .setMeta(key, nextPluginState),
+                )
+            }
+        } catch (error) {
+            this.onError(error)
         }
     }
 }

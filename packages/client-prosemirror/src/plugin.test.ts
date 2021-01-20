@@ -59,7 +59,7 @@ class MockContentClient
         async (snapshotType, snapshotId) => ({
             type: snapshotType,
             id: snapshotId,
-            version: 0,
+            version: minVersion,
             schema: '',
             data: null,
             meta: null,
@@ -71,6 +71,7 @@ class MockContentClient
     streamOperations = jest.fn(
         async () =>
             new Duplex({
+                objectMode: true,
                 read() {
                     // Do nothing.
                 },
@@ -1939,6 +1940,200 @@ describe('syncOT', () => {
                 ],
                 meta: null,
             })
+        })
+
+        test('receive an operation after destroyed', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            // Destroy the view.
+            view.destroy()
+            expect(stream.destroyed).toBe(false)
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: schema.hash,
+                data: view.state.tr
+                    .insertText(' new', 4, 4)
+                    .steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(operation)
+
+            // Verify that the state has not changed.
+            await whenNextTick()
+            expect(stream.destroyed).toBe(true)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        })
+
+        test('receive an operation with a mismatched schema', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some content'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('some new content'),
+            )
+            const onError = jest.fn()
+            const view = createView({ doc: someContent, onError })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: 'different-schema',
+                data: view.state.tr
+                    .insertText(' new', 4, 4)
+                    .steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(operation)
+
+            // Verify that the state has been reset.
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'SyncOTError SchemaConflict',
+                    message:
+                        'Cannot process the operation because the local schema is out of date.',
+                }),
+            )
+            onError.mockClear()
+            expect(stream.destroyed).toBe(false)
+
+            // Verify that the state is not reinitialized with the local out-of-date schema.
+            contentClient.getSnapshot.mockImplementationOnce(
+            async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 1,
+                    schema: 'different-schema',
+                    data: null,
+                    meta: {
+                        user: userId,
+                        time: Date.now() - 10000,
+                        session: sessionId,
+                    },
+                }),
+            )
+            await whenNextTick()
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            contentClient.getSnapshot.mockClear()
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'SyncOTError SchemaConflict',
+                    message:
+                        "Cannot convert the snapshot's schema because the local schema is out of date.",
+                }),
+            )
+            onError.mockClear()
+            expect(stream.destroyed).toBe(true)
+
+            // Verify that the state can be initialized with a matching schema.
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => ({
+                    type: snapshotType,
+                    id: snapshotId,
+                    version: minVersion + 1,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: {
+                        user: userId,
+                        time: Date.now() - 10000,
+                        session: sessionId,
+                    },
+                }),
+            )
+            const tr = view.state.tr.insertText(' new', 4, 4)
+            view.dispatch(tr)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, rebaseableStepsFrom(tr)),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 2,
+                maxVersion + 1,
+            )
+            expect(onError).toHaveBeenCalledTimes(0)
         })
     })
 })
