@@ -141,10 +141,7 @@ describe('syncOT', () => {
         })
         expect(plugin.props.editable!.call(plugin, state)).toBe(false)
         const stateWithVersion = state.apply(
-            state.tr.setMeta(key, {
-                ...key.getState(state),
-                version: 1,
-            }),
+            state.tr.setMeta(key, new PluginState(minVersion + 1, [])),
         )
         expect(plugin.props.editable!.call(plugin, stateWithVersion)).toBe(true)
     })
@@ -163,20 +160,14 @@ describe('syncOT', () => {
         })
 
         test('init', () => {
-            expect(key.getState(state)).toStrictEqual({
-                type,
-                id,
-                version: -1,
-                pendingSteps: [],
-            })
+            expect(key.getState(state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
         })
 
         describe('apply', () => {
             test('new plugin state in meta', () => {
-                const newPluginState = {
-                    ...pluginState,
-                    version: 1,
-                }
+                const newPluginState = new PluginState(minVersion + 1, [])
                 const newState = state.apply(
                     state.tr.setMeta(key, newPluginState),
                 )
@@ -192,16 +183,15 @@ describe('syncOT', () => {
                 const tr = state.tr.insertText('test', 0, 0)
                 const newState = state.apply(tr)
                 const newPluginState = key.getState(newState)
-                expect(newPluginState).toStrictEqual({
-                    ...pluginState,
-                    pendingSteps: [
+                expect(newPluginState).toStrictEqual(
+                    new PluginState(minVersion, [
                         new Rebaseable(
                             tr.steps[0],
                             tr.steps[0].invert(tr.docs[0]),
                             undefined,
                         ),
-                    ],
-                })
+                    ]),
+                )
             })
         })
     })
@@ -289,43 +279,31 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the state has not changed while waiting for the snapshot.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Destroy the view during initialization.
             view.destroy()
             resolveLoadSnapshot()
-            expect(key.getState(view.state)).toEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify contentClient usage.
@@ -369,22 +347,16 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the state has not changed while waiting for the snapshot.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Remove the plugin during initialization.
@@ -419,22 +391,16 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: -1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify contentClient usage.
@@ -496,22 +462,16 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify contentClient usage.
@@ -679,24 +639,18 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 clientInitialDoc.toJSON(),
             )
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 4,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 4, []),
+            )
             expect(view.state.schema).toBe(clientEditorSchema)
             expect(view.state.doc.toJSON()).toEqual(serverConvertedDoc)
 
@@ -809,24 +763,18 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 clientInitialDoc.toJSON(),
             )
 
             // Verify the state has not changed because the schemas are incompatible.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.schema).toBe(clientEditorSchema)
             expect(view.state.doc.toJSON()).toEqual(clientInitialDoc.toJSON())
 
@@ -878,26 +826,20 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the state has not changed while waiting for loadSnapshot.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Update the state.
-            const stateWithChangedContent = view.state.apply(
+            view.dispatch(
                 view.state.tr.replace(
                     0,
                     view.state.doc.nodeSize - 2,
@@ -908,13 +850,13 @@ describe('syncOT', () => {
                     ),
                 ),
             )
-            const newState = stateWithChangedContent.apply(
-                stateWithChangedContent.tr.setMeta(key, {
-                    ...key.getState(stateWithChangedContent),
-                    version: 20,
-                    pendingSteps: [],
-                }),
+            view.dispatch(
+                view.state.tr.setMeta(
+                    key,
+                    new PluginState(minVersion + 20, []),
+                ),
             )
+            const newState = view.state
             expect(newState.doc.toJSON()).toEqual({
                 type: 'doc',
                 content: [
@@ -924,24 +866,17 @@ describe('syncOT', () => {
                     },
                 ],
             })
-            view.updateState(newState)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 20,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 20, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
 
             // Verify the state has not changed because it was already initialized.
             resolveLoadSnapshot()
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 20,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 20, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
 
             // Verify contentClient usage.
@@ -987,22 +922,16 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify contentClient usage.
@@ -1031,7 +960,7 @@ describe('syncOT', () => {
             contentClient.streamOperations.mockClear()
 
             // Update the state.
-            const stateWithChangedContent = view.state.apply(
+            view.dispatch(
                 view.state.tr.replace(
                     0,
                     view.state.doc.nodeSize - 2,
@@ -1042,13 +971,13 @@ describe('syncOT', () => {
                     ),
                 ),
             )
-            const newState = stateWithChangedContent.apply(
-                stateWithChangedContent.tr.setMeta(key, {
-                    ...key.getState(stateWithChangedContent),
-                    version: 20,
-                    pendingSteps: [],
-                }),
+            view.dispatch(
+                view.state.tr.setMeta(
+                    key,
+                    new PluginState(minVersion + 20, []),
+                ),
             )
+            const newState = view.state
             expect(newState.doc.toJSON()).toEqual({
                 type: 'doc',
                 content: [
@@ -1058,24 +987,17 @@ describe('syncOT', () => {
                     },
                 ],
             })
-            view.updateState(newState)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 20,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 20, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
             expect(stream.destroyed).toBe(false)
 
             // Verify that the state does not change and the old stream is destroyed.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 20,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 20, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
             expect(stream.destroyed).toBe(true)
 
@@ -1115,12 +1037,9 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Check that the state does not change as contentClient is not active.
@@ -1129,12 +1048,9 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion - 1,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
             // Active contentClient.
@@ -1143,12 +1059,9 @@ describe('syncOT', () => {
 
             // Verify the new state.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
 
             // Verify contentClient usage.
@@ -1182,67 +1095,51 @@ describe('syncOT', () => {
                 editorSchema.text('some new content'),
             )
             const view = createView({ doc: initialDoc })
-            view.dispatch(
-                view.state.tr.setMeta(key, {
-                    ...key.getState(view.state),
-                    version: minVersion + 3,
-                }),
-            )
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
 
             // Update the state.
             const tr = view.state.tr.insertText(' new', 4, 4)
+            const pendingSteps1 = rebaseableStepsFrom(tr)
             view.dispatch(tr)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: rebaseableStepsFrom(tr),
-            })
-            expect(view.state.doc.toJSON()).toStrictEqual(modifiedDoc.toJSON())
-
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            expect(contentClient.streamOperations).toHaveBeenCalledWith(
-                type,
-                id,
-                minVersion + 4,
-                maxVersion + 1,
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
             )
+            expect(view.state.doc.toJSON()).toStrictEqual(modifiedDoc.toJSON())
 
             // Verify submitted.
             await whenNextTick()
             const { operationKey } = key.getState(view.state)!.pendingSteps[0]
             expect(operationKey).toBeString()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: rebaseableStepsFrom(tr).map(
-                    (rebaseable) =>
-                        new Rebaseable(
-                            rebaseable.step,
-                            rebaseable.invertedStep,
-                            operationKey,
-                        ),
-                ),
-            })
+            const pendingSteps1WithOperationKey = pendingSteps1.map(
+                (rebaseable) =>
+                    new Rebaseable(
+                        rebaseable.step,
+                        rebaseable.invertedStep,
+                        operationKey,
+                    ),
+            )
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(modifiedDoc.toJSON())
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
             expect(contentClient.submitOperation).toHaveBeenCalledWith({
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 4,
+                version: minVersion + 2,
                 schema: schema.hash,
                 data: [
                     {
@@ -1279,46 +1176,31 @@ describe('syncOT', () => {
             const error = new Error('test error')
             const onError = jest.fn()
             const view = createView({ doc: someContent, onError })
-            view.dispatch(
-                view.state.tr.setMeta(key, {
-                    ...key.getState(view.state),
-                    version: minVersion + 3,
-                }),
-            )
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
 
             // Add some pendingSteps.
             const tr1 = view.state.tr.insertText(' new', 4, 4)
             const pendingSteps1 = rebaseableStepsFrom(tr1)
             view.dispatch(tr1)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            expect(contentClient.streamOperations).toHaveBeenCalledWith(
-                type,
-                id,
-                minVersion + 4,
-                maxVersion + 1,
-            )
-            contentClient.streamOperations.mockClear()
             // Make submitOperation fail, so that we could add more pendingSteps.
             contentClient.submitOperation.mockRejectedValueOnce(error)
 
@@ -1334,12 +1216,9 @@ describe('syncOT', () => {
                     ),
             )
             expect(operationKey).toBeString()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1WithOperationKey,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
@@ -1348,7 +1227,7 @@ describe('syncOT', () => {
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 4,
+                version: minVersion + 2,
                 schema: schema.hash,
                 data: [
                     {
@@ -1379,29 +1258,18 @@ describe('syncOT', () => {
                 pendingSteps2,
             )
             view.dispatch(tr2)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
-
             // Verify that a subset of pendingSteps is submitted again.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1410,7 +1278,7 @@ describe('syncOT', () => {
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 4,
+                version: minVersion + 2,
                 schema: schema.hash,
                 data: [
                     {
@@ -1448,48 +1316,33 @@ describe('syncOT', () => {
             )
             const onError = jest.fn()
             const view = createView({ doc: someContent, onError })
-            view.dispatch(
-                view.state.tr.setMeta(key, {
-                    ...key.getState(view.state),
-                    version: minVersion + 3,
-                }),
-            )
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
 
             // Add some pendingSteps.
             const tr1 = view.state.tr.insertText(' new', 4, 4)
             const pendingSteps1 = rebaseableStepsFrom(tr1)
             view.dispatch(tr1)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            expect(contentClient.streamOperations).toHaveBeenCalledWith(
-                type,
-                id,
-                minVersion + 4,
-                maxVersion + 1,
-            )
-            const stream: Duplex = await contentClient.streamOperations.mock
-                .results[0].value
-            contentClient.streamOperations.mockClear()
             // Make submitOperation fail, so that we could update the state and submit again.
             contentClient.submitOperation.mockImplementationOnce(
                 (operation: Operation) =>
@@ -1515,12 +1368,9 @@ describe('syncOT', () => {
                     ),
             )
             expect(operationKey).toBeString()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1WithOperationKey,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
@@ -1529,7 +1379,7 @@ describe('syncOT', () => {
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 4,
+                version: minVersion + 2,
                 schema: schema.hash,
                 data: [
                     {
@@ -1560,29 +1410,18 @@ describe('syncOT', () => {
                 pendingSteps2,
             )
             view.dispatch(tr2)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
-
             // Verify that nothing is submitted until we receive some operations.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1604,12 +1443,9 @@ describe('syncOT', () => {
                         operationKey2,
                     ),
             )
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 4,
-                pendingSteps: pendingSteps2WithOperationKey,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, pendingSteps2WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1621,7 +1457,7 @@ describe('syncOT', () => {
                 key: operationKey2,
                 type,
                 id,
-                version: minVersion + 5,
+                version: minVersion + 3,
                 schema: schema.hash,
                 data: [
                     {
@@ -1657,48 +1493,33 @@ describe('syncOT', () => {
             )
             const onError = jest.fn()
             const view = createView({ doc: someContent, onError })
-            view.dispatch(
-                view.state.tr.setMeta(key, {
-                    ...key.getState(view.state),
-                    version: minVersion + 3,
-                }),
-            )
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: [],
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
 
             // Add some pendingSteps.
             const tr1 = view.state.tr.insertText(' new', 4, 4)
             const pendingSteps1 = rebaseableStepsFrom(tr1)
             view.dispatch(tr1)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            expect(contentClient.streamOperations).toHaveBeenCalledWith(
-                type,
-                id,
-                minVersion + 4,
-                maxVersion + 1,
-            )
-            const stream: Duplex = await contentClient.streamOperations.mock
-                .results[0].value
-            contentClient.streamOperations.mockClear()
             // Make submitOperation fail, so that we could update the state and submit again.
             contentClient.submitOperation.mockImplementationOnce(
                 (operation: Operation) =>
@@ -1707,7 +1528,7 @@ describe('syncOT', () => {
                             'Operation',
                             operation,
                             'version',
-                            minVersion + 7,
+                            minVersion + 5,
                         ),
                     ),
             )
@@ -1724,12 +1545,9 @@ describe('syncOT', () => {
                     ),
             )
             expect(operationKey).toBeString()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingSteps1WithOperationKey,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingSteps1WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
             )
@@ -1738,7 +1556,7 @@ describe('syncOT', () => {
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 4,
+                version: minVersion + 2,
                 schema: schema.hash,
                 data: [
                     {
@@ -1767,29 +1585,18 @@ describe('syncOT', () => {
                 pendingSteps2,
             )
             view.dispatch(tr2)
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
 
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
-
             // Verify that nothing is submitted until we receive some operations.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 3,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1806,29 +1613,23 @@ describe('syncOT', () => {
                 data: [],
                 meta: null,
             })
+            stream.emit('data', createOperation(minVersion + 2))
+            stream.emit('data', createOperation(minVersion + 3))
             stream.emit('data', createOperation(minVersion + 4))
             stream.emit('data', createOperation(minVersion + 5))
-            stream.emit('data', createOperation(minVersion + 6))
-            stream.emit('data', createOperation(minVersion + 7))
 
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 7,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 5, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
 
             // Verify that the first steps is resubmitted.
             await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 7,
-                pendingSteps: pendingStepsAll,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 5, pendingStepsAll),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1837,7 +1638,7 @@ describe('syncOT', () => {
                 key: operationKey,
                 type,
                 id,
-                version: minVersion + 8,
+                version: minVersion + 6,
                 schema: schema.hash,
                 data: [
                     {
@@ -1876,12 +1677,9 @@ describe('syncOT', () => {
                         operationKey2,
                     ),
             )
-            expect(key.getState(view.state)).toStrictEqual({
-                type,
-                id,
-                version: minVersion + 8,
-                pendingSteps: pendingSteps2WithOperationKey,
-            })
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 6, pendingSteps2WithOperationKey),
+            )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someMoreNewContent.toJSON(),
             )
@@ -1893,7 +1691,7 @@ describe('syncOT', () => {
                 key: operationKey2,
                 type,
                 id,
-                version: minVersion + 9,
+                version: minVersion + 7,
                 schema: schema.hash,
                 data: [
                     {

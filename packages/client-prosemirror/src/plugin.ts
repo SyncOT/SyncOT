@@ -4,6 +4,7 @@ import {
     maxVersion,
     minVersion,
     Operation,
+    Schema,
 } from '@syncot/content'
 import {
     changeSchema,
@@ -84,24 +85,17 @@ export function syncOT({
         key,
         state: {
             init(): PluginState {
-                return {
-                    type,
-                    id,
-                    version: -1,
-                    pendingSteps: [],
-                }
+                return new PluginState(minVersion, [])
             },
 
             apply(tr: Transaction, pluginState: PluginState): PluginState {
                 const newPluginState: PluginState = tr.getMeta(key)
                 if (newPluginState) return newPluginState
                 if (!tr.docChanged) return pluginState
-                return {
-                    ...pluginState,
-                    pendingSteps: pluginState.pendingSteps.concat(
-                        rebaseableStepsFrom(tr),
-                    ),
-                }
+                return new PluginState(
+                    pluginState.version,
+                    pluginState.pendingSteps.concat(rebaseableStepsFrom(tr)),
+                )
             },
         },
         view(view: EditorView) {
@@ -110,7 +104,14 @@ export function syncOT({
             const getView = () => localView
             workLoop((notify) => {
                 localNotify = notify
-                return new PluginLoop(getView, contentClient, onError, notify)
+                return new PluginLoop(
+                    getView,
+                    contentClient,
+                    onError,
+                    notify,
+                    type,
+                    id,
+                )
             })
             return {
                 update: localNotify,
@@ -122,7 +123,7 @@ export function syncOT({
         },
         props: {
             editable(state: EditorState): boolean {
-                return this.getState(state).version >= 0
+                return this.getState(state).version > minVersion
             },
         },
 
@@ -136,30 +137,35 @@ export function syncOT({
 
 export const key = new PluginKey<PluginState>('syncOT')
 
+const initializedStates = new WeakSet<EditorState>()
+
 class PluginLoop {
     private get view(): EditorView | undefined {
         return this.getView()
     }
-    private previousState: EditorState
+    private readonly schema: Schema
     private stream: Duplex | undefined
-    private streamType: string = ''
-    private streamId: string = ''
-    private streamVersion: number = -1
+    private streamVersion: number = minVersion
     private minVersionForSubmit: number = minVersion + 1
     public retryDelay = exponentialBackOffStrategy({
         minDelay: 1000,
         maxDelay: 10000,
         delayFactor: 1.5,
     })
+    private initialized: boolean
 
     public constructor(
-        private getView: () => EditorView | undefined,
-        private contentClient: ContentClient,
-        public onError: (error: Error) => void,
-        private notify: () => void,
+        private readonly getView: () => EditorView | undefined,
+        private readonly contentClient: ContentClient,
+        public readonly onError: (error: Error) => void,
+        private readonly notify: () => void,
+        private readonly type: string,
+        private readonly id: string,
     ) {
+        const state = this.view!.state
+        this.initialized = initializedStates.has(state)
+        this.schema = toSyncOTSchema(this.type, this.view!.state.schema)
         this.contentClient.on('active', this.notify)
-        this.previousState = this.view!.state
     }
 
     public destroy(): void {
@@ -177,21 +183,29 @@ class PluginLoop {
         const { state } = this.view!
         const pluginState = key.getState(state)!
 
+        if (!this.initialized) {
+            if (
+                pluginState.version === minVersion &&
+                pluginState.pendingSteps.length === 0
+            ) {
+                this.initialized = true
+            } else {
+                return this.view!.dispatch(
+                    state.tr.setMeta(key, new PluginState(minVersion, [])),
+                )
+            }
+        }
+
         const hasValidStream =
             !!this.stream &&
             !this.stream.destroyed &&
-            this.streamType === pluginState.type &&
-            this.streamId === pluginState.id &&
             this.streamVersion === pluginState.version
 
         if (!hasValidStream && this.stream) {
             this.stream.destroy()
         }
         if (this.contentClient.active) {
-            if (
-                pluginState.version < minVersion ||
-                state.schema !== this.previousState.schema
-            ) {
+            if (pluginState.version === minVersion) {
                 await this.initState(state, pluginState)
             } else if (!hasValidStream) {
                 await this.initStream(state, pluginState)
@@ -199,15 +213,13 @@ class PluginLoop {
                 await this.submitOperation(state, pluginState)
             }
         }
-        this.previousState = state
     }
 
     private async initState(
         state: EditorState<EditorSchema>,
         pluginState: PluginState,
     ): Promise<void> {
-        const { type, id } = pluginState
-        const schema = toSyncOTSchema(type, state.schema)
+        const { type, id, schema } = this
 
         // Load the latest document snapshot.
         let snapshot = await this.contentClient.getSnapshot(
@@ -264,28 +276,19 @@ class PluginLoop {
         if (!this.view) return
         const newState = this.view.state
         const newPluginState = key.getState(newState)!
-        if (
-            newState.schema !== state.schema ||
-            newPluginState.type !== pluginState.type ||
-            newPluginState.id !== pluginState.id ||
-            newPluginState.version !== pluginState.version
-        )
-            return
+        if (newPluginState.version !== pluginState.version) return
 
         // Update the state.
-        const nextPluginState: PluginState = {
-            ...pluginState,
-            version: snapshot.version,
-            pendingSteps: [],
-        }
-        const nextState = EditorState.create({
+        const nextPluginState = new PluginState(snapshot.version, [])
+        let nextState = EditorState.create({
             schema: state.schema,
             doc: state.schema.nodeFromJSON(snapshot.data),
             plugins: newState.plugins,
         })
-        this.view.updateState(
-            nextState.apply(nextState.tr.setMeta(key, nextPluginState)),
-        )
+        nextState = nextState.apply(nextState.tr.setMeta(key, nextPluginState))
+        initializedStates.add(nextState)
+        this.view.updateState(nextState)
+        initializedStates.delete(nextState)
     }
 
     private async initStream(
@@ -294,13 +297,11 @@ class PluginLoop {
     ): Promise<void> {
         // Create a new stream.
         const stream = await this.contentClient.streamOperations(
-            pluginState.type,
-            pluginState.id,
+            this.type,
+            this.id,
             pluginState.version + 1,
             maxVersion + 1,
         )
-        this.streamType = pluginState.type
-        this.streamId = pluginState.id
         this.streamVersion = pluginState.version
         this.stream = stream
         this.stream.on('data', this.receiveOperation)
@@ -319,13 +320,13 @@ class PluginLoop {
         const { operationKey } = pluginState.pendingSteps[0]
         if (operationKey == null) {
             const newOperationKey = createId()
-            const nextPluginState = {
-                ...pluginState,
-                pendingSteps: pluginState.pendingSteps.map(
+            const nextPluginState = new PluginState(
+                pluginState.version,
+                pluginState.pendingSteps.map(
                     ({ step, invertedStep }) =>
                         new Rebaseable(step, invertedStep, newOperationKey),
                 ),
-            }
+            )
             return this.view!.dispatch(state.tr.setMeta(key, nextPluginState))
         }
 
@@ -351,10 +352,10 @@ class PluginLoop {
             // Submit the operation.
             await this.contentClient.submitOperation({
                 key: operationKey,
-                type: pluginState.type,
-                id: pluginState.id,
+                type: this.type,
+                id: this.id,
                 version: operationVersion,
-                schema: toSyncOTSchema(pluginState.type, state.schema).hash,
+                schema: this.schema.hash,
                 data: operationSteps,
                 meta: null,
             })
@@ -395,13 +396,10 @@ class PluginLoop {
 
         if (!this.view) return
         const { state } = this.view
-        const pluginState = key.getState(state)
-        if (!pluginState) return
+        const pluginState = key.getState(state)!
 
-        const { type, id, version, pendingSteps } = pluginState
+        const { version, pendingSteps } = pluginState
         const nextVersion = version + 1
-        assert(operation.type === type, 'Unexpected operation.type.')
-        assert(operation.id === id, 'Unexpected operation.id.')
         assert(
             operation.version === nextVersion,
             'Unexpected operation.version.',
@@ -414,13 +412,10 @@ class PluginLoop {
             pendingSteps[0].operationKey === operation.key
         ) {
             // Update the "syncOT" plugin's state.
-            const nextPluginState: PluginState = {
-                ...pluginState,
-                version: nextVersion,
-                pendingSteps: pendingSteps.filter(
-                    (step) => step.operationKey == null,
-                ),
-            }
+            const nextPluginState = new PluginState(
+                nextVersion,
+                pendingSteps.filter((step) => step.operationKey == null),
+            )
             return this.view.dispatch(tr.setMeta(key, nextPluginState))
         }
 
@@ -486,11 +481,10 @@ class PluginLoop {
         }
 
         {
-            const nextPluginState: PluginState = {
-                ...pluginState,
-                version: nextVersion,
-                pendingSteps: rebasedPendingSteps,
-            }
+            const nextPluginState = new PluginState(
+                nextVersion,
+                rebasedPendingSteps,
+            )
             return this.view.dispatch(
                 tr
                     // Tell the "prosemirror-history" plugin to rebase its items.
@@ -511,32 +505,26 @@ interface JsonObject {
 
 export class Rebaseable {
     constructor(
-        public step: Step,
-        public invertedStep: Step,
-        public operationKey: string | undefined,
+        public readonly step: Step,
+        public readonly invertedStep: Step,
+        public readonly operationKey: string | undefined,
     ) {}
 }
 
 /**
  * The `syncOT` plugin's state.
  */
-export interface PluginState {
-    /**
-     * The type of the document in SyncOT.
-     */
-    type: string
-    /**
-     * The ID of the document in SyncOT.
-     */
-    id: string
-    /**
-     * The version number of the document in SyncOT with content corresponding to this state.
-     */
-    version: number
-    /**
-     * A list of steps which have not been recorded and confirmed by the server.
-     */
-    pendingSteps: Rebaseable[]
+export class PluginState {
+    public constructor(
+        /**
+         * The version number of the document in SyncOT with content corresponding to this state.
+         */
+        public readonly version: number,
+        /**
+         * A list of steps which have not been recorded and confirmed by the server.
+         */
+        public readonly pendingSteps: Rebaseable[],
+    ) {}
 }
 
 /**
