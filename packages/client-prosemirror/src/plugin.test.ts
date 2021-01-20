@@ -201,22 +201,26 @@ describe('syncOT', () => {
         function createView({
             onError,
             doc = defaultDoc,
+            state,
         }: {
             onError?: (error: Error) => void
             doc?: Node
+            state?: EditorState
         } = {}): EditorView {
             const view = new EditorView(undefined, {
-                state: EditorState.create({
-                    doc,
-                    plugins: [
-                        syncOT({
-                            type,
-                            id,
-                            contentClient,
-                            onError,
-                        }),
-                    ],
-                }),
+                state:
+                    state ||
+                    EditorState.create({
+                        doc,
+                        plugins: [
+                            syncOT({
+                                type,
+                                id,
+                                contentClient,
+                                onError,
+                            }),
+                        ],
+                    }),
             })
             views.push(view)
             return view
@@ -391,6 +395,184 @@ describe('syncOT', () => {
             expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
             expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
             expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    key: expect.toBeString(),
+                    type,
+                    id,
+                    version: minVersion + 1,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: {
+                        session: sessionId,
+                        time: expect.toBeNumber(),
+                        user: userId,
+                    },
+                }),
+            )
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 2,
+                maxVersion + 1,
+            )
+        })
+
+        test('init with a new document after resetting "version"', async () => {
+            let state = EditorState.create({
+                doc: defaultDoc,
+                plugins: [syncOT({ type, id, contentClient })],
+            })
+            state = state.apply(
+                state.tr.setMeta(
+                    key,
+                    new PluginState(minVersion + 3, new Array(0)),
+                ),
+            )
+            const view = createView({ state })
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 3, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Delay getSnapshot.
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => {
+                    await whenNextTick()
+                    return {
+                        type: snapshotType,
+                        id: snapshotId,
+                        version: 0,
+                        schema: '',
+                        data: null,
+                        meta: null,
+                    }
+                },
+            )
+
+            // Verify the intermediate state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify the new state.
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Verify contentClient usage.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+                type,
+                id,
+                maxVersion,
+            )
+
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    key: expect.toBeString(),
+                    type,
+                    id,
+                    version: minVersion + 1,
+                    schema: schema.hash,
+                    data: defaultDoc.toJSON(),
+                    meta: {
+                        session: sessionId,
+                        time: expect.toBeNumber(),
+                        user: userId,
+                    },
+                }),
+            )
+
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledWith(
+                type,
+                id,
+                minVersion + 2,
+                maxVersion + 1,
+            )
+        })
+
+        test('init with a new document after resetting "pendingSteps"', async () => {
+            let state = EditorState.create({
+                doc: defaultDoc,
+                plugins: [syncOT({ type, id, contentClient })],
+            })
+            state = state.apply(
+                state.tr.setMeta(
+                    key,
+                    new PluginState(minVersion, new Array(1)),
+                ),
+            )
+            const view = createView({ state })
+
+            // Verify the initial state.
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion, new Array(1)),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+            // Delay getSnapshot.
+            contentClient.getSnapshot.mockImplementationOnce(
+                async (snapshotType, snapshotId) => {
+                    await whenNextTick()
+                    return {
+                        type: snapshotType,
+                        id: snapshotId,
+                        version: 0,
+                        schema: '',
+                        data: null,
+                        meta: null,
+                    }
+                },
+            )
+
+            // Verify the intermediate state.
+            await whenNextTick()
             expect(key.getState(view.state)).toStrictEqual(
                 new PluginState(minVersion, []),
             )
@@ -791,112 +973,10 @@ describe('syncOT', () => {
             expect(onError).toHaveBeenCalledTimes(1)
             expect(onError).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    name: 'SyncOTError Assert',
+                    name: 'SyncOTError SchemaConflict',
                     message:
                         'Failed to convert the existing content to the new schema.',
                 }),
-            )
-        })
-
-        test('init with an existing document and version change in the meantime', async () => {
-            const initialDoc = editorSchema.topNodeType.createChecked(
-                null,
-                editorSchema.text('content which will be overridden'),
-            )
-            const view = createView({ doc: initialDoc })
-            let resolveLoadSnapshot = noop
-            const loadSnapshotPromise = new Promise<Snapshot>(
-                (resolve) =>
-                    (resolveLoadSnapshot = () =>
-                        resolve({
-                            type,
-                            id,
-                            version: minVersion + 3,
-                            schema: schema.hash,
-                            data: defaultDoc.toJSON(),
-                            meta: null,
-                        })),
-            )
-            contentClient.getSnapshot.mockImplementationOnce(
-                () => loadSnapshotPromise,
-            )
-
-            // Verify the initial state.
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-            expect(key.getState(view.state)).toStrictEqual(
-                new PluginState(minVersion, []),
-            )
-            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
-
-            // Verify the state has not changed while waiting for loadSnapshot.
-            await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual(
-                new PluginState(minVersion, []),
-            )
-            expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
-
-            // Update the state.
-            view.dispatch(
-                view.state.tr.replace(
-                    0,
-                    view.state.doc.nodeSize - 2,
-                    new Slice(
-                        Fragment.from(editorSchema.text('some new content')),
-                        0,
-                        0,
-                    ),
-                ),
-            )
-            view.dispatch(
-                view.state.tr.setMeta(
-                    key,
-                    new PluginState(minVersion + 20, []),
-                ),
-            )
-            const newState = view.state
-            expect(newState.doc.toJSON()).toEqual({
-                type: 'doc',
-                content: [
-                    {
-                        type: 'text',
-                        text: 'some new content',
-                    },
-                ],
-            })
-            expect(key.getState(view.state)).toStrictEqual(
-                new PluginState(minVersion + 20, []),
-            )
-            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
-
-            // Verify the state has not changed because it was already initialized.
-            resolveLoadSnapshot()
-            await whenNextTick()
-            expect(key.getState(view.state)).toStrictEqual(
-                new PluginState(minVersion + 20, []),
-            )
-            expect(view.state.doc.toJSON()).toStrictEqual(newState.doc.toJSON())
-
-            // Verify contentClient usage.
-            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
-            expect(contentClient.getSnapshot).toHaveBeenCalledWith(
-                type,
-                id,
-                maxVersion,
-            )
-
-            expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
-
-            expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
-
-            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
-            expect(contentClient.streamOperations).toHaveBeenCalledWith(
-                type,
-                id,
-                minVersion + 21,
-                maxVersion + 1,
             )
         })
 

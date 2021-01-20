@@ -1,5 +1,6 @@
 import {
     ContentClient,
+    createSchemaConflictError,
     isAlreadyExistsError,
     maxVersion,
     minVersion,
@@ -105,12 +106,12 @@ export function syncOT({
             workLoop((notify) => {
                 localNotify = notify
                 return new PluginLoop(
-                    getView,
-                    contentClient,
-                    onError,
-                    notify,
                     type,
                     id,
+                    contentClient,
+                    onError,
+                    getView,
+                    notify,
                 )
             })
             return {
@@ -155,16 +156,16 @@ class PluginLoop {
     private initialized: boolean
 
     public constructor(
-        private readonly getView: () => EditorView | undefined,
-        private readonly contentClient: ContentClient,
-        public readonly onError: (error: Error) => void,
-        private readonly notify: () => void,
         private readonly type: string,
         private readonly id: string,
+        private readonly contentClient: ContentClient,
+        public readonly onError: (error: Error) => void,
+        private readonly getView: () => EditorView | undefined,
+        private readonly notify: () => void,
     ) {
         const state = this.view!.state
         this.initialized = initializedStates.has(state)
-        this.schema = toSyncOTSchema(this.type, this.view!.state.schema)
+        this.schema = toSyncOTSchema(this.type, state.schema)
         this.contentClient.on('active', this.notify)
     }
 
@@ -206,19 +207,16 @@ class PluginLoop {
         }
         if (this.contentClient.active) {
             if (pluginState.version === minVersion) {
-                await this.initState(state, pluginState)
+                await this.initState(state)
             } else if (!hasValidStream) {
-                await this.initStream(state, pluginState)
+                await this.initStream(pluginState.version)
             } else {
                 await this.submitOperation(state, pluginState)
             }
         }
     }
 
-    private async initState(
-        state: EditorState<EditorSchema>,
-        pluginState: PluginState,
-    ): Promise<void> {
+    private async initState(state: EditorState<EditorSchema>): Promise<void> {
         const { type, id, schema } = this
 
         // Load the latest document snapshot.
@@ -230,7 +228,7 @@ class PluginLoop {
 
         // Handle schema change.
         if (snapshot.schema !== schema.hash) {
-            let node: Node
+            let node: Node | null
             if (snapshot.version === minVersion) {
                 node = state.doc
             } else {
@@ -240,11 +238,11 @@ class PluginLoop {
                 const oldNode = fromSyncOTSchema(oldSchema).nodeFromJSON(
                     snapshot.data,
                 )
-                node = changeSchema(oldNode, state.schema)!
-                assert(
-                    node,
-                    'Failed to convert the existing content to the new schema.',
-                )
+                node = changeSchema(oldNode, state.schema)
+                if (!node)
+                    throw createSchemaConflictError(
+                        'Failed to convert the existing content to the new schema.',
+                    )
             }
 
             await this.contentClient.registerSchema(schema)
@@ -273,36 +271,34 @@ class PluginLoop {
         }
 
         // Handle state changed in the meantime.
-        if (!this.view) return
-        const newState = this.view.state
-        const newPluginState = key.getState(newState)!
-        if (newPluginState.version !== pluginState.version) return
+        if (this.isDone()) return
 
         // Update the state.
         const nextPluginState = new PluginState(snapshot.version, [])
         let nextState = EditorState.create({
             schema: state.schema,
             doc: state.schema.nodeFromJSON(snapshot.data),
-            plugins: newState.plugins,
+            plugins: state.plugins,
         })
         nextState = nextState.apply(nextState.tr.setMeta(key, nextPluginState))
+        assert(
+            key.getState(nextState) === nextPluginState,
+            'Cannot update the syncOT plugin state.',
+        )
         initializedStates.add(nextState)
-        this.view.updateState(nextState)
+        this.view!.updateState(nextState)
         initializedStates.delete(nextState)
     }
 
-    private async initStream(
-        _state: EditorState,
-        pluginState: PluginState,
-    ): Promise<void> {
+    private async initStream(version: number): Promise<void> {
         // Create a new stream.
         const stream = await this.contentClient.streamOperations(
             this.type,
             this.id,
-            pluginState.version + 1,
+            version + 1,
             maxVersion + 1,
         )
-        this.streamVersion = pluginState.version
+        this.streamVersion = version
         this.stream = stream
         this.stream.on('data', this.receiveOperation)
         this.stream.on('error', this.onError)
@@ -390,14 +386,12 @@ class PluginLoop {
      * @param operation The operation to apply.
      */
     private receiveOperation = (operation: Operation): void => {
+        if (this.isDone()) return
         // TODO handle schema mismatch
 
         this.streamVersion = operation.version
-
-        if (!this.view) return
-        const { state } = this.view
+        const { dispatch, state } = this.view!
         const pluginState = key.getState(state)!
-
         const { version, pendingSteps } = pluginState
         const nextVersion = version + 1
         assert(
@@ -416,7 +410,7 @@ class PluginLoop {
                 nextVersion,
                 pendingSteps.filter((step) => step.operationKey == null),
             )
-            return this.view.dispatch(tr.setMeta(key, nextPluginState))
+            return dispatch(tr.setMeta(key, nextPluginState))
         }
 
         // Deserialize the steps from the operation.
@@ -485,7 +479,7 @@ class PluginLoop {
                 nextVersion,
                 rebasedPendingSteps,
             )
-            return this.view.dispatch(
+            return dispatch(
                 tr
                     // Tell the "prosemirror-history" plugin to rebase its items.
                     // This is based on the "prosemirror-collab" plugin.
