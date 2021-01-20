@@ -22,7 +22,12 @@ import {
     Schema as EditorSchema,
     Slice,
 } from 'prosemirror-model'
-import { EditorState, Plugin } from 'prosemirror-state'
+import {
+    AllSelection,
+    EditorState,
+    Plugin,
+    TextSelection,
+} from 'prosemirror-state'
 import { EditorView } from 'prosemirror-view'
 import { Duplex } from 'readable-stream'
 import { syncOT } from '.'
@@ -2290,7 +2295,7 @@ describe('syncOT', () => {
             contentClient.submitOperation.mockClear()
             contentClient.streamOperations.mockClear()
 
-            // Reveive an operation.
+            // Receive an operation.
             const tr = view.state.tr
                 .insertText(' new', 4, 4)
                 .insertText(' very', 4, 4)
@@ -2309,6 +2314,118 @@ describe('syncOT', () => {
             )
             expect(view.state.doc.toJSON()).toStrictEqual(
                 someNewContent.toJSON(),
+            )
+        })
+
+        test('receive a foreign operation with TextSelection', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('one three five'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('zero one two three four five'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+            view.dispatch(
+                view.state.tr.setSelection(
+                    TextSelection.create(view.state.doc, 4, 10),
+                ),
+            )
+
+            // Receive an operation.
+            const tr = view.state.tr
+                .insertText('four ', 10, 10)
+                .insertText('two ', 4, 4)
+                .insertText('zero ', 0, 0)
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: schema.hash,
+                data: tr.steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(operation)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            expect(view.state.selection).toStrictEqual(
+                TextSelection.create(view.state.doc, 9, 19),
+            )
+        })
+
+        test('receive a foreign operation with AllSelection', async () => {
+            const someContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('one three five'),
+            )
+            const someNewContent = editorSchema.topNodeType.createChecked(
+                null,
+                editorSchema.text('zero one two three four five'),
+            )
+            const view = createView({ doc: someContent })
+            await whenNextTick()
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 1, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(someContent.toJSON())
+            expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+            expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+            expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+            expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+            const stream: Duplex = await contentClient.streamOperations.mock
+                .results[0].value
+            contentClient.getSnapshot.mockClear()
+            contentClient.registerSchema.mockClear()
+            contentClient.submitOperation.mockClear()
+            contentClient.streamOperations.mockClear()
+            view.dispatch(
+                view.state.tr.setSelection(new AllSelection(view.state.doc)),
+            )
+
+            // Receive an operation.
+            const tr = view.state.tr
+                .insertText('four ', 10, 10)
+                .insertText('two ', 4, 4)
+                .insertText('zero ', 0, 0)
+            const operation: Operation = {
+                key: createId(),
+                type,
+                id,
+                version: minVersion + 2,
+                schema: schema.hash,
+                data: tr.steps.map((step) => step.toJSON()),
+                meta: null,
+            }
+            stream.push(operation)
+            expect(key.getState(view.state)).toStrictEqual(
+                new PluginState(minVersion + 2, []),
+            )
+            expect(view.state.doc.toJSON()).toStrictEqual(
+                someNewContent.toJSON(),
+            )
+            expect(view.state.selection).toStrictEqual(
+                new AllSelection(view.state.doc),
             )
         })
     })
