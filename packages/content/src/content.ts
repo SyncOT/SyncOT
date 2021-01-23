@@ -201,7 +201,7 @@ class DefaultContent implements Content {
         const contentType = this.getContentType(schema.type)
         throwError(contentType.validateSchema(schema))
         try {
-            return this.contentStore.storeSchema(schema)
+            return await this.contentStore.storeSchema(schema)
         } catch (error) {
             if (isAlreadyExistsError(error)) return
             throw error
@@ -209,7 +209,7 @@ class DefaultContent implements Content {
     }
 
     public async getSchema(key: string): Promise<Schema | null> {
-        return this.contentStore.loadSchema(key)
+        return await this.contentStore.loadSchema(key)
     }
 
     public async getSnapshot(
