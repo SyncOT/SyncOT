@@ -270,7 +270,12 @@ class PluginLoop {
                     time: Date.now(),
                 },
             }
-            await this.contentClient.submitOperation(operation)
+            try {
+                await this.contentClient.submitOperation(operation)
+            } catch (error) {
+                if (isAlreadyExistsError(error)) return this.notify()
+                throw error
+            }
             snapshot = {
                 type: operation.type,
                 id: operation.id,

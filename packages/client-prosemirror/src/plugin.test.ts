@@ -5,6 +5,7 @@ import {
     ContentClient,
     ContentClientEvents,
     createAlreadyExistsError,
+    createBaseSnapshot,
     maxVersion,
     minVersion,
     Operation,
@@ -63,14 +64,8 @@ class MockContentClient
         Promise.resolve(null),
     )
     getSnapshot = jest.fn<Promise<Snapshot>, [string, string, number?]>(
-        async (snapshotType, snapshotId) => ({
-            type: snapshotType,
-            id: snapshotId,
-            version: minVersion,
-            schema: '',
-            data: null,
-            meta: null,
-        }),
+        async (snapshotType, snapshotId) =>
+            createBaseSnapshot(snapshotType, snapshotId),
     )
     submitOperation = jest.fn<Promise<undefined>, [Operation]>(
         async () => undefined,
@@ -669,6 +664,92 @@ describe('view', () => {
         expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
 
         expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+
+        expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+        expect(contentClient.streamOperations).toHaveBeenCalledWith(
+            type,
+            id,
+            minVersion + 4,
+            maxVersion + 1,
+        )
+    })
+
+    test('init with an existing document after getting "operation already exists" error', async () => {
+        const initialDoc = editorSchema.topNodeType.createChecked(
+            null,
+            editorSchema.text('content which will be overridden'),
+        )
+        const view = createView({ doc: initialDoc })
+        expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+        expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+        expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+        expect(key.getState(view.state)).toStrictEqual(
+            new PluginState(minVersion, []),
+        )
+        expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
+
+        contentClient.submitOperation.mockImplementationOnce((operation) =>
+            Promise.reject(
+                createAlreadyExistsError('Operation', operation, 'version', 1),
+            ),
+        )
+        contentClient.getSnapshot.mockImplementationOnce(
+            async (snapshotType, snapshotId) =>
+                createBaseSnapshot(snapshotType, snapshotId),
+        )
+        contentClient.getSnapshot.mockImplementationOnce(
+            async (snapshotType, snapshotId) => ({
+                type: snapshotType,
+                id: snapshotId,
+                version: minVersion + 3,
+                schema: schema.hash,
+                data: defaultDoc.toJSON(),
+                meta: null,
+            }),
+        )
+
+        // Verify the new state.
+        await whenNextTick()
+        expect(key.getState(view.state)).toStrictEqual(
+            new PluginState(minVersion + 3, []),
+        )
+        expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+        // Verify contentClient usage.
+        expect(contentClient.getSnapshot).toHaveBeenCalledTimes(2)
+        expect(contentClient.getSnapshot).toHaveBeenNthCalledWith(
+            1,
+            type,
+            id,
+            maxVersion,
+        )
+        expect(contentClient.getSnapshot).toHaveBeenNthCalledWith(
+            2,
+            type,
+            id,
+            maxVersion,
+        )
+
+        expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+        expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+
+        expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+        expect(contentClient.submitOperation).toHaveBeenCalledWith(
+            expect.objectContaining({
+                key: expect.toBeString(),
+                type,
+                id,
+                version: minVersion + 1,
+                schema: schema.hash,
+                data: initialDoc.toJSON(),
+                meta: {
+                    session: sessionId,
+                    time: expect.toBeNumber(),
+                    user: userId,
+                },
+            }),
+        )
 
         expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
         expect(contentClient.streamOperations).toHaveBeenCalledWith(
