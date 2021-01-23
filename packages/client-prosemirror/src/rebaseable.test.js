@@ -1,3 +1,10 @@
+// The test code in this file is copied from
+// https://github.com/ProseMirror/prosemirror-collab/blob/b053a302b12937f80cd4d0c92847b058eb5addcb/test/test-rebase.js
+// I only tweaked it a bit to:
+// - use Rebaseable and rebaseSteps from SyncOT
+// - use jest for assertions
+// - fix lint errors
+
 import {
     schema,
     eq,
@@ -10,13 +17,6 @@ import {
 } from 'prosemirror-test-builder'
 import { Transform } from 'prosemirror-transform'
 import { Rebaseable, rebaseSteps } from './rebaseable'
-
-// The test code below is copied from
-// https://github.com/ProseMirror/prosemirror-collab/blob/b053a302b12937f80cd4d0c92847b058eb5addcb/test/test-rebase.js
-// I only tweaked it a bit to:
-// - use Rebaseable and rebaseSteps from SyncOT
-// - use jest for assertions
-// - fix lint errors
 
 function runRebase(transforms, expected) {
     const start = transforms[0].before
