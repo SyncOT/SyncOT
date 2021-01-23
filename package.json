@@ -13,6 +13,7 @@
     "@sinonjs/fake-timers": "^6.0.1",
     "@types/ioredis": "^4.0.15",
     "@types/jest": "^26.0.15",
+    "@types/prosemirror-history": "^1.0.2",
     "@types/prosemirror-test-builder": "^1.0.2",
     "@types/sinonjs__fake-timers": "^6.0.2",
     "@types/sockjs": "^0.3.31",
