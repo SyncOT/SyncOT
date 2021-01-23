@@ -444,6 +444,111 @@ describe('view', () => {
         )
     })
 
+    test('init with a new document after error', async () => {
+        const onError = jest.fn()
+        const view = createView({ onError })
+
+        // Verify the initial state.
+        expect(contentClient.getSnapshot).toHaveBeenCalledTimes(0)
+        expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        expect(contentClient.registerSchema).toHaveBeenCalledTimes(0)
+        expect(contentClient.submitOperation).toHaveBeenCalledTimes(0)
+        expect(key.getState(view.state)).toStrictEqual(
+            new PluginState(minVersion, []),
+        )
+        expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+        const error = new Error('test error')
+        contentClient.submitOperation.mockImplementationOnce(() =>
+            Promise.reject(error),
+        )
+
+        // Make sure the state has not changed.
+        await whenNextTick()
+        expect(key.getState(view.state)).toStrictEqual(
+            new PluginState(minVersion, []),
+        )
+        expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+        expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+        expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+            type,
+            id,
+            maxVersion,
+        )
+        expect(contentClient.streamOperations).toHaveBeenCalledTimes(0)
+        expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+        expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+        expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+        expect(contentClient.submitOperation).toHaveBeenCalledWith(
+            expect.objectContaining({
+                key: expect.toBeString(),
+                type,
+                id,
+                version: minVersion + 1,
+                schema: schema.hash,
+                data: defaultDoc.toJSON(),
+                meta: {
+                    session: sessionId,
+                    time: expect.toBeNumber(),
+                    user: userId,
+                },
+            }),
+        )
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(error)
+        contentClient.getSnapshot.mockClear()
+        contentClient.streamOperations.mockClear()
+        contentClient.registerSchema.mockClear()
+        contentClient.submitOperation.mockClear()
+        onError.mockClear()
+
+        // Trigger the next request.
+        view.dispatch(view.state.tr)
+
+        // Verify the new state.
+        await whenNextTick()
+        expect(key.getState(view.state)).toStrictEqual(
+            new PluginState(minVersion + 1, []),
+        )
+        expect(view.state.doc.toJSON()).toStrictEqual(defaultDoc.toJSON())
+
+        // Verify contentClient usage.
+        expect(contentClient.getSnapshot).toHaveBeenCalledTimes(1)
+        expect(contentClient.getSnapshot).toHaveBeenCalledWith(
+            type,
+            id,
+            maxVersion,
+        )
+
+        expect(contentClient.registerSchema).toHaveBeenCalledTimes(1)
+        expect(contentClient.registerSchema).toHaveBeenCalledWith(schema)
+
+        expect(contentClient.submitOperation).toHaveBeenCalledTimes(1)
+        expect(contentClient.submitOperation).toHaveBeenCalledWith(
+            expect.objectContaining({
+                key: expect.toBeString(),
+                type,
+                id,
+                version: minVersion + 1,
+                schema: schema.hash,
+                data: defaultDoc.toJSON(),
+                meta: {
+                    session: sessionId,
+                    time: expect.toBeNumber(),
+                    user: userId,
+                },
+            }),
+        )
+
+        expect(contentClient.streamOperations).toHaveBeenCalledTimes(1)
+        expect(contentClient.streamOperations).toHaveBeenCalledWith(
+            type,
+            id,
+            minVersion + 2,
+            maxVersion + 1,
+        )
+        expect(onError).toHaveBeenCalledTimes(0)
+    })
+
     test('init with a new document after resetting "version"', async () => {
         let state = EditorState.create({
             doc: defaultDoc,
