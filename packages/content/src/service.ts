@@ -146,11 +146,11 @@ class Service
             Number.isInteger(version) &&
                 version >= minVersion &&
                 version <= maxVersion,
-            'Argument "version" must be a non-negative integer or null.',
+            `Argument "version" must be an integer between minVersion (inclusive) and maxVersion (inclusive).`,
         )
 
-        if (!this.authService.mayReadContent(type, id))
-            throw createAuthError('Not authorized to read this snapshot.')
+        if (!(await this.authService.mayReadContent(type, id)))
+            throw createAuthError('Not authorized.')
 
         return this.content.getSnapshot(type, id, version)
     }
@@ -159,8 +159,13 @@ class Service
         this.assertOk()
         throwError(validateOperation(operation))
 
-        if (!this.authService.mayWriteContent(operation.type, operation.id))
-            throw createAuthError('Not authorized to submit this operation.')
+        if (
+            !(await this.authService.mayWriteContent(
+                operation.type,
+                operation.id,
+            ))
+        )
+            throw createAuthError('Not authorized.')
 
         return this.content.submitOperation({
             key: operation.key,
@@ -201,8 +206,8 @@ class Service
             'Argument "versionEnd" must be an integer between minVersion (inclusive) and maxVersion (exclusive).',
         )
 
-        if (!this.authService.mayReadContent(type, id))
-            throw createAuthError('Not authorized to stream these operations.')
+        if (!(await this.authService.mayReadContent(type, id)))
+            throw createAuthError('Not authorized.')
 
         const stream = await this.content.streamOperations(
             type,
@@ -229,7 +234,7 @@ class Service
 
     private assertAuthenticated(): void {
         if (!this.authService.active) {
-            throw createAuthError('No authenticated user.')
+            throw createAuthError('Not authenticated.')
         }
     }
 }
