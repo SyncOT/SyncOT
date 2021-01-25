@@ -112,13 +112,14 @@ class Client
         this.authClient.on('destroy', this.onDestroy)
         this.authClient.on('active', this.updateActive)
         this.authClient.on('inactive', this.updateActive)
-        this.updateActive()
+        queueMicrotask(this.updateActive)
     }
 
     public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
+        if (this.destroyed) return
+        this.active = false
+        this.sessionId = undefined
+        this.userId = undefined
         this.connection.off('destroy', this.onDestroy)
         this.authClient.off('destroy', this.onDestroy)
         this.authClient.off('active', this.updateActive)
@@ -165,9 +166,8 @@ class Client
     }
 
     private updateActive = (): void => {
-        if (this.active === this.authClient.active) {
-            return
-        }
+        if (this.destroyed) return
+        if (this.active === this.authClient.active) return
 
         if (this.authClient.active) {
             this.active = true
