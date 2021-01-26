@@ -8,10 +8,10 @@ import { Snapshot } from './snapshot'
 export interface ContentType {
     /**
      * Checks if `schema.data` is valid for the ProseMirror content type.
+     * Throws an error, if the schema is not valid.
      * @param schema The schema to validate.
-     * @returns An Error, if `schema` is invalid, otherwise `undefined`.
      */
-    validateSchema(schema: Schema): Error | undefined
+    validateSchema(schema: Schema): void
 
     /**
      * Registers a schema. Does nothing, if a schema with the same key has been already registered.

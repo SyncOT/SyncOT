@@ -6,12 +6,7 @@ import {
     SchemaHash,
     minVersion,
 } from '@syncot/content'
-import {
-    assert,
-    createInvalidEntityError,
-    validate,
-    Validator,
-} from '@syncot/util'
+import { assert, createInvalidEntityError } from '@syncot/util'
 import { Node, Schema as ProseMirrorSchema } from 'prosemirror-model'
 import { Step } from 'prosemirror-transform'
 import { equalShape, fromSyncOTSchema } from './schema'
@@ -28,97 +23,92 @@ export class ProseMirrorContentType implements ContentType {
     private readonly nodes: WeakMap<Snapshot, Node> = new WeakMap()
     private readonly steps: WeakMap<Operation, Step[]> = new WeakMap()
 
-    public validateSchema: Validator<Schema> = validate([
-        (schema) =>
-            typeof schema === 'object' && schema != null
-                ? undefined
-                : createInvalidEntityError('Schema', schema, null),
-        (schema) =>
-            typeof schema.data === 'object' && schema.data != null
-                ? undefined
-                : createInvalidEntityError('Schema', schema, 'data'),
-        (schema) =>
-            typeof schema.data.topNode === 'string' ||
-            schema.data.topNode == null
-                ? undefined
-                : createInvalidEntityError('Schema', schema, 'data.topNode'),
-        (schema) => {
+    public validateSchema(schema: Schema): void {
+        if (schema == null || typeof schema !== 'object')
+            throw createInvalidEntityError('Schema', schema, null)
+
+        if (schema.data == null || typeof schema.data !== 'object')
+            throw createInvalidEntityError('Schema', schema, 'data')
+
+        if (
+            schema.data.topNode != null &&
+            typeof schema.data.topNode !== 'string'
+        )
+            throw createInvalidEntityError('Schema', schema, 'data.topNode')
+
+        {
             const { nodes } = schema.data
-            if (!Array.isArray(nodes)) {
-                return createInvalidEntityError('Schema', schema, 'data.nodes')
-            }
-            if (nodes.length % 2 !== 0) {
-                return createInvalidEntityError(
+            if (!Array.isArray(nodes))
+                throw createInvalidEntityError('Schema', schema, 'data.nodes')
+
+            if (nodes.length % 2 !== 0)
+                throw createInvalidEntityError(
                     'Schema',
                     schema,
                     'data.nodes.length',
                 )
-            }
+
             for (let i = 0; i < nodes.length; i += 2) {
                 const nameIndex = i
                 const specIndex = i + 1
                 const name = nodes[nameIndex]
                 const spec = nodes[specIndex]
-                if (typeof name !== 'string') {
-                    return createInvalidEntityError(
+
+                if (typeof name !== 'string')
+                    throw createInvalidEntityError(
                         'Schema',
                         schema,
                         `data.nodes.${nameIndex}`,
                     )
-                }
-                if (typeof spec !== 'object' || spec == null) {
-                    return createInvalidEntityError(
+
+                if (typeof spec !== 'object' || spec == null)
+                    throw createInvalidEntityError(
                         'Schema',
                         schema,
                         `data.nodes.${specIndex}`,
                     )
-                }
             }
-            return undefined
-        },
-        (schema) => {
+        }
+        {
             const { marks } = schema.data
-            if (!Array.isArray(marks)) {
-                return createInvalidEntityError('Schema', schema, 'data.marks')
-            }
-            if (marks.length % 2 !== 0) {
-                return createInvalidEntityError(
+            if (!Array.isArray(marks))
+                throw createInvalidEntityError('Schema', schema, 'data.marks')
+
+            if (marks.length % 2 !== 0)
+                throw createInvalidEntityError(
                     'Schema',
                     schema,
                     'data.marks.length',
                 )
-            }
+
             for (let i = 0; i < marks.length; i += 2) {
                 const nameIndex = i
                 const specIndex = i + 1
                 const name = marks[nameIndex]
                 const spec = marks[specIndex]
-                if (typeof name !== 'string') {
-                    return createInvalidEntityError(
+
+                if (typeof name !== 'string')
+                    throw createInvalidEntityError(
                         'Schema',
                         schema,
                         `data.marks.${nameIndex}`,
                     )
-                }
-                if (typeof spec !== 'object' || spec == null) {
-                    return createInvalidEntityError(
+
+                if (typeof spec !== 'object' || spec == null)
+                    throw createInvalidEntityError(
                         'Schema',
                         schema,
                         `data.marks.${specIndex}`,
                     )
-                }
             }
-            return undefined
-        },
-        (schema) => {
-            try {
-                fromSyncOTSchema(schema)
-                return undefined
-            } catch (error) {
-                return createInvalidEntityError('Schema', schema, 'data', error)
-            }
-        },
-    ])
+        }
+
+        try {
+            fromSyncOTSchema(schema)
+        } catch (error) {
+            throw createInvalidEntityError('Schema', schema, 'data', error)
+        }
+    }
 
     public registerSchema(schema: Schema): void {
         if (this.schemas.has(schema.hash)) return

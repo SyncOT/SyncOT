@@ -7,7 +7,6 @@ import {
     isOpenWritableStream,
     last,
     noop,
-    throwError,
     WorkLoop,
     workLoop,
 } from '@syncot/util'
@@ -178,11 +177,11 @@ class DefaultContent implements Content {
         )
         assert(
             Number.isInteger(cacheTTL) && cacheTTL >= 0,
-            'Argument "cacheTTL" must be a positive integer or undefined.',
+            'Argument "cacheTTL" must be a non-negative integer or undefined.',
         )
         assert(
             Number.isInteger(cacheLimit) && cacheLimit >= 0,
-            'Argument "cacheLimit" must be a positive integer or undefined.',
+            'Argument "cacheLimit" must be a non-negative integer or undefined.',
         )
 
         workLoop((triggerStreamsUpdate) => {
@@ -199,7 +198,7 @@ class DefaultContent implements Content {
     public async registerSchema(schema: Schema): Promise<void> {
         this.checkSchemaSize(schema)
         const contentType = this.getContentType(schema.type)
-        throwError(contentType.validateSchema(schema))
+        contentType.validateSchema(schema)
         try {
             return await this.contentStore.storeSchema(schema)
         } catch (error) {

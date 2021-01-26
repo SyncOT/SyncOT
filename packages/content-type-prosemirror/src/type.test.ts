@@ -222,11 +222,10 @@ describe('validateSchema', () => {
             undefined,
         ],
     ])('%s', (_, data, invalidProperty, cause) => {
-        const result = contentType.validateSchema(data)
         if (invalidProperty === undefined) {
-            expect(result).toBeUndefined()
+            contentType.validateSchema(data)
         } else {
-            expect(result).toEqual(
+            expect(() => contentType.validateSchema(data)).toThrow(
                 expect.objectContaining({
                     entity: data,
                     entityName: 'Schema',
