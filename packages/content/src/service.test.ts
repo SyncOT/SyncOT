@@ -147,12 +147,12 @@ describe('initialization errors', () => {
         )
     })
 
-    test('content === undefined', () => {
+    test('content === 5', () => {
         expect(() =>
             createContentService({
                 connection,
                 authService,
-                content: undefined as any,
+                content: 5 as any,
             }),
         ).toThrow(
             expect.objectContaining({

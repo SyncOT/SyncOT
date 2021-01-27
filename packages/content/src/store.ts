@@ -13,11 +13,11 @@ export interface ContentStore {
     storeSchema(schema: Schema): Promise<void>
 
     /**
-     * Loads a Schema by key.
-     * @param key The schema key.
-     * @returns An existing Schema with the given `key`, or `null`, if not found.
+     * Loads a Schema by hash.
+     * @param hash The schema hash.
+     * @returns An existing Schema with the given `hash`, or `null`, if not found.
      */
-    loadSchema(key: string): Promise<Schema | null>
+    loadSchema(hash: string): Promise<Schema | null>
 
     /**
      * Stores the specified operation.

@@ -268,7 +268,6 @@ describe('storeSnapshot', () => {
     test('success', async () => {
         const snapshot2 = {
             ...snapshot,
-            key: 'k-2',
             version: snapshot.version + 5,
         }
         await store.storeSnapshot(snapshot)
@@ -293,7 +292,6 @@ describe('storeSnapshot', () => {
     test('duplicate type, id and version', async () => {
         const snapshot2 = {
             ...snapshot,
-            key: 'k-2',
             data: 'd-2',
         }
         await store.storeSnapshot(snapshot)
@@ -318,8 +316,8 @@ describe('loadSnapshot', () => {
         ).resolves.toBe(snapshot)
     })
     test('found older version', async () => {
-        const snapshot2 = { ...snapshot, key: 'k-2', version: 10 }
-        const snapshot3 = { ...snapshot, key: 'k-3', version: 20 }
+        const snapshot2 = { ...snapshot, version: 10 }
+        const snapshot3 = { ...snapshot, version: 20 }
         await store.storeSnapshot(snapshot)
         await store.storeSnapshot(snapshot2)
         await store.storeSnapshot(snapshot3)

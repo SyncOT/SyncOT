@@ -19,12 +19,7 @@ import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
-import {
-    maxOperationSize,
-    maxSchemaSize,
-    maxSnapshotSize,
-    minVersion,
-} from './limits'
+import { maxOperationSize, maxSchemaSize, maxSnapshotSize } from './limits'
 
 /**
  * Content and schema management interface.
@@ -102,7 +97,7 @@ export interface CreateContentOptions {
      */
     contentTypes: { [key: string]: ContentType }
     /**
-     * The min number of milliseconds for which to cache operations.
+     * Defines the min number of milliseconds for which to cache snapshots and operations in memory.
      * Defaults to 10000.
      */
     cacheTTL?: number
@@ -111,6 +106,19 @@ export interface CreateContentOptions {
      * Defaults to 50.
      */
     cacheLimit?: number
+    /**
+     * Indicates if the specified snapshot should be stored in `contentStore`.
+     * Defaults to: `(snapshot) => snapshot.version % 1000 === 0`.
+     */
+    shouldStoreSnapshot?: (snapshot: Snapshot) => boolean
+    /**
+     * A function called when a non-critical error occurs.
+     * Defaults to: `(error) => console.warn(error)`.
+     *
+     * Warnings are emitted in the following situations:
+     * - saving a snapshot fails.
+     */
+    onWarning?: (error: Error) => void
 }
 
 /**
@@ -122,6 +130,9 @@ export function createContent({
     contentTypes,
     cacheTTL = 10000,
     cacheLimit = 50,
+    shouldStoreSnapshot = (snapshot: Snapshot) => snapshot.version % 1000 === 0,
+    // tslint:disable-next-line:no-console
+    onWarning = console.warn.bind(console),
 }: CreateContentOptions): Content {
     return new DefaultContent(
         contentStore,
@@ -129,32 +140,51 @@ export function createContent({
         contentTypes,
         cacheTTL,
         cacheLimit,
+        shouldStoreSnapshot,
+        onWarning,
     )
 }
 
 const { hasOwnProperty } = Object.prototype
 
 /**
- * Represents per document state, indexed by `combine(type, id)`.
+ * The cached snapshot and operations.
  */
-interface State {
+interface Cache {
     /**
      * The cached snapshot.
      */
-    readonly snapshot: Snapshot
+    snapshot: Snapshot
     /**
-     * The cache operations which can be applied to the cached snapshot.
+     * The cached operations which can be applied to the cached snapshot.
      */
-    readonly operations: Operation[]
+    operations: Operation[]
     /**
-     * Active operation streams.
+     * The time at which this cache item should expire.
      */
-    readonly streams: OperationStream[]
+    expireAt: number
 }
 
 class DefaultContent implements Content {
-    private readonly state: Map<string, State> = new Map()
+    /**
+     * The open operation streams, indexed by `combine(type, id)`.
+     */
+    private readonly streams: Map<string, OperationStream[]> = new Map()
+    /**
+     * A set of `combine(type, id)` values indicating which operation streams need updating.
+     */
     private readonly streamsToUpdate: Set<string> = new Set()
+
+    /**
+     * The cache of snapshots and operations, indexed by `combine(type, id)`.
+     */
+    private readonly cache: Map<string, Cache> = new Map()
+    /**
+     * A Set of `combine(type, id)` values indicating which cache items should expire.
+     * The insertion orders matches the order in which the items should expire.
+     */
+    private readonly expiringCacheItems: Set<string> = new Set()
+
     private triggerStreamsUpdate = noop
     public constructor(
         private readonly contentStore: ContentStore,
@@ -162,6 +192,8 @@ class DefaultContent implements Content {
         private readonly contentTypes: { [key: string]: ContentType },
         private readonly cacheTTL: number,
         private readonly cacheLimit: number,
+        private readonly shouldStoreSnapshot: (snapshot: Snapshot) => boolean,
+        private readonly onWarning: (error: Error) => void,
     ) {
         assert(
             this.contentStore && typeof this.contentStore === 'object',
@@ -182,6 +214,14 @@ class DefaultContent implements Content {
         assert(
             Number.isInteger(cacheLimit) && cacheLimit >= 0,
             'Argument "cacheLimit" must be a non-negative integer or undefined.',
+        )
+        assert(
+            typeof shouldStoreSnapshot === 'function',
+            'Argument "shouldStoreSnapshot" must be a function or undefined.',
+        )
+        assert(
+            typeof onWarning === 'function',
+            'Argument "onWarning" must be a function or undefined.',
         )
 
         workLoop((triggerStreamsUpdate) => {
@@ -207,8 +247,8 @@ class DefaultContent implements Content {
         }
     }
 
-    public async getSchema(key: string): Promise<Schema | null> {
-        return await this.contentStore.loadSchema(key)
+    public async getSchema(hash: string): Promise<Schema | null> {
+        return await this.contentStore.loadSchema(hash)
     }
 
     public async getSnapshot(
@@ -222,7 +262,7 @@ class DefaultContent implements Content {
     public async submitOperation(operation: Operation): Promise<void> {
         this.checkOperationSize(operation)
         const { type, id, version } = operation
-        const stateKey = combine(type, id)
+        const key = combine(type, id)
         const contentType = this.getContentType(operation.type)
         await this.ensureSchema(contentType, operation.schema)
 
@@ -236,12 +276,11 @@ class DefaultContent implements Content {
 
         try {
             await this.contentStore.storeOperation(operation)
-            this.cacheOperations(stateKey, [operation], contentType)
+            this.cacheOperations(key, [operation], contentType)
             this.pubSub.publish(combine('operation', type, id), operation)
+            this.storeSnapshotIfNecessary(snapshot)
         } catch (error) {
-            if (isAlreadyExistsError(error)) {
-                this.updateStreams(stateKey)
-            }
+            if (isAlreadyExistsError(error)) this.updateStreams(key)
             throw error
         }
     }
@@ -252,71 +291,65 @@ class DefaultContent implements Content {
         versionStart: number,
         versionEnd: number,
     ): Promise<Duplex> {
-        const stateKey = combine(type, id)
+        const key = combine(type, id)
         const stream = new OperationStream(type, id, versionStart, versionEnd)
 
         {
-            const state = this.state.get(stateKey)
-            if (state) {
-                this.state.set(stateKey, {
-                    ...state,
-                    streams: state.streams.concat(stream),
-                })
+            const streams = this.streams.get(key)
+            if (streams) {
+                this.streams.set(key, streams.concat(stream))
             } else {
-                this.state.set(stateKey, {
-                    snapshot: createBaseSnapshot(type, id),
-                    operations: [],
-                    streams: [stream],
-                })
+                this.streams.set(key, [stream])
                 this.pubSub.subscribe(
                     combine('operation', type, id),
                     this.onOperation,
                 )
+                this.touch(key)
             }
         }
 
         stream.on('close', () => {
-            const state = this.state.get(stateKey)
-            if (state) {
-                if (state.streams.length === 1 && state.streams[0] === stream) {
-                    this.state.delete(stateKey)
+            const streams = this.streams.get(key)
+            if (streams) {
+                if (streams.length === 1 && streams[0] === stream) {
+                    this.streams.delete(key)
                     this.pubSub.unsubscribe(
                         combine('operation', type, id),
                         this.onOperation,
                     )
+                    this.touch(key)
                 } else {
-                    this.state.set(stateKey, {
-                        ...state,
-                        streams: state.streams.filter((s) => s !== stream),
-                    })
+                    this.streams.set(
+                        key,
+                        streams.filter((s) => s !== stream),
+                    )
                 }
             }
         })
 
-        this.updateStreams(stateKey)
+        this.updateStreams(key)
         return stream
     }
 
-    private getStreams = (stateKey: string) => {
-        const state = this.state.get(stateKey)
-        return state && state.streams
+    private getStreams = (key: string) => {
+        return this.streams.get(key)
     }
 
-    private updateStreams(stateKey: string): void {
-        this.streamsToUpdate.add(stateKey)
+    private updateStreams(key: string): void {
+        this.streamsToUpdate.add(key)
         this.triggerStreamsUpdate()
     }
 
     private onOperation = (operation: Operation): void => {
         const { type, id, version } = operation
-        const stateKey = combine(type, id)
-        const state = this.state.get(stateKey)
-        if (!state) return
-        for (const stream of state.streams) {
+        const key = combine(type, id)
+        const streams = this.streams.get(key)
+        if (!streams) return
+        for (const stream of streams) {
             if (stream.versionNext === version) {
                 stream.pushOperation(operation)
             } else {
-                this.updateStreams(stateKey)
+                this.updateStreams(key)
             }
         }
     }
@@ -338,6 +371,16 @@ class DefaultContent implements Content {
         }
     }
 
+    private async storeSnapshotIfNecessary(snapshot: Snapshot): Promise<void> {
+        if (!this.shouldStoreSnapshot(snapshot)) return
+        try {
+            await this.contentStore.storeSnapshot(snapshot)
+        } catch (error) {
+            if (isAlreadyExistsError(error)) return
+            queueMicrotask(() => this.onWarning(error))
+        }
+    }
+
     private async loadSnapshot(
         type: string,
         id: string,
@@ -345,22 +388,18 @@ class DefaultContent implements Content {
     ): Promise<Snapshot> {
         let snapshot: Snapshot
         const contentType = this.getContentType(type)
-        const stateKey = combine(type, id)
-        const state = this.state.get(stateKey)
+        const key = combine(type, id)
+        const cache = this.cache.get(key)
 
         // Get a snapshot from the cache.
-        if (state && state.snapshot.version <= version) {
-            snapshot = state.snapshot
-            let versionNext = snapshot ? snapshot.version + 1 : minVersion
-            if (versionNext <= version) {
-                for (const operation of state.operations) {
-                    if (operation.version === versionNext) {
-                        snapshot = contentType.apply(snapshot, operation)
-                        versionNext++
-                        if (versionNext > version) break
-                    }
-                }
+        if (cache && cache.snapshot.version <= version) {
+            snapshot = cache.snapshot
+            for (const operation of cache.operations) {
+                if (operation.version > version) break
+                snapshot = contentType.apply(snapshot, operation)
+                this.storeSnapshotIfNecessary(snapshot)
             }
+            this.touch(key)
         } else {
             snapshot = createBaseSnapshot(type, id)
         }
@@ -374,21 +413,20 @@ class DefaultContent implements Content {
 
         // Get operations from the database.
         if (snapshot.version < version) {
-            const versionStart = snapshot.version + 1
-            const versionEnd = version + 1
             const operations = await this.loadOperations(
                 type,
                 id,
-                versionStart,
-                versionEnd,
+                snapshot.version + 1,
+                version + 1,
             )
             for (const operation of operations) {
                 snapshot = contentType.apply(snapshot, operation)
+                this.storeSnapshotIfNecessary(snapshot)
             }
         }
 
         // Cache only if we have just loaded the latest snapshot.
-        if (snapshot.version < version) this.cacheSnapshot(stateKey, snapshot)
+        if (snapshot.version < version) this.cacheSnapshot(key, snapshot)
 
         return snapshot
     }
@@ -402,16 +440,16 @@ class DefaultContent implements Content {
         const operations: Operation[] = []
         if (versionEnd <= versionStart) return operations
         const contentType = this.getContentType(type)
-        const stateKey = combine(type, id)
-        const state = this.state.get(stateKey)
+        const key = combine(type, id)
+        const cache = this.cache.get(key)
 
         // Get operations from the cache.
         if (
-            state &&
-            state.operations.length > 0 &&
-            state.operations[0].version <= versionStart
+            cache &&
+            cache.operations.length > 0 &&
+            cache.operations[0].version <= versionStart
         ) {
-            for (const operation of state.operations) {
+            for (const operation of cache.operations) {
                 if (
                     operation.version >= versionStart &&
                     operation.version < versionEnd
@@ -419,6 +457,7 @@ class DefaultContent implements Content {
                     operations.push(operation)
                 }
             }
+            this.touch(key)
         }
 
         // Get operations from the database.
@@ -435,51 +474,82 @@ class DefaultContent implements Content {
                 await this.ensureSchema(contentType, loadedOperation.schema)
                 operations.push(loadedOperation)
             }
-            this.cacheOperations(stateKey, operations, contentType)
+            this.cacheOperations(key, operations, contentType)
         }
 
         return operations
     }
 
-    private cacheSnapshot(stateKey: string, snapshot: Snapshot): void {
-        // Get state.
-        const state = this.state.get(stateKey)
-        if (!state) return
+    private touch(key: string): void {
+        this.expiringCacheItems.delete(key)
 
-        // Cache the snapshot only if it is newer than what we have already cached.
-        if (
-            state.operations.length > 0
-                ? last(state.operations)!.version < snapshot.version
-                : state.snapshot === null ||
-                  state.snapshot.version < snapshot.version
-        ) {
-            this.state.set(stateKey, {
-                ...state,
+        // Do not expire the cache for documents for which we have at least one stream open.
+        // This is a massive optimization for the common case of editing the document where
+        // the client opens a stream to receive document updates and submits new operations too.
+        // Submitting new updates is a very common operation which requires a recent snapshot,
+        // so having it cached locally helps a lot.
+        if (this.streams.has(key)) return
+
+        const cache = this.cache.get(key)
+        if (!cache) return
+
+        cache.expireAt = Date.now() + this.cacheTTL
+        this.expiringCacheItems.add(key)
+        this.scheduleExpireCache()
+    }
+
+    private expireCacheHandle: NodeJS.Timeout | undefined
+    private expireCache = (): void => {
+        const now = Date.now()
+        for (const key of this.expiringCacheItems) {
+            const cache = this.cache.get(key)
+            if (cache && cache.expireAt >= now) break
+            this.cache.delete(key)
+            this.expiringCacheItems.delete(key)
+        }
+        if (this.expiringCacheItems.size === 0) this.cancelExpireCache()
+    }
+
+    private scheduleExpireCache(): void {
+        if (this.expireCacheHandle == null) return
+        this.expireCacheHandle = setInterval(this.expireCache, 1000)
+        if (typeof this.expireCacheHandle.unref === 'function')
+            this.expireCacheHandle.unref()
+    }
+
+    private cancelExpireCache(): void {
+        if (this.expireCacheHandle == null) return
+        clearInterval(this.expireCacheHandle)
+        this.expireCacheHandle = undefined
+    }
+
+    private cacheSnapshot(key: string, snapshot: Snapshot): void {
+        if (!this.cache.has(key)) {
+            this.cache.set(key, {
                 snapshot,
                 operations: [],
+                expireAt: 0,
             })
+            this.touch(key)
         }
     }
 
     private cacheOperations(
-        stateKey: string,
+        key: string,
         newOperations: Operation[],
         contentType: ContentType,
     ): void {
         // Get state.
-        const state = this.state.get(stateKey)
-        if (!state) return
-        let { snapshot } = state
-        const operations = state.operations.slice(0)
+        const cache = this.cache.get(key)
+        if (!cache) return
+        const { operations } = cache
 
         // Add new operations.
         if (newOperations.length > 0) {
             let versionNext =
                 operations.length > 0
                     ? last(operations)!.version + 1
-                    : snapshot
-                    ? snapshot.version + 1
-                    : minVersion
+                    : cache.snapshot.version + 1
             if (
                 first(newOperations)!.version <= versionNext &&
                 versionNext <= last(newOperations)!.version
@@ -504,17 +574,12 @@ class DefaultContent implements Content {
                 operation.meta.time < minCacheTime ||
                 operations.length > maxCacheLength
             ) {
-                snapshot = contentType.apply(snapshot, operation)
+                cache.snapshot = contentType.apply(cache.snapshot, operation)
                 operations.shift()
             } else break
         }
 
-        // Update state.
-        this.state.set(stateKey, {
-            ...state,
-            snapshot,
-            operations,
-        })
+        this.touch(key)
     }
 
     private checkSchemaSize(schema: Schema): void {
