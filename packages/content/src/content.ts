@@ -4,7 +4,6 @@ import {
     createEntityTooLargeError,
     exponentialBackOffStrategy,
     first,
-    isOpenWritableStream,
     last,
     noop,
     WorkLoop,
@@ -12,14 +11,19 @@ import {
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { createNotFoundError, isAlreadyExistsError } from './error'
-import { Operation } from './operation'
+import { createBaseOperation, Operation } from './operation'
 import { PubSub } from './pubSub'
 import { Schema, SchemaHash } from './schema'
 import { createBaseSnapshot, Snapshot } from './snapshot'
 import { ContentStore } from './store'
 import { OperationStream } from './stream'
 import { ContentType } from './type'
-import { maxOperationSize, maxSchemaSize, maxSnapshotSize } from './limits'
+import {
+    maxOperationSize,
+    maxSchemaSize,
+    maxSnapshotSize,
+    minVersion,
+} from './limits'
 
 /**
  * Content and schema management interface.
@@ -310,20 +314,20 @@ class DefaultContent implements Content {
 
         stream.on('close', () => {
             const streams = this.streams.get(key)
-            if (streams) {
-                if (streams.length === 1 && streams[0] === stream) {
-                    this.streams.delete(key)
-                    this.pubSub.unsubscribe(
-                        combine('operation', type, id),
-                        this.onOperation,
-                    )
-                    this.touch(key)
-                } else {
-                    this.streams.set(
-                        key,
-                        streams.filter((s) => s !== stream),
-                    )
-                }
+            /* istanbul ignore if */
+            if (!streams) return
+            if (streams.length === 1 && streams[0] === stream) {
+                this.streams.delete(key)
+                this.pubSub.unsubscribe(
+                    combine('operation', type, id),
+                    this.onOperation,
+                )
+                this.touch(key)
+            } else {
+                this.streams.set(
+                    key,
+                    streams.filter((s) => s !== stream),
+                )
             }
         })
 
@@ -344,6 +348,7 @@ class DefaultContent implements Content {
         const { type, id, version } = operation
         const key = combine(type, id)
         const streams = this.streams.get(key)
+        /* istanbul ignore if */
         if (!streams) return
         for (const stream of streams) {
             if (stream.versionNext === version) {
@@ -442,27 +447,39 @@ class DefaultContent implements Content {
         const contentType = this.getContentType(type)
         const key = combine(type, id)
         const cache = this.cache.get(key)
+        let versionNext = versionStart
+
+        // Get the base operation.
+        if (versionStart === minVersion) {
+            operations.push(createBaseOperation(type, id))
+            versionNext++
+        }
 
         // Get operations from the cache.
-        if (
-            cache &&
-            cache.operations.length > 0 &&
-            cache.operations[0].version <= versionStart
-        ) {
-            for (const operation of cache.operations) {
-                if (
-                    operation.version >= versionStart &&
-                    operation.version < versionEnd
-                ) {
-                    operations.push(operation)
+        if (cache && cache.operations.length > 0) {
+            const cacheVersionStart = first(cache.operations)!.version
+            const cacheVersionEnd = last(cache.operations)!.version + 1
+
+            if (
+                versionNext >= cacheVersionStart &&
+                versionNext < cacheVersionEnd
+            ) {
+                const from = versionNext - cacheVersionStart
+                const to = Math.min(
+                    cache.operations.length,
+                    versionEnd - cacheVersionStart,
+                )
+
+                for (let i = from; i < to; i++) {
+                    operations.push(cache.operations[i])
                 }
+
+                versionNext += to - from
+                this.touch(key)
             }
-            this.touch(key)
         }
 
         // Get operations from the database.
-        const versionNext =
-            operations.length > 0 ? last(operations)!.version + 1 : versionStart
         if (versionNext < versionEnd) {
             const loadedOperations = await this.contentStore.loadOperations(
                 type,
@@ -599,7 +616,7 @@ class DefaultContent implements Content {
 }
 
 class StreamUpdater implements WorkLoop {
-    private readonly loadLimit = 50
+    private readonly loadLimit = 100
     public readonly onError = noop
     public readonly retryDelay = exponentialBackOffStrategy({
         minDelay: 1000,
@@ -633,11 +650,13 @@ class StreamUpdater implements WorkLoop {
 
         // Get the streams to update.
         const maybeStreams = this.getStreams(job)
-        if (!maybeStreams || maybeStreams.length === 0) return
-        const streams = maybeStreams.slice(0).sort(orderStreams)
+        /* istanbul ignore if */
+        if (!maybeStreams) return
+        const streams = maybeStreams.filter(needsUpdate).sort(orderStreams)
+        if (streams.length === 0) return
 
         // Find the first consecutive range of operations awaited by streams.
-        const { type, id, versionStart } = first(streams)!
+        const { type, id, versionNext } = first(streams)!
         let { versionEnd } = first(streams)!
         for (let i = 1; i < streams.length; i++) {
             const stream = streams[i]
@@ -645,23 +664,20 @@ class StreamUpdater implements WorkLoop {
                 versionEnd = Math.max(versionEnd, stream.versionEnd)
             }
         }
-        versionEnd = Math.min(versionEnd, versionStart + this.loadLimit)
+        versionEnd = Math.min(versionEnd, versionNext + this.loadLimit)
 
         try {
             // Load operations.
             const operations = await this.loadOperations(
                 type,
                 id,
-                versionStart,
+                versionNext,
                 versionEnd,
             )
 
             // Update the streams
             for (const stream of streams) {
-                if (
-                    isOpenWritableStream(stream) &&
-                    stream.versionNext < versionEnd
-                ) {
+                if (needsUpdate(stream) && stream.versionNext < versionEnd) {
                     for (const operation of operations) {
                         if (stream.versionNext === operation.version) {
                             stream.pushOperation(operation)
@@ -683,7 +699,8 @@ class StreamUpdater implements WorkLoop {
         } catch (error) {
             // Report the error on the first stream, if it is still open.
             const stream = first(streams)!
-            if (isOpenWritableStream(stream)) stream.emit('error', error)
+            /* istanbul ignore else */
+            if (needsUpdate(stream)) stream.emit('error', error)
 
             // Retry the job later.
             this.jobs.add(job)
@@ -697,8 +714,8 @@ function orderStreams(
     stream2: OperationStream,
 ): number {
     return (
-        stream2.versionNext - stream1.versionNext ||
-        stream1.versionEnd - stream2.versionEnd
+        stream1.versionNext - stream2.versionNext ||
+        stream2.versionEnd - stream1.versionEnd
     )
 }
 
@@ -706,4 +723,8 @@ function isResultRejected(
     result: PromiseSettledResult<any>,
 ): result is PromiseRejectedResult {
     return result.status === 'rejected'
+}
+
+function needsUpdate(stream: OperationStream): boolean {
+    return !stream.destroyed && stream.versionNext < stream.versionEnd
 }

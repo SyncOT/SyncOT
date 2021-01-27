@@ -5,6 +5,7 @@ import {
     createInvalidEntityError,
     whenNextTick,
 } from '@syncot/util'
+import { install as installClock } from '@sinonjs/fake-timers'
 import {
     Content,
     ContentStore,
@@ -18,6 +19,7 @@ import {
     maxSchemaSize,
     maxSnapshotSize,
     maxVersion,
+    minVersion,
     Operation,
     PubSub,
     Schema,
@@ -436,18 +438,19 @@ describe('getSnapshot', () => {
         )
     })
 
-    describe('no cache', () => {
-        test.each([
-            [0, 0, null],
-            [1, 1, 10],
-            [2, 2, 30],
-            [3, 3, 60],
-            [4, 4, 100],
-            [5, 5, 150],
-            [6, 6, 210],
-            [7, 6, 210],
-            [maxVersion, 6, 210],
-        ])('get version %d', async (requestedVersion, loadedVersion, data) => {
+    test.each([
+        [0, 0, null],
+        [1, 1, 10],
+        [2, 2, 30],
+        [3, 3, 60],
+        [4, 4, 100],
+        [5, 5, 150],
+        [6, 6, 210],
+        [7, 6, 210],
+        [maxVersion, 6, 210],
+    ])(
+        'get from database version %d',
+        async (requestedVersion, loadedVersion, data) => {
             await expect(
                 content.getSnapshot(type, id, requestedVersion),
             ).resolves.toEqual(
@@ -467,189 +470,187 @@ describe('getSnapshot', () => {
                               },
                 }),
             )
-        })
+        },
+    )
 
-        test('store snapshots, if necessary', async () => {
-            shouldStoreSnapshot.mockImplementation(
-                (snapshot) => snapshot.version % 2 === 0,
-            )
-            await expect(
-                content.getSnapshot(type, id, maxVersion),
-            ).resolves.toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 6,
-                    schema: validSchema.hash,
-                    data: 210,
-                    meta: {
-                        session,
-                        time: expect.toBeNumber(),
-                        user,
-                    },
-                }),
-            )
+    test('get from database and store snapshots, if necessary', async () => {
+        shouldStoreSnapshot.mockImplementation(
+            (snapshot) => snapshot.version % 2 === 0,
+        )
+        await expect(
+            content.getSnapshot(type, id, maxVersion),
+        ).resolves.toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 6,
+                schema: validSchema.hash,
+                data: 210,
+                meta: {
+                    session,
+                    time: expect.toBeNumber(),
+                    user,
+                },
+            }),
+        )
 
-            await expect(
-                contentStore.loadSnapshot(type, id, 1),
-            ).resolves.toEqual(expect.objectContaining({ version: 0 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 2),
-            ).resolves.toEqual(expect.objectContaining({ version: 0 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 3),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 4),
-            ).resolves.toEqual(expect.objectContaining({ version: 4 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 5),
-            ).resolves.toEqual(expect.objectContaining({ version: 4 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 6),
-            ).resolves.toEqual(expect.objectContaining({ version: 6 }))
-        })
+        await expect(contentStore.loadSnapshot(type, id, 1)).resolves.toEqual(
+            expect.objectContaining({ version: 0 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 2)).resolves.toEqual(
+            expect.objectContaining({ version: 0 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 3)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 4)).resolves.toEqual(
+            expect.objectContaining({ version: 4 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 5)).resolves.toEqual(
+            expect.objectContaining({ version: 4 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 6)).resolves.toEqual(
+            expect.objectContaining({ version: 6 }),
+        )
     })
 
-    describe('cache', () => {
-        test('load a cached snapshot requesting the exact version', async () => {
-            await content.getSnapshot(type, id, maxVersion)
-            const snapshot = await content.getSnapshot(type, id, 6)
-            expect(snapshot).toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 6,
-                    schema: validSchema.hash,
-                    data: 210,
-                }),
-            )
-        })
+    test('load a cached snapshot requesting the exact version', async () => {
+        await content.getSnapshot(type, id, maxVersion)
+        const snapshot = await content.getSnapshot(type, id, 6)
+        expect(snapshot).toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 6,
+                schema: validSchema.hash,
+                data: 210,
+            }),
+        )
+    })
 
-        test('load a cached snapshot requesting a higher version', async () => {
-            await content.getSnapshot(type, id, maxVersion)
-            const snapshot = await content.getSnapshot(type, id, maxVersion)
-            expect(snapshot).toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 6,
-                    schema: validSchema.hash,
-                    data: 210,
-                }),
-            )
-        })
+    test('load a cached snapshot requesting a higher version', async () => {
+        await content.getSnapshot(type, id, maxVersion)
+        const snapshot = await content.getSnapshot(type, id, maxVersion)
+        expect(snapshot).toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 6,
+                schema: validSchema.hash,
+                data: 210,
+            }),
+        )
+    })
 
-        test('load a snapshot using a cached snapshot and operations from the database', async () => {
-            await content.getSnapshot(type, id, maxVersion)
-            await contentStore.storeOperation(createOperation(7, 70)) // 280
-            const snapshot = await content.getSnapshot(type, id, maxVersion)
-            expect(snapshot).toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 7,
-                    schema: validSchema.hash,
-                    data: 280,
-                }),
-            )
-        })
+    test('load a snapshot using a cached snapshot and operations from the database', async () => {
+        await content.getSnapshot(type, id, maxVersion)
+        await contentStore.storeOperation(createOperation(7, 70)) // 280
+        const snapshot = await content.getSnapshot(type, id, maxVersion)
+        expect(snapshot).toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 7,
+                schema: validSchema.hash,
+                data: 280,
+            }),
+        )
+    })
 
-        test('load a snapshot from the database, when only a later version is cached', async () => {
-            await content.getSnapshot(type, id, maxVersion)
-            const snapshot = await content.getSnapshot(type, id, 5)
-            expect(snapshot).toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 5,
-                    schema: validSchema.hash,
-                    data: 150,
-                }),
-            )
-        })
+    test('load a snapshot from the database, when only a later version is cached', async () => {
+        await content.getSnapshot(type, id, maxVersion)
+        const snapshot = await content.getSnapshot(type, id, 5)
+        expect(snapshot).toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 5,
+                schema: validSchema.hash,
+                data: 150,
+            }),
+        )
+    })
 
-        test('load a snapshot using an older cached snapshot and operations', async () => {
-            // Cache the snapshot at version 6.
-            await content.getSnapshot(type, id, maxVersion)
-            await contentStore.storeOperation(createOperation(7, 70)) // 280
-            await contentStore.storeOperation(createOperation(8, 80)) // 360
-            await contentStore.storeOperation(createOperation(9, 90)) // 450
-            // Cache the operations at versions 7, 8 and 9.
-            await content.getSnapshot(type, id, maxVersion)
-            const snapshot = await content.getSnapshot(type, id, 8)
-            expect(snapshot).toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 8,
-                    schema: validSchema.hash,
-                    data: 360,
-                }),
-            )
-        })
+    test('load a snapshot using an older cached snapshot and operations', async () => {
+        // Cache the snapshot at version 6.
+        await content.getSnapshot(type, id, maxVersion)
+        await contentStore.storeOperation(createOperation(7, 70)) // 280
+        await contentStore.storeOperation(createOperation(8, 80)) // 360
+        await contentStore.storeOperation(createOperation(9, 90)) // 450
+        // Cache the operations at versions 7, 8 and 9.
+        await content.getSnapshot(type, id, maxVersion)
+        const snapshot = await content.getSnapshot(type, id, 8)
+        expect(snapshot).toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 8,
+                schema: validSchema.hash,
+                data: 360,
+            }),
+        )
+    })
 
-        test('store snapshots, if necessary', async () => {
-            // Cache the snapshot.
-            await content.getSnapshot(type, id, maxVersion)
-            await contentStore.storeOperation(createOperation(7, 70)) // 280
-            await contentStore.storeOperation(createOperation(8, 80)) // 360
-            await contentStore.storeOperation(createOperation(9, 90)) // 450
-            await contentStore.storeOperation(createOperation(10, 100)) // 550
-            // Cache the new operations.
-            await content.getSnapshot(type, id, maxVersion)
+    test('load cached snapshot and store snapshots, if necessary', async () => {
+        // Cache the snapshot.
+        await content.getSnapshot(type, id, maxVersion)
+        await contentStore.storeOperation(createOperation(7, 70)) // 280
+        await contentStore.storeOperation(createOperation(8, 80)) // 360
+        await contentStore.storeOperation(createOperation(9, 90)) // 450
+        await contentStore.storeOperation(createOperation(10, 100)) // 550
+        // Cache the new operations.
+        await content.getSnapshot(type, id, maxVersion)
 
-            shouldStoreSnapshot.mockImplementation(
-                (snapshot) => snapshot.version % 2 === 0,
-            )
-            await expect(
-                content.getSnapshot(type, id, maxVersion),
-            ).resolves.toEqual(
-                expect.objectContaining({
-                    type,
-                    id,
-                    version: 10,
-                    schema: validSchema.hash,
-                    data: 550,
-                    meta: {
-                        session,
-                        time: expect.toBeNumber(),
-                        user,
-                    },
-                }),
-            )
+        shouldStoreSnapshot.mockImplementation(
+            (snapshot) => snapshot.version % 2 === 0,
+        )
+        await expect(
+            content.getSnapshot(type, id, maxVersion),
+        ).resolves.toEqual(
+            expect.objectContaining({
+                type,
+                id,
+                version: 10,
+                schema: validSchema.hash,
+                data: 550,
+                meta: {
+                    session,
+                    time: expect.toBeNumber(),
+                    user,
+                },
+            }),
+        )
 
-            await expect(
-                contentStore.loadSnapshot(type, id, 1),
-            ).resolves.toEqual(expect.objectContaining({ version: 0 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 2),
-            ).resolves.toEqual(expect.objectContaining({ version: 0 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 3),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 4),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 5),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 6),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 7),
-            ).resolves.toEqual(expect.objectContaining({ version: 3 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 8),
-            ).resolves.toEqual(expect.objectContaining({ version: 8 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 9),
-            ).resolves.toEqual(expect.objectContaining({ version: 8 }))
-            await expect(
-                contentStore.loadSnapshot(type, id, 10),
-            ).resolves.toEqual(expect.objectContaining({ version: 10 }))
-        })
+        await expect(contentStore.loadSnapshot(type, id, 1)).resolves.toEqual(
+            expect.objectContaining({ version: 0 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 2)).resolves.toEqual(
+            expect.objectContaining({ version: 0 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 3)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 4)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 5)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 6)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 7)).resolves.toEqual(
+            expect.objectContaining({ version: 3 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 8)).resolves.toEqual(
+            expect.objectContaining({ version: 8 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 9)).resolves.toEqual(
+            expect.objectContaining({ version: 8 }),
+        )
+        await expect(contentStore.loadSnapshot(type, id, 10)).resolves.toEqual(
+            expect.objectContaining({ version: 10 }),
+        )
     })
 })
 
@@ -996,5 +997,576 @@ describe('submitOperation', () => {
         await expect(content.submitOperation(operation)).rejects.toBe(error)
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(0)
+    })
+})
+
+describe('streamOperations', () => {
+    test('stream a subset of existing operations', async () => {
+        const stream = await content.streamOperations(type, id, 2, 5)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(3)
+        expect(onData).toHaveBeenNthCalledWith(1, {
+            key: expect.toBeString(),
+            type,
+            id,
+            version: 2,
+            schema: validSchema.hash,
+            data: 20,
+            meta: {
+                session,
+                time: expect.toBeNumber(),
+                user,
+            },
+        })
+        expect(onData).toHaveBeenNthCalledWith(2, {
+            key: expect.toBeString(),
+            type,
+            id,
+            version: 3,
+            schema: validSchema.hash,
+            data: 30,
+            meta: {
+                session,
+                time: expect.toBeNumber(),
+                user,
+            },
+        })
+        expect(onData).toHaveBeenNthCalledWith(3, {
+            key: expect.toBeString(),
+            type,
+            id,
+            version: 4,
+            schema: validSchema.hash,
+            data: 40,
+            meta: {
+                session,
+                time: expect.toBeNumber(),
+                user,
+            },
+        })
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onEnd).toHaveBeenCalledAfter(onData)
+        expect(onClose).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledAfter(onEnd)
+    })
+
+    test('stream existing and pending operations', async () => {
+        const stream = await content.streamOperations(type, id, 6, 9)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onData).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 6 }),
+        )
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        await content.submitOperation(createOperation(10, 100))
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(3)
+        expect(onData).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 7 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 8 }),
+        )
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('stream pending operations', async () => {
+        const stream = await content.streamOperations(type, id, 8, 11)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        await content.submitOperation(createOperation(10, 100))
+        await content.submitOperation(createOperation(11, 110))
+        await content.submitOperation(createOperation(12, 120))
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(3)
+        expect(onData).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 8 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 9 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 10 }),
+        )
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('close the stream before receiving all data', async () => {
+        const stream = await content.streamOperations(type, id, 6, 11)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(1)
+        stream.destroy()
+        await whenNextTick()
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        await content.submitOperation(createOperation(10, 100))
+        await content.submitOperation(createOperation(11, 110))
+        await content.submitOperation(createOperation(12, 120))
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(1)
+        expect(onEnd).toHaveBeenCalledTimes(0)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('close the stream before receiving any data', async () => {
+        const stream = await content.streamOperations(type, id, 7, 11)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        stream.destroy()
+        await whenNextTick()
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        await content.submitOperation(createOperation(10, 100))
+        await content.submitOperation(createOperation(11, 110))
+        await content.submitOperation(createOperation(12, 120))
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        expect(onEnd).toHaveBeenCalledTimes(0)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('close the stream immediately', async () => {
+        const stream = await content.streamOperations(type, id, 7, 11)
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+        stream.destroy()
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        expect(onEnd).toHaveBeenCalledTimes(0)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('open 2 streams for the same type and id one after another (versionStart and versionEnd differ)', async () => {
+        const onData1 = jest.fn()
+        const onEnd1 = jest.fn()
+        const onClose1 = jest.fn()
+        const stream1 = await content.streamOperations(type, id, 2, 5)
+        stream1.on('data', onData1)
+        stream1.on('end', onEnd1)
+        stream1.on('close', onClose1)
+
+        const onData2 = jest.fn()
+        const onEnd2 = jest.fn()
+        const onClose2 = jest.fn()
+        const stream2 = await content.streamOperations(type, id, 3, 8)
+        stream2.on('data', onData2)
+        stream2.on('end', onEnd2)
+        stream2.on('close', onClose2)
+
+        await whenNextTick()
+
+        expect(onData1).toHaveBeenCalledTimes(3)
+        expect(onData1).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 2 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onEnd1).toHaveBeenCalledTimes(1)
+        expect(onClose1).toHaveBeenCalledTimes(1)
+
+        expect(onData2).toHaveBeenCalledTimes(4)
+        expect(onData2).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 5 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 6 }),
+        )
+        expect(onEnd2).toHaveBeenCalledTimes(0)
+        expect(onClose2).toHaveBeenCalledTimes(0)
+    })
+
+    test('open 2 streams for the same type and id one after another (versionStart are the same and versionEnd differ)', async () => {
+        const onData1 = jest.fn()
+        const onEnd1 = jest.fn()
+        const onClose1 = jest.fn()
+        const stream1 = await content.streamOperations(type, id, 3, 5)
+        stream1.on('data', onData1)
+        stream1.on('end', onEnd1)
+        stream1.on('close', onClose1)
+
+        const onData2 = jest.fn()
+        const onEnd2 = jest.fn()
+        const onClose2 = jest.fn()
+        const stream2 = await content.streamOperations(type, id, 3, 8)
+        stream2.on('data', onData2)
+        stream2.on('end', onEnd2)
+        stream2.on('close', onClose2)
+
+        await whenNextTick()
+
+        expect(onData1).toHaveBeenCalledTimes(2)
+        expect(onData1).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onEnd1).toHaveBeenCalledTimes(1)
+        expect(onClose1).toHaveBeenCalledTimes(1)
+
+        expect(onData2).toHaveBeenCalledTimes(4)
+        expect(onData2).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 5 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 6 }),
+        )
+        expect(onEnd2).toHaveBeenCalledTimes(0)
+        expect(onClose2).toHaveBeenCalledTimes(0)
+    })
+
+    test('open 2 streams for the same type and id simultaneously (versionStart and versionEnd differ)', async () => {
+        const onData1 = jest.fn()
+        const onEnd1 = jest.fn()
+        const onClose1 = jest.fn()
+        const onData2 = jest.fn()
+        const onEnd2 = jest.fn()
+        const onClose2 = jest.fn()
+
+        await Promise.all([
+            content.streamOperations(type, id, 2, 5).then((stream) => {
+                stream.on('data', onData1)
+                stream.on('end', onEnd1)
+                stream.on('close', onClose1)
+            }),
+            content.streamOperations(type, id, 3, 8).then((stream) => {
+                stream.on('data', onData2)
+                stream.on('end', onEnd2)
+                stream.on('close', onClose2)
+            }),
+        ])
+        await whenNextTick()
+
+        expect(onData1).toHaveBeenCalledTimes(3)
+        expect(onData1).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 2 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onEnd1).toHaveBeenCalledTimes(1)
+        expect(onClose1).toHaveBeenCalledTimes(1)
+
+        expect(onData2).toHaveBeenCalledTimes(4)
+        expect(onData2).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 5 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 6 }),
+        )
+        expect(onEnd2).toHaveBeenCalledTimes(0)
+        expect(onClose2).toHaveBeenCalledTimes(0)
+    })
+
+    test('open 2 streams for the same type and id simultaneously (disjoint version ranges)', async () => {
+        const onData1 = jest.fn()
+        const onEnd1 = jest.fn()
+        const onClose1 = jest.fn()
+        const onData2 = jest.fn()
+        const onEnd2 = jest.fn()
+        const onClose2 = jest.fn()
+
+        await Promise.all([
+            content.streamOperations(type, id, 0, 3).then((stream) => {
+                stream.on('data', onData1)
+                stream.on('end', onEnd1)
+                stream.on('close', onClose1)
+            }),
+            content.streamOperations(type, id, 5, 8).then((stream) => {
+                stream.on('data', onData2)
+                stream.on('end', onEnd2)
+                stream.on('close', onClose2)
+            }),
+        ])
+        await whenNextTick()
+
+        expect(onData1).toHaveBeenCalledTimes(3)
+        expect(onData1).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 0 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 1 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 2 }),
+        )
+        expect(onEnd1).toHaveBeenCalledTimes(1)
+        expect(onClose1).toHaveBeenCalledTimes(1)
+
+        expect(onData2).toHaveBeenCalledTimes(2)
+        expect(onData2).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 5 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 6 }),
+        )
+        expect(onEnd2).toHaveBeenCalledTimes(0)
+        expect(onClose2).toHaveBeenCalledTimes(0)
+    })
+
+    test('open 2 streams for the same type and id simultaneously (versionStart are the same and versionEnd differ)', async () => {
+        const onData1 = jest.fn()
+        const onEnd1 = jest.fn()
+        const onClose1 = jest.fn()
+        const onData2 = jest.fn()
+        const onEnd2 = jest.fn()
+        const onClose2 = jest.fn()
+
+        await Promise.all([
+            content.streamOperations(type, id, 3, 5).then((stream) => {
+                stream.on('data', onData1)
+                stream.on('end', onEnd1)
+                stream.on('close', onClose1)
+            }),
+            content.streamOperations(type, id, 3, 8).then((stream) => {
+                stream.on('data', onData2)
+                stream.on('end', onEnd2)
+                stream.on('close', onClose2)
+            }),
+        ])
+        await whenNextTick()
+
+        expect(onData1).toHaveBeenCalledTimes(2)
+        expect(onData1).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData1).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onEnd1).toHaveBeenCalledTimes(1)
+        expect(onClose1).toHaveBeenCalledTimes(1)
+
+        expect(onData2).toHaveBeenCalledTimes(4)
+        expect(onData2).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 3 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 4 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 5 }),
+        )
+        expect(onData2).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 6 }),
+        )
+        expect(onEnd2).toHaveBeenCalledTimes(0)
+        expect(onClose2).toHaveBeenCalledTimes(0)
+    })
+
+    test('fail to load operations and recover', async () => {
+        const clock = installClock()
+        try {
+            const error = new Error('test error')
+            jest.spyOn(contentStore, 'loadOperations').mockImplementationOnce(
+                async () => {
+                    throw error
+                },
+            )
+            const onError = jest.fn()
+            const onData = jest.fn()
+            const onEnd = jest.fn()
+            const onClose = jest.fn()
+            const stream = await content.streamOperations(type, id, 2, 5)
+            stream.on('error', onError)
+            stream.on('data', onData)
+            stream.on('end', onEnd)
+            stream.on('close', onClose)
+
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(error)
+            onError.mockClear()
+
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(0)
+
+            clock.tick(1000)
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(3)
+            expect(onData).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({ version: 2 }),
+            )
+            expect(onData).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({ version: 3 }),
+            )
+            expect(onData).toHaveBeenNthCalledWith(
+                3,
+                expect.objectContaining({ version: 4 }),
+            )
+            expect(onEnd).toHaveReturnedTimes(1)
+            expect(onClose).toHaveReturnedTimes(1)
+        } finally {
+            clock.uninstall()
+        }
+    })
+
+    test('fail to load operations and close stream', async () => {
+        const clock = installClock()
+        try {
+            const error = new Error('test error')
+            jest.spyOn(contentStore, 'loadOperations').mockImplementationOnce(
+                async () => {
+                    throw error
+                },
+            )
+            const onError = jest.fn()
+            const onData = jest.fn()
+            const onEnd = jest.fn()
+            const onClose = jest.fn()
+            const stream = await content.streamOperations(type, id, 2, 5)
+            stream.on('error', onError)
+            stream.on('data', onData)
+            stream.on('end', onEnd)
+            stream.on('close', onClose)
+
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(0)
+            expect(onError).toHaveBeenCalledTimes(1)
+            expect(onError).toHaveBeenCalledWith(error)
+            onError.mockClear()
+
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(0)
+
+            stream.destroy()
+
+            clock.tick(1000)
+            await whenNextTick()
+            expect(onData).toHaveBeenCalledTimes(0)
+            expect(onEnd).toHaveReturnedTimes(0)
+            expect(onClose).toHaveReturnedTimes(1)
+        } finally {
+            clock.uninstall()
+        }
+    })
+
+    test('stream a lot of operations', async () => {
+        for (let i = 7; i < 110; i++) {
+            await content.submitOperation(createOperation(i, i * 10))
+        }
+
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        const stream = await content.streamOperations(
+            type,
+            id,
+            minVersion,
+            maxVersion,
+        )
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(110)
     })
 })
