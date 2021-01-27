@@ -443,6 +443,7 @@ class DefaultContent implements Content {
         versionEnd: number,
     ): Promise<Operation[]> => {
         const operations: Operation[] = []
+        /* istanbul ignore if */
         if (versionEnd <= versionStart) return operations
         const contentType = this.getContentType(type)
         const key = combine(type, id)
@@ -528,13 +529,15 @@ class DefaultContent implements Content {
     }
 
     private scheduleExpireCache(): void {
-        if (this.expireCacheHandle == null) return
+        if (this.expireCacheHandle != null) return
         this.expireCacheHandle = setInterval(this.expireCache, 1000)
+        /* istanbul ignore else */
         if (typeof this.expireCacheHandle.unref === 'function')
             this.expireCacheHandle.unref()
     }
 
     private cancelExpireCache(): void {
+        /* istanbul ignore if */
         if (this.expireCacheHandle == null) return
         clearInterval(this.expireCacheHandle)
         this.expireCacheHandle = undefined

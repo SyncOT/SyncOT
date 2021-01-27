@@ -1569,4 +1569,314 @@ describe('streamOperations', () => {
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(110)
     })
+
+    test('stream no operations with versionStart === versionEnd', async () => {
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        const stream = await content.streamOperations(type, id, 5, 5)
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('stream no operations with versionStart > versionEnd', async () => {
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        const stream = await content.streamOperations(type, id, 5, 4)
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(0)
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('stream cached operations', async () => {
+        // Cache the snapshot.
+        await content.getSnapshot(type, id, maxVersion)
+        // Add some cached operations.
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        await content.submitOperation(createOperation(10, 100))
+        await content.submitOperation(createOperation(11, 110))
+        await content.submitOperation(createOperation(12, 120))
+        await content.submitOperation(createOperation(13, 130))
+
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        const stream = await content.streamOperations(type, id, 8, 12)
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(4)
+        expect(onData).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 8 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 9 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 10 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 11 }),
+        )
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    test('stream operations from cache and database', async () => {
+        // Cache the snapshot.
+        await content.getSnapshot(type, id, maxVersion)
+        // Add some cached operations.
+        await content.submitOperation(createOperation(7, 70))
+        await content.submitOperation(createOperation(8, 80))
+        await content.submitOperation(createOperation(9, 90))
+        // Add some non-cached operations.
+        await contentStore.storeOperation(createOperation(10, 100))
+        await contentStore.storeOperation(createOperation(11, 110))
+        await contentStore.storeOperation(createOperation(12, 120))
+        await contentStore.storeOperation(createOperation(13, 130))
+
+        const onData = jest.fn()
+        const onEnd = jest.fn()
+        const onClose = jest.fn()
+        const stream = await content.streamOperations(type, id, 8, 12)
+        stream.on('data', onData)
+        stream.on('end', onEnd)
+        stream.on('close', onClose)
+
+        await whenNextTick()
+        expect(onData).toHaveBeenCalledTimes(4)
+        expect(onData).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ version: 8 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ version: 9 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ version: 10 }),
+        )
+        expect(onData).toHaveBeenNthCalledWith(
+            4,
+            expect.objectContaining({ version: 11 }),
+        )
+        expect(onEnd).toHaveBeenCalledTimes(1)
+        expect(onClose).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('caching', () => {
+    test('expire all cached items after 10s', async () => {
+        const clock = installClock()
+        try {
+            expect(clock.countTimers()).toBe(0)
+
+            // Cache a snapshot.
+            await content.getSnapshot(type, id, maxVersion)
+
+            // Cached expiry timer.
+            expect(clock.countTimers()).toBe(1)
+
+            // The cache will expire in 1ms.
+            clock.tick(10000)
+            expect(clock.countTimers()).toBe(1)
+
+            // The cache is cleared every second, so advance the clock by 1s.
+            clock.tick(1000)
+            expect(clock.countTimers()).toBe(0)
+
+            const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
+            await content.getSnapshot(type, id, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(1)
+        } finally {
+            clock.uninstall()
+        }
+    })
+
+    test('expire some cached items after 10s', async () => {
+        const id2 = id + '-other'
+        await content.submitOperation({
+            key: createId(),
+            type,
+            id: id2,
+            version: 1,
+            schema: validSchema.hash,
+            data: 1,
+            meta: null,
+        })
+
+        const clock = installClock()
+        try {
+            expect(clock.countTimers()).toBe(0)
+
+            // Cache 2 snapshots.
+            await content.getSnapshot(type, id, maxVersion)
+            await content.getSnapshot(type, id2, maxVersion)
+
+            // Cached expiry timer.
+            expect(clock.countTimers()).toBe(1)
+
+            // The cache will expire in 1ms.
+            clock.tick(10000)
+            expect(clock.countTimers()).toBe(1)
+
+            // Refresh one cache item.
+            const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
+            await content.getSnapshot(type, id, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(0)
+
+            // The cache is cleared every second, so advance the clock by 1s.
+            clock.tick(1000)
+            expect(clock.countTimers()).toBe(1)
+
+            // Load a snapshot from cache.
+            await content.getSnapshot(type, id, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(0)
+
+            // Load a snapshot from database.
+            await content.getSnapshot(type, id2, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(1)
+        } finally {
+            clock.uninstall()
+        }
+    })
+
+    test('do not expire a cache item, if a corresponding stream exists', async () => {
+        const clock = installClock()
+        try {
+            // Cache a snapshot.
+            await content.getSnapshot(type, id, maxVersion)
+
+            // Cached expiry timer.
+            expect(clock.countTimers()).toBe(1)
+
+            const stream = await content.streamOperations(
+                type,
+                id,
+                minVersion,
+                maxVersion,
+            )
+
+            // The "expire cache" timer is stopped but the cache item remains
+            // because of the stream.
+            clock.tick(11000)
+            expect(clock.countTimers()).toBe(0)
+
+            // Load a cached snapshot.
+            const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
+            await content.getSnapshot(type, id, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(0)
+
+            // The timer is not scheduled because of the stream.
+            expect(clock.countTimers()).toBe(0)
+
+            // The item will expire after 10s.
+            stream.destroy()
+            await whenNextTick()
+            expect(clock.countTimers()).toBe(1)
+
+            // The cache will expire in 1ms.
+            clock.tick(10000)
+            expect(clock.countTimers()).toBe(1)
+
+            // The timer fires every 1s, so advance the clock accordingly.
+            clock.tick(11000)
+            expect(clock.countTimers()).toBe(0)
+
+            // Load a snapshot from the database now.
+            await content.getSnapshot(type, id, maxVersion)
+            expect(loadSnapshot).toHaveBeenCalledTimes(1)
+        } finally {
+            clock.uninstall()
+        }
+    })
+
+    test('keep at most 50 operations', async () => {
+        // Init the cache.
+        await content.getSnapshot(type, id, maxVersion)
+
+        // Cache some operations.
+        for (let i = 7; i < 100; i++) {
+            await content.submitOperation(createOperation(i, i * 10))
+        }
+
+        const loadOperations = jest.spyOn(contentStore, 'loadOperations')
+
+        // Load operations from the cache.
+        await content.streamOperations(type, id, 50, 60)
+        await whenNextTick()
+        expect(loadOperations).toHaveBeenCalledTimes(0)
+
+        // Load operations from the database.
+        await content.streamOperations(type, id, 49, 60)
+        await whenNextTick()
+        expect(loadOperations).toHaveBeenCalledTimes(1)
+        expect(loadOperations).toHaveBeenCalledWith(type, id, 49, 60)
+    })
+
+    test('keep only operations which are at most 10s old', async () => {
+        const clock = installClock()
+        const id2 = id + '2'
+        function createOperationWithTime(version: number): Operation {
+            return {
+                key: createId(),
+                type,
+                id: id2,
+                version,
+                schema: validSchema.hash,
+                data: version,
+                meta: {
+                    session,
+                    time: Date.now(),
+                    user,
+                },
+            }
+        }
+        try {
+            // Init cache.
+            await content.getSnapshot(type, id2, maxVersion)
+
+            // Cache some operations.
+            for (let i = 1; i < 21; i++) {
+                await content.submitOperation(createOperationWithTime(i))
+                clock.tick(1000)
+            }
+
+            const loadOperations = jest.spyOn(contentStore, 'loadOperations')
+
+            // Load operations from the cache.
+            await content.streamOperations(type, id2, 10, 15)
+            await whenNextTick()
+            expect(loadOperations).toHaveBeenCalledTimes(0)
+
+            // Load operations from the database.
+            await content.streamOperations(type, id2, 9, 15)
+            await whenNextTick()
+            expect(loadOperations).toHaveBeenCalledTimes(1)
+            expect(loadOperations).toHaveBeenCalledWith(type, id2, 9, 15)
+        } finally {
+            clock.uninstall()
+        }
+    })
 })
