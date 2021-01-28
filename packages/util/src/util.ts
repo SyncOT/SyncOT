@@ -11,15 +11,6 @@ export type ValidationResult = Error | undefined
 export type Validator<T> = (target: T) => ValidationResult
 
 /**
- * Throws the specified `error`, if defined.
- */
-export function throwError(error: Error | undefined): void {
-    if (error) {
-        throw error
-    }
-}
-
-/**
  * Validates `target` using the specified `validators` and
  * returns the first encountered `Error`, or `undefined`.
  */

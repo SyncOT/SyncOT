@@ -7,7 +7,6 @@ import {
     last,
     noop,
     randomInteger,
-    throwError,
     validate,
     Validator,
     whenClose,
@@ -17,17 +16,6 @@ import {
     whenNextTick,
 } from '.'
 import { combine, separate } from './util'
-
-describe('throwError', () => {
-    const error = createInvalidEntityError('test error', null)
-
-    test('throws the specified error', () => {
-        expect(() => throwError(error)).toThrowError(error)
-    })
-    test('does not throw an error, if undefined', () => {
-        expect(() => throwError(undefined)).not.toThrowError()
-    })
-})
 
 describe('validate', () => {
     const numberError = createInvalidEntityError('number error', null)
