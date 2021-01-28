@@ -1,14 +1,11 @@
 import { EventEmitter } from 'events'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import {
-    createInvalidEntityError,
     delay,
     first,
     last,
     noop,
     randomInteger,
-    validate,
-    Validator,
     whenClose,
     whenData,
     whenError,
@@ -16,32 +13,6 @@ import {
     whenNextTick,
 } from '.'
 import { combine, separate } from './util'
-
-describe('validate', () => {
-    const numberError = createInvalidEntityError('number error', null)
-    const positiveError = createInvalidEntityError('positive error', null)
-
-    const numberValidator: Validator<any> = (target: any) =>
-        typeof target === 'number' ? undefined : numberError
-    const positiveValidator: Validator<any> = (target: any) =>
-        target > 0 ? undefined : positiveError
-
-    test('success', () => {
-        expect(validate([numberValidator, positiveValidator])(5)).toBe(
-            undefined,
-        )
-    })
-    test('first validator fails', () => {
-        expect(validate([numberValidator, positiveValidator])('5')).toBe(
-            numberError,
-        )
-    })
-    test('second validator fails', () => {
-        expect(validate([numberValidator, positiveValidator])(-5)).toBe(
-            positiveError,
-        )
-    })
-})
 
 test('noop', () => {
     expect(noop).toBeFunction()

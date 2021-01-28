@@ -1,34 +1,6 @@
 import { assert } from './error'
 
 /**
- * The type of validation result.
- */
-export type ValidationResult = Error | undefined
-
-/**
- * The type of a validator.
- */
-export type Validator<T> = (target: T) => ValidationResult
-
-/**
- * Validates `target` using the specified `validators` and
- * returns the first encountered `Error`, or `undefined`.
- */
-export const validate = <T>(validators: Validator<T>[]) => (
-    target: T,
-): ValidationResult => {
-    for (let i = 0, l = validators.length; i < l; ++i) {
-        const error = validators[i](target)
-
-        if (error) {
-            return error
-        }
-    }
-
-    return
-}
-
-/**
  * Keeps only public properties.
  * See https://github.com/Microsoft/TypeScript/issues/471#issuecomment-381842426
  */
