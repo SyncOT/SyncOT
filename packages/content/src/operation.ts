@@ -1,4 +1,4 @@
-import { createInvalidEntityError, validate, Validator } from '@syncot/util'
+import { createInvalidEntityError } from '@syncot/util'
 import { Meta } from './meta'
 import { SchemaHash } from './schema'
 import { maxVersion, minVersion } from './limits'
@@ -49,63 +49,61 @@ export interface Operation {
 }
 
 /**
- * Validates the specified operation.
- * @returns The first encountered error, if found, otherwise undefined.
+ * Throws an error if the specified operation is invalid.
  */
-export const validateOperation: Validator<Operation> = validate([
-    (operation) =>
-        typeof operation === 'object' && operation != null
-            ? undefined
-            : createInvalidEntityError('Operation', operation, null),
-    (operation) =>
-        typeof operation.key === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'key'),
-    (operation) =>
-        typeof operation.type === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'type'),
-    (operation) =>
-        typeof operation.id === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'id'),
-    (operation) =>
-        Number.isInteger(operation.version) &&
-        operation.version >= minVersion &&
-        operation.version <= maxVersion
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'version'),
-    (operation) =>
-        typeof operation.schema === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'schema'),
-    (operation) =>
-        operation.hasOwnProperty('data')
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'data'),
-    (operation) =>
-        typeof operation.meta === 'object'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'meta'),
-    (operation) =>
-        operation.meta == null ||
-        operation.meta.user == null ||
-        typeof operation.meta.user === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'meta.user'),
-    (operation) =>
-        operation.meta == null ||
-        operation.meta.time == null ||
-        typeof operation.meta.time === 'number'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'meta.time'),
-    (operation) =>
-        operation.meta == null ||
-        operation.meta.session == null ||
-        typeof operation.meta.session === 'string'
-            ? undefined
-            : createInvalidEntityError('Operation', operation, 'meta.session'),
-])
+export function validateOperation(operation: Operation): void {
+    if (typeof operation !== 'object' || operation == null)
+        throw createInvalidEntityError('Operation', operation, null)
+
+    if (typeof operation.key !== 'string')
+        throw createInvalidEntityError('Operation', operation, 'key')
+
+    if (typeof operation.type !== 'string')
+        throw createInvalidEntityError('Operation', operation, 'type')
+
+    if (typeof operation.id !== 'string')
+        throw createInvalidEntityError('Operation', operation, 'id')
+
+    if (
+        !Number.isInteger(operation.version) ||
+        operation.version < minVersion ||
+        operation.version > maxVersion
+    )
+        throw createInvalidEntityError('Operation', operation, 'version')
+
+    if (typeof operation.schema !== 'string')
+        throw createInvalidEntityError('Operation', operation, 'schema')
+
+    if (!operation.hasOwnProperty('data'))
+        throw createInvalidEntityError('Operation', operation, 'data')
+
+    if (typeof operation.meta !== 'object')
+        throw createInvalidEntityError('Operation', operation, 'meta')
+
+    if (operation.meta != null) {
+        if (
+            operation.meta.user != null &&
+            typeof operation.meta.user !== 'string'
+        )
+            throw createInvalidEntityError('Operation', operation, 'meta.user')
+
+        if (
+            operation.meta.time != null &&
+            typeof operation.meta.time !== 'number'
+        )
+            throw createInvalidEntityError('Operation', operation, 'meta.time')
+
+        if (
+            operation.meta.session != null &&
+            typeof operation.meta.session !== 'string'
+        )
+            throw createInvalidEntityError(
+                'Operation',
+                operation,
+                'meta.session',
+            )
+    }
+}
 
 /**
  * Creates an operation at version `minVersion` with the specified type and id.

@@ -157,7 +157,7 @@ class Service
 
     public async submitOperation(operation: Operation): Promise<void> {
         this.assertOk()
-        throwError(validateOperation(operation))
+        validateOperation(operation)
 
         if (
             !(await this.authService.mayWriteContent(

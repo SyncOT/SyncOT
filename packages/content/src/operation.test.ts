@@ -74,11 +74,10 @@ describe('validateOperation', () => {
         [{ ...operation, meta: { time: '5' } }, 'meta.time'],
         [{ ...operation, meta: { session: 5 } }, 'meta.session'],
     ])('Test #%#', (data, invalidProperty) => {
-        const result = validateOperation(data)
         if (invalidProperty === undefined) {
-            expect(result).toBeUndefined()
+            validateOperation(data)
         } else {
-            expect(result).toEqual(
+            expect(() => validateOperation(data)).toThrow(
                 expect.objectContaining({
                     entity: data,
                     entityName: 'Operation',
