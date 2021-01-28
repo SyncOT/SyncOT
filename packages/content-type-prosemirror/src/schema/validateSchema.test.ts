@@ -74,7 +74,7 @@ test('valid complex schema', () => {
         },
         topNode: 'root',
     })
-    validateSchema(schema)
+    expect(validateSchema(schema)).toBe(schema)
 })
 
 test('check if instance of Schema', () => {
@@ -223,17 +223,16 @@ describe('cycle', () => {
     })
 
     test('no cycle in required position (content: (a | cycle))', () => {
-        validateSchema(
-            new Schema({
-                nodes: {
-                    doc: { content: 'p' },
-                    p: { content: 'a | cycle' },
-                    a: { content: 'text*' },
-                    cycle: { content: 'p' },
-                    text: {},
-                },
-            }),
-        )
+        const schema = new Schema({
+            nodes: {
+                doc: { content: 'p' },
+                p: { content: 'a | cycle' },
+                a: { content: 'text*' },
+                cycle: { content: 'p' },
+                text: {},
+            },
+        })
+        expect(validateSchema(schema)).toBe(schema)
     })
 
     test('cycle in required position (content: (a cycle a)+)', () => {
@@ -259,17 +258,16 @@ describe('cycle', () => {
     })
 
     test('no cycle in required position (content: (a cycle a)*)', () => {
-        validateSchema(
-            new Schema({
-                nodes: {
-                    doc: { content: 'p' },
-                    p: { content: '(a cycle a)*' },
-                    a: { content: 'text*' },
-                    cycle: { content: 'p' },
-                    text: {},
-                },
-            }),
-        )
+        const schema = new Schema({
+            nodes: {
+                doc: { content: 'p' },
+                p: { content: '(a cycle a)*' },
+                a: { content: 'text*' },
+                cycle: { content: 'p' },
+                text: {},
+            },
+        })
+        expect(validateSchema(schema)).toBe(schema)
     })
 
     test('cycle in required position (content: (a cycle a))', () => {
@@ -295,17 +293,16 @@ describe('cycle', () => {
     })
 
     test('no cycle in required position (content: (a cycle a)?)', () => {
-        validateSchema(
-            new Schema({
-                nodes: {
-                    doc: { content: 'p' },
-                    p: { content: '(a cycle a)*' },
-                    a: { content: 'text*' },
-                    cycle: { content: 'p' },
-                    text: {},
-                },
-            }),
-        )
+        const schema = new Schema({
+            nodes: {
+                doc: { content: 'p' },
+                p: { content: '(a cycle a)*' },
+                a: { content: 'text*' },
+                cycle: { content: 'p' },
+                text: {},
+            },
+        })
+        expect(validateSchema(schema)).toBe(schema)
     })
 
     test('cycle in required position (content: (a cycle a){1,2})', () => {
@@ -331,17 +328,16 @@ describe('cycle', () => {
     })
 
     test('no cycle in required position (content: (a cycle a){0,2})', () => {
-        validateSchema(
-            new Schema({
-                nodes: {
-                    doc: { content: 'p' },
-                    p: { content: '(a cycle a)*' },
-                    a: { content: 'text*' },
-                    cycle: { content: 'p' },
-                    text: {},
-                },
-            }),
-        )
+        const schema = new Schema({
+            nodes: {
+                doc: { content: 'p' },
+                p: { content: '(a cycle a)*' },
+                a: { content: 'text*' },
+                cycle: { content: 'p' },
+                text: {},
+            },
+        })
+        expect(validateSchema(schema)).toBe(schema)
     })
 })
 
@@ -971,7 +967,7 @@ describe('spec', () => {
             undefined,
         ],
     ])('%s', (_message, schema, property) => {
-        if (property === undefined) validateSchema(schema)
+        if (property === undefined) expect(validateSchema(schema)).toBe(schema)
         else
             expect(() => validateSchema(schema)).toThrow(
                 expect.objectContaining({
@@ -987,25 +983,23 @@ describe('spec', () => {
 
 describe('placeholders', () => {
     test('no placeholders', () => {
-        validateSchema(
-            new Schema({
-                nodes: { doc: {}, text: {} },
-            }),
-        )
+        const schema = new Schema({
+            nodes: { doc: {}, text: {} },
+        })
+        expect(validateSchema(schema)).toBe(schema)
     })
 
     describe(PlaceholderNames.mark, () => {
         test('valid', () => {
-            validateSchema(
-                new Schema({
-                    nodes: { doc: {}, text: {} },
-                    marks: {
-                        [PlaceholderNames.mark]: {
-                            attrs: { name: {}, attrs: {} },
-                        },
+            const schema = new Schema({
+                nodes: { doc: {}, text: {} },
+                marks: {
+                    [PlaceholderNames.mark]: {
+                        attrs: { name: {}, attrs: {} },
                     },
-                }),
-            )
+                },
+            })
+            expect(validateSchema(schema)).toBe(schema)
         })
         test.each<[string, Schema]>([
             [
@@ -1059,19 +1053,18 @@ describe('placeholders', () => {
         [PlaceholderNames.inlineLeaf, true, true],
     ])('%s', (placeholderName, isInline, isLeaf) => {
         test('valid', () => {
-            validateSchema(
-                new Schema({
-                    nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: { name: {}, attrs: {} },
-                        },
+            const schema = new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    [placeholderName]: {
+                        inline: isInline,
+                        content: isLeaf ? '' : 'text*',
+                        attrs: { name: {}, attrs: {} },
                     },
-                }),
-            )
+                },
+            })
+            expect(validateSchema(schema)).toBe(schema)
         })
         test.each<[string, Schema]>([
             [

@@ -75,7 +75,7 @@ describe('validateOperation', () => {
         [{ ...operation, meta: { session: 5 } }, 'meta.session'],
     ])('Test #%#', (data, invalidProperty) => {
         if (invalidProperty === undefined) {
-            validateOperation(data)
+            expect(validateOperation(data)).toBe(data)
         } else {
             expect(() => validateOperation(data)).toThrow(
                 expect.objectContaining({

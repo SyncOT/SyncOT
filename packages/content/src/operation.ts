@@ -50,8 +50,9 @@ export interface Operation {
 
 /**
  * Throws an error if the specified operation is invalid.
+ * Returns the specified operation unchanged.
  */
-export function validateOperation(operation: Operation): void {
+export function validateOperation(operation: Operation): Operation {
     if (typeof operation !== 'object' || operation == null)
         throw createInvalidEntityError('Operation', operation, null)
 
@@ -103,6 +104,8 @@ export function validateOperation(operation: Operation): void {
                 'meta.session',
             )
     }
+
+    return operation
 }
 
 /**

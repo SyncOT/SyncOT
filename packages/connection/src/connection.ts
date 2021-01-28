@@ -148,7 +148,11 @@ interface StreamDataMessage {
     data: any
 }
 
-function validateMessage(message: Message): void {
+/**
+ * Throws an error if the specified message is invalid.
+ * Returns the specified message unchanged.
+ */
+function validateMessage(message: Message): Message {
     if (typeof message !== 'object' || message === null)
         throw createInvalidEntityError('Message', message, null)
 
@@ -201,6 +205,8 @@ function validateMessage(message: Message): void {
                 throw createInvalidEntityError('Message', message, 'data')
             break
     }
+
+    return message
 }
 
 class ConnectionImpl extends SyncOTEmitter<Events> {
@@ -463,9 +469,9 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
 
     private send(message: Message): void {
         try {
-            validateMessage(message)
-            if (this.stream!.writable && !this.stream!.destroyed)
-                this.stream!.write(message)
+            const stream = this.stream!
+            if (stream.writable && !stream.destroyed)
+                stream.write(validateMessage(message))
         } catch (error) {
             /* istanbul ignore next */
             this.emitAsync('error', error)
@@ -474,8 +480,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
 
     private onData(message: Message): void {
         try {
-            validateMessage(message)
-            this.onMessage(message)
+            this.onMessage(validateMessage(message))
         } catch (error) {
             this.emitAsync('error', error)
         }

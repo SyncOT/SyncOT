@@ -95,11 +95,10 @@ describe('validateSchema', () => {
         [{ ...schema, meta: { time: '5' } }, 'meta.time'],
         [{ ...schema, meta: { session: 5 } }, 'meta.session'],
     ])('Test #%#', (data, invalidProperty) => {
-        const result = validateSchema(data)
         if (invalidProperty === undefined) {
-            expect(result).toBeUndefined()
+            expect(validateSchema(data)).toBe(data)
         } else {
-            expect(result).toEqual(
+            expect(() => validateSchema(data)).toThrow(
                 expect.objectContaining({
                     entity: data,
                     entityName: 'Schema',

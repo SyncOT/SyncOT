@@ -1,9 +1,4 @@
-import {
-    createInvalidEntityError,
-    hash,
-    validate,
-    Validator,
-} from '@syncot/util'
+import { createInvalidEntityError, hash } from '@syncot/util'
 import { Meta } from './meta'
 
 /**
@@ -44,46 +39,38 @@ export interface Schema {
 }
 
 /**
- * Validates the specified schema.
- * @returns The first encountered error, if found, otherwise undefined.
+ * Throws an error if the specified schema is invalid.
+ * Returns the specified schema unchanged.
  */
-export const validateSchema: Validator<Schema> = validate([
-    (schema) =>
-        typeof schema === 'object' && schema != null
-            ? undefined
-            : createInvalidEntityError('Schema', schema, null),
-    (schema) =>
-        typeof schema.type === 'string'
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'type'),
-    (schema) =>
-        schema.hasOwnProperty('data')
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'data'),
-    (schema) =>
-        schema.hash === createSchemaHash(schema.type, schema.data)
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'hash'),
-    (schema) =>
-        typeof schema.meta === 'object'
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'meta'),
-    (schema) =>
-        schema.meta == null ||
-        schema.meta.user == null ||
-        typeof schema.meta.user === 'string'
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'meta.user'),
-    (schema) =>
-        schema.meta == null ||
-        schema.meta.time == null ||
-        typeof schema.meta.time === 'number'
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'meta.time'),
-    (schema) =>
-        schema.meta == null ||
-        schema.meta.session == null ||
-        typeof schema.meta.session === 'string'
-            ? undefined
-            : createInvalidEntityError('Schema', schema, 'meta.session'),
-])
+export function validateSchema(schema: Schema): Schema {
+    if (typeof schema !== 'object' || schema == null)
+        throw createInvalidEntityError('Schema', schema, null)
+
+    if (typeof schema.type !== 'string')
+        throw createInvalidEntityError('Schema', schema, 'type')
+
+    if (!schema.hasOwnProperty('data'))
+        throw createInvalidEntityError('Schema', schema, 'data')
+
+    if (schema.hash !== createSchemaHash(schema.type, schema.data))
+        throw createInvalidEntityError('Schema', schema, 'hash')
+
+    if (typeof schema.meta !== 'object')
+        throw createInvalidEntityError('Schema', schema, 'meta')
+
+    if (schema.meta != null) {
+        if (schema.meta.user != null && typeof schema.meta.user !== 'string')
+            throw createInvalidEntityError('Schema', schema, 'meta.user')
+
+        if (schema.meta.time != null && typeof schema.meta.time !== 'number')
+            throw createInvalidEntityError('Schema', schema, 'meta.time')
+
+        if (
+            schema.meta.session != null &&
+            typeof schema.meta.session !== 'string'
+        )
+            throw createInvalidEntityError('Schema', schema, 'meta.session')
+    }
+
+    return schema
+}

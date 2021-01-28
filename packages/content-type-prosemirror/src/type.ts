@@ -23,7 +23,7 @@ export class ProseMirrorContentType implements ContentType {
     private readonly nodes: WeakMap<Snapshot, Node> = new WeakMap()
     private readonly steps: WeakMap<Operation, Step[]> = new WeakMap()
 
-    public validateSchema(schema: Schema): void {
+    public validateSchema(schema: Schema): Schema {
         if (schema == null || typeof schema !== 'object')
             throw createInvalidEntityError('Schema', schema, null)
 
@@ -108,6 +108,8 @@ export class ProseMirrorContentType implements ContentType {
         } catch (error) {
             throw createInvalidEntityError('Schema', schema, 'data', error)
         }
+
+        return schema
     }
 
     public registerSchema(schema: Schema): void {

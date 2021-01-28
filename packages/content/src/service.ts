@@ -1,11 +1,6 @@
 import { Auth, createAuthError } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import {
-    assert,
-    EmitterInterface,
-    SyncOTEmitter,
-    throwError,
-} from '@syncot/util'
+import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Content } from './content'
 import { Operation, validateOperation } from './operation'
@@ -109,8 +104,7 @@ class Service
 
     public async registerSchema(schema: Schema): Promise<void> {
         this.assertOk()
-
-        throwError(validateSchema(schema))
+        validateSchema(schema)
 
         return this.content.registerSchema({
             hash: schema.hash,

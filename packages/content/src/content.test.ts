@@ -46,9 +46,10 @@ const invalidSchema: Schema = {
 class TestContentType implements ContentType {
     private schemas: Map<string, Schema> = new Map()
 
-    public validateSchema(schema: Schema): void {
+    public validateSchema(schema: Schema): Schema {
         if (typeof schema.data !== 'string')
             throw createInvalidEntityError('Schema', schema, 'data')
+        return schema
     }
     public hasSchema(hash: string): boolean {
         return this.schemas.has(hash)
