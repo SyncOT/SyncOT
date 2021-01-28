@@ -9,8 +9,6 @@ import {
     isStream,
     SyncOTEmitter,
     toJSON,
-    validate,
-    Validator,
 } from '@syncot/util'
 import { EventEmitter } from 'events'
 import { Duplex } from 'readable-stream'
@@ -150,82 +148,60 @@ interface StreamDataMessage {
     data: any
 }
 
-const validateMessage: Validator<Message> = validate([
-    (message) =>
-        typeof message === 'object' && message !== null
-            ? undefined
-            : createInvalidEntityError('Message', message, null),
-    (message) =>
-        Number.isSafeInteger(message.type) &&
-        message.type >= MessageType.EVENT &&
-        message.type <= MessageType.STREAM_OUTPUT_DESTROY
-            ? undefined
-            : createInvalidEntityError('Message', message, 'type'),
-    (message) =>
-        typeof message.service === 'string'
-            ? undefined
-            : createInvalidEntityError('Message', message, 'service'),
-    (message) =>
-        (
-            message.type === MessageType.EVENT ||
-            message.type === MessageType.REQUEST
-                ? typeof message.name === 'string'
-                : message.name === null
-        )
-            ? undefined
-            : createInvalidEntityError('Message', message, 'name'),
-    (message) =>
-        Number.isSafeInteger(message.id)
-            ? undefined
-            : createInvalidEntityError('Message', message, 'id'),
-    (message) => {
-        if (
-            message.type === MessageType.REQUEST ||
-            message.type === MessageType.EVENT
-        ) {
-            return Array.isArray(message.data)
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        if (message.type === MessageType.REPLY_ERROR) {
-            return isCustomError(message.data)
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        if (message.type === MessageType.REPLY_STREAM) {
-            return message.data === null
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        if (
-            message.type === MessageType.STREAM_INPUT_END ||
-            message.type === MessageType.STREAM_OUTPUT_END
-        ) {
-            return message.data === null
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        if (
-            message.type === MessageType.STREAM_INPUT_DATA ||
-            message.type === MessageType.STREAM_OUTPUT_DATA
-        ) {
-            return message.data != null
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        if (
-            message.type === MessageType.STREAM_INPUT_DESTROY ||
-            message.type === MessageType.STREAM_OUTPUT_DESTROY
-        ) {
-            return message.data === null
-                ? undefined
-                : createInvalidEntityError('Message', message, 'data')
-        }
-        return message.hasOwnProperty('data')
-            ? undefined
-            : createInvalidEntityError('Message', message, 'data')
-    },
-])
+function validateMessage(message: Message): void {
+    if (typeof message !== 'object' || message === null)
+        throw createInvalidEntityError('Message', message, null)
+
+    if (
+        !Number.isSafeInteger(message.type) ||
+        message.type < MessageType.EVENT ||
+        message.type > MessageType.STREAM_OUTPUT_DESTROY
+    )
+        throw createInvalidEntityError('Message', message, 'type')
+
+    if (typeof message.service !== 'string')
+        throw createInvalidEntityError('Message', message, 'service')
+
+    if (
+        message.type === MessageType.EVENT ||
+        message.type === MessageType.REQUEST
+            ? typeof message.name !== 'string'
+            : message.name !== null
+    )
+        throw createInvalidEntityError('Message', message, 'name')
+
+    if (!Number.isSafeInteger(message.id))
+        throw createInvalidEntityError('Message', message, 'id')
+
+    switch (message.type) {
+        case MessageType.REQUEST:
+        case MessageType.EVENT:
+            if (!Array.isArray(message.data))
+                throw createInvalidEntityError('Message', message, 'data')
+            break
+        case MessageType.REPLY_ERROR:
+            if (!isCustomError(message.data))
+                throw createInvalidEntityError('Message', message, 'data')
+            break
+        case MessageType.REPLY_STREAM:
+        case MessageType.STREAM_INPUT_END:
+        case MessageType.STREAM_OUTPUT_END:
+        case MessageType.STREAM_INPUT_DESTROY:
+        case MessageType.STREAM_OUTPUT_DESTROY:
+            if (message.data !== null)
+                throw createInvalidEntityError('Message', message, 'data')
+            break
+        case MessageType.STREAM_INPUT_DATA:
+        case MessageType.STREAM_OUTPUT_DATA:
+            if (message.data == null)
+                throw createInvalidEntityError('Message', message, 'data')
+            break
+        default:
+            if (!message.hasOwnProperty('data'))
+                throw createInvalidEntityError('Message', message, 'data')
+            break
+    }
+}
 
 class ConnectionImpl extends SyncOTEmitter<Events> {
     private stream: Duplex | null = null
@@ -486,24 +462,22 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
     }
 
     private send(message: Message): void {
-        const error = validateMessage(message)
-        // It should be impossible to send invalid data but check just in case.
-        /* istanbul ignore if */
-        if (error) {
+        try {
+            validateMessage(message)
+            if (this.stream!.writable && !this.stream!.destroyed)
+                this.stream!.write(message)
+        } catch (error) {
+            /* istanbul ignore next */
             this.emitAsync('error', error)
-        } else if (this.stream!.writable && !(this.stream as any).destroyed) {
-            // Unfortunately, checking both `writable` and the private `destroyed`
-            // property is necessary to ensure that writing is safe.
-            this.stream!.write(message)
         }
     }
 
     private onData(message: Message): void {
-        const error = validateMessage(message)
-        if (error) {
-            this.emitAsync('error', error)
-        } else {
+        try {
+            validateMessage(message)
             this.onMessage(message)
+        } catch (error) {
+            this.emitAsync('error', error)
         }
     }
 
