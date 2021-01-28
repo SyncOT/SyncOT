@@ -35,11 +35,10 @@ describe('validatePresence', () => {
         [{ ...presence, lastModified: -Infinity }, 'lastModified'],
         [{ ...presence, lastModified: '0' }, 'lastModified'],
     ])('Test #%#', (data, invalidProperty) => {
-        const result = validatePresence(data)
         if (invalidProperty === undefined) {
-            expect(result).toBeUndefined()
+            expect(validatePresence(data)).toBe(data)
         } else {
-            expect(result).toEqual(
+            expect(() => validatePresence(data)).toThrow(
                 expect.objectContaining({
                     entity: data,
                     entityName: 'Presence',

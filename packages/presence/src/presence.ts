@@ -2,8 +2,6 @@ import {
     createInvalidEntityError,
     EmitterInterface,
     SyncOTEmitter,
-    validate,
-    Validator,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
@@ -15,33 +13,34 @@ export interface Presence {
     readonly lastModified: number
 }
 
-export const validatePresence: Validator<Presence> = validate([
-    (presence) =>
-        typeof presence === 'object' && presence != null
-            ? undefined
-            : createInvalidEntityError('Presence', presence, null),
-    (presence) =>
-        typeof presence.sessionId === 'string'
-            ? undefined
-            : createInvalidEntityError('Presence', presence, 'sessionId'),
-    (presence) =>
-        typeof presence.userId === 'string'
-            ? undefined
-            : createInvalidEntityError('Presence', presence, 'userId'),
-    (presence) =>
-        typeof presence.locationId === 'string'
-            ? undefined
-            : createInvalidEntityError('Presence', presence, 'locationId'),
-    (presence) =>
-        typeof presence.lastModified === 'number' &&
-        Number.isFinite(presence.lastModified)
-            ? undefined
-            : createInvalidEntityError('Presence', presence, 'lastModified'),
-    (presence) =>
-        presence.hasOwnProperty('data')
-            ? undefined
-            : createInvalidEntityError('Presence', presence, 'data'),
-])
+/**
+ * Throws an error if `presence` is invalid.
+ * @returns Unchanged `presence`.
+ */
+export function validatePresence(presence: Presence): Presence {
+    if (typeof presence !== 'object' || presence == null)
+        throw createInvalidEntityError('Presence', presence, null)
+
+    if (typeof presence.sessionId !== 'string')
+        throw createInvalidEntityError('Presence', presence, 'sessionId')
+
+    if (typeof presence.userId !== 'string')
+        throw createInvalidEntityError('Presence', presence, 'userId')
+
+    if (typeof presence.locationId !== 'string')
+        throw createInvalidEntityError('Presence', presence, 'locationId')
+
+    if (
+        typeof presence.lastModified !== 'number' ||
+        !Number.isFinite(presence.lastModified)
+    )
+        throw createInvalidEntityError('Presence', presence, 'lastModified')
+
+    if (!presence.hasOwnProperty('data'))
+        throw createInvalidEntityError('Presence', presence, 'data')
+
+    return presence
+}
 
 export interface PresenceClientEvents {
     presence: void

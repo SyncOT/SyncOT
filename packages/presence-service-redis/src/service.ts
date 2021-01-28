@@ -13,7 +13,7 @@ import {
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { assert, SyncOTEmitter, throwError } from '@syncot/util'
+import { assert, SyncOTEmitter } from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import {
@@ -169,7 +169,7 @@ class RedisPresenceService
 
     public async submitPresence(presence: Presence): Promise<void> {
         this.assertOk()
-        throwError(validatePresence(presence))
+        validatePresence(presence)
 
         if (presence.sessionId !== this.authService.sessionId) {
             throw createPresenceError('Session ID mismatch.')
@@ -443,15 +443,13 @@ class RedisPresenceService
             return null
         }
 
-        const presence: Presence = {
+        const presence = validatePresence({
             data: JSON.parse(presenceResult[3]),
             lastModified: Number(presenceResult[4]),
             locationId: presenceResult[2],
             sessionId: presenceResult[0],
             userId: presenceResult[1],
-        }
-
-        throwError(validatePresence(presence))
+        })
 
         return this.authService.mayReadPresence(presence) ? presence : null
     }
