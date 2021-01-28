@@ -17,7 +17,6 @@ import {
     createId,
     exponentialBackOffStrategy,
     noop,
-    throwError,
     workLoop,
 } from '@syncot/util'
 import { Node, Schema as EditorSchema } from 'prosemirror-model'
@@ -138,6 +137,11 @@ export function syncOT({
 }
 
 export const key = new PluginKey<PluginState>('syncOT')
+
+/* istanbul ignore next */
+function throwError(error: Error): void {
+    throw error
+}
 
 const initializedStates = new WeakSet<EditorState>()
 
