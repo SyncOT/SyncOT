@@ -1,5 +1,6 @@
-import { Schema } from 'prosemirror-model'
-import { PlaceholderNames, validateSchema } from '..'
+import { assertUnreachable } from '@syncot/util'
+import { MarkSpec, NodeSpec, Schema } from 'prosemirror-model'
+import { PLACEHOLDERS, validateSchema } from '..'
 
 const attrs = {
     attrNull: { default: null },
@@ -982,6 +983,31 @@ describe('spec', () => {
 })
 
 describe('placeholders', () => {
+    function createSchema({
+        nodes = {},
+        marks = {},
+    }: {
+        nodes?: { [key: string]: NodeSpec }
+        marks?: { [key: string]: MarkSpec }
+    } = {}): Schema {
+        return new Schema({
+            nodes: {
+                doc: {},
+                text: {},
+                [PLACEHOLDERS.blockBranch.name]: PLACEHOLDERS.blockBranch.spec,
+                [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                [PLACEHOLDERS.inlineBranch.name]:
+                    PLACEHOLDERS.inlineBranch.spec,
+                [PLACEHOLDERS.inlineLeaf.name]: PLACEHOLDERS.inlineLeaf.spec,
+                ...nodes,
+            },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                ...marks,
+            },
+        })
+    }
+
     test('no placeholders', () => {
         const schema = new Schema({
             nodes: { doc: {}, text: {} },
@@ -989,46 +1015,83 @@ describe('placeholders', () => {
         expect(validateSchema(schema)).toBe(schema)
     })
 
-    describe(PlaceholderNames.mark, () => {
-        test('valid', () => {
-            const schema = new Schema({
-                nodes: { doc: {}, text: {} },
-                marks: {
-                    [PlaceholderNames.mark]: {
-                        attrs: { name: {}, attrs: {} },
-                    },
-                },
-            })
-            expect(validateSchema(schema)).toBe(schema)
-        })
+    test('all default placeholders', () => {
+        const schema = createSchema()
+        expect(validateSchema(schema)).toBe(schema)
+    })
+
+    describe(PLACEHOLDERS.mark.name, () => {
         test.each<[string, Schema]>([
             [
-                `spec.marks.${PlaceholderNames.mark}.attrs`,
+                `spec.marks.${PLACEHOLDERS.mark.name}.attrs`,
                 new Schema({
                     nodes: { doc: {}, text: {} },
                     marks: {
-                        [PlaceholderNames.mark]: {},
-                    },
-                }),
-            ],
-            [
-                `spec.marks.${PlaceholderNames.mark}.attrs.name`,
-                new Schema({
-                    nodes: { doc: {}, text: {} },
-                    marks: {
-                        [PlaceholderNames.mark]: {
-                            attrs: { attrs: {} },
+                        [PLACEHOLDERS.mark.name]: {
+                            excludes: '',
                         },
                     },
                 }),
             ],
             [
-                `spec.marks.${PlaceholderNames.mark}.attrs.attrs`,
+                `spec.marks.${PLACEHOLDERS.mark.name}.attrs.name`,
                 new Schema({
                     nodes: { doc: {}, text: {} },
                     marks: {
-                        [PlaceholderNames.mark]: {
+                        [PLACEHOLDERS.mark.name]: {
+                            attrs: { attrs: {} },
+                            excludes: '',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PLACEHOLDERS.mark.name}.attrs.attrs`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PLACEHOLDERS.mark.name]: {
                             attrs: { name: {} },
+                            excludes: '',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PLACEHOLDERS.mark.name}.attrs.unknown`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PLACEHOLDERS.mark.name]: {
+                            attrs: {
+                                name: {},
+                                attrs: {},
+                                unknown: { default: 5 },
+                            },
+                            excludes: '',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PLACEHOLDERS.mark.name}.excludes`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PLACEHOLDERS.mark.name]: {
+                            attrs: { name: {}, attrs: {} },
+                            excludes: '_',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.marks.${PLACEHOLDERS.mark.name}.excludes`,
+                new Schema({
+                    nodes: { doc: {}, text: {} },
+                    marks: {
+                        [PLACEHOLDERS.mark.name]: {
+                            attrs: { name: {}, attrs: {} },
                         },
                     },
                 }),
@@ -1047,91 +1110,134 @@ describe('placeholders', () => {
     })
 
     describe.each([
-        [PlaceholderNames.blockBranch, false, false],
-        [PlaceholderNames.blockLeaf, false, true],
-        [PlaceholderNames.inlineBranch, true, false],
-        [PlaceholderNames.inlineLeaf, true, true],
-    ])('%s', (placeholderName, isInline, isLeaf) => {
-        test('valid', () => {
-            const schema = new Schema({
-                nodes: {
-                    doc: {},
-                    text: {},
-                    [placeholderName]: {
-                        inline: isInline,
-                        content: isLeaf ? '' : 'text*',
-                        attrs: { name: {}, attrs: {} },
-                    },
-                },
-            })
-            expect(validateSchema(schema)).toBe(schema)
-        })
+        [PLACEHOLDERS.blockBranch.name, PLACEHOLDERS.blockBranch],
+        [PLACEHOLDERS.blockLeaf.name, PLACEHOLDERS.blockLeaf],
+        [PLACEHOLDERS.inlineBranch.name, PLACEHOLDERS.inlineBranch],
+        [PLACEHOLDERS.inlineLeaf.name, PLACEHOLDERS.inlineLeaf],
+    ])('%s', (_, placeholder) => {
+        const { name, spec } = placeholder
+
         test.each<[string, Schema]>([
             [
-                `spec.nodes.${placeholderName}.attrs`,
-                new Schema({
+                `spec.nodes.${name}.attrs`,
+                createSchema({
                     nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
+                        [name]: {
+                            ...spec,
+                            attrs: undefined,
                         },
                     },
                 }),
             ],
             [
-                `spec.nodes.${placeholderName}.attrs.name`,
-                new Schema({
+                `spec.nodes.${name}.attrs.name`,
+                createSchema({
                     nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: { attrs: {} },
+                        [name]: {
+                            ...spec,
+                            attrs: {
+                                attrs: {},
+                            },
                         },
                     },
                 }),
             ],
             [
-                `spec.nodes.${placeholderName}.attrs.attrs`,
-                new Schema({
+                `spec.nodes.${name}.attrs.attrs`,
+                createSchema({
                     nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
+                        [name]: {
+                            ...spec,
                             attrs: { name: {} },
                         },
                     },
                 }),
             ],
             [
-                `spec.nodes.${placeholderName}.inline`,
-                new Schema({
+                `spec.nodes.${name}.attrs.unknown`,
+                createSchema({
                     nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: !isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: { name: {}, attrs: {} },
+                        [name]: {
+                            ...spec,
+                            attrs: {
+                                ...spec.attrs,
+                                unknown: { default: 5 },
+                            },
                         },
                     },
                 }),
             ],
             [
-                `spec.nodes.${placeholderName}.content`,
-                new Schema({
+                `spec.nodes.${name}.inline`,
+                (() => {
+                    if (name === PLACEHOLDERS.inlineLeaf.name) {
+                        return new Schema({
+                            nodes: {
+                                doc: {},
+                                text: {},
+                                [PLACEHOLDERS.inlineLeaf.name]: {
+                                    ...PLACEHOLDERS.inlineLeaf.spec,
+                                    inline: false,
+                                },
+                            },
+                        })
+                    } else if (name === PLACEHOLDERS.inlineBranch.name) {
+                        return new Schema({
+                            nodes: {
+                                doc: {},
+                                text: {},
+                                [PLACEHOLDERS.inlineBranch.name]: {
+                                    ...PLACEHOLDERS.inlineBranch.spec,
+                                    inline: false,
+                                    content: 'text*',
+                                },
+                            },
+                        })
+                    } else if (name === PLACEHOLDERS.blockLeaf.name) {
+                        return new Schema({
+                            nodes: {
+                                doc: {},
+                                text: {},
+                                [PLACEHOLDERS.blockLeaf.name]: {
+                                    ...PLACEHOLDERS.blockLeaf.spec,
+                                    inline: true,
+                                },
+                            },
+                        })
+                    } else if (name === PLACEHOLDERS.blockBranch.name) {
+                        return new Schema({
+                            nodes: {
+                                doc: {},
+                                text: {},
+                                [PLACEHOLDERS.blockBranch.name]: {
+                                    ...PLACEHOLDERS.blockBranch.spec,
+                                    inline: true,
+                                    content: 'text*',
+                                },
+                            },
+                        })
+                    }
+                    return assertUnreachable()
+                })(),
+            ],
+            [
+                `spec.nodes.${name}.content`,
+                createSchema({
                     nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? 'text*' : '',
-                            attrs: { name: {}, attrs: {} },
+                        [name]: {
+                            ...spec,
+                            content: 'text*',
+                        },
+                    },
+                }),
+            ],
+            [
+                `spec.nodes.${name}.marks`,
+                createSchema({
+                    nodes: {
+                        [name]: {
+                            ...spec,
+                            marks: '',
                         },
                     },
                 }),

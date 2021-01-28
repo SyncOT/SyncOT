@@ -1,5 +1,5 @@
 import { Schema } from 'prosemirror-model'
-import { changeSchema, PlaceholderNames } from '..'
+import { changeSchema, PLACEHOLDERS } from '..'
 
 test('validates the schema', () => {
     const schema = new Schema({
@@ -286,7 +286,7 @@ describe('convertNode', () => {
                 nodes: {
                     doc: {},
                     text: {},
-                    [PlaceholderNames.inlineLeaf]: {
+                    [PLACEHOLDERS.inlineLeaf.name]: {
                         inline: true,
                         attrs: {
                             name: {},
@@ -295,7 +295,7 @@ describe('convertNode', () => {
                     },
                 },
             })
-            const node = schema.node(PlaceholderNames.inlineLeaf, {
+            const node = schema.node(PLACEHOLDERS.inlineLeaf.name, {
                 name: 'text',
                 attrs: {},
             })
@@ -314,7 +314,7 @@ describe('convertNode', () => {
                 nodes: {
                     doc: {},
                     text: {},
-                    [PlaceholderNames.inlineLeaf]: {
+                    [PLACEHOLDERS.inlineLeaf.name]: {
                         inline: true,
                         attrs: {
                             name: {},
@@ -323,7 +323,7 @@ describe('convertNode', () => {
                     },
                 },
             })
-            const node = schema.node(PlaceholderNames.inlineLeaf, {
+            const node = schema.node(PLACEHOLDERS.inlineLeaf.name, {
                 name: 'replaced',
                 attrs: {},
             })
@@ -345,7 +345,7 @@ describe('convertNode', () => {
                 nodes: {
                     doc: {},
                     text: {},
-                    [PlaceholderNames.inlineLeaf]: {
+                    [PLACEHOLDERS.inlineLeaf.name]: {
                         inline: true,
                         attrs: {
                             name: {},
@@ -354,7 +354,7 @@ describe('convertNode', () => {
                     },
                 },
             })
-            const node = schema.node(PlaceholderNames.inlineLeaf, {
+            const node = schema.node(PLACEHOLDERS.inlineLeaf.name, {
                 name: 'replaced',
                 attrs: {},
             })
@@ -373,8 +373,8 @@ describe('convertNode', () => {
         })
 
         test.each([
-            [PlaceholderNames.inlineLeaf, true],
-            [PlaceholderNames.blockLeaf, false],
+            [PLACEHOLDERS.inlineLeaf.name, true],
+            [PLACEHOLDERS.blockLeaf.name, false],
         ])('replace %s', (placeholderName, isInline) => {
             const schema = new Schema({
                 nodes: {
@@ -423,8 +423,8 @@ describe('convertNode', () => {
         })
 
         test.each([
-            [PlaceholderNames.inlineBranch, true],
-            [PlaceholderNames.blockBranch, false],
+            [PLACEHOLDERS.inlineBranch.name, true],
+            [PLACEHOLDERS.blockBranch.name, false],
         ])('replace %s', (placeholderName, isInline) => {
             const schema = new Schema({
                 nodes: {
@@ -498,61 +498,63 @@ describe('convertNode', () => {
 
     describe('replace a normal node with a placeholder', () => {
         test.each([
-            [PlaceholderNames.blockBranch, false, false],
-            [PlaceholderNames.blockLeaf, false, true],
-            [PlaceholderNames.inlineBranch, true, false],
-            [PlaceholderNames.inlineLeaf, true, true],
-        ])(
-            'do not replace %s with itself',
-            (placeholderName, isInline, isLeaf) => {
-                const schema = new Schema({
-                    nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                attrs: {},
-                            },
-                        },
+            PLACEHOLDERS.blockBranch.name,
+            PLACEHOLDERS.blockLeaf.name,
+            PLACEHOLDERS.inlineBranch.name,
+            PLACEHOLDERS.inlineLeaf.name,
+        ])('do not replace %s with itself', (placeholderName) => {
+            const schema = new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    [PLACEHOLDERS.blockBranch.name]: {
+                        inline: false,
+                        content: 'text*',
                     },
-                })
-                const node = schema.node(placeholderName, {
-                    name: 'unknown',
-                    attrs: {},
-                })
-                const newSchema = new Schema({
-                    nodes: {
-                        doc: {},
-                        text: {},
-                        [placeholderName]: {
-                            inline: isInline,
-                            content: isLeaf ? '' : 'text*',
-                            attrs: {
-                                name: {},
-                                attrs: {},
-                                extra: {},
-                            },
-                        },
+                    [PLACEHOLDERS.blockLeaf.name]: {
+                        inline: false,
+                        content: '',
                     },
-                })
-                const newNode = changeSchema(node, newSchema)
-                expect(newNode).toBeNull()
-            },
-        )
+                    [PLACEHOLDERS.inlineBranch.name]: {
+                        inline: true,
+                        content: 'text*',
+                    },
+                    [PLACEHOLDERS.inlineLeaf.name]: {
+                        inline: true,
+                        content: '',
+                    },
+                },
+            })
+            // `node` is invalid in the new schema because it has a placeholder's name
+            // but it's missing its attributes.
+            const node = schema.node(placeholderName)
+            const newSchema = new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                },
+            })
+            const newNode = changeSchema(node, newSchema)
+            expect(newNode).toBeNull()
+        })
 
         test.each([
-            [PlaceholderNames.inlineLeaf, true],
-            [PlaceholderNames.blockLeaf, false],
-        ])('replace %s', (placeholderName, isInline) => {
+            [PLACEHOLDERS.inlineLeaf.name, PLACEHOLDERS.inlineLeaf],
+            [PLACEHOLDERS.blockLeaf.name, PLACEHOLDERS.blockLeaf],
+        ])('replace %s', (_, { name, spec }) => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
                     text: {},
                     replaced: {
-                        inline: isInline,
+                        inline: spec.inline,
                         attrs: {
                             a: {},
                             b: {},
@@ -572,13 +574,7 @@ describe('convertNode', () => {
                 nodes: {
                     doc: {},
                     text: {},
-                    [placeholderName]: {
-                        inline: isInline,
-                        attrs: {
-                            name: {},
-                            attrs: {},
-                        },
-                    },
+                    [name]: spec,
                 },
                 marks: {
                     b: {},
@@ -589,7 +585,7 @@ describe('convertNode', () => {
             newNode.check()
             expect(newNode.type.schema).toBe(newSchema)
             expect(newNode.toJSON()).toEqual({
-                type: placeholderName,
+                type: name,
                 attrs: {
                     name: 'replaced',
                     attrs: {
@@ -602,15 +598,15 @@ describe('convertNode', () => {
         })
 
         test.each([
-            [PlaceholderNames.inlineBranch, true],
-            [PlaceholderNames.blockBranch, false],
-        ])('replace %s', (placeholderName, isInline) => {
+            [PLACEHOLDERS.inlineBranch.name, PLACEHOLDERS.inlineBranch],
+            [PLACEHOLDERS.blockBranch.name, PLACEHOLDERS.blockBranch],
+        ])('replace %s', (_, { name, spec }) => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
                     text: {},
                     replaced: {
-                        inline: isInline,
+                        inline: spec.inline,
                         content: 'text*',
                         attrs: {
                             a: {},
@@ -636,15 +632,13 @@ describe('convertNode', () => {
                 nodes: {
                     doc: {},
                     text: {},
-                    [placeholderName]: {
-                        inline: isInline,
-                        content: 'text*',
-                        attrs: {
-                            name: {},
-                            attrs: {},
-                        },
-                        marks: 'c',
-                    },
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
                 },
                 marks: {
                     b: {},
@@ -657,7 +651,7 @@ describe('convertNode', () => {
             newNode.check()
             expect(newNode.type.schema).toBe(newSchema)
             expect(newNode.toJSON()).toEqual({
-                type: placeholderName,
+                type: name,
                 attrs: {
                     name: 'replaced',
                     attrs: {
@@ -666,7 +660,11 @@ describe('convertNode', () => {
                     },
                 },
                 content: [
-                    { type: 'text', text: 'TEST', marks: [{ type: 'c' }] },
+                    {
+                        type: 'text',
+                        text: 'TEST',
+                        marks: [{ type: 'c' }, { type: 'd' }],
+                    },
                 ],
                 marks: [{ type: 'b' }],
             })
@@ -723,7 +721,7 @@ describe('convertMarks', () => {
                 text: {},
             },
             marks: {
-                [PlaceholderNames.mark]: {
+                [PLACEHOLDERS.mark.name]: {
                     attrs: {
                         name: {},
                         attrs: {},
@@ -732,7 +730,7 @@ describe('convertMarks', () => {
             },
         })
         const node = schema.text('TEST', [
-            schema.mark(PlaceholderNames.mark, {
+            schema.mark(PLACEHOLDERS.mark.name, {
                 name: 'replaced',
                 attrs: {
                     a: 1,
@@ -831,12 +829,7 @@ describe('convertMarks', () => {
                 text: {},
             },
             marks: {
-                [PlaceholderNames.mark]: {
-                    attrs: {
-                        name: {},
-                        attrs: {},
-                    },
-                },
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
             },
         })
         const newNode = changeSchema(node, newSchema)!
@@ -848,7 +841,7 @@ describe('convertMarks', () => {
             text: 'TEST',
             marks: [
                 {
-                    type: PlaceholderNames.mark,
+                    type: PLACEHOLDERS.mark.name,
                     attrs: { name: 'replaced', attrs: { a: 1, b: 2 } },
                 },
             ],
@@ -863,33 +856,19 @@ describe('convertMarks', () => {
                 text: {},
             },
             marks: {
-                [PlaceholderNames.mark]: {
-                    attrs: {
-                        name: {},
-                        attrs: {},
-                    },
-                },
+                [PLACEHOLDERS.mark.name]: {},
             },
         })
-        const node = schema.text('TEST', [
-            schema.mark(PlaceholderNames.mark, {
-                name: PlaceholderNames.mark,
-                attrs: {},
-            }),
-        ])
+        // The mark is invalid in the new schema because it has a placeholder's name
+        // but it's missing its attributes.
+        const node = schema.text('TEST', [schema.mark(PLACEHOLDERS.mark.name)])
         const newSchema = new Schema({
             nodes: {
                 doc: {},
                 text: {},
             },
             marks: {
-                [PlaceholderNames.mark]: {
-                    attrs: {
-                        name: {},
-                        attrs: {},
-                        extra: {},
-                    },
-                },
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
             },
         })
         const newNode = changeSchema(node, newSchema)!

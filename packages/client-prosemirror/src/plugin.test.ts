@@ -12,14 +12,12 @@ import {
     Schema,
     Snapshot,
 } from '@syncot/content'
-import {
-    PlaceholderNames,
-    toSyncOTSchema,
-} from '@syncot/content-type-prosemirror'
+import { PLACEHOLDERS, toSyncOTSchema } from '@syncot/content-type-prosemirror'
 import { createId, noop, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import {
     Fragment,
     Node,
+    NodeSpec,
     Schema as EditorSchema,
     Slice,
 } from 'prosemirror-model'
@@ -877,14 +875,27 @@ describe('view', () => {
                         return ['h1', 0]
                     },
                 },
-                [PlaceholderNames.blockBranch]: {
+                [PLACEHOLDERS.blockBranch.name]: {
+                    ...PLACEHOLDERS.blockBranch.spec,
                     group: 'block',
-                    content: 'text*',
-                    attrs: { name: {}, attrs: {} },
                     toDOM() {
                         return ['placeholder-block-branch', 0]
                     },
-                },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineBranch.name]: {
+                    ...PLACEHOLDERS.inlineBranch.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-branch', 0]
+                    },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineLeaf.name]: {
+                    ...PLACEHOLDERS.inlineLeaf.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-leaf']
+                    },
+                } as NodeSpec,
                 p: {
                     group: 'block',
                     content: 'text*',
@@ -907,14 +918,27 @@ describe('view', () => {
                         return ['h1', 0]
                     },
                 },
-                [PlaceholderNames.blockBranch]: {
+                [PLACEHOLDERS.blockBranch.name]: {
+                    ...PLACEHOLDERS.blockBranch.spec,
                     group: 'block',
-                    content: 'text*',
-                    attrs: { name: {}, attrs: {} },
                     toDOM() {
                         return ['placeholder-block-branch', 0]
                     },
-                },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineBranch.name]: {
+                    ...PLACEHOLDERS.inlineBranch.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-branch', 0]
+                    },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineLeaf.name]: {
+                    ...PLACEHOLDERS.inlineLeaf.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-leaf']
+                    },
+                } as NodeSpec,
             },
         })
         const clientSchema = toSyncOTSchema(type, clientEditorSchema)
@@ -955,7 +979,7 @@ describe('view', () => {
                     ],
                 },
                 {
-                    type: PlaceholderNames.blockBranch,
+                    type: PLACEHOLDERS.blockBranch.name,
                     attrs: {
                         name: 'p',
                         attrs: {},
@@ -1172,14 +1196,27 @@ describe('view', () => {
                         return ['h1', 0]
                     },
                 },
-                [PlaceholderNames.blockBranch]: {
+                [PLACEHOLDERS.blockBranch.name]: {
+                    ...PLACEHOLDERS.blockBranch.spec,
                     group: 'block',
-                    content: 'text*',
-                    attrs: { name: {}, attrs: {} },
                     toDOM() {
                         return ['placeholder-block-branch', 0]
                     },
-                },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineBranch.name]: {
+                    ...PLACEHOLDERS.inlineBranch.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-branch', 0]
+                    },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineLeaf.name]: {
+                    ...PLACEHOLDERS.inlineLeaf.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-leaf']
+                    },
+                } as NodeSpec,
                 p: {
                     group: 'block',
                     content: 'text*',
@@ -1202,14 +1239,27 @@ describe('view', () => {
                         return ['h1', 0]
                     },
                 },
-                [PlaceholderNames.blockBranch]: {
+                [PLACEHOLDERS.blockBranch.name]: {
+                    ...PLACEHOLDERS.blockBranch.spec,
                     group: 'block',
-                    content: 'text*',
-                    attrs: { name: {}, attrs: {} },
                     toDOM() {
                         return ['placeholder-block-branch', 0]
                     },
-                },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineBranch.name]: {
+                    ...PLACEHOLDERS.inlineBranch.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-branch', 0]
+                    },
+                } as NodeSpec,
+                [PLACEHOLDERS.inlineLeaf.name]: {
+                    ...PLACEHOLDERS.inlineLeaf.spec,
+                    group: 'inline',
+                    toDOM() {
+                        return ['placeholder-inline-leaf']
+                    },
+                } as NodeSpec,
             },
         })
 

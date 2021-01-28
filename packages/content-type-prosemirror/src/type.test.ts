@@ -7,7 +7,7 @@ import {
 import { CustomError } from '@syncot/util'
 import { Fragment, Schema as ProseMirrorSchema, Slice } from 'prosemirror-model'
 import { ReplaceStep } from 'prosemirror-transform'
-import { createContentType, PlaceholderNames, toSyncOTSchema } from '.'
+import { createContentType, PLACEHOLDERS, toSyncOTSchema } from '.'
 
 let contentType: ContentType
 const type = 'type-0'
@@ -466,13 +466,21 @@ describe('apply', () => {
                     doc: { content: 'block+' },
                     text: { group: 'inline' },
                     h: { group: 'block', content: 'inline*' },
-                    [PlaceholderNames.blockBranch]: {
+                    [PLACEHOLDERS.blockBranch.name]: {
+                        ...PLACEHOLDERS.blockBranch.spec,
                         group: 'block',
-                        content: 'inline*',
-                        attrs: {
-                            name: {},
-                            attrs: {},
-                        },
+                    },
+                    [PLACEHOLDERS.blockLeaf.name]: {
+                        ...PLACEHOLDERS.blockLeaf.spec,
+                        group: 'block',
+                    },
+                    [PLACEHOLDERS.inlineBranch.name]: {
+                        ...PLACEHOLDERS.inlineBranch.spec,
+                        group: 'inline',
+                    },
+                    [PLACEHOLDERS.inlineLeaf.name]: {
+                        ...PLACEHOLDERS.inlineLeaf.spec,
+                        group: 'inline',
                     },
                 },
             })
@@ -510,7 +518,7 @@ describe('apply', () => {
                     type: 'doc',
                     content: [
                         {
-                            type: PlaceholderNames.blockBranch,
+                            type: PLACEHOLDERS.blockBranch.name,
                             content: [
                                 {
                                     type: 'text',

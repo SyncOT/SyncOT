@@ -8,7 +8,7 @@ import {
     NodeType,
     Schema,
 } from 'prosemirror-model'
-import { PlaceholderNames } from './placeholderNames'
+import { PLACEHOLDERS } from './placeholders'
 
 /**
  * Checks if the specified ProseMirror Schema is compatible with SyncOT.
@@ -213,98 +213,62 @@ function validateExcludes(
 }
 
 function validatePlaceholders(schema: Schema): void {
-    const mark = schema.marks[PlaceholderNames.mark]
-    if (mark) {
-        validatePlaceholderAttrs(
-            mark.spec.attrs,
-            schema,
-            `spec.marks.${PlaceholderNames.mark}.attrs`,
-        )
-    }
+    validatePlaceholderMark(schema, PLACEHOLDERS.mark)
+    validatePlaceholderNode(schema, PLACEHOLDERS.blockBranch)
+    validatePlaceholderNode(schema, PLACEHOLDERS.blockLeaf)
+    validatePlaceholderNode(schema, PLACEHOLDERS.inlineBranch)
+    validatePlaceholderNode(schema, PLACEHOLDERS.inlineLeaf)
+}
 
-    const blockBranch = schema.nodes[PlaceholderNames.blockBranch]
-    if (blockBranch) {
-        validatePlaceholderAttrs(
-            blockBranch.spec.attrs,
-            schema,
-            `spec.nodes.${PlaceholderNames.blockBranch}.attrs`,
-        )
-        if (!blockBranch.isBlock)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.blockBranch}.inline`,
-            )
-        if (blockBranch.isLeaf)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.blockBranch}.content`,
-            )
-    }
+function validatePlaceholderMark(
+    schema: Schema,
+    placeholder: { name: string; spec: MarkSpec },
+): void {
+    const { name, spec } = placeholder
+    const type = schema.marks[name]
+    if (type == null) return
+    const key = `spec.marks.${name}`
 
-    const blockLeaf = schema.nodes[PlaceholderNames.blockLeaf]
-    if (blockLeaf) {
-        validatePlaceholderAttrs(
-            blockLeaf.spec.attrs,
-            schema,
-            `spec.nodes.${PlaceholderNames.blockLeaf}.attrs`,
-        )
-        if (!blockLeaf.isBlock)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.blockLeaf}.inline`,
-            )
-        if (!blockLeaf.isLeaf)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.blockLeaf}.content`,
-            )
-    }
+    validatePlaceholderAttrs(type.spec.attrs, schema, `${key}.attrs`)
 
-    const inlineBranch = schema.nodes[PlaceholderNames.inlineBranch]
-    if (inlineBranch) {
-        validatePlaceholderAttrs(
-            inlineBranch.spec.attrs,
-            schema,
-            `spec.nodes.${PlaceholderNames.inlineBranch}.attrs`,
+    if (type.spec.excludes !== spec.excludes)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            { spec: schema.spec },
+            `${key}.excludes`,
         )
-        if (!inlineBranch.isInline)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.inlineBranch}.inline`,
-            )
-        if (inlineBranch.isLeaf)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.inlineBranch}.content`,
-            )
-    }
+}
 
-    const inlineLeaf = schema.nodes[PlaceholderNames.inlineLeaf]
-    if (inlineLeaf) {
-        validatePlaceholderAttrs(
-            inlineLeaf.spec.attrs,
-            schema,
-            `spec.nodes.${PlaceholderNames.inlineLeaf}.attrs`,
+function validatePlaceholderNode(
+    schema: Schema,
+    placeholder: { name: string; spec: NodeSpec },
+): void {
+    const { name, spec } = placeholder
+    const type = schema.nodes[name]
+    if (type == null) return
+    const key = `spec.nodes.${name}`
+
+    validatePlaceholderAttrs(type.spec.attrs, schema, `${key}.attrs`)
+
+    if (type.spec.inline !== spec.inline)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            { spec: schema.spec },
+            `${key}.inline`,
         )
-        if (!inlineLeaf.isInline)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.inlineLeaf}.inline`,
-            )
-        if (!inlineLeaf.isLeaf)
-            throw createInvalidEntityError(
-                'ProseMirrorSchema',
-                { spec: schema.spec },
-                `spec.nodes.${PlaceholderNames.inlineLeaf}.content`,
-            )
-    }
+    if (type.spec.content !== spec.content)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            { spec: schema.spec },
+            `${key}.content`,
+        )
+
+    if (type.spec.marks !== spec.marks)
+        throw createInvalidEntityError(
+            'ProseMirrorSchema',
+            { spec: schema.spec },
+            `${key}.marks`,
+        )
 }
 
 function validatePlaceholderAttrs(
@@ -330,4 +294,16 @@ function validatePlaceholderAttrs(
             { spec: schema.spec },
             `${key}.attrs`,
         )
+    const names = Object.keys(attrs)
+    if (names.length !== 2) {
+        for (const name of names) {
+            if (name !== 'name' && name !== 'attrs') {
+                throw createInvalidEntityError(
+                    'ProseMirrorSchema',
+                    { spec: schema.spec },
+                    `${key}.${name}`,
+                )
+            }
+        }
+    }
 }

@@ -1,13 +1,18 @@
 import { assert } from '@syncot/util'
 import { Fragment, Mark, Node, NodeType, Schema } from 'prosemirror-model'
 import { equalShape } from './util'
-import { PlaceholderNames } from './placeholderNames'
+import { PLACEHOLDERS } from './placeholders'
 import { validateSchema } from './validateSchema'
 
 /**
- * Changes the schema of `node` to `schema`. It guarantees to keep the "shape" of the content,
+ * Recursively changes the schema of `node` to `schema`. It guarantees to keep the "shape" of the content,
  * meaning that all nodes from `node` are represented in the output with the original nodeSize,
  * isLeaf and isInline/isBlock properties.
+ *
+ * It uses placeholders, if defined in `schema`, in order to convert nodes and marks to appropriate placeholders,
+ * if they cannot keep their original names due to schema incompatibilities. It makes it possible to remove node and
+ * mark schema declarations while preserving all information in the content and maintaining backwards compatibility.
+ * Additionally, if the previously removed schema declarations are restored, the previous content is also restored.
  *
  * It uses the following algorithm:
  *
@@ -15,52 +20,16 @@ import { validateSchema } from './validateSchema'
  *    those attributes are added with the default values to the appropriate content nodes and marks.
  * 2. If existing node or mark attributes are removed from the `schema` relative to `node.type.schema`,
  *    those attributes are removed from the appropriate content nodes and marks.
- * 3. If the `node` contains node or mark placeholders (see below) AND
- *    the new `schema` contains the declarations for the nodes or marks they replaced, THEN
- *    those nodes or marks are restored and the placeholders are removed.
- * 4. If the new `schema` contains node and mark placeholders (see below) AND
- *    node or mark attributes required by the new schema are missing in `node` OR
- *    node or mark declarations are missing in the new schema but exist in the `node.type.schema`, THEN
- *    the appropriate nodes and marks are replaced with the placeholders.
+ * 3. If some nodes and marks represented by placeholders are valid in the `schema`,
+ *    the placeholders are replaced by the nodes and marks they represent.
+ * 4. If compatible node and mark declarations exist in `schema`,
+ *    the nodes and marks are converted to the corresponding nodes and marks from `schema`.
+ * 4. If some nodes and marks are not valid in `schema`,
+ *    they are replaced by appropriate node and mark placeholders.
  * 5. If any content marks violate the new schema constraints,
  *    they are removed.
  * 6. Returns null, if thus processed content is not valid according to the new `schema`.
  * 7. Returns a new node with the specified `schema` and content from the specified `node`.
- *
- * The node and mark placeholders mentioned above make it possible to remove node and mark
- * schema declarations while preserving all information in the content and maintaining backwards compatibility.
- * Additionally, if the previously removed schema declarations are restored, the previous content is also restored.
- * Up to 4 node placeholders and 1 mark placeholder can be declared in `schema`.
- *
- * The node placeholders:
- * - MUST have one of the following names:
- *   - "placeholderBlockBranch" - a block node with content
- *   - "placeholderBlockLeaf" - a block node without content
- *   - "placeholderInlineBranch" - an inline node with content
- *   - "placeholderInlineLeft" - an inline node without content
- * - MUST support "name" and "attrs" attributes,
- *   which the plugin will populate with the corresponding node data.
- * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
- * - MUST be allowed to appear in all the places where the nodes they may replace are allowed.
- *   Consider adding the node placeholders to the groups containing nodes they may replace and
- *   always using those group names in content expressions instead of the node names.
- * - MUST allow all content allowed by the nodes they may replace.
- *   Consider adding all nodes to groups called "block" and "inline" as appropriate and
- *   setting the placeholders' "content" to "block*" or "inline*" respectively.
- * - SHOULD allow all marks allowed by the nodes they may replace.
- *   Consider setting the placeholder's "marks" to "_" (allow all).
- * - SHOULD have the "atom" property set to true.
- *
- * The mark placeholder:
- * - MUST be called "placeholderMark".
- * - MUST support "name" and "attrs" attributes,
- *   which the plugin will populate with the corresponding mark data.
- * - MUST define the `toDOM` and `parseDOM` properties as appropriate.
- * - SHOULD be valid in all nodes where the marks it replaces are valid.
- *   If you need to allow specific marks in some nodes,
- *   consider adding them to groups along with the placeholder mark and
- *   always specifying allowed marks using group names instead of mark names.
- * - SHOULD have the "excludes" property set to an empty string (does not exclude any marks).
  *
  * @param node A node whose content should be migrated to the new schema.
  * @param schema The schema for the new node.
@@ -84,15 +53,15 @@ export function changeSchema<
     return newNode
 }
 
-function getPlaceholderName(type: NodeType): PlaceholderNames {
+function getPlaceholderName(type: NodeType): string {
     if (type.isInline) {
         return type.isLeaf
-            ? PlaceholderNames.inlineLeaf
-            : PlaceholderNames.inlineBranch
+            ? PLACEHOLDERS.inlineLeaf.name
+            : PLACEHOLDERS.inlineBranch.name
     } else {
         return type.isLeaf
-            ? PlaceholderNames.blockLeaf
-            : PlaceholderNames.blockBranch
+            ? PLACEHOLDERS.blockLeaf.name
+            : PLACEHOLDERS.blockBranch.name
     }
 }
 
@@ -186,7 +155,7 @@ function convertMark(mark: Mark, schema: Schema): Mark | null {
 
     // Try to convert a placeholder to the original mark.
     try {
-        if (name === PlaceholderNames.mark) {
+        if (name === PLACEHOLDERS.mark.name) {
             const type = schema.marks[attrs.name]
             return type.create(attrs.attrs)
         }
@@ -204,8 +173,8 @@ function convertMark(mark: Mark, schema: Schema): Mark | null {
 
     // Try to replace the mark with a placeholder.
     try {
-        if (name !== PlaceholderNames.mark) {
-            const type = schema.marks[PlaceholderNames.mark]
+        if (name !== PLACEHOLDERS.mark.name) {
+            const type = schema.marks[PLACEHOLDERS.mark.name]
             return type.create({ name, attrs })
         }
     } catch (_error) {
