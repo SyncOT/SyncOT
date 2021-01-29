@@ -38,7 +38,7 @@ export const PLACEHOLDERS = Object.freeze({
             inline: false,
             content:
                 '(placeholderInlineBranch | placeholderInlineLeaf | text)*',
-            marks: '_',
+            marks: 'placeholderMark',
         }),
     }),
     /**
@@ -50,7 +50,7 @@ export const PLACEHOLDERS = Object.freeze({
             attrs,
             inline: false,
             content: '',
-            marks: '_',
+            marks: 'placeholderMark',
         }),
     }),
     /**
@@ -63,7 +63,7 @@ export const PLACEHOLDERS = Object.freeze({
             inline: true,
             content:
                 '(placeholderInlineBranch | placeholderInlineLeaf | text)*',
-            marks: '_',
+            marks: 'placeholderMark',
         }),
     }),
     /**
@@ -75,7 +75,7 @@ export const PLACEHOLDERS = Object.freeze({
             attrs,
             inline: true,
             content: '',
-            marks: '_',
+            marks: 'placeholderMark',
         }),
     }),
     /**

@@ -904,6 +904,9 @@ describe('view', () => {
                     },
                 },
             },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+            },
         })
         const serverSchema = toSyncOTSchema(type, serverEditorSchema)
 
@@ -939,6 +942,9 @@ describe('view', () => {
                         return ['placeholder-inline-leaf']
                     },
                 } as NodeSpec,
+            },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
             },
         })
         const clientSchema = toSyncOTSchema(type, clientEditorSchema)
@@ -1225,6 +1231,9 @@ describe('view', () => {
                     },
                 },
             },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+            },
         })
         const serverSchema = toSyncOTSchema(type, serverEditorSchema)
 
@@ -1260,6 +1269,9 @@ describe('view', () => {
                         return ['placeholder-inline-leaf']
                     },
                 } as NodeSpec,
+            },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
             },
         })
 

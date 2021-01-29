@@ -483,6 +483,9 @@ describe('apply', () => {
                         group: 'inline',
                     },
                 },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
             })
             const schema2 = toSyncOTSchema(type, proseMirrorSchema2)
             contentType.registerSchema(schema2)

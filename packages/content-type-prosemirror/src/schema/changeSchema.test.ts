@@ -181,7 +181,7 @@ describe('convertNode', () => {
     })
 
     describe('the same name', () => {
-        test('the same isInline and isLeaf', () => {
+        test('succeed on the same isInline and isLeaf', () => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
@@ -259,7 +259,7 @@ describe('convertNode', () => {
             const newNode = changeSchema(node, newSchema)!
             expect(newNode).toBeNull()
         })
-        test('the same isLeaf and different isInline', () => {
+        test('the same isLeaf and different isInline (top level node)', () => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
@@ -276,7 +276,176 @@ describe('convertNode', () => {
                 },
             })
             const newNode = changeSchema(node, newSchema)!
-            expect(newNode).toBeNull()
+            expect(newNode).not.toBeNull()
+            newNode.check()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: 'p',
+                content: [
+                    {
+                        type: 'text',
+                        text: 'TEST',
+                    },
+                ],
+            })
+        })
+        test('the same isLeaf and different isInline (nested node)', () => {
+            const schema = new Schema({
+                nodes: {
+                    doc: { content: 'p*' },
+                    text: {},
+                    p: { content: 'text*' },
+                },
+            })
+            const node = schema.node(
+                'doc',
+                undefined,
+                schema.node('p', undefined, schema.text('TEST')),
+            )
+            const newSchema = new Schema({
+                nodes: {
+                    doc: { content: 'p*' },
+                    text: {},
+                    p: { content: 'text*', inline: true },
+                },
+            })
+            const newNode = changeSchema(node, newSchema)!
+            expect(newNode).not.toBeNull()
+            newNode.check()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'p',
+                        content: [
+                            {
+                                type: 'text',
+                                text: 'TEST',
+                            },
+                        ],
+                    },
+                ],
+            })
+        })
+    })
+
+    describe('update existing placeholder', () => {
+        test.each([
+            PLACEHOLDERS.blockLeaf.name,
+            PLACEHOLDERS.blockBranch.name,
+            PLACEHOLDERS.inlineLeaf.name,
+            PLACEHOLDERS.inlineBranch.name,
+        ])('top level %s to itself', (name) => {
+            const schema = new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
+            })
+            const node = schema.node(name, {
+                name: 'n',
+                attrs: { a: 1 },
+            })
+            const newSchema = new Schema({
+                nodes: {
+                    doc: {},
+                    text: {},
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
+            })
+            const newNode = changeSchema(node, newSchema)!
+            expect(newNode).not.toBeNull()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: name,
+                attrs: {
+                    name: 'n',
+                    attrs: { a: 1 },
+                },
+            })
+        })
+
+        test.each([
+            [PLACEHOLDERS.blockLeaf.name, PLACEHOLDERS.inlineLeaf.name],
+            [PLACEHOLDERS.inlineLeaf.name, PLACEHOLDERS.blockLeaf.name],
+            [PLACEHOLDERS.blockBranch.name, PLACEHOLDERS.inlineBranch.name],
+            [PLACEHOLDERS.inlineBranch.name, PLACEHOLDERS.blockBranch.name],
+        ])('nested %s to %s', (from, to) => {
+            const schema = new Schema({
+                nodes: {
+                    doc: { content: `${from}*` },
+                    text: {},
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
+            })
+            const node = schema.node(
+                'doc',
+                undefined,
+                schema.node(from, {
+                    name: 'n',
+                    attrs: { a: 1 },
+                }),
+            )
+            const newSchema = new Schema({
+                nodes: {
+                    doc: { content: `${to}*` },
+                    text: {},
+                    [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
+                    [PLACEHOLDERS.blockBranch.name]:
+                        PLACEHOLDERS.blockBranch.spec,
+                    [PLACEHOLDERS.inlineLeaf.name]:
+                        PLACEHOLDERS.inlineLeaf.spec,
+                    [PLACEHOLDERS.inlineBranch.name]:
+                        PLACEHOLDERS.inlineBranch.spec,
+                },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
+            })
+            const newNode = changeSchema(node, newSchema)!
+            expect(newNode).not.toBeNull()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: 'doc',
+                content: [
+                    {
+                        type: to,
+                        attrs: {
+                            name: 'n',
+                            attrs: { a: 1 },
+                        },
+                    },
+                ],
+            })
         })
     })
 
@@ -309,7 +478,7 @@ describe('convertNode', () => {
             expect(newNode).toBeNull()
         })
 
-        test('do not replace if isInline is different', () => {
+        test('replace if isInline is different (top level node)', () => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
@@ -337,7 +506,59 @@ describe('convertNode', () => {
                 },
             })
             const newNode = changeSchema(node, newSchema)!
-            expect(newNode).toBeNull()
+            expect(newNode).not.toBeNull()
+            newNode.check()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: 'replaced',
+            })
+        })
+
+        test('replace if isInline is different (nested node)', () => {
+            const schema = new Schema({
+                nodes: {
+                    doc: { content: 'content*' },
+                    text: {},
+                    [PLACEHOLDERS.inlineLeaf.name]: {
+                        group: 'content',
+                        inline: true,
+                        attrs: {
+                            name: {},
+                            attrs: {},
+                        },
+                    },
+                },
+            })
+            const node = schema.node(
+                'doc',
+                undefined,
+                schema.node(PLACEHOLDERS.inlineLeaf.name, {
+                    name: 'replaced',
+                    attrs: {},
+                }),
+            )
+            const newSchema = new Schema({
+                nodes: {
+                    doc: { content: 'content*' },
+                    text: {},
+                    replaced: {
+                        group: 'content',
+                        inline: false,
+                    },
+                },
+            })
+            const newNode = changeSchema(node, newSchema)!
+            expect(newNode).not.toBeNull()
+            newNode.check()
+            expect(newNode.type.schema).toBe(newSchema)
+            expect(newNode.toJSON()).toEqual({
+                type: 'doc',
+                content: [
+                    {
+                        type: 'replaced',
+                    },
+                ],
+            })
         })
 
         test('do not replace if isLeaf is different', () => {
@@ -502,7 +723,7 @@ describe('convertNode', () => {
             PLACEHOLDERS.blockLeaf.name,
             PLACEHOLDERS.inlineBranch.name,
             PLACEHOLDERS.inlineLeaf.name,
-        ])('do not replace %s with itself', (placeholderName) => {
+        ])('do not replace invalid %s with itself', (placeholderName) => {
             const schema = new Schema({
                 nodes: {
                     doc: {},
@@ -510,18 +731,22 @@ describe('convertNode', () => {
                     [PLACEHOLDERS.blockBranch.name]: {
                         inline: false,
                         content: 'text*',
+                        attrs: { a: { default: 5 } },
                     },
                     [PLACEHOLDERS.blockLeaf.name]: {
                         inline: false,
                         content: '',
+                        attrs: { a: { default: 5 } },
                     },
                     [PLACEHOLDERS.inlineBranch.name]: {
                         inline: true,
                         content: 'text*',
+                        attrs: { a: { default: 5 } },
                     },
                     [PLACEHOLDERS.inlineLeaf.name]: {
                         inline: true,
                         content: '',
+                        attrs: { a: { default: 5 } },
                     },
                 },
             })
@@ -540,8 +765,11 @@ describe('convertNode', () => {
                     [PLACEHOLDERS.inlineLeaf.name]:
                         PLACEHOLDERS.inlineLeaf.spec,
                 },
+                marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                },
             })
-            const newNode = changeSchema(node, newSchema)
+            const newNode = changeSchema(node, newSchema)!
             expect(newNode).toBeNull()
         })
 
@@ -577,6 +805,7 @@ describe('convertNode', () => {
                     [name]: spec,
                 },
                 marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
                     b: {},
                 },
             })
@@ -593,7 +822,16 @@ describe('convertNode', () => {
                         b: 2,
                     },
                 },
-                marks: [{ type: 'b' }],
+                marks: [
+                    {
+                        type: PLACEHOLDERS.mark.name,
+                        attrs: {
+                            name: 'a',
+                            attrs: {},
+                        },
+                    },
+                    { type: 'b' },
+                ],
             })
         })
 
@@ -641,6 +879,7 @@ describe('convertNode', () => {
                     [PLACEHOLDERS.blockLeaf.name]: PLACEHOLDERS.blockLeaf.spec,
                 },
                 marks: {
+                    [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
                     b: {},
                     c: {},
                     d: {},
@@ -663,12 +902,243 @@ describe('convertNode', () => {
                     {
                         type: 'text',
                         text: 'TEST',
-                        marks: [{ type: 'c' }, { type: 'd' }],
+                        marks: [
+                            {
+                                type: PLACEHOLDERS.mark.name,
+                                attrs: {
+                                    name: 'c',
+                                    attrs: {},
+                                },
+                            },
+                            {
+                                type: PLACEHOLDERS.mark.name,
+                                attrs: {
+                                    name: 'd',
+                                    attrs: {},
+                                },
+                            },
+                        ],
                     },
                 ],
-                marks: [{ type: 'b' }],
+                marks: [
+                    {
+                        type: PLACEHOLDERS.mark.name,
+                        attrs: {
+                            name: 'a',
+                            attrs: {},
+                        },
+                    },
+                    { type: 'b' },
+                ],
             })
         })
+    })
+
+    describe('ensure placeholders contain only placeholders', () => {
+        test.each([true, false])(
+            'replace nested nodes and marks (container is inline: %s)',
+            (inline) => {
+                const createSchema = (requiredAttrs: boolean) =>
+                    new Schema({
+                        nodes: {
+                            doc: {
+                                content: 'container*',
+                            },
+                            text: {},
+                            [PLACEHOLDERS.blockBranch.name]: {
+                                ...PLACEHOLDERS.blockBranch.spec,
+                                group: inline ? undefined : 'container',
+                            },
+                            [PLACEHOLDERS.blockLeaf.name]: {
+                                ...PLACEHOLDERS.blockLeaf.spec,
+                            },
+                            [PLACEHOLDERS.inlineBranch.name]: {
+                                ...PLACEHOLDERS.inlineBranch.spec,
+                                group: inline ? 'container' : undefined,
+                            },
+                            [PLACEHOLDERS.inlineLeaf.name]: {
+                                ...PLACEHOLDERS.inlineLeaf.spec,
+                            },
+                            inlineContent: {
+                                group: 'container',
+                                content: 'inline*',
+                                marks: '_',
+                                inline,
+                                attrs: requiredAttrs ? { a: {} } : {},
+                            },
+                            blockContent: {
+                                group: 'container',
+                                content: 'block*',
+                                marks: '_',
+                                inline,
+                                attrs: requiredAttrs ? { a: {} } : {},
+                            },
+                            inlineBranch: {
+                                group: 'inline',
+                                content: 'text*',
+                                inline: true,
+                            },
+                            inlineLeaf: {
+                                group: 'inline',
+                                content: null,
+                                inline: true,
+                            },
+                            blockBranch: {
+                                group: 'block',
+                                content: 'text*',
+                                inline: false,
+                            },
+                            blockLeaf: {
+                                group: 'block',
+                                content: null,
+                                inline: false,
+                            },
+                        },
+                        marks: {
+                            [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                            mark: {},
+                        },
+                    })
+                const schema = createSchema(false)
+                const node = schema.node('doc', undefined, [
+                    schema.node('inlineContent', undefined, [
+                        schema.node(
+                            'inlineBranch',
+                            undefined,
+                            [schema.text('inline content')],
+                            [schema.mark('mark')],
+                        ),
+                        schema.node('inlineLeaf', undefined, undefined, [
+                            schema.mark('mark'),
+                        ]),
+                    ]),
+                    schema.node('blockContent', undefined, [
+                        schema.node(
+                            'blockBranch',
+                            undefined,
+                            [schema.text('block content')],
+                            [schema.mark('mark')],
+                        ),
+                        schema.node('blockLeaf', undefined, undefined, [
+                            schema.mark('mark'),
+                        ]),
+                    ]),
+                ])
+                const newSchema = createSchema(true)
+                const newNode = changeSchema(node, newSchema)!
+                expect(newNode).not.toBeNull()
+                newNode.check()
+                expect(newNode.type.schema).toBe(newSchema)
+                expect(newNode.toJSON()).toEqual({
+                    type: 'doc',
+                    content: [
+                        {
+                            type: inline
+                                ? PLACEHOLDERS.inlineBranch.name
+                                : PLACEHOLDERS.blockBranch.name,
+                            attrs: {
+                                name: 'inlineContent',
+                                attrs: {},
+                            },
+                            content: [
+                                {
+                                    type: PLACEHOLDERS.inlineBranch.name,
+                                    attrs: {
+                                        name: 'inlineBranch',
+                                        attrs: {},
+                                    },
+                                    marks: [
+                                        {
+                                            type: PLACEHOLDERS.mark.name,
+                                            attrs: {
+                                                name: 'mark',
+                                                attrs: {},
+                                            },
+                                        },
+                                    ],
+                                    content: [
+                                        {
+                                            type: 'text',
+                                            text: 'inline content',
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: PLACEHOLDERS.inlineLeaf.name,
+                                    attrs: {
+                                        name: 'inlineLeaf',
+                                        attrs: {},
+                                    },
+                                    marks: [
+                                        {
+                                            type: PLACEHOLDERS.mark.name,
+                                            attrs: {
+                                                name: 'mark',
+                                                attrs: {},
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                        {
+                            type: inline
+                                ? PLACEHOLDERS.inlineBranch.name
+                                : PLACEHOLDERS.blockBranch.name,
+                            attrs: {
+                                name: 'blockContent',
+                                attrs: {},
+                            },
+                            content: [
+                                {
+                                    type: PLACEHOLDERS.inlineBranch.name,
+                                    attrs: {
+                                        name: 'blockBranch',
+                                        attrs: {},
+                                    },
+                                    marks: [
+                                        {
+                                            type: PLACEHOLDERS.mark.name,
+                                            attrs: {
+                                                name: 'mark',
+                                                attrs: {},
+                                            },
+                                        },
+                                    ],
+                                    content: [
+                                        {
+                                            type: 'text',
+                                            text: 'block content',
+                                        },
+                                    ],
+                                },
+                                {
+                                    type: PLACEHOLDERS.inlineLeaf.name,
+                                    attrs: {
+                                        name: 'blockLeaf',
+                                        attrs: {},
+                                    },
+                                    marks: [
+                                        {
+                                            type: PLACEHOLDERS.mark.name,
+                                            attrs: {
+                                                name: 'mark',
+                                                attrs: {},
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                })
+
+                // Check that we can restore the original content.
+                expect(changeSchema(newNode, schema)!.toJSON()).toEqual(
+                    node.toJSON(),
+                )
+            },
+        )
     })
 })
 
@@ -764,6 +1234,71 @@ describe('convertMarks', () => {
         expect(newNode.marks[0].type.schema).toBe(newSchema)
     })
 
+    test('do not replace a placeholder with a normal mark, if not allowed in the parent node', () => {
+        const schema = new Schema({
+            nodes: {
+                doc: {
+                    content: 'text*',
+                    marks: PLACEHOLDERS.mark.name,
+                },
+                text: {},
+            },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+            },
+        })
+        const node = schema.node(
+            'doc',
+            undefined,
+            schema.text('TEST', [
+                schema.mark(PLACEHOLDERS.mark.name, {
+                    name: 'replaced',
+                    attrs: {
+                        a: 1,
+                        b: 2,
+                    },
+                }),
+            ]),
+        )
+        const newSchema = new Schema({
+            nodes: {
+                doc: {
+                    content: 'text*',
+                    marks: PLACEHOLDERS.mark.name,
+                },
+                text: {},
+            },
+            marks: {
+                [PLACEHOLDERS.mark.name]: PLACEHOLDERS.mark.spec,
+                replaced: {
+                    attrs: {
+                        b: {},
+                        c: { default: 3 },
+                    },
+                },
+            },
+        })
+        const newNode = changeSchema(node, newSchema)!
+        expect(newNode).not.toBeNull()
+        newNode.check()
+        expect(newNode.type.schema).toBe(newSchema)
+        expect(newNode.toJSON()).toEqual({
+            type: 'doc',
+            content: [
+                {
+                    type: 'text',
+                    text: 'TEST',
+                    marks: [
+                        {
+                            type: PLACEHOLDERS.mark.name,
+                            attrs: { name: 'replaced', attrs: { a: 1, b: 2 } },
+                        },
+                    ],
+                },
+            ],
+        })
+    })
+
     test('replace with the same name', () => {
         const schema = new Schema({
             nodes: {
@@ -849,7 +1384,7 @@ describe('convertMarks', () => {
         expect(newNode.marks[0].type.schema).toBe(newSchema)
     })
 
-    test('do not replace placeholder with itself', () => {
+    test('do not replace an invalid placeholder', () => {
         const schema = new Schema({
             nodes: {
                 doc: {},

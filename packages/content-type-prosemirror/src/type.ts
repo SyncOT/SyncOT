@@ -140,6 +140,7 @@ export class ProseMirrorContentType implements ContentType {
 
         if (operation.schema !== snapshot.schema) {
             node = this.getNode(operation)
+            node.check()
             if (snapshot.version !== minVersion) {
                 assert(
                     equalShape(node, this.getNode(snapshot)),
@@ -159,9 +160,9 @@ export class ProseMirrorContentType implements ContentType {
                     throw new Error(message)
                 }
             }
+            node.check()
         }
 
-        node.check()
         const newSnapshot: Snapshot = {
             type: operation.type,
             id: operation.id,

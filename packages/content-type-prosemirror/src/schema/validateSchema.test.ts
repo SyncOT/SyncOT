@@ -1180,6 +1180,10 @@ describe('placeholders', () => {
                                     inline: false,
                                 },
                             },
+                            marks: {
+                                [PLACEHOLDERS.mark.name]:
+                                    PLACEHOLDERS.mark.spec,
+                            },
                         })
                     } else if (name === PLACEHOLDERS.inlineBranch.name) {
                         return new Schema({
@@ -1192,6 +1196,10 @@ describe('placeholders', () => {
                                     content: 'text*',
                                 },
                             },
+                            marks: {
+                                [PLACEHOLDERS.mark.name]:
+                                    PLACEHOLDERS.mark.spec,
+                            },
                         })
                     } else if (name === PLACEHOLDERS.blockLeaf.name) {
                         return new Schema({
@@ -1202,6 +1210,10 @@ describe('placeholders', () => {
                                     ...PLACEHOLDERS.blockLeaf.spec,
                                     inline: true,
                                 },
+                            },
+                            marks: {
+                                [PLACEHOLDERS.mark.name]:
+                                    PLACEHOLDERS.mark.spec,
                             },
                         })
                     } else if (name === PLACEHOLDERS.blockBranch.name) {
@@ -1214,6 +1226,10 @@ describe('placeholders', () => {
                                     inline: true,
                                     content: 'text*',
                                 },
+                            },
+                            marks: {
+                                [PLACEHOLDERS.mark.name]:
+                                    PLACEHOLDERS.mark.spec,
                             },
                         })
                     }

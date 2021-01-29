@@ -3,96 +3,145 @@ import { Schema } from 'prosemirror-model'
 
 const schema = new Schema({
     nodes: {
-        doc: { content: 'block+' },
+        doc: { content: 'inline*' },
         text: { group: 'inline', inline: true },
-        image: { group: 'inline', inline: true },
-        // `ins` and `del` are declared this way only for testing.
-        ins: { group: 'inline', inline: true, content: 'inline*' },
-        del: { group: 'inline', inline: true, content: 'inline*' },
-        hr: { group: 'block' },
-        video: { group: 'block' },
-        heading: { group: 'block', content: 'text*' },
-        paragraph: { group: 'block', content: 'inline*' },
-        section: { group: 'block', content: 'block+' },
+        leaf1: { group: 'inline', inline: true },
+        leaf2: { group: 'inline', inline: true },
+        branch1: { group: 'inline', inline: true, content: 'inline*' },
+        branch2: { group: 'inline', inline: true, content: 'inline*' },
+        blockLeaf1: { inline: false },
+        blockLeaf2: { inline: false },
+        blockBranch1: { inline: false, content: 'inline*' },
+        blockBranch2: { inline: false, content: 'inline*' },
     },
     marks: {
-        strong: {},
+        mark: {},
     },
 })
 
 describe('equalShape', () => {
-    describe('false', () => {
-        test('different isInline', () => {
-            expect(equalShape(schema.text('a'), schema.node('hr'))).toBe(false)
-        })
-        test('different isLeaf', () => {
-            expect(equalShape(schema.text('ab'), schema.node('ins'))).toBe(
-                false,
-            )
-        })
-        test('different nodeSize', () => {
-            expect(equalShape(schema.text('ab'), schema.text('abc'))).toBe(
-                false,
-            )
-        })
-        test('different childCount', () => {
-            expect(
-                equalShape(
-                    schema.node('paragraph', undefined, schema.text('ab')),
-                    schema.node('paragraph', undefined, [
-                        schema.text('a'),
-                        schema.text('b', [schema.mark('strong')]),
-                    ]),
-                ),
-            ).toBe(false)
-        })
-        test('different shape in a child node', () => {
-            expect(
-                equalShape(
-                    schema.node(
-                        'doc',
-                        undefined,
-                        schema.node('paragraph', undefined, schema.text('ab')),
-                    ),
-                    schema.node(
-                        'doc',
-                        undefined,
-                        schema.node('paragraph', undefined, [
-                            schema.text('a'),
-                            schema.text('b', [schema.mark('strong')]),
-                        ]),
-                    ),
-                ),
-            ).toBe(false)
-        })
-    })
-
-    describe('true', () => {
-        test('different inline leaf nodes', () => {
-            expect(equalShape(schema.text('a'), schema.node('image'))).toBe(
-                true,
-            )
-        })
-        test('different inline branch nodes', () => {
-            expect(
-                equalShape(
-                    schema.node('ins', undefined, [schema.text('abc')]),
-                    schema.node('del', undefined, [schema.text('abc')]),
-                ),
-            ).toBe(true)
-        })
-        test('different block leaf nodes', () => {
-            expect(equalShape(schema.node('hr'), schema.node('video'))).toBe(
-                true,
-            )
-        })
-        test('different block branch nodes', () => {
-            expect(
-                equalShape(
-                    schema.node('paragraph', undefined, [schema.text('abc')]),
-                    schema.node('heading', undefined, [schema.text('abc')]),
-                ),
-            ).toBe(true)
-        })
+    test.each([
+        [
+            'different nodeSize property',
+            false,
+            schema.text('ab'),
+            schema.text('abc'),
+        ],
+        [
+            'different isLeaf property',
+            false,
+            schema.node('leaf1'),
+            schema.node('branch1'),
+        ],
+        [
+            'different isText property',
+            false,
+            schema.text('a'),
+            schema.node('leaf1'),
+        ],
+        [
+            'different shape in a child node',
+            false,
+            schema.node(
+                'doc',
+                undefined,
+                schema.node('branch1', undefined, schema.node('leaf1')),
+            ),
+            schema.node(
+                'doc',
+                undefined,
+                schema.node('branch1', undefined, schema.text('a')),
+            ),
+        ],
+        [
+            'different amount of text in child nodes at the start',
+            false,
+            schema.node('doc', undefined, [
+                schema.text('abc'),
+                schema.text('defg', [schema.mark('mark')]),
+            ]),
+            schema.node('doc', undefined, [
+                schema.text('abc'),
+                schema.node('leaf1'),
+                schema.text('efg', [schema.mark('mark')]),
+            ]),
+        ],
+        [
+            'different amount of text in child nodes at the end',
+            false,
+            schema.node('doc', undefined, [
+                schema.node('leaf2'),
+                schema.text('abc'),
+                schema.text('defg', [schema.mark('mark')]),
+            ]),
+            schema.node('doc', undefined, [
+                schema.node('leaf1'),
+                schema.text('abcd'),
+                schema.text('efg', [schema.mark('mark')]),
+                schema.text('h'),
+            ]),
+        ],
+        [
+            'equal amount of text in child nodes',
+            true,
+            schema.node('doc', undefined, [
+                schema.text('abc'),
+                schema.text('defg', [schema.mark('mark')]),
+                schema.node('leaf1'),
+                schema.text('more', [schema.mark('mark')]),
+                schema.text(' text'),
+            ]),
+            schema.node('doc', undefined, [
+                schema.text('abcd', [schema.mark('mark')]),
+                schema.text('efg'),
+                schema.node('leaf2'),
+                schema.text('more text'),
+            ]),
+        ],
+        [
+            'different text nodes',
+            true,
+            schema.text('abc'),
+            schema.text('def', [schema.mark('mark')]),
+        ],
+        [
+            'different inline leaf nodes',
+            true,
+            schema.node('leaf1'),
+            schema.node('leaf2'),
+        ],
+        [
+            'different block leaf nodes',
+            true,
+            schema.node('blockLeaf1'),
+            schema.node('blockLeaf2'),
+        ],
+        [
+            'different inline and block leaf nodes',
+            true,
+            schema.node('leaf1'),
+            schema.node('blockLeaf2'),
+        ],
+        [
+            'different branch nodes',
+            true,
+            schema.node('branch1', undefined, schema.text('abc')),
+            schema.node('branch2', undefined, schema.text('def')),
+        ],
+        [
+            'different block branch nodes',
+            true,
+            schema.node('blockBranch1', undefined, schema.text('abc')),
+            schema.node('blockBranch2', undefined, schema.text('def')),
+        ],
+        [
+            'different inline and block branch nodes',
+            true,
+            schema.node('branch1', undefined, schema.text('abc')),
+            schema.node('blockBranch2', undefined, schema.text('def')),
+        ],
+    ])('%s (equal: %s)', (_, result, node1, node2) => {
+        expect(equalShape(node1, node2)).toBe(result)
+        expect(equalShape(node2, node1)).toBe(result)
     })
 })
