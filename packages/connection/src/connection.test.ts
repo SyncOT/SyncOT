@@ -34,7 +34,7 @@ const alreadyDestroyedMatcher = expect.objectContaining({
 })
 const invalidStreamMatcher = expect.objectContaining({
     message: 'Service returned an invalid stream.',
-    name: 'TypeError',
+    name: 'RangeError',
 })
 let connection: Connection
 let stream1: Duplex

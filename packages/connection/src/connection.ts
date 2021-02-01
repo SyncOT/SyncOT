@@ -634,7 +634,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
                     type: MessageType.REPLY_STREAM,
                 })
             } else if (isStream(reply)) {
-                const error = new TypeError(
+                const error = new RangeError(
                     'Service returned an invalid stream.',
                 )
                 this.emitAsync('error', error)
@@ -849,7 +849,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
  *
  *   - `SyncOTError InvalidEntity` - emitted when sending or receiving an invalid message.
  *     It indicates presence of a bug in SyncOT or the client code.
- *   - `SyncOTError InvalidStream` - emitted when a service returns a stream, or a promise which
+ *   - `RangeError` - emitted when a service returns a stream, or a promise which
  *     resolves to a stream, and that stream is already destroyed, not readable, or not writable.
  * @event destroy Emitted when the Connection is destroyed.
  */
