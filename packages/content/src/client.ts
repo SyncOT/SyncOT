@@ -2,7 +2,7 @@ import { Auth } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { Content } from './backend'
+import { ContentBackend } from './backend'
 import { Operation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema } from './schema'
@@ -31,7 +31,7 @@ export interface ContentClientEvents {
  * The client interface for managing content.
  */
 export interface ContentClient
-    extends Content,
+    extends ContentBackend,
         EmitterInterface<SyncOTEmitter<ContentClientEvents>> {
     /**
      * Indicates if the ContentClient is able to communicate with the ContentService.

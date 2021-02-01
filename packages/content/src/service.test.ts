@@ -3,7 +3,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
-    Content,
+    ContentBackend,
     ContentService,
     createBaseOperation,
     createBaseSnapshot,
@@ -45,7 +45,7 @@ class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
     public mayWritePresence = jest.fn(async () => true)
 }
 
-class MockContent implements Content {
+class MockContentBackend implements ContentBackend {
     public registerSchema = jest.fn()
     public getSchema = jest.fn(async () => schema)
     public getSnapshot = jest.fn(async () => snapshot)
@@ -55,17 +55,17 @@ class MockContent implements Content {
 
 let connection: Connection
 let authService: MockAuthService
-let content: MockContent
+let contentBackend: MockContentBackend
 let contentService: ContentService
 
 beforeEach(() => {
     connection = createConnection()
     authService = new MockAuthService()
-    content = new MockContent()
+    contentBackend = new MockContentBackend()
     contentService = createContentService({
         connection,
         authService,
-        content,
+        contentBackend,
     })
 })
 afterEach(() => {
@@ -79,7 +79,7 @@ describe('initialization errors', () => {
             createContentService({
                 connection: null as any,
                 authService,
-                content,
+                contentBackend,
             }),
         ).toThrow(
             expect.objectContaining({
@@ -93,7 +93,7 @@ describe('initialization errors', () => {
     test('connection.destroyed === true', () => {
         connection.destroy()
         expect(() =>
-            createContentService({ connection, authService, content }),
+            createContentService({ connection, authService, contentBackend }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
@@ -108,7 +108,7 @@ describe('initialization errors', () => {
             createContentService({
                 connection,
                 authService: null as any,
-                content,
+                contentBackend,
             }),
         ).toThrow(
             expect.objectContaining({
@@ -122,7 +122,7 @@ describe('initialization errors', () => {
     test('authService.destroyed === true', () => {
         authService.destroy()
         expect(() =>
-            createContentService({ connection, authService, content }),
+            createContentService({ connection, authService, contentBackend }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
@@ -137,12 +137,13 @@ describe('initialization errors', () => {
             createContentService({
                 connection,
                 authService,
-                content: null as any,
+                contentBackend: null as any,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message: 'Argument "content" must be a Content instance.',
+                message:
+                    'Argument "contentBackend" must be a ContentBackend instance.',
             }),
         )
     })
@@ -152,24 +153,30 @@ describe('initialization errors', () => {
             createContentService({
                 connection,
                 authService,
-                content: 5 as any,
+                contentBackend: 5 as any,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message: 'Argument "content" must be a Content instance.',
+                message:
+                    'Argument "contentBackend" must be a ContentBackend instance.',
             }),
         )
     })
 
     test('duplicate serviceName', () => {
         const serviceName = 'test-content'
-        createContentService({ connection, authService, content, serviceName })
+        createContentService({
+            connection,
+            authService,
+            contentBackend,
+            serviceName,
+        })
         expect(() =>
             createContentService({
                 connection,
                 authService,
-                content,
+                contentBackend,
                 serviceName,
             }),
         ).toThrow(
@@ -266,8 +273,8 @@ describe('registerSchema', () => {
         await expect(contentService.registerSchema(schema)).resolves.toBe(
             undefined,
         )
-        expect(content.registerSchema).toHaveBeenCalledTimes(1)
-        expect(content.registerSchema).toHaveBeenCalledWith({
+        expect(contentBackend.registerSchema).toHaveBeenCalledTimes(1)
+        expect(contentBackend.registerSchema).toHaveBeenCalledWith({
             ...schema,
             meta: {
                 session: authService.sessionId,
@@ -289,8 +296,8 @@ describe('registerSchema', () => {
                 },
             }),
         ).resolves.toBe(undefined)
-        expect(content.registerSchema).toHaveBeenCalledTimes(1)
-        expect(content.registerSchema).toHaveBeenCalledWith({
+        expect(contentBackend.registerSchema).toHaveBeenCalledTimes(1)
+        expect(contentBackend.registerSchema).toHaveBeenCalledWith({
             ...schema,
             meta: {
                 session: authService.sessionId,
@@ -314,8 +321,8 @@ describe('getSchema', () => {
 
     test('get schema', async () => {
         await expect(contentService.getSchema(hash)).resolves.toEqual(schema)
-        expect(content.getSchema).toHaveBeenCalledTimes(1)
-        expect(content.getSchema).toHaveBeenCalledWith(hash)
+        expect(contentBackend.getSchema).toHaveBeenCalledTimes(1)
+        expect(contentBackend.getSchema).toHaveBeenCalledWith(hash)
     })
 })
 
@@ -387,7 +394,7 @@ describe('getSnapshot', () => {
         )
         expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
         expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
-        expect(content.getSnapshot).toHaveBeenCalledTimes(0)
+        expect(contentBackend.getSnapshot).toHaveBeenCalledTimes(0)
     })
 
     test('get snapshot', async () => {
@@ -396,8 +403,12 @@ describe('getSnapshot', () => {
         ).resolves.toEqual(snapshot)
         expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
         expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
-        expect(content.getSnapshot).toHaveBeenCalledTimes(1)
-        expect(content.getSnapshot).toHaveBeenCalledWith(type, id, version)
+        expect(contentBackend.getSnapshot).toHaveBeenCalledTimes(1)
+        expect(contentBackend.getSnapshot).toHaveBeenCalledWith(
+            type,
+            id,
+            version,
+        )
     })
 })
 
@@ -428,7 +439,7 @@ describe('submitOperation', () => {
         )
         expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
         expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
-        expect(content.submitOperation).toHaveBeenCalledTimes(0)
+        expect(contentBackend.submitOperation).toHaveBeenCalledTimes(0)
     })
 
     test('submit operation (meta === null)', async () => {
@@ -437,8 +448,8 @@ describe('submitOperation', () => {
         )
         expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
         expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
-        expect(content.submitOperation).toHaveBeenCalledTimes(1)
-        expect(content.submitOperation).toHaveBeenCalledWith({
+        expect(contentBackend.submitOperation).toHaveBeenCalledTimes(1)
+        expect(contentBackend.submitOperation).toHaveBeenCalledWith({
             ...operation,
             meta: {
                 session: authService.sessionId,
@@ -462,8 +473,8 @@ describe('submitOperation', () => {
         ).resolves.toBe(undefined)
         expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
         expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
-        expect(content.submitOperation).toHaveBeenCalledTimes(1)
-        expect(content.submitOperation).toHaveBeenCalledWith({
+        expect(contentBackend.submitOperation).toHaveBeenCalledTimes(1)
+        expect(contentBackend.submitOperation).toHaveBeenCalledWith({
             ...operation,
             meta: {
                 session: authService.sessionId,
@@ -581,7 +592,7 @@ describe('streamOperations', () => {
         )
         expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
         expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
-        expect(content.streamOperations).toHaveBeenCalledTimes(0)
+        expect(contentBackend.streamOperations).toHaveBeenCalledTimes(0)
     })
 
     test('stream operations', async () => {
@@ -593,15 +604,15 @@ describe('streamOperations', () => {
         )
         expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
         expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
-        expect(content.streamOperations).toHaveBeenCalledTimes(1)
-        expect(content.streamOperations).toHaveBeenCalledWith(
+        expect(contentBackend.streamOperations).toHaveBeenCalledTimes(1)
+        expect(contentBackend.streamOperations).toHaveBeenCalledWith(
             type,
             id,
             minVersion,
             maxVersion + 1,
         )
         expect(stream).toBe(
-            await content.streamOperations.mock.results[0].value,
+            await contentBackend.streamOperations.mock.results[0].value,
         )
     })
 })

@@ -7,11 +7,11 @@ import {
 } from '@syncot/util'
 import { install as installClock } from '@sinonjs/fake-timers'
 import {
-    Content,
+    ContentBackend,
     ContentStore,
     ContentType,
     createAlreadyExistsError,
-    createContent,
+    createContentBackend,
     createContentStore,
     createPubSub,
     createSchemaHash,
@@ -125,7 +125,7 @@ let contentStore: ContentStore
 let contentType: TestContentType
 let contentTypes: { [type: string]: ContentType }
 let pubSub: PubSub
-let content: Content
+let backend: ContentBackend
 
 beforeEach(async () => {
     shouldStoreSnapshot = jest.fn((snapshot) => snapshot.version % 10 === 0)
@@ -134,7 +134,7 @@ beforeEach(async () => {
     contentType = new TestContentType()
     contentTypes = { [type]: contentType }
     pubSub = createPubSub()
-    content = createContent({
+    backend = createContentBackend({
         contentStore,
         contentTypes,
         pubSub,
@@ -155,7 +155,7 @@ beforeEach(async () => {
 describe('createContent', () => {
     test('invalid contentStore (null)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore: null as any,
                 contentTypes,
                 pubSub,
@@ -170,7 +170,7 @@ describe('createContent', () => {
     })
     test('invalid contentStore (5)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore: 5 as any,
                 contentTypes,
                 pubSub,
@@ -185,7 +185,7 @@ describe('createContent', () => {
     })
     test('invalid pubSub (null)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub: null as any,
@@ -199,7 +199,7 @@ describe('createContent', () => {
     })
     test('invalid pubSub (5)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub: 5 as any,
@@ -213,7 +213,7 @@ describe('createContent', () => {
     })
     test('invalid contentTypes (null)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes: null as any,
                 pubSub,
@@ -227,7 +227,7 @@ describe('createContent', () => {
     })
     test('invalid contentTypes (5)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes: 5 as any,
                 pubSub,
@@ -241,7 +241,7 @@ describe('createContent', () => {
     })
     test('invalid cacheTTL (5.5)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -257,7 +257,7 @@ describe('createContent', () => {
     })
     test('invalid cacheTTL (-1)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -273,7 +273,7 @@ describe('createContent', () => {
     })
     test('invalid cacheLimit (5.5)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -289,7 +289,7 @@ describe('createContent', () => {
     })
     test('invalid cacheLimit (-1)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -305,7 +305,7 @@ describe('createContent', () => {
     })
     test('invalid shouldStoreSnapshot (string)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -321,7 +321,7 @@ describe('createContent', () => {
     })
     test('invalid onWarning (string)', () => {
         expect(() =>
-            createContent({
+            createContentBackend({
                 contentStore,
                 contentTypes,
                 pubSub,
@@ -347,7 +347,7 @@ describe('registerSchema', () => {
             data: schemaData1,
             meta: null,
         }
-        await expect(content.registerSchema(bigSchema)).rejects.toEqual(
+        await expect(backend.registerSchema(bigSchema)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError EntityTooLarge',
                 message: '"Schema" too large.',
@@ -365,7 +365,7 @@ describe('registerSchema', () => {
             data: data1,
             meta: null,
         }
-        await expect(content.registerSchema(schema1)).rejects.toEqual(
+        await expect(backend.registerSchema(schema1)).rejects.toEqual(
             expect.objectContaining({
                 name: 'TypeError',
                 message: `Unsupported document type: ${type1}.`,
@@ -374,7 +374,7 @@ describe('registerSchema', () => {
     })
 
     test('validates schema', async () => {
-        await expect(content.registerSchema(invalidSchema)).rejects.toEqual(
+        await expect(backend.registerSchema(invalidSchema)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError InvalidEntity',
                 message: 'Invalid "Schema.data".',
@@ -395,10 +395,10 @@ describe('registerSchema', () => {
         }
         const { hash } = newSchema
         await expect(contentStore.loadSchema(hash)).resolves.toBe(null)
-        await expect(content.getSchema(hash)).resolves.toBe(null)
-        await content.registerSchema(newSchema)
+        await expect(backend.getSchema(hash)).resolves.toBe(null)
+        await backend.registerSchema(newSchema)
         await expect(contentStore.loadSchema(hash)).resolves.toBe(newSchema)
-        await expect(content.getSchema(hash)).resolves.toBe(newSchema)
+        await expect(backend.getSchema(hash)).resolves.toBe(newSchema)
     })
 
     test('try to register the same schema twice', async () => {
@@ -409,11 +409,11 @@ describe('registerSchema', () => {
             meta: { a: true },
         }
         const { hash } = newSchema
-        await content.registerSchema(newSchema)
-        await content.registerSchema(newSchema)
-        await content.registerSchema({ ...newSchema, meta: { key: 'value' } })
+        await backend.registerSchema(newSchema)
+        await backend.registerSchema(newSchema)
+        await backend.registerSchema({ ...newSchema, meta: { key: 'value' } })
         await expect(contentStore.loadSchema(hash)).resolves.toBe(newSchema)
-        await expect(content.getSchema(hash)).resolves.toBe(newSchema)
+        await expect(backend.getSchema(hash)).resolves.toBe(newSchema)
     })
 
     test('fail to store the schema', async () => {
@@ -422,7 +422,7 @@ describe('registerSchema', () => {
         storeSchema.mockImplementationOnce(async () => {
             throw error
         })
-        await expect(content.registerSchema(validSchema)).rejects.toBe(error)
+        await expect(backend.registerSchema(validSchema)).rejects.toBe(error)
     })
 })
 
@@ -430,7 +430,7 @@ describe('getSnapshot', () => {
     test('unsupported content type', async () => {
         const unsupportedType = 'unsupported-type'
         await expect(
-            content.getSnapshot(unsupportedType, id, maxVersion),
+            backend.getSnapshot(unsupportedType, id, maxVersion),
         ).rejects.toEqual(
             expect.objectContaining({
                 name: 'TypeError',
@@ -453,7 +453,7 @@ describe('getSnapshot', () => {
         'get from database version %d',
         async (requestedVersion, loadedVersion, data) => {
             await expect(
-                content.getSnapshot(type, id, requestedVersion),
+                backend.getSnapshot(type, id, requestedVersion),
             ).resolves.toEqual(
                 expect.objectContaining({
                     type,
@@ -479,7 +479,7 @@ describe('getSnapshot', () => {
             (snapshot) => snapshot.version % 2 === 0,
         )
         await expect(
-            content.getSnapshot(type, id, maxVersion),
+            backend.getSnapshot(type, id, maxVersion),
         ).resolves.toEqual(
             expect.objectContaining({
                 type,
@@ -516,8 +516,8 @@ describe('getSnapshot', () => {
     })
 
     test('load a cached snapshot requesting the exact version', async () => {
-        await content.getSnapshot(type, id, maxVersion)
-        const snapshot = await content.getSnapshot(type, id, 6)
+        await backend.getSnapshot(type, id, maxVersion)
+        const snapshot = await backend.getSnapshot(type, id, 6)
         expect(snapshot).toEqual(
             expect.objectContaining({
                 type,
@@ -530,8 +530,8 @@ describe('getSnapshot', () => {
     })
 
     test('load a cached snapshot requesting a higher version', async () => {
-        await content.getSnapshot(type, id, maxVersion)
-        const snapshot = await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
+        const snapshot = await backend.getSnapshot(type, id, maxVersion)
         expect(snapshot).toEqual(
             expect.objectContaining({
                 type,
@@ -544,9 +544,9 @@ describe('getSnapshot', () => {
     })
 
     test('load a snapshot using a cached snapshot and operations from the database', async () => {
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
         await contentStore.storeOperation(createOperation(7, 70)) // 280
-        const snapshot = await content.getSnapshot(type, id, maxVersion)
+        const snapshot = await backend.getSnapshot(type, id, maxVersion)
         expect(snapshot).toEqual(
             expect.objectContaining({
                 type,
@@ -559,8 +559,8 @@ describe('getSnapshot', () => {
     })
 
     test('load a snapshot from the database, when only a later version is cached', async () => {
-        await content.getSnapshot(type, id, maxVersion)
-        const snapshot = await content.getSnapshot(type, id, 5)
+        await backend.getSnapshot(type, id, maxVersion)
+        const snapshot = await backend.getSnapshot(type, id, 5)
         expect(snapshot).toEqual(
             expect.objectContaining({
                 type,
@@ -574,13 +574,13 @@ describe('getSnapshot', () => {
 
     test('load a snapshot using an older cached snapshot and operations', async () => {
         // Cache the snapshot at version 6.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
         await contentStore.storeOperation(createOperation(7, 70)) // 280
         await contentStore.storeOperation(createOperation(8, 80)) // 360
         await contentStore.storeOperation(createOperation(9, 90)) // 450
         // Cache the operations at versions 7, 8 and 9.
-        await content.getSnapshot(type, id, maxVersion)
-        const snapshot = await content.getSnapshot(type, id, 8)
+        await backend.getSnapshot(type, id, maxVersion)
+        const snapshot = await backend.getSnapshot(type, id, 8)
         expect(snapshot).toEqual(
             expect.objectContaining({
                 type,
@@ -594,19 +594,19 @@ describe('getSnapshot', () => {
 
     test('load cached snapshot and store snapshots, if necessary', async () => {
         // Cache the snapshot.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
         await contentStore.storeOperation(createOperation(7, 70)) // 280
         await contentStore.storeOperation(createOperation(8, 80)) // 360
         await contentStore.storeOperation(createOperation(9, 90)) // 450
         await contentStore.storeOperation(createOperation(10, 100)) // 550
         // Cache the new operations.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
 
         shouldStoreSnapshot.mockImplementation(
             (snapshot) => snapshot.version % 2 === 0,
         )
         await expect(
-            content.getSnapshot(type, id, maxVersion),
+            backend.getSnapshot(type, id, maxVersion),
         ).resolves.toEqual(
             expect.objectContaining({
                 type,
@@ -668,7 +668,7 @@ describe('submitOperation', () => {
                 big: '!'.repeat(maxOperationSize),
             },
         }
-        await expect(content.submitOperation(operation)).rejects.toEqual(
+        await expect(backend.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError EntityTooLarge',
                 message: '"Operation" too large.',
@@ -688,7 +688,7 @@ describe('submitOperation', () => {
             data: 5,
             meta: null,
         }
-        await expect(content.submitOperation(operation)).rejects.toEqual(
+        await expect(backend.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'TypeError',
                 message: `Unsupported document type: ${type1}.`,
@@ -706,7 +706,7 @@ describe('submitOperation', () => {
             data: 5,
             meta: null,
         }
-        await expect(content.submitOperation(operation)).rejects.toEqual(
+        await expect(backend.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError NotFound',
                 message: `"Schema" not found.`,
@@ -725,7 +725,7 @@ describe('submitOperation', () => {
             data: 5,
             meta: null,
         }
-        await expect(content.submitOperation(operation)).rejects.toEqual(
+        await expect(backend.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
                 message: `operation.version out of sequence.`,
@@ -759,7 +759,7 @@ describe('submitOperation', () => {
             },
         )
         await expect(
-            content.submitOperation(operationToSubmit),
+            backend.submitOperation(operationToSubmit),
         ).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError EntityTooLarge',
@@ -783,7 +783,7 @@ describe('submitOperation', () => {
                 data: 1,
                 meta: null,
             }
-            await content.submitOperation(operation)
+            await backend.submitOperation(operation)
             expect(onOperation).toHaveBeenCalledTimes(1)
             expect(onOperation).toHaveBeenCalledWith(operation)
             onOperation.mockClear()
@@ -805,7 +805,7 @@ describe('submitOperation', () => {
     test('store operation with the default shouldStoreSnapshot function', async () => {
         const onOperation = jest.fn()
         pubSub.subscribe(combine('operation', type, id), onOperation)
-        content = createContent({
+        backend = createContentBackend({
             contentStore,
             pubSub,
             contentTypes,
@@ -821,7 +821,7 @@ describe('submitOperation', () => {
                 data: 1,
                 meta: null,
             }
-            await content.submitOperation(operation)
+            await backend.submitOperation(operation)
             expect(onOperation).toHaveBeenCalledTimes(1)
             expect(onOperation).toHaveBeenCalledWith(operation)
             onOperation.mockClear()
@@ -859,7 +859,7 @@ describe('submitOperation', () => {
             },
         )
         shouldStoreSnapshot.mockReturnValue(true)
-        await content.submitOperation(operation)
+        await backend.submitOperation(operation)
         expect(onOperation).toHaveBeenCalledTimes(1)
         expect(onOperation).toHaveBeenCalledWith(operation)
 
@@ -890,7 +890,7 @@ describe('submitOperation', () => {
             },
         )
         shouldStoreSnapshot.mockReturnValue(true)
-        await content.submitOperation(operation)
+        await backend.submitOperation(operation)
         expect(onOperation).toHaveBeenCalledTimes(1)
         expect(onOperation).toHaveBeenCalledWith(operation)
 
@@ -905,7 +905,7 @@ describe('submitOperation', () => {
 
     test('trigger stream update on operation conflict', async () => {
         const onData = jest.fn()
-        const stream = content.streamOperations(type, id, 5, maxVersion)
+        const stream = backend.streamOperations(type, id, 5, maxVersion)
         ;(await stream).on('data', onData)
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(2)
@@ -933,7 +933,7 @@ describe('submitOperation', () => {
             data: 5,
             meta: null,
         }
-        await expect(content.submitOperation(operation)).rejects.toEqual(
+        await expect(backend.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError AlreadyExists',
                 message: '"Operation" already exists.',
@@ -961,7 +961,7 @@ describe('submitOperation', () => {
 
     test('do not trigger stream update on other storage errors', async () => {
         const onData = jest.fn()
-        const stream = content.streamOperations(type, id, 5, maxVersion)
+        const stream = backend.streamOperations(type, id, 5, maxVersion)
         ;(await stream).on('data', onData)
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(2)
@@ -995,7 +995,7 @@ describe('submitOperation', () => {
                 throw error
             },
         )
-        await expect(content.submitOperation(operation)).rejects.toBe(error)
+        await expect(backend.submitOperation(operation)).rejects.toBe(error)
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(0)
     })
@@ -1003,7 +1003,7 @@ describe('submitOperation', () => {
 
 describe('streamOperations', () => {
     test('stream a subset of existing operations', async () => {
-        const stream = await content.streamOperations(type, id, 2, 5)
+        const stream = await backend.streamOperations(type, id, 2, 5)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1058,7 +1058,7 @@ describe('streamOperations', () => {
     })
 
     test('stream existing and pending operations', async () => {
-        const stream = await content.streamOperations(type, id, 6, 9)
+        const stream = await backend.streamOperations(type, id, 6, 9)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1071,10 +1071,10 @@ describe('streamOperations', () => {
             1,
             expect.objectContaining({ version: 6 }),
         )
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
-        await content.submitOperation(createOperation(10, 100))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(10, 100))
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(3)
         expect(onData).toHaveBeenNthCalledWith(
@@ -1090,7 +1090,7 @@ describe('streamOperations', () => {
     })
 
     test('stream pending operations', async () => {
-        const stream = await content.streamOperations(type, id, 8, 11)
+        const stream = await backend.streamOperations(type, id, 8, 11)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1099,12 +1099,12 @@ describe('streamOperations', () => {
         stream.on('close', onClose)
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(0)
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
-        await content.submitOperation(createOperation(10, 100))
-        await content.submitOperation(createOperation(11, 110))
-        await content.submitOperation(createOperation(12, 120))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(10, 100))
+        await backend.submitOperation(createOperation(11, 110))
+        await backend.submitOperation(createOperation(12, 120))
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(3)
         expect(onData).toHaveBeenNthCalledWith(
@@ -1124,7 +1124,7 @@ describe('streamOperations', () => {
     })
 
     test('close the stream before receiving all data', async () => {
-        const stream = await content.streamOperations(type, id, 6, 11)
+        const stream = await backend.streamOperations(type, id, 6, 11)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1135,12 +1135,12 @@ describe('streamOperations', () => {
         expect(onData).toHaveBeenCalledTimes(1)
         stream.destroy()
         await whenNextTick()
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
-        await content.submitOperation(createOperation(10, 100))
-        await content.submitOperation(createOperation(11, 110))
-        await content.submitOperation(createOperation(12, 120))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(10, 100))
+        await backend.submitOperation(createOperation(11, 110))
+        await backend.submitOperation(createOperation(12, 120))
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onEnd).toHaveBeenCalledTimes(0)
@@ -1148,7 +1148,7 @@ describe('streamOperations', () => {
     })
 
     test('close the stream before receiving any data', async () => {
-        const stream = await content.streamOperations(type, id, 7, 11)
+        const stream = await backend.streamOperations(type, id, 7, 11)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1159,12 +1159,12 @@ describe('streamOperations', () => {
         expect(onData).toHaveBeenCalledTimes(0)
         stream.destroy()
         await whenNextTick()
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
-        await content.submitOperation(createOperation(10, 100))
-        await content.submitOperation(createOperation(11, 110))
-        await content.submitOperation(createOperation(12, 120))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(10, 100))
+        await backend.submitOperation(createOperation(11, 110))
+        await backend.submitOperation(createOperation(12, 120))
         await whenNextTick()
         expect(onData).toHaveBeenCalledTimes(0)
         expect(onEnd).toHaveBeenCalledTimes(0)
@@ -1172,7 +1172,7 @@ describe('streamOperations', () => {
     })
 
     test('close the stream immediately', async () => {
-        const stream = await content.streamOperations(type, id, 7, 11)
+        const stream = await backend.streamOperations(type, id, 7, 11)
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
@@ -1190,7 +1190,7 @@ describe('streamOperations', () => {
         const onData1 = jest.fn()
         const onEnd1 = jest.fn()
         const onClose1 = jest.fn()
-        const stream1 = await content.streamOperations(type, id, 2, 5)
+        const stream1 = await backend.streamOperations(type, id, 2, 5)
         stream1.on('data', onData1)
         stream1.on('end', onEnd1)
         stream1.on('close', onClose1)
@@ -1198,7 +1198,7 @@ describe('streamOperations', () => {
         const onData2 = jest.fn()
         const onEnd2 = jest.fn()
         const onClose2 = jest.fn()
-        const stream2 = await content.streamOperations(type, id, 3, 8)
+        const stream2 = await backend.streamOperations(type, id, 3, 8)
         stream2.on('data', onData2)
         stream2.on('end', onEnd2)
         stream2.on('close', onClose2)
@@ -1246,7 +1246,7 @@ describe('streamOperations', () => {
         const onData1 = jest.fn()
         const onEnd1 = jest.fn()
         const onClose1 = jest.fn()
-        const stream1 = await content.streamOperations(type, id, 3, 5)
+        const stream1 = await backend.streamOperations(type, id, 3, 5)
         stream1.on('data', onData1)
         stream1.on('end', onEnd1)
         stream1.on('close', onClose1)
@@ -1254,7 +1254,7 @@ describe('streamOperations', () => {
         const onData2 = jest.fn()
         const onEnd2 = jest.fn()
         const onClose2 = jest.fn()
-        const stream2 = await content.streamOperations(type, id, 3, 8)
+        const stream2 = await backend.streamOperations(type, id, 3, 8)
         stream2.on('data', onData2)
         stream2.on('end', onEnd2)
         stream2.on('close', onClose2)
@@ -1303,12 +1303,12 @@ describe('streamOperations', () => {
         const onClose2 = jest.fn()
 
         await Promise.all([
-            content.streamOperations(type, id, 2, 5).then((stream) => {
+            backend.streamOperations(type, id, 2, 5).then((stream) => {
                 stream.on('data', onData1)
                 stream.on('end', onEnd1)
                 stream.on('close', onClose1)
             }),
-            content.streamOperations(type, id, 3, 8).then((stream) => {
+            backend.streamOperations(type, id, 3, 8).then((stream) => {
                 stream.on('data', onData2)
                 stream.on('end', onEnd2)
                 stream.on('close', onClose2)
@@ -1362,12 +1362,12 @@ describe('streamOperations', () => {
         const onClose2 = jest.fn()
 
         await Promise.all([
-            content.streamOperations(type, id, 0, 3).then((stream) => {
+            backend.streamOperations(type, id, 0, 3).then((stream) => {
                 stream.on('data', onData1)
                 stream.on('end', onEnd1)
                 stream.on('close', onClose1)
             }),
-            content.streamOperations(type, id, 5, 8).then((stream) => {
+            backend.streamOperations(type, id, 5, 8).then((stream) => {
                 stream.on('data', onData2)
                 stream.on('end', onEnd2)
                 stream.on('close', onClose2)
@@ -1413,12 +1413,12 @@ describe('streamOperations', () => {
         const onClose2 = jest.fn()
 
         await Promise.all([
-            content.streamOperations(type, id, 3, 5).then((stream) => {
+            backend.streamOperations(type, id, 3, 5).then((stream) => {
                 stream.on('data', onData1)
                 stream.on('end', onEnd1)
                 stream.on('close', onClose1)
             }),
-            content.streamOperations(type, id, 3, 8).then((stream) => {
+            backend.streamOperations(type, id, 3, 8).then((stream) => {
                 stream.on('data', onData2)
                 stream.on('end', onEnd2)
                 stream.on('close', onClose2)
@@ -1472,7 +1472,7 @@ describe('streamOperations', () => {
             const onData = jest.fn()
             const onEnd = jest.fn()
             const onClose = jest.fn()
-            const stream = await content.streamOperations(type, id, 2, 5)
+            const stream = await backend.streamOperations(type, id, 2, 5)
             stream.on('error', onError)
             stream.on('data', onData)
             stream.on('end', onEnd)
@@ -1522,7 +1522,7 @@ describe('streamOperations', () => {
             const onData = jest.fn()
             const onEnd = jest.fn()
             const onClose = jest.fn()
-            const stream = await content.streamOperations(type, id, 2, 5)
+            const stream = await backend.streamOperations(type, id, 2, 5)
             stream.on('error', onError)
             stream.on('data', onData)
             stream.on('end', onEnd)
@@ -1551,13 +1551,13 @@ describe('streamOperations', () => {
 
     test('stream a lot of operations', async () => {
         for (let i = 7; i < 110; i++) {
-            await content.submitOperation(createOperation(i, i * 10))
+            await backend.submitOperation(createOperation(i, i * 10))
         }
 
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
-        const stream = await content.streamOperations(
+        const stream = await backend.streamOperations(
             type,
             id,
             minVersion,
@@ -1575,7 +1575,7 @@ describe('streamOperations', () => {
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
-        const stream = await content.streamOperations(type, id, 5, 5)
+        const stream = await backend.streamOperations(type, id, 5, 5)
         stream.on('data', onData)
         stream.on('end', onEnd)
         stream.on('close', onClose)
@@ -1590,7 +1590,7 @@ describe('streamOperations', () => {
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
-        const stream = await content.streamOperations(type, id, 5, 4)
+        const stream = await backend.streamOperations(type, id, 5, 4)
         stream.on('data', onData)
         stream.on('end', onEnd)
         stream.on('close', onClose)
@@ -1603,20 +1603,20 @@ describe('streamOperations', () => {
 
     test('stream cached operations', async () => {
         // Cache the snapshot.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
         // Add some cached operations.
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
-        await content.submitOperation(createOperation(10, 100))
-        await content.submitOperation(createOperation(11, 110))
-        await content.submitOperation(createOperation(12, 120))
-        await content.submitOperation(createOperation(13, 130))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(10, 100))
+        await backend.submitOperation(createOperation(11, 110))
+        await backend.submitOperation(createOperation(12, 120))
+        await backend.submitOperation(createOperation(13, 130))
 
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
-        const stream = await content.streamOperations(type, id, 8, 12)
+        const stream = await backend.streamOperations(type, id, 8, 12)
         stream.on('data', onData)
         stream.on('end', onEnd)
         stream.on('close', onClose)
@@ -1645,11 +1645,11 @@ describe('streamOperations', () => {
 
     test('stream operations from cache and database', async () => {
         // Cache the snapshot.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
         // Add some cached operations.
-        await content.submitOperation(createOperation(7, 70))
-        await content.submitOperation(createOperation(8, 80))
-        await content.submitOperation(createOperation(9, 90))
+        await backend.submitOperation(createOperation(7, 70))
+        await backend.submitOperation(createOperation(8, 80))
+        await backend.submitOperation(createOperation(9, 90))
         // Add some non-cached operations.
         await contentStore.storeOperation(createOperation(10, 100))
         await contentStore.storeOperation(createOperation(11, 110))
@@ -1659,7 +1659,7 @@ describe('streamOperations', () => {
         const onData = jest.fn()
         const onEnd = jest.fn()
         const onClose = jest.fn()
-        const stream = await content.streamOperations(type, id, 8, 12)
+        const stream = await backend.streamOperations(type, id, 8, 12)
         stream.on('data', onData)
         stream.on('end', onEnd)
         stream.on('close', onClose)
@@ -1694,7 +1694,7 @@ describe('caching', () => {
             expect(clock.countTimers()).toBe(0)
 
             // Cache a snapshot.
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
 
             // Cached expiry timer.
             expect(clock.countTimers()).toBe(1)
@@ -1708,7 +1708,7 @@ describe('caching', () => {
             expect(clock.countTimers()).toBe(0)
 
             const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(1)
         } finally {
             clock.uninstall()
@@ -1717,7 +1717,7 @@ describe('caching', () => {
 
     test('expire some cached items after 10s', async () => {
         const id2 = id + '-other'
-        await content.submitOperation({
+        await backend.submitOperation({
             key: createId(),
             type,
             id: id2,
@@ -1732,8 +1732,8 @@ describe('caching', () => {
             expect(clock.countTimers()).toBe(0)
 
             // Cache 2 snapshots.
-            await content.getSnapshot(type, id, maxVersion)
-            await content.getSnapshot(type, id2, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id2, maxVersion)
 
             // Cached expiry timer.
             expect(clock.countTimers()).toBe(1)
@@ -1744,7 +1744,7 @@ describe('caching', () => {
 
             // Refresh one cache item.
             const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(0)
 
             // The cache is cleared every second, so advance the clock by 1s.
@@ -1752,11 +1752,11 @@ describe('caching', () => {
             expect(clock.countTimers()).toBe(1)
 
             // Load a snapshot from cache.
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(0)
 
             // Load a snapshot from database.
-            await content.getSnapshot(type, id2, maxVersion)
+            await backend.getSnapshot(type, id2, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(1)
         } finally {
             clock.uninstall()
@@ -1767,12 +1767,12 @@ describe('caching', () => {
         const clock = installClock()
         try {
             // Cache a snapshot.
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
 
             // Cached expiry timer.
             expect(clock.countTimers()).toBe(1)
 
-            const stream = await content.streamOperations(
+            const stream = await backend.streamOperations(
                 type,
                 id,
                 minVersion,
@@ -1786,7 +1786,7 @@ describe('caching', () => {
 
             // Load a cached snapshot.
             const loadSnapshot = jest.spyOn(contentStore, 'loadSnapshot')
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(0)
 
             // The timer is not scheduled because of the stream.
@@ -1806,7 +1806,7 @@ describe('caching', () => {
             expect(clock.countTimers()).toBe(0)
 
             // Load a snapshot from the database now.
-            await content.getSnapshot(type, id, maxVersion)
+            await backend.getSnapshot(type, id, maxVersion)
             expect(loadSnapshot).toHaveBeenCalledTimes(1)
         } finally {
             clock.uninstall()
@@ -1815,22 +1815,22 @@ describe('caching', () => {
 
     test('keep at most 50 operations', async () => {
         // Init the cache.
-        await content.getSnapshot(type, id, maxVersion)
+        await backend.getSnapshot(type, id, maxVersion)
 
         // Cache some operations.
         for (let i = 7; i < 100; i++) {
-            await content.submitOperation(createOperation(i, i * 10))
+            await backend.submitOperation(createOperation(i, i * 10))
         }
 
         const loadOperations = jest.spyOn(contentStore, 'loadOperations')
 
         // Load operations from the cache.
-        await content.streamOperations(type, id, 50, 60)
+        await backend.streamOperations(type, id, 50, 60)
         await whenNextTick()
         expect(loadOperations).toHaveBeenCalledTimes(0)
 
         // Load operations from the database.
-        await content.streamOperations(type, id, 49, 60)
+        await backend.streamOperations(type, id, 49, 60)
         await whenNextTick()
         expect(loadOperations).toHaveBeenCalledTimes(1)
         expect(loadOperations).toHaveBeenCalledWith(type, id, 49, 60)
@@ -1856,23 +1856,23 @@ describe('caching', () => {
         }
         try {
             // Init cache.
-            await content.getSnapshot(type, id2, maxVersion)
+            await backend.getSnapshot(type, id2, maxVersion)
 
             // Cache some operations.
             for (let i = 1; i < 21; i++) {
-                await content.submitOperation(createOperationWithTime(i))
+                await backend.submitOperation(createOperationWithTime(i))
                 clock.tick(1000)
             }
 
             const loadOperations = jest.spyOn(contentStore, 'loadOperations')
 
             // Load operations from the cache.
-            await content.streamOperations(type, id2, 10, 15)
+            await backend.streamOperations(type, id2, 10, 15)
             await whenNextTick()
             expect(loadOperations).toHaveBeenCalledTimes(0)
 
             // Load operations from the database.
-            await content.streamOperations(type, id2, 9, 15)
+            await backend.streamOperations(type, id2, 9, 15)
             await whenNextTick()
             expect(loadOperations).toHaveBeenCalledTimes(1)
             expect(loadOperations).toHaveBeenCalledWith(type, id2, 9, 15)

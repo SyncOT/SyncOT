@@ -2,7 +2,7 @@ import { Auth, createAuthError } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { Content } from './backend'
+import { ContentBackend } from './backend'
 import { Operation, validateOperation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema, validateSchema } from './schema'
@@ -18,7 +18,7 @@ export type ContentServiceEvents = {}
  * The service interface for managing content.
  */
 export interface ContentService
-    extends Content,
+    extends ContentBackend,
         EmitterInterface<SyncOTEmitter<ContentServiceEvents>> {}
 
 /**
@@ -34,9 +34,9 @@ export interface CreateContentServiceOptions {
      */
     authService: Auth
     /**
-     * The Content instance to use for managing content.
+     * The ContentBackend instance to use for managing content.
      */
-    content: Content
+    contentBackend: ContentBackend
     /**
      * The name of the service to register with the connection.
      * Default is `content`.
@@ -50,10 +50,10 @@ export interface CreateContentServiceOptions {
 export function createContentService({
     connection,
     authService,
-    content,
+    contentBackend,
     serviceName = 'content',
 }: CreateContentServiceOptions): ContentService {
-    return new Service(connection, authService, content, serviceName)
+    return new Service(connection, authService, contentBackend, serviceName)
 }
 
 class Service
@@ -62,7 +62,7 @@ class Service
     public constructor(
         private readonly connection: Connection,
         private readonly authService: Auth,
-        private readonly content: Content,
+        private readonly contentBackend: ContentBackend,
         serviceName: string,
     ) {
         super()
@@ -76,8 +76,8 @@ class Service
             'Argument "authService" must be a non-destroyed Auth service.',
         )
         assert(
-            this.content && typeof this.content === 'object',
-            'Argument "content" must be a Content instance.',
+            this.contentBackend && typeof this.contentBackend === 'object',
+            'Argument "contentBackend" must be a ContentBackend instance.',
         )
 
         this.connection.registerService({
@@ -101,7 +101,7 @@ class Service
         this.assertOk()
         validateSchema(schema)
 
-        return this.content.registerSchema({
+        return this.contentBackend.registerSchema({
             hash: schema.hash,
             type: schema.type,
             data: schema.data,
@@ -119,7 +119,7 @@ class Service
 
         assert(typeof key === 'string', 'Argument "key" must be a string.')
 
-        return this.content.getSchema(key)
+        return this.contentBackend.getSchema(key)
     }
 
     public async getSnapshot(
@@ -141,7 +141,7 @@ class Service
         if (!(await this.authService.mayReadContent(type, id)))
             throw createAuthError('Not authorized.')
 
-        return this.content.getSnapshot(type, id, version)
+        return this.contentBackend.getSnapshot(type, id, version)
     }
 
     public async submitOperation(operation: Operation): Promise<void> {
@@ -156,7 +156,7 @@ class Service
         )
             throw createAuthError('Not authorized.')
 
-        return this.content.submitOperation({
+        return this.contentBackend.submitOperation({
             key: operation.key,
             type: operation.type,
             id: operation.id,
@@ -198,7 +198,12 @@ class Service
         if (!(await this.authService.mayReadContent(type, id)))
             throw createAuthError('Not authorized.')
 
-        return this.content.streamOperations(type, id, versionStart, versionEnd)
+        return this.contentBackend.streamOperations(
+            type,
+            id,
+            versionStart,
+            versionEnd,
+        )
     }
 
     private onDestroy = (): void => {

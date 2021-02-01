@@ -8,8 +8,8 @@
 import { BaseSession, createAuthClient, createAuthService } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import {
-    Content,
-    createContent,
+    ContentBackend,
+    createContentBackend,
     createContentClient,
     createContentService,
     createContentStore,
@@ -51,7 +51,7 @@ class Client {
     private submitOperationResolve = noop
     private delayed: number = 0
     public readonly view: EditorView
-    public constructor(content: Content, node: Node | undefined) {
+    public constructor(contentBackend: ContentBackend, node: Node | undefined) {
         const [serverStream, clientStream] = invertedStreams({
             allowHalfOpen: false,
             objectMode: true,
@@ -72,7 +72,7 @@ class Client {
         createContentService({
             connection: this.serverConnection,
             authService,
-            content,
+            contentBackend,
         })
         const contentClient = createContentClient({
             connection: this.clientConnection,
@@ -131,7 +131,7 @@ class Context {
     private readonly contentStore = createContentStore()
     private readonly pubSub = createPubSub()
     private readonly contentType = createContentType()
-    private readonly content = createContent({
+    private readonly contentBackend = createContentBackend({
         contentStore: this.contentStore,
         pubSub: this.pubSub,
         contentTypes: {
@@ -151,7 +151,7 @@ class Context {
 
     private constructor(node: Node | undefined, editorCount: number) {
         for (let i = 0; i < editorCount; i++)
-            this.clients.push(new Client(this.content, node))
+            this.clients.push(new Client(this.contentBackend, node))
     }
 
     public destroy(): void {

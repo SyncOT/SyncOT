@@ -1,7 +1,7 @@
 import { BaseSession, createAuthService } from '@syncot/auth'
 import { createConnection } from '@syncot/connection'
 import {
-    createContent,
+    createContentBackend,
     createContentService,
     createContentStore,
     createPubSub,
@@ -17,7 +17,7 @@ const server = new WebSocket.Server({ path, port })
 const contentStore = createContentStore()
 const pubSub = createPubSub()
 const proseMirrorContentType = createProseMirrorContentType()
-const content = createContent({
+const content = createContentBackend({
     contentStore,
     pubSub,
     contentTypes: {

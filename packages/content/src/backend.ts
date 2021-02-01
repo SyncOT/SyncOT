@@ -28,7 +28,7 @@ import {
 /**
  * Content and schema management interface.
  */
-export interface Content {
+export interface ContentBackend {
     /**
      * Registers the given schema, if it does not exist yet, otherwise does nothing.
      * @param schema The schema to register.
@@ -85,9 +85,9 @@ export interface Content {
 }
 
 /**
- * The options expected by `createContent`.
+ * The options expected by `createContentBackend`.
  */
-export interface CreateContentOptions {
+export interface CreateContentBackendOptions {
     /**
      * The ContentStore to use for storing content.
      */
@@ -126,9 +126,9 @@ export interface CreateContentOptions {
 }
 
 /**
- * Creates a new Content instance.
+ * Creates a new ContentBackend instance.
  */
-export function createContent({
+export function createContentBackend({
     contentStore,
     pubSub,
     contentTypes,
@@ -137,8 +137,8 @@ export function createContent({
     shouldStoreSnapshot = (snapshot: Snapshot) => snapshot.version % 1000 === 0,
     // tslint:disable-next-line:no-console
     onWarning = console.warn.bind(console),
-}: CreateContentOptions): Content {
-    return new DefaultContent(
+}: CreateContentBackendOptions): ContentBackend {
+    return new Backend(
         contentStore,
         pubSub,
         contentTypes,
@@ -169,7 +169,7 @@ interface Cache {
     expireAt: number
 }
 
-class DefaultContent implements Content {
+class Backend implements ContentBackend {
     /**
      * The open operation streams, indexed by `combine(type, id)`.
      */
