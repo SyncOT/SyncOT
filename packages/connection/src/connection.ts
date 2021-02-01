@@ -28,9 +28,7 @@ type RequestMap = Map<RequestId, ProxyRequest>
 type StreamMap = Map<RequestId, Duplex>
 type Callback = (error: null | Error) => undefined
 
-export interface Service extends EventEmitter {
-    [key: string]: any
-}
+export type Service = object
 export interface ServiceDescriptor {
     name: ServiceName
     eventNames?: Set<EventName>
@@ -41,9 +39,7 @@ interface RegisteredServiceDescriptor extends Required<ServiceDescriptor> {
     streams: StreamMap
 }
 
-export interface Proxy extends EventEmitter {
-    [key: string]: any
-}
+export type Proxy = object
 export interface ProxyDescriptor {
     name: ProxyName
     eventNames?: Set<EventName>
@@ -328,7 +324,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             )
         })
         eventNames.forEach((eventName) => {
-            instance.on(eventName, (...args: any[]) => {
+            ;(instance as EventEmitter).on(eventName, (...args: any[]) => {
                 if (this.stream) {
                     this.send({
                         data: args,
@@ -363,14 +359,14 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
         name: proxyName,
         requestNames = new Set(),
         eventNames = new Set(),
-    }: ProxyDescriptor): EmitterInterface<Proxy> {
+    }: ProxyDescriptor): Proxy {
         this.assertNotDestroyed()
         assert(
             !this.proxies.has(proxyName),
             `Proxy "${proxyName}" has been already registered.`,
         )
 
-        const instance = new EventEmitter()
+        const instance = eventNames.size === 0 ? {} : new EventEmitter()
         let nextRequestId = 1
         const proxyRequests: RequestMap = new Map()
         const proxyStreams: StreamMap = new Map()
@@ -421,7 +417,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
         return Array.from(this.proxies.keys())
     }
 
-    public getProxy(name: ProxyName): EmitterInterface<Proxy> | undefined {
+    public getProxy(name: ProxyName): Proxy | undefined {
         const descriptor = this.proxies.get(name)
         return descriptor && descriptor.instance
     }
@@ -831,7 +827,9 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
             case MessageType.EVENT: {
                 const { name, data } = message
                 if (eventNames.has(name)) {
-                    queueMicrotask(() => instance.emit(name, ...data))
+                    queueMicrotask(() =>
+                        (instance as EventEmitter).emit(name, ...data),
+                    )
                 }
                 break
             }

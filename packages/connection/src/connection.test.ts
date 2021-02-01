@@ -39,7 +39,7 @@ const invalidStreamMatcher = expect.objectContaining({
 let connection: Connection
 let stream1: Duplex
 let stream2: Duplex
-interface Instance extends Service {
+interface Instance extends EventEmitter, Service {
     testMethod?: (..._args: any) => any
     anotherMethod?: (..._args: any) => any
 }
@@ -425,18 +425,30 @@ describe('proxy registration', () => {
         )
     })
     test('get registered proxies', () => {
-        instance.testMethod = expect.any(Function)
-        instance.anotherMethod = expect.any(Function)
-        const requestNames = new Set(['testMethod', 'anotherMethod'])
         const anotherName = 'another-service'
-        const anotherInstance = new EventEmitter()
-        const proxy1 = connection.registerProxy({ requestNames, name })
-        const proxy2 = connection.registerProxy({ name: anotherName })
+        const proxy1 = connection.registerProxy({
+            requestNames: new Set(['testMethod', 'anotherMethod']),
+            name,
+            eventNames: new Set('testEvent'),
+        }) as any
+        const proxy2 = connection.registerProxy({
+            requestNames: new Set(['testMethod']),
+            name: anotherName,
+        }) as any
+
         expect(connection.getProxyNames()).toEqual([name, anotherName])
-        expect(connection.getProxy(name)).toEqual(instance)
+
         expect(connection.getProxy(name)).toBe(proxy1)
-        expect(connection.getProxy(anotherName)).toEqual(anotherInstance)
+        expect(proxy1.testMethod).toBeFunction()
+        expect(proxy1.anotherMethod).toBeFunction()
+        expect(proxy1).toBeInstanceOf(EventEmitter)
+
         expect(connection.getProxy(anotherName)).toBe(proxy2)
+        expect(proxy2.testMethod).toBeFunction()
+        expect(proxy2.anotherMethod).toBeUndefined()
+        expect(proxy2).not.toBeInstanceOf(EventEmitter)
+        expect(proxy2).toBeObject()
+
         expect(connection.getProxy('missing')).toBe(undefined)
     })
     test('after destroy', () => {
@@ -867,7 +879,7 @@ describe('no service', () => {
 })
 
 describe('service and proxy', () => {
-    interface TestService extends Service {
+    interface TestService extends EventEmitter, Service {
         returnMethod: jest.Mock<any, any[]>
         resolveMethod: jest.Mock<Promise<any>, any[]>
         returnStreamMethod: jest.Mock<Duplex, any[]>
@@ -879,7 +891,7 @@ describe('service and proxy', () => {
         rejectErrorMethod: jest.Mock<Promise<never>, any[]>
         rejectNonErrorMethod: jest.Mock<Promise<never>, any[]>
     }
-    interface TestProxy extends Proxy {
+    interface TestProxy extends EventEmitter, Proxy {
         returnMethod: jest.Mock<Promise<any>, any[]>
         resolveMethod: jest.Mock<Promise<any>, any[]>
         returnStreamMethod: jest.Mock<Promise<Duplex>, any[]>
