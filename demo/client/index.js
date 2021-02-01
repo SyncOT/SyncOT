@@ -30,7 +30,7 @@ const auth = createAuthClient({
         return 'secret'
     },
 })
-const contentClient = createContentClient({ connection, auth })
+const content = createContentClient({ connection, auth })
 
 const isWin = /Win/.test(navigator.platform)
 const historyKeyMap = {
@@ -49,7 +49,7 @@ const state = EditorState.create({
         syncOT({
             type: 'demo',
             id: '1',
-            contentClient,
+            content,
         }),
     ],
 })
@@ -57,7 +57,7 @@ const view = new EditorView(document.body, { state })
 
 window.demo = {
     auth,
-    contentClient,
+    content,
     ping,
     view,
     EditorState,

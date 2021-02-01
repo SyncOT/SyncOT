@@ -17,7 +17,7 @@ const server = new WebSocket.Server({ path, port })
 const contentStore = createContentStore()
 const pubSub = createPubSub()
 const proseMirrorContentType = createProseMirrorContentType()
-const content = createContentBackend({
+const contentBackend = createContentBackend({
     contentStore,
     pubSub,
     contentTypes: {
@@ -58,7 +58,7 @@ server.on('connection', (socket) => {
     const contentService = createContentService({
         connection,
         authService,
-        content,
+        contentBackend,
     })
 })
 
