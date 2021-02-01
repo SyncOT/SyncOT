@@ -444,11 +444,10 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
     }
 
     private cleanUpProxyStreams(): void {
-        const error = createDisconnectedError('Disconnected, stream destroyed.')
         for (const { streams } of this.proxies.values()) {
             for (const stream of streams.values()) {
                 if (stream.destroyed !== true) {
-                    stream.destroy(error)
+                    stream.destroy()
                 }
             }
             streams.clear()

@@ -1528,26 +1528,6 @@ describe('streamPresenceBySessionId', () => {
         ])
     })
 
-    test('stream error handling', async () => {
-        const onError = jest.fn()
-        const presenceStream = await presenceProxy.streamPresenceBySessionId(
-            sessionId,
-        )
-        presenceStream.on('error', onError)
-        stream1.destroy()
-        await Promise.all([
-            whenError(presenceStream),
-            whenClose(presenceStream),
-        ])
-        expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledWith(
-            expect.objectContaining({
-                message: 'Disconnected, stream destroyed.',
-                name: 'SyncOTError Disconnected',
-            }),
-        )
-    })
-
     test('start with no presence', async () => {
         const onData = jest.fn()
         const presenceStream = await presenceProxy.streamPresenceBySessionId(

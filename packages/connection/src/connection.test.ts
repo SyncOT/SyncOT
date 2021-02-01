@@ -1516,7 +1516,6 @@ describe('service and proxy', () => {
             )
         })
         test('request, stream, disconnect', async () => {
-            const onError = jest.fn()
             const onClose = jest.fn()
             const onData = jest.fn((message) => {
                 stream2.write({
@@ -1534,17 +1533,9 @@ describe('service and proxy', () => {
                 { key: 'value' },
                 false,
             )
-            stream.on('error', onError)
             stream.on('close', onClose)
             connection.disconnect()
             await delay()
-            expect(onError).toHaveBeenCalledTimes(1)
-            expect(onError).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Disconnected, stream destroyed.',
-                    name: 'SyncOTError Disconnected',
-                }),
-            )
             expect(onClose).toHaveBeenCalledTimes(1)
         })
         test('request, stream, destroy presence stream, disconnect', async () => {
