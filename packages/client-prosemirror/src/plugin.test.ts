@@ -1,9 +1,9 @@
 /**
  * @jest-environment jsdom
  */
+import { Auth, AuthEvents } from '@syncot/auth'
 import {
     ContentClient,
-    ContentClientEvents,
     createAlreadyExistsError,
     createBaseSnapshot,
     maxVersion,
@@ -51,12 +51,20 @@ const defaultDoc = editorSchema.topNodeType.createChecked(
     editorSchema.text('test text'),
 )
 
-class MockContentClient
-    extends SyncOTEmitter<ContentClientEvents>
-    implements ContentClient {
+class MockAuth extends SyncOTEmitter<AuthEvents> implements Auth {
     public active = true
     public sessionId = sessionId
     public userId = userId
+    public logIn = jest.fn()
+    public logOut = jest.fn()
+    public mayReadContent = jest.fn()
+    public mayWriteContent = jest.fn()
+    public mayReadPresence = jest.fn()
+    public mayWritePresence = jest.fn()
+}
+
+class MockContentClient implements ContentClient {
+    public auth = new MockAuth()
     registerSchema = jest.fn(async () => undefined)
     getSchema = jest.fn<Promise<Schema | null>, [string]>(async () =>
         Promise.resolve(null),
@@ -84,7 +92,9 @@ beforeEach(() => {
 })
 
 test('invalid type', () => {
-    expect(() => syncOT({ type: 5 as any, id, contentClient })).toThrow(
+    expect(() =>
+        syncOT({ type: 5 as any, id, content: contentClient }),
+    ).toThrow(
         expect.objectContaining({
             name: 'SyncOTError Assert',
             message: 'Argument "type" must be a string.',
@@ -92,7 +102,9 @@ test('invalid type', () => {
     )
 })
 test('invalid id', () => {
-    expect(() => syncOT({ type, id: 5 as any, contentClient })).toThrow(
+    expect(() =>
+        syncOT({ type, id: 5 as any, content: contentClient }),
+    ).toThrow(
         expect.objectContaining({
             name: 'SyncOTError Assert',
             message: 'Argument "id" must be a string.',
@@ -101,7 +113,7 @@ test('invalid id', () => {
 })
 test('invalid onError', () => {
     expect(() =>
-        syncOT({ type, id, contentClient, onError: 5 as any }),
+        syncOT({ type, id, content: contentClient, onError: 5 as any }),
     ).toThrow(
         expect.objectContaining({
             name: 'SyncOTError Assert',
@@ -110,31 +122,31 @@ test('invalid onError', () => {
     )
 })
 test('invalid contentClient (null)', () => {
-    expect(() => syncOT({ type, id, contentClient: null as any })).toThrow(
+    expect(() => syncOT({ type, id, content: null as any })).toThrow(
         expect.objectContaining({
             name: 'SyncOTError Assert',
-            message: 'Argument "contentClient" must be an object.',
+            message: 'Argument "content" must be an object.',
         }),
     )
 })
 test('invalid contentClient (number)', () => {
-    expect(() => syncOT({ type, id, contentClient: 5 as any })).toThrow(
+    expect(() => syncOT({ type, id, content: 5 as any })).toThrow(
         expect.objectContaining({
             name: 'SyncOTError Assert',
-            message: 'Argument "contentClient" must be an object.',
+            message: 'Argument "content" must be an object.',
         }),
     )
 })
 test('key', () => {
-    const plugin = syncOT({ type, id, contentClient })
+    const plugin = syncOT({ type, id, content: contentClient })
     expect(plugin.spec.key).toBe(key)
 })
 test('historyPreserveItems', () => {
-    const plugin = syncOT({ type, id, contentClient })
+    const plugin = syncOT({ type, id, content: contentClient })
     expect((plugin.spec as any).historyPreserveItems).toBe(true)
 })
 test('editable', () => {
-    const plugin = syncOT({ type, id, contentClient })
+    const plugin = syncOT({ type, id, content: contentClient })
     const state = EditorState.create({
         schema: editorSchema,
         plugins: [plugin],
@@ -151,7 +163,7 @@ describe('state', () => {
     let pluginState: PluginState
 
     beforeEach(() => {
-        plugin = syncOT({ type, id, contentClient })
+        plugin = syncOT({ type, id, content: contentClient })
         state = EditorState.create({
             schema: editorSchema,
             plugins: [plugin],
@@ -214,7 +226,7 @@ describe('view', () => {
                         syncOT({
                             type,
                             id,
-                            contentClient,
+                            content: contentClient,
                             onError,
                         }),
                     ],
@@ -550,7 +562,7 @@ describe('view', () => {
     test('init with a new document after resetting "version"', async () => {
         let state = EditorState.create({
             doc: defaultDoc,
-            plugins: [syncOT({ type, id, contentClient })],
+            plugins: [syncOT({ type, id, content: contentClient })],
         })
         state = state.apply(
             state.tr.setMeta(
@@ -639,7 +651,7 @@ describe('view', () => {
     test('init with a new document after resetting "pendingSteps"', async () => {
         let state = EditorState.create({
             doc: defaultDoc,
-            plugins: [syncOT({ type, id, contentClient })],
+            plugins: [syncOT({ type, id, content: contentClient })],
         })
         state = state.apply(
             state.tr.setMeta(key, new PluginState(minVersion, new Array(1))),
@@ -1484,7 +1496,7 @@ describe('view', () => {
             editorSchema.text('content which will be overridden'),
         )
         const view = createView({ doc: initialDoc })
-        contentClient.active = false
+        contentClient.auth.active = false
         contentClient.getSnapshot.mockImplementationOnce(
             async (snapshotType, snapshotId) => ({
                 type: snapshotType,
@@ -1517,9 +1529,9 @@ describe('view', () => {
         )
         expect(view.state.doc.toJSON()).toStrictEqual(initialDoc.toJSON())
 
-        // Active contentClient.
-        contentClient.active = true
-        contentClient.emit('active')
+        // Activate auth.
+        contentClient.auth.active = true
+        contentClient.auth.emit('active', { userId, sessionId })
 
         // Verify the new state.
         await whenNextTick()

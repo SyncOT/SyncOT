@@ -39,7 +39,7 @@ class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
     public mayReadPresence = jest.fn()
     public mayWritePresence = jest.fn()
 }
-let authClient: MockAuthClient
+let auth: MockAuthClient
 
 class MockContentService
     extends SyncOTEmitter<AuthEvents>
@@ -57,251 +57,65 @@ class MockContentService
 }
 
 beforeEach(() => {
-    authClient = new MockAuthClient()
+    auth = new MockAuthClient()
 })
 
 describe('initialization errors', () => {
     test('connection === null', () => {
         expect(() =>
-            createContentClient({ connection: null as any, authClient }),
+            createContentClient({ connection: null as any, auth }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "connection" must be a non-destroyed Connection.',
+                message: 'Argument "connection" must be an object.',
             }),
         )
     })
 
-    test('connection.destroyed === true', () => {
-        const connection = createConnection()
-        connection.destroy()
-        expect(() => createContentClient({ connection, authClient })).toThrow(
+    test('connection === true', () => {
+        expect(() =>
+            createContentClient({ connection: true as any, auth }),
+        ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "connection" must be a non-destroyed Connection.',
+                message: 'Argument "connection" must be an object.',
             }),
         )
     })
 
-    test('authClient === null', () => {
+    test('auth === null', () => {
         const connection = createConnection()
         expect(() =>
-            createContentClient({ connection, authClient: null as any }),
+            createContentClient({ connection, auth: null as any }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "authClient" must be a non-destroyed Auth client.',
+                message: 'Argument "auth" must be an object.',
             }),
         )
     })
 
-    test('authClient.destroyed === true', () => {
+    test('auth === true', () => {
         const connection = createConnection()
-        authClient.destroy()
-        expect(() => createContentClient({ connection, authClient })).toThrow(
+        expect(() =>
+            createContentClient({ connection, auth: true as any }),
+        ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "authClient" must be a non-destroyed Auth client.',
+                message: 'Argument "auth" must be an object.',
             }),
         )
     })
 
     test('duplicate serviceName', () => {
         const connection = createConnection()
-        createContentClient({ connection, authClient })
-        expect(() => createContentClient({ connection, authClient })).toThrow(
+        createContentClient({ connection, auth })
+        expect(() => createContentClient({ connection, auth })).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
                 message: 'Proxy "content" has been already registered.',
             }),
         )
-    })
-})
-
-describe('activation state', () => {
-    let connection: Connection
-    beforeEach(() => {
-        connection = createConnection()
-    })
-    afterEach(() => {
-        connection.destroy()
-    })
-
-    test('initially active', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        await whenNextTick()
-        expect(contentClient.active).toBe(true)
-        expect(contentClient.userId).toBe(userId)
-        expect(contentClient.sessionId).toBe(sessionId)
-        expect(onActive).toHaveBeenCalledTimes(1)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-    })
-
-    test('initially inactive', async () => {
-        authClient.active = false
-        const contentClient = createContentClient({ connection, authClient })
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        await whenNextTick()
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-    })
-
-    test('activate', async () => {
-        authClient.active = false
-        const contentClient = createContentClient({ connection, authClient })
-        await whenNextTick()
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-
-        // Activate
-        authClient.active = true
-        authClient.emit('active', { userId, sessionId })
-        expect(contentClient.active).toBe(true)
-        expect(contentClient.userId).toBe(userId)
-        expect(contentClient.sessionId).toBe(sessionId)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-        await whenNextTick()
-        expect(onActive).toHaveBeenCalledTimes(1)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-    })
-
-    test('deactivate', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        await whenNextTick()
-        expect(contentClient.active).toBe(true)
-        expect(contentClient.userId).toBe(userId)
-        expect(contentClient.sessionId).toBe(sessionId)
-        expect(onActive).toHaveBeenCalledTimes(1)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-        onActive.mockClear()
-
-        // Deactivate
-        authClient.active = false
-        authClient.emit('inactive')
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-        await whenNextTick()
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy before initializing', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        const onDestroy = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        contentClient.on('destroy', onDestroy)
-        expect(contentClient.destroyed).toBe(false)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        contentClient.destroy()
-        expect(contentClient.destroyed).toBe(true)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        await whenNextTick()
-        expect(contentClient.destroyed).toBe(true)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-    })
-
-    test('destroy after initializing', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onActive = jest.fn()
-        const onInactive = jest.fn()
-        const onDestroy = jest.fn()
-        contentClient.on('active', onActive)
-        contentClient.on('inactive', onInactive)
-        contentClient.on('destroy', onDestroy)
-        await whenNextTick()
-        expect(contentClient.destroyed).toBe(false)
-        expect(contentClient.active).toBe(true)
-        expect(contentClient.userId).toBe(userId)
-        expect(contentClient.sessionId).toBe(sessionId)
-        expect(onDestroy).toHaveBeenCalledTimes(0)
-        expect(onActive).toHaveBeenCalledTimes(1)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-        onActive.mockClear()
-
-        contentClient.destroy()
-        expect(contentClient.destroyed).toBe(true)
-        expect(contentClient.active).toBe(false)
-        expect(contentClient.userId).toBe(undefined)
-        expect(contentClient.sessionId).toBe(undefined)
-        await whenNextTick()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-        expect(onActive).toHaveBeenCalledTimes(0)
-        expect(onInactive).toHaveBeenCalledTimes(0)
-    })
-
-    test('destroy twice', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onDestroy = jest.fn()
-        contentClient.on('destroy', onDestroy)
-        contentClient.destroy()
-        contentClient.destroy()
-        await whenNextTick()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy on connection destroyed', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onDestroy = jest.fn()
-        contentClient.on('destroy', onDestroy)
-        connection.destroy()
-        await whenNextTick()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy on authClient destroyed', async () => {
-        const contentClient = createContentClient({ connection, authClient })
-        const onDestroy = jest.fn()
-        contentClient.on('destroy', onDestroy)
-        authClient.destroy()
-        await whenNextTick()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
     })
 })
 
@@ -314,7 +128,7 @@ describe('proxy calls', () => {
     let contentService: MockContentService
 
     beforeEach(() => {
-        authClient = new MockAuthClient()
+        auth = new MockAuthClient()
         ;[clientStream, serverStream] = invertedStreams({
             objectMode: true,
             allowHalfOpen: false,
@@ -331,7 +145,7 @@ describe('proxy calls', () => {
         })
         contentClient = createContentClient({
             connection: clientConnection,
-            authClient,
+            auth,
         })
     })
 

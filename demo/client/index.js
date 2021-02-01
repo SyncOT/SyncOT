@@ -22,15 +22,15 @@ const streamManager = createStreamManager({
         url: 'ws://localhost:10004/syncot/websocket',
     }),
 })
-const pingClient = createPingService({ connection })
-const authClient = createAuthClient({
+const ping = createPingService({ connection })
+const auth = createAuthClient({
     connection,
     autoLogIn: true,
     getCredentials() {
         return 'secret'
     },
 })
-const contentClient = createContentClient({ connection, authClient })
+const contentClient = createContentClient({ connection, auth })
 
 const isWin = /Win/.test(navigator.platform)
 const historyKeyMap = {
@@ -56,9 +56,9 @@ const state = EditorState.create({
 const view = new EditorView(document.body, { state })
 
 window.demo = {
-    authClient,
+    auth,
     contentClient,
-    pingClient,
+    ping,
     view,
     EditorState,
     EditorView,

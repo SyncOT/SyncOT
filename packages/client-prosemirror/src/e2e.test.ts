@@ -63,7 +63,7 @@ class Client {
             connection: this.serverConnection,
             createSession: () => new TestSession(),
         })
-        const authClient = createAuthClient({
+        const auth = createAuthClient({
             connection: this.clientConnection,
             autoLogIn: true,
             getCredentials: () => null,
@@ -74,9 +74,9 @@ class Client {
             authService,
             contentBackend,
         })
-        const contentClient = createContentClient({
+        const content = createContentClient({
             connection: this.clientConnection,
-            authClient,
+            auth,
         })
 
         this.view = new EditorView(undefined, {
@@ -88,7 +88,7 @@ class Client {
                     syncOT({
                         type,
                         id,
-                        contentClient,
+                        content,
                     }),
                 ],
             }),
@@ -99,12 +99,12 @@ class Client {
             },
         })
 
-        const submitOperation = contentClient.submitOperation
-        contentClient.submitOperation = async (
+        const submitOperation = content.submitOperation
+        content.submitOperation = async (
             operation: Operation,
         ): Promise<void> => {
             await this.submitOperationPromise
-            return submitOperation.call(contentClient, operation)
+            return submitOperation.call(content, operation)
         }
     }
 

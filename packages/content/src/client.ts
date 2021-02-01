@@ -1,6 +1,6 @@
 import { Auth } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
+import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { ContentBackend } from './backend'
 import { Operation } from './operation'
@@ -10,43 +10,13 @@ import { ContentService } from './service'
 import { Snapshot } from './snapshot'
 
 /**
- * Events emitted by `ContentClient`.
- */
-export interface ContentClientEvents {
-    /**
-     * When an error occurs.
-     */
-    error: Error
-    /**
-     * When the ContentClient becomes able to communicate with the ContentService.
-     */
-    active: void
-    /**
-     * When the ContentClient stops being able to communicate with the ContentService.
-     */
-    inactive: void
-}
-
-/**
  * The client interface for managing content.
  */
-export interface ContentClient
-    extends ContentBackend,
-        EmitterInterface<SyncOTEmitter<ContentClientEvents>> {
+export interface ContentClient extends ContentBackend {
     /**
-     * Indicates if the ContentClient is able to communicate with the ContentService.
+     * The Auth instance used for authentication and authorization.
      */
-    readonly active: boolean
-    /**
-     * The read-only `sessionId` from the Auth client, exposed here for convenience.
-     * It is `undefined` if, and only if, `active` is `false`.
-     */
-    readonly sessionId: string | undefined
-    /**
-     * The read-only `userId` from the Auth client, exposed here for convenience.
-     * It is `undefined` if, and only if, `active` is `false`.
-     */
-    readonly userId: string | undefined
+    readonly auth: Auth
 }
 
 /**
@@ -63,9 +33,9 @@ export interface CreateContentClientOptions {
      */
     serviceName?: string
     /**
-     * The Auth client used for authentication and authorization.
+     * The Auth instance to use for authentication and authorization.
      */
-    authClient: Auth
+    auth: Auth
 }
 
 /**
@@ -73,66 +43,41 @@ export interface CreateContentClientOptions {
  */
 export function createContentClient({
     connection,
-    authClient,
+    auth: authClient,
     serviceName = 'content',
 }: CreateContentClientOptions): ContentClient {
     return new Client(connection, authClient, serviceName)
 }
 
-class Client
-    extends SyncOTEmitter<ContentClientEvents>
-    implements ContentClient {
-    public active: boolean = false
-    public sessionId: string | undefined = undefined
-    public userId: string | undefined = undefined
-    private readonly contentService: ContentService
+class Client implements ContentClient {
+    private readonly proxy: ContentService
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authClient: Auth,
+        public readonly auth: Auth,
         serviceName: string,
     ) {
-        super()
-
         assert(
-            this.connection && !this.connection.destroyed,
-            'Argument "connection" must be a non-destroyed Connection.',
+            this.connection && typeof this.connection === 'object',
+            'Argument "connection" must be an object.',
         )
         assert(
-            this.authClient && !this.authClient.destroyed,
-            'Argument "authClient" must be a non-destroyed Auth client.',
+            this.auth && typeof this.auth === 'object',
+            'Argument "auth" must be an object.',
         )
 
-        this.contentService = this.connection.registerProxy({
+        this.proxy = this.connection.registerProxy({
             name: serviceName,
             requestNames,
         }) as ContentService
-
-        this.connection.on('destroy', this.onDestroy)
-        this.authClient.on('destroy', this.onDestroy)
-        this.authClient.on('active', this.updateActive)
-        this.authClient.on('inactive', this.updateActive)
-        queueMicrotask(this.updateActive)
-    }
-
-    public destroy(): void {
-        if (this.destroyed) return
-        this.active = false
-        this.sessionId = undefined
-        this.userId = undefined
-        this.connection.off('destroy', this.onDestroy)
-        this.authClient.off('destroy', this.onDestroy)
-        this.authClient.off('active', this.updateActive)
-        this.authClient.off('inactive', this.updateActive)
-        super.destroy()
     }
 
     public registerSchema(schema: Schema): Promise<void> {
-        return this.contentService.registerSchema(schema)
+        return this.proxy.registerSchema(schema)
     }
 
-    public async getSchema(key: string): Promise<Schema | null> {
-        return this.contentService.getSchema(key)
+    public getSchema(key: string): Promise<Schema | null> {
+        return this.proxy.getSchema(key)
     }
 
     public getSnapshot(
@@ -140,11 +85,11 @@ class Client
         id: string,
         version: number,
     ): Promise<Snapshot> {
-        return this.contentService.getSnapshot(type, id, version)
+        return this.proxy.getSnapshot(type, id, version)
     }
 
     public submitOperation(operation: Operation): Promise<void> {
-        return this.contentService.submitOperation(operation)
+        return this.proxy.submitOperation(operation)
     }
 
     public streamOperations(
@@ -153,32 +98,6 @@ class Client
         versionStart: number,
         versionEnd: number,
     ): Promise<Duplex> {
-        return this.contentService.streamOperations(
-            type,
-            id,
-            versionStart,
-            versionEnd,
-        )
-    }
-
-    private onDestroy = (): void => {
-        this.destroy()
-    }
-
-    private updateActive = (): void => {
-        if (this.destroyed) return
-        if (this.active === this.authClient.active) return
-
-        if (this.authClient.active) {
-            this.active = true
-            this.sessionId = this.authClient.sessionId
-            this.userId = this.authClient.userId
-            this.emitAsync('active')
-        } else {
-            this.active = false
-            this.sessionId = undefined
-            this.userId = undefined
-            this.emitAsync('inactive')
-        }
+        return this.proxy.streamOperations(type, id, versionStart, versionEnd)
     }
 }

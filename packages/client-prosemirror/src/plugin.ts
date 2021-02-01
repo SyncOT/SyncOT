@@ -46,9 +46,9 @@ export interface SyncOTConfig {
      */
     id: string
     /**
-     * The client used for reading and writing document content.
+     * The content client used for reading and writing document content.
      */
-    contentClient: ContentClient
+    content: ContentClient
     /**
      * A function to call in case of errors.
      * Defaults to a function which throws the error.
@@ -69,7 +69,7 @@ export interface SyncOTConfig {
 export function syncOT({
     type,
     id,
-    contentClient,
+    content,
     onError = throwError,
 }: SyncOTConfig): Plugin {
     assert(typeof type === 'string', 'Argument "type" must be a string.')
@@ -79,8 +79,8 @@ export function syncOT({
         'Argument "onError" must be a function or undefined.',
     )
     assert(
-        typeof contentClient === 'object' && contentClient != null,
-        'Argument "contentClient" must be an object.',
+        typeof content === 'object' && content != null,
+        'Argument "content" must be an object.',
     )
     return new Plugin<PluginState>({
         key,
@@ -108,7 +108,7 @@ export function syncOT({
                 return new PluginLoop(
                     type,
                     id,
-                    contentClient,
+                    content,
                     onError,
                     getView,
                     notify,
@@ -164,7 +164,7 @@ class PluginLoop {
     public constructor(
         private readonly type: string,
         private readonly id: string,
-        private readonly contentClient: ContentClient,
+        private readonly content: ContentClient,
         public readonly onError: (error: Error) => void,
         private readonly getView: () => EditorView | undefined,
         private readonly notify: () => void,
@@ -172,11 +172,11 @@ class PluginLoop {
         const state = this.view!.state
         this.initialized = initializedStates.has(state)
         this.schema = toSyncOTSchema(this.type, state.schema)
-        this.contentClient.on('active', this.notify)
+        this.content.auth.on('active', this.notify)
     }
 
     public destroy(): void {
-        this.contentClient.off('active', this.notify)
+        this.content.auth.off('active', this.notify)
         if (this.stream) {
             this.stream.destroy()
         }
@@ -211,7 +211,7 @@ class PluginLoop {
         if (!hasValidStream && this.stream) {
             this.stream.destroy()
         }
-        if (this.contentClient.active) {
+        if (this.content.auth.active) {
             if (pluginState.version === minVersion) {
                 await this.initState(state)
             } else if (!hasValidStream) {
@@ -226,11 +226,7 @@ class PluginLoop {
         const { type, id, schema } = this
 
         // Load the latest document snapshot.
-        let snapshot = await this.contentClient.getSnapshot(
-            type,
-            id,
-            maxVersion,
-        )
+        let snapshot = await this.content.getSnapshot(type, id, maxVersion)
 
         // Handle schema change.
         if (snapshot.schema !== schema.hash) {
@@ -247,7 +243,7 @@ class PluginLoop {
                         "Cannot convert the snapshot's schema because the local schema is out of date.",
                     )
                 }
-                const oldSchema = (await this.contentClient.getSchema(
+                const oldSchema = (await this.content.getSchema(
                     snapshot.schema,
                 ))!
                 const oldNode = fromSyncOTSchema(oldSchema).nodeFromJSON(
@@ -260,7 +256,7 @@ class PluginLoop {
                     )
             }
 
-            await this.contentClient.registerSchema(schema)
+            await this.content.registerSchema(schema)
             const operation: Operation = {
                 key: createId(),
                 type,
@@ -269,13 +265,13 @@ class PluginLoop {
                 schema: schema.hash,
                 data: node.toJSON(),
                 meta: {
-                    user: this.contentClient.userId,
-                    session: this.contentClient.sessionId,
+                    user: this.content.auth.userId,
+                    session: this.content.auth.sessionId,
                     time: Date.now(),
                 },
             }
             try {
-                await this.contentClient.submitOperation(operation)
+                await this.content.submitOperation(operation)
             } catch (error) {
                 if (isAlreadyExistsError(error)) return this.notify()
                 throw error
@@ -312,7 +308,7 @@ class PluginLoop {
 
     private async initStream(version: number): Promise<void> {
         // Create a new stream.
-        const stream = await this.contentClient.streamOperations(
+        const stream = await this.content.streamOperations(
             this.type,
             this.id,
             version + 1,
@@ -366,7 +362,7 @@ class PluginLoop {
             }
 
             // Submit the operation.
-            await this.contentClient.submitOperation({
+            await this.content.submitOperation({
                 key: operationKey,
                 type: this.type,
                 id: this.id,
