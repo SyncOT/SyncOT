@@ -12,12 +12,7 @@ import { minVersion, maxVersion } from './limits'
 /**
  * Events emitted by `ContentService`.
  */
-export interface ContentServiceEvents {
-    /**
-     * When an error occurs.
-     */
-    error: Error
-}
+export type ContentServiceEvents = {}
 
 /**
  * The service interface for managing content.
@@ -203,22 +198,11 @@ class Service
         if (!(await this.authService.mayReadContent(type, id)))
             throw createAuthError('Not authorized.')
 
-        const stream = await this.content.streamOperations(
-            type,
-            id,
-            versionStart,
-            versionEnd,
-        )
-        stream.on('error', this.onError)
-        return stream
+        return this.content.streamOperations(type, id, versionStart, versionEnd)
     }
 
     private onDestroy = (): void => {
         this.destroy()
-    }
-
-    private onError = (error: Error): void => {
-        this.emitAsync('error', error)
     }
 
     private assertOk(): void {

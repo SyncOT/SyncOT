@@ -604,20 +604,4 @@ describe('streamOperations', () => {
             await content.streamOperations.mock.results[0].value,
         )
     })
-
-    test('emits stream errors as own errors', async () => {
-        const stream = await contentService.streamOperations(
-            type,
-            id,
-            minVersion,
-            maxVersion + 1,
-        )
-        const onError = jest.fn()
-        contentService.on('error', onError)
-        const error = new Error('test error')
-        stream.emit('error', error)
-        await whenNextTick()
-        expect(onError).toHaveBeenCalledTimes(1)
-        expect(onError).toHaveBeenCalledWith(error)
-    })
 })
