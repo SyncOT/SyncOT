@@ -5,7 +5,7 @@ import { createAuthClient } from '@syncot/auth'
 import { createConnection, createStreamManager } from '@syncot/connection'
 import { createContentClient } from '@syncot/content'
 import { syncOT } from '@syncot/client-prosemirror'
-import { createPingService } from '@syncot/ping'
+import { createPing } from '@syncot/ping'
 import { createWebSocketStream } from '@syncot/stream-socket-websocket'
 import { baseKeymap } from 'prosemirror-commands'
 import { undo, redo, history } from 'prosemirror-history'
@@ -22,7 +22,7 @@ const streamManager = createStreamManager({
         url: 'ws://localhost:10004/syncot/websocket',
     }),
 })
-const ping = createPingService({ connection })
+const ping = createPing({ connection })
 const auth = createAuthClient({
     connection,
     autoLogIn: true,

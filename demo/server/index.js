@@ -7,7 +7,7 @@ import {
     createPubSub,
 } from '@syncot/content'
 import { createContentType as createProseMirrorContentType } from '@syncot/content-type-prosemirror'
-import { createPingService } from '@syncot/ping'
+import { createPing } from '@syncot/ping'
 import { SocketStream } from '@syncot/stream-socket'
 import WebSocket from 'ws'
 
@@ -54,7 +54,7 @@ server.on('connection', (socket) => {
             return new DemoSession()
         },
     })
-    const ping = createPingService({ connection })
+    const ping = createPing({ connection, timeout: 50000 })
     const contentService = createContentService({
         connection,
         auth,
