@@ -613,6 +613,7 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
                     }
                 }
 
+                serviceStream.on('error', this.onError)
                 serviceStream.on('close', onClose)
                 serviceStream.on('data', onData)
                 serviceStream.on('end', onEnd)
@@ -835,6 +836,10 @@ class ConnectionImpl extends SyncOTEmitter<Events> {
                 break
             }
         }
+    }
+
+    private onError = (error: Error): void => {
+        this.emitAsync('error', error)
     }
 }
 

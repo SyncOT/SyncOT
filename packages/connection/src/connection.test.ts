@@ -1926,11 +1926,13 @@ describe('service and proxy', () => {
             })
 
             test('return stream, output destroy with error', async () => {
+                const onConnectionError = jest.fn()
                 const onServiceError = jest.fn()
                 const onProxyError = jest.fn()
                 const onProxyClose = jest.fn()
                 const proxyStream = await proxy2.returnStreamMethod(...params)
 
+                connection.on('error', onConnectionError)
                 returnedServiceStream.on('error', onServiceError)
                 proxyStream.on('error', onProxyError)
                 proxyStream.on('close', onProxyClose)
@@ -1938,6 +1940,8 @@ describe('service and proxy', () => {
                 process.nextTick(() => returnedServiceStream.destroy(error))
                 await whenClose(proxyStream)
 
+                expect(onConnectionError).toHaveBeenCalledTimes(1)
+                expect(onConnectionError).toHaveBeenCalledWith(error)
                 expect(onServiceError).toHaveBeenCalledTimes(1)
                 expect(onProxyError).toHaveBeenCalledTimes(0)
                 expect(onProxyClose).toHaveBeenCalledTimes(1)
