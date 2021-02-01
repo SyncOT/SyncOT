@@ -1,10 +1,10 @@
 import { AuthEvents, Auth } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { SyncOTEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     ContentBackend,
-    ContentService,
+    Content,
     createBaseOperation,
     createBaseSnapshot,
     createContentService,
@@ -54,23 +54,22 @@ class MockContentBackend implements ContentBackend {
 }
 
 let connection: Connection
-let authService: MockAuthService
+let auth: MockAuthService
 let contentBackend: MockContentBackend
-let contentService: ContentService
+let contentService: Content
 
 beforeEach(() => {
     connection = createConnection()
-    authService = new MockAuthService()
+    auth = new MockAuthService()
     contentBackend = new MockContentBackend()
     contentService = createContentService({
         connection,
-        authService,
+        auth,
         contentBackend,
     })
 })
 afterEach(() => {
     connection.destroy()
-    contentService.destroy()
 })
 
 describe('initialization errors', () => {
@@ -78,88 +77,88 @@ describe('initialization errors', () => {
         expect(() =>
             createContentService({
                 connection: null as any,
-                authService,
+                auth,
                 contentBackend,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "connection" must be a non-destroyed Connection.',
+                message: 'Argument "connection" must be an object.',
             }),
         )
     })
 
-    test('connection.destroyed === true', () => {
-        connection.destroy()
-        expect(() =>
-            createContentService({ connection, authService, contentBackend }),
-        ).toThrow(
-            expect.objectContaining({
-                name: 'SyncOTError Assert',
-                message:
-                    'Argument "connection" must be a non-destroyed Connection.',
-            }),
-        )
-    })
-
-    test('authService === null', () => {
+    test('connection === true', () => {
         expect(() =>
             createContentService({
-                connection,
-                authService: null as any,
+                connection: true as any,
+                auth,
                 contentBackend,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "authService" must be a non-destroyed Auth service.',
+                message: 'Argument "connection" must be an object.',
             }),
         )
     })
 
-    test('authService.destroyed === true', () => {
-        authService.destroy()
-        expect(() =>
-            createContentService({ connection, authService, contentBackend }),
-        ).toThrow(
-            expect.objectContaining({
-                name: 'SyncOTError Assert',
-                message:
-                    'Argument "authService" must be a non-destroyed Auth service.',
-            }),
-        )
-    })
-
-    test('content === null', () => {
+    test('auth === null', () => {
         expect(() =>
             createContentService({
                 connection,
-                authService,
+                auth: null as any,
+                contentBackend,
+            }),
+        ).toThrow(
+            expect.objectContaining({
+                name: 'SyncOTError Assert',
+                message: 'Argument "auth" must be an object.',
+            }),
+        )
+    })
+
+    test('auth === true', () => {
+        expect(() =>
+            createContentService({
+                connection,
+                auth: true as any,
+                contentBackend,
+            }),
+        ).toThrow(
+            expect.objectContaining({
+                name: 'SyncOTError Assert',
+                message: 'Argument "auth" must be an object.',
+            }),
+        )
+    })
+
+    test('contentBackend === null', () => {
+        expect(() =>
+            createContentService({
+                connection,
+                auth,
                 contentBackend: null as any,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "contentBackend" must be a ContentBackend instance.',
+                message: 'Argument "contentBackend" must be an object.',
             }),
         )
     })
 
-    test('content === 5', () => {
+    test('contentBackend === 5', () => {
         expect(() =>
             createContentService({
                 connection,
-                authService,
+                auth,
                 contentBackend: 5 as any,
             }),
         ).toThrow(
             expect.objectContaining({
                 name: 'SyncOTError Assert',
-                message:
-                    'Argument "contentBackend" must be a ContentBackend instance.',
+                message: 'Argument "contentBackend" must be an object.',
             }),
         )
     })
@@ -168,14 +167,14 @@ describe('initialization errors', () => {
         const serviceName = 'test-content'
         createContentService({
             connection,
-            authService,
+            auth,
             contentBackend,
             serviceName,
         })
         expect(() =>
             createContentService({
                 connection,
-                authService,
+                auth,
                 contentBackend,
                 serviceName,
             }),
@@ -188,61 +187,9 @@ describe('initialization errors', () => {
     })
 })
 
-describe('destroy', () => {
-    test('destroy once', async () => {
-        const onDestroy = jest.fn()
-        contentService.on('destroy', onDestroy)
-        expect(contentService.destroyed).toBe(false)
-        contentService.destroy()
-        expect(contentService.destroyed).toBe(true)
-        expect(onDestroy).toHaveBeenCalledTimes(0)
-        await whenNextTick()
-        expect(contentService.destroyed).toBe(true)
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy twice', async () => {
-        const onDestroy = jest.fn()
-        contentService.on('destroy', onDestroy)
-        contentService.destroy()
-        contentService.destroy()
-        expect(contentService.destroyed).toBe(true)
-        await whenNextTick()
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy on connection destroy', async () => {
-        const onDestroy = jest.fn()
-        contentService.on('destroy', onDestroy)
-        connection.destroy()
-        await whenNextTick()
-        expect(contentService.destroyed).toBe(true)
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-
-    test('destroy on authService destroy', async () => {
-        const onDestroy = jest.fn()
-        contentService.on('destroy', onDestroy)
-        authService.destroy()
-        await whenNextTick()
-        expect(contentService.destroyed).toBe(true)
-        expect(onDestroy).toHaveBeenCalledTimes(1)
-    })
-})
-
 describe.each(Array.from(requestNames))('%s', (requestName) => {
-    test('service destroyed', async () => {
-        contentService.destroy()
-        await expect((contentService as any)[requestName]()).rejects.toEqual(
-            expect.objectContaining({
-                name: 'SyncOTError Assert',
-                message: 'Already destroyed.',
-            }),
-        )
-    })
-
     test('not authenticated', async () => {
-        authService.active = false
+        auth.active = false
         await expect((contentService as any)[requestName]()).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError Auth',
@@ -277,8 +224,8 @@ describe('registerSchema', () => {
         expect(contentBackend.registerSchema).toHaveBeenCalledWith({
             ...schema,
             meta: {
-                session: authService.sessionId,
-                user: authService.userId,
+                session: auth.sessionId,
+                user: auth.userId,
                 time: expect.toBeNumber(),
             },
         })
@@ -300,8 +247,8 @@ describe('registerSchema', () => {
         expect(contentBackend.registerSchema).toHaveBeenCalledWith({
             ...schema,
             meta: {
-                session: authService.sessionId,
-                user: authService.userId,
+                session: auth.sessionId,
+                user: auth.userId,
                 time: expect.toBeNumber(),
                 extra: 'value',
             },
@@ -383,7 +330,7 @@ describe('getSnapshot', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayReadContent.mockImplementationOnce(async () => false)
+        auth.mayReadContent.mockImplementationOnce(async () => false)
         await expect(
             contentService.getSnapshot(type, id, version),
         ).rejects.toEqual(
@@ -392,8 +339,8 @@ describe('getSnapshot', () => {
                 message: 'Not authorized.',
             }),
         )
-        expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayReadContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayReadContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.getSnapshot).toHaveBeenCalledTimes(0)
     })
 
@@ -401,8 +348,8 @@ describe('getSnapshot', () => {
         await expect(
             contentService.getSnapshot(type, id, version),
         ).resolves.toEqual(snapshot)
-        expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayReadContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayReadContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.getSnapshot).toHaveBeenCalledTimes(1)
         expect(contentBackend.getSnapshot).toHaveBeenCalledWith(
             type,
@@ -430,15 +377,15 @@ describe('submitOperation', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayWriteContent.mockImplementationOnce(async () => false)
+        auth.mayWriteContent.mockImplementationOnce(async () => false)
         await expect(contentService.submitOperation(operation)).rejects.toEqual(
             expect.objectContaining({
                 name: 'SyncOTError Auth',
                 message: 'Not authorized.',
             }),
         )
-        expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayWriteContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayWriteContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.submitOperation).toHaveBeenCalledTimes(0)
     })
 
@@ -446,14 +393,14 @@ describe('submitOperation', () => {
         await expect(contentService.submitOperation(operation)).resolves.toBe(
             undefined,
         )
-        expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayWriteContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayWriteContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.submitOperation).toHaveBeenCalledTimes(1)
         expect(contentBackend.submitOperation).toHaveBeenCalledWith({
             ...operation,
             meta: {
-                session: authService.sessionId,
-                user: authService.userId,
+                session: auth.sessionId,
+                user: auth.userId,
                 time: expect.toBeNumber(),
             },
         })
@@ -471,14 +418,14 @@ describe('submitOperation', () => {
                 },
             }),
         ).resolves.toBe(undefined)
-        expect(authService.mayWriteContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayWriteContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayWriteContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayWriteContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.submitOperation).toHaveBeenCalledTimes(1)
         expect(contentBackend.submitOperation).toHaveBeenCalledWith({
             ...operation,
             meta: {
-                session: authService.sessionId,
-                user: authService.userId,
+                session: auth.sessionId,
+                user: auth.userId,
                 time: expect.toBeNumber(),
                 extra: 'value',
             },
@@ -581,7 +528,7 @@ describe('streamOperations', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayReadContent.mockImplementationOnce(async () => false)
+        auth.mayReadContent.mockImplementationOnce(async () => false)
         await expect(
             contentService.streamOperations(type, id, version, version + 5),
         ).rejects.toEqual(
@@ -590,8 +537,8 @@ describe('streamOperations', () => {
                 message: 'Not authorized.',
             }),
         )
-        expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayReadContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayReadContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.streamOperations).toHaveBeenCalledTimes(0)
     })
 
@@ -602,8 +549,8 @@ describe('streamOperations', () => {
             minVersion,
             maxVersion + 1,
         )
-        expect(authService.mayReadContent).toHaveBeenCalledTimes(1)
-        expect(authService.mayReadContent).toHaveBeenCalledWith(type, id)
+        expect(auth.mayReadContent).toHaveBeenCalledTimes(1)
+        expect(auth.mayReadContent).toHaveBeenCalledWith(type, id)
         expect(contentBackend.streamOperations).toHaveBeenCalledTimes(1)
         expect(contentBackend.streamOperations).toHaveBeenCalledWith(
             type,

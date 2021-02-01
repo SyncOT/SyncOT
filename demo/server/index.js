@@ -48,7 +48,7 @@ server.on('connection', (socket) => {
         connection.destroy()
     })
 
-    const authService = createAuthService({
+    const auth = createAuthService({
         connection,
         createSession() {
             return new DemoSession()
@@ -57,7 +57,7 @@ server.on('connection', (socket) => {
     const ping = createPingService({ connection })
     const contentService = createContentService({
         connection,
-        authService,
+        auth,
         contentBackend,
     })
 })

@@ -3,7 +3,7 @@
  */
 import { Auth, AuthEvents } from '@syncot/auth'
 import {
-    ContentClient,
+    Content,
     createAlreadyExistsError,
     createBaseSnapshot,
     maxVersion,
@@ -63,7 +63,7 @@ class MockAuth extends SyncOTEmitter<AuthEvents> implements Auth {
     public mayWritePresence = jest.fn()
 }
 
-class MockContentClient implements ContentClient {
+class MockContentClient implements Content {
     public auth = new MockAuth()
     registerSchema = jest.fn(async () => undefined)
     getSchema = jest.fn<Promise<Schema | null>, [string]>(async () =>

@@ -1,5 +1,5 @@
 import {
-    ContentClient,
+    Content,
     createSchemaConflictError,
     isAlreadyExistsError,
     maxVersion,
@@ -48,7 +48,7 @@ export interface SyncOTConfig {
     /**
      * The content client used for reading and writing document content.
      */
-    content: ContentClient
+    content: Content
     /**
      * A function to call in case of errors.
      * Defaults to a function which throws the error.
@@ -164,7 +164,7 @@ class PluginLoop {
     public constructor(
         private readonly type: string,
         private readonly id: string,
-        private readonly content: ContentClient,
+        private readonly content: Content,
         public readonly onError: (error: Error) => void,
         private readonly getView: () => EditorView | undefined,
         private readonly notify: () => void,

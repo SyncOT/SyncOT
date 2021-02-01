@@ -2,22 +2,11 @@ import { Auth } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
 import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
-import { ContentBackend } from './backend'
+import { Content } from './content'
 import { Operation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema } from './schema'
-import { ContentService } from './service'
 import { Snapshot } from './snapshot'
-
-/**
- * The client interface for managing content.
- */
-export interface ContentClient extends ContentBackend {
-    /**
-     * The Auth instance used for authentication and authorization.
-     */
-    readonly auth: Auth
-}
 
 /**
  * Options expected by `createContentClient`.
@@ -43,14 +32,14 @@ export interface CreateContentClientOptions {
  */
 export function createContentClient({
     connection,
-    auth: authClient,
+    auth,
     serviceName = 'content',
-}: CreateContentClientOptions): ContentClient {
-    return new Client(connection, authClient, serviceName)
+}: CreateContentClientOptions): Content {
+    return new Client(connection, auth, serviceName)
 }
 
-class Client implements ContentClient {
-    private readonly proxy: ContentService
+class Client implements Content {
+    private readonly proxy: Content
 
     public constructor(
         private readonly connection: Connection,
@@ -69,7 +58,7 @@ class Client implements ContentClient {
         this.proxy = this.connection.registerProxy({
             name: serviceName,
             requestNames,
-        }) as ContentService
+        }) as Content
     }
 
     public registerSchema(schema: Schema): Promise<void> {

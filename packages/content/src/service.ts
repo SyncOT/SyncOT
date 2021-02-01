@@ -1,25 +1,14 @@
 import { Auth, createAuthError } from '@syncot/auth'
 import { Connection } from '@syncot/connection'
-import { assert, EmitterInterface, SyncOTEmitter } from '@syncot/util'
+import { assert } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { ContentBackend } from './backend'
+import { Content } from './content'
 import { Operation, validateOperation } from './operation'
 import { requestNames } from './requestNames'
 import { Schema, validateSchema } from './schema'
 import { Snapshot } from './snapshot'
 import { minVersion, maxVersion } from './limits'
-
-/**
- * Events emitted by `ContentService`.
- */
-export type ContentServiceEvents = {}
-
-/**
- * The service interface for managing content.
- */
-export interface ContentService
-    extends ContentBackend,
-        EmitterInterface<SyncOTEmitter<ContentServiceEvents>> {}
 
 /**
  * The options expected by `createContentService`.
@@ -30,9 +19,9 @@ export interface CreateContentServiceOptions {
      */
     connection: Connection
     /**
-     * The Auth service used to verify user permissions.
+     * The Auth instance used for authentication and authorization.
      */
-    authService: Auth
+    auth: Auth
     /**
      * The ContentBackend instance to use for managing content.
      */
@@ -49,35 +38,31 @@ export interface CreateContentServiceOptions {
  */
 export function createContentService({
     connection,
-    authService,
+    auth,
     contentBackend,
     serviceName = 'content',
-}: CreateContentServiceOptions): ContentService {
-    return new Service(connection, authService, contentBackend, serviceName)
+}: CreateContentServiceOptions): Content {
+    return new Service(connection, auth, contentBackend, serviceName)
 }
 
-class Service
-    extends SyncOTEmitter<ContentServiceEvents>
-    implements ContentService {
+class Service implements Content {
     public constructor(
         private readonly connection: Connection,
-        private readonly authService: Auth,
+        public readonly auth: Auth,
         private readonly contentBackend: ContentBackend,
         serviceName: string,
     ) {
-        super()
-
         assert(
-            this.connection && !this.connection.destroyed,
-            'Argument "connection" must be a non-destroyed Connection.',
+            this.connection && typeof this.connection === 'object',
+            'Argument "connection" must be an object.',
         )
         assert(
-            this.authService && !this.authService.destroyed,
-            'Argument "authService" must be a non-destroyed Auth service.',
+            this.auth && typeof this.auth === 'object',
+            'Argument "auth" must be an object.',
         )
         assert(
             this.contentBackend && typeof this.contentBackend === 'object',
-            'Argument "contentBackend" must be a ContentBackend instance.',
+            'Argument "contentBackend" must be an object.',
         )
 
         this.connection.registerService({
@@ -85,20 +70,10 @@ class Service
             name: serviceName,
             requestNames,
         })
-
-        this.connection.on('destroy', this.onDestroy)
-        this.authService.on('destroy', this.onDestroy)
-    }
-
-    public destroy(): void {
-        if (this.destroyed) return
-        this.connection.off('destroy', this.onDestroy)
-        this.authService.off('destroy', this.onDestroy)
-        super.destroy()
     }
 
     public async registerSchema(schema: Schema): Promise<void> {
-        this.assertOk()
+        this.assertAuthenticated()
         validateSchema(schema)
 
         return this.contentBackend.registerSchema({
@@ -107,15 +82,15 @@ class Service
             data: schema.data,
             meta: {
                 ...schema.meta,
-                session: this.authService.sessionId,
+                session: this.auth.sessionId,
                 time: Date.now(),
-                user: this.authService.userId,
+                user: this.auth.userId,
             },
         })
     }
 
     public async getSchema(key: string): Promise<Schema | null> {
-        this.assertOk()
+        this.assertAuthenticated()
 
         assert(typeof key === 'string', 'Argument "key" must be a string.')
 
@@ -127,7 +102,7 @@ class Service
         id: string,
         version: number,
     ): Promise<Snapshot> {
-        this.assertOk()
+        this.assertAuthenticated()
 
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
@@ -138,22 +113,17 @@ class Service
             `Argument "version" must be an integer between minVersion (inclusive) and maxVersion (inclusive).`,
         )
 
-        if (!(await this.authService.mayReadContent(type, id)))
+        if (!(await this.auth.mayReadContent(type, id)))
             throw createAuthError('Not authorized.')
 
         return this.contentBackend.getSnapshot(type, id, version)
     }
 
     public async submitOperation(operation: Operation): Promise<void> {
-        this.assertOk()
+        this.assertAuthenticated()
         validateOperation(operation)
 
-        if (
-            !(await this.authService.mayWriteContent(
-                operation.type,
-                operation.id,
-            ))
-        )
+        if (!(await this.auth.mayWriteContent(operation.type, operation.id)))
             throw createAuthError('Not authorized.')
 
         return this.contentBackend.submitOperation({
@@ -165,9 +135,9 @@ class Service
             data: operation.data,
             meta: {
                 ...operation.meta,
-                session: this.authService.sessionId,
+                session: this.auth.sessionId,
                 time: Date.now(),
-                user: this.authService.userId,
+                user: this.auth.userId,
             },
         })
     }
@@ -178,7 +148,7 @@ class Service
         versionStart: number,
         versionEnd: number,
     ): Promise<Duplex> {
-        this.assertOk()
+        this.assertAuthenticated()
 
         assert(typeof type === 'string', 'Argument "type" must be a string.')
         assert(typeof id === 'string', 'Argument "id" must be a string.')
@@ -195,7 +165,7 @@ class Service
             'Argument "versionEnd" must be an integer between minVersion (inclusive) and maxVersion (exclusive).',
         )
 
-        if (!(await this.authService.mayReadContent(type, id)))
+        if (!(await this.auth.mayReadContent(type, id)))
             throw createAuthError('Not authorized.')
 
         return this.contentBackend.streamOperations(
@@ -206,17 +176,8 @@ class Service
         )
     }
 
-    private onDestroy = (): void => {
-        this.destroy()
-    }
-
-    private assertOk(): void {
-        this.assertNotDestroyed()
-        this.assertAuthenticated()
-    }
-
     private assertAuthenticated(): void {
-        if (!this.authService.active) {
+        if (!this.auth.active) {
             throw createAuthError('Not authenticated.')
         }
     }

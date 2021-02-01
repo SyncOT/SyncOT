@@ -3,8 +3,7 @@ import { Connection, createConnection } from '@syncot/connection'
 import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
-    ContentClient,
-    ContentService,
+    Content,
     createBaseOperation,
     createBaseSnapshot,
     createContentClient,
@@ -28,7 +27,7 @@ const schema: Schema = { type, hash, data, meta: null }
 const snapshot: Snapshot = createBaseSnapshot(type, id)
 const operation: Operation = createBaseOperation(type, id)
 
-class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuth extends SyncOTEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public userId: string | undefined = userId
     public sessionId: string | undefined = sessionId
@@ -39,11 +38,10 @@ class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
     public mayReadPresence = jest.fn()
     public mayWritePresence = jest.fn()
 }
-let auth: MockAuthClient
+let auth: MockAuth
 
-class MockContentService
-    extends SyncOTEmitter<AuthEvents>
-    implements ContentService {
+class MockContentService implements Content {
+    public auth = new MockAuth()
     public registerSchema = jest.fn()
     public getSchema = jest.fn(async () => schema)
     public getSnapshot = jest.fn(async () => snapshot)
@@ -57,7 +55,7 @@ class MockContentService
 }
 
 beforeEach(() => {
-    auth = new MockAuthClient()
+    auth = new MockAuth()
 })
 
 describe('initialization errors', () => {
@@ -124,11 +122,11 @@ describe('proxy calls', () => {
     let serverStream: Duplex
     let clientConnection: Connection
     let serverConnection: Connection
-    let contentClient: ContentClient
+    let contentClient: Content
     let contentService: MockContentService
 
     beforeEach(() => {
-        auth = new MockAuthClient()
+        auth = new MockAuth()
         ;[clientStream, serverStream] = invertedStreams({
             objectMode: true,
             allowHalfOpen: false,

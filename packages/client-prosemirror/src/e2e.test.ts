@@ -63,7 +63,7 @@ class Client {
             connection: this.serverConnection,
             createSession: () => new TestSession(),
         })
-        const auth = createAuthClient({
+        const authClient = createAuthClient({
             connection: this.clientConnection,
             autoLogIn: true,
             getCredentials: () => null,
@@ -71,12 +71,12 @@ class Client {
 
         createContentService({
             connection: this.serverConnection,
-            authService,
+            auth: authService,
             contentBackend,
         })
         const content = createContentClient({
             connection: this.clientConnection,
-            auth,
+            auth: authClient,
         })
 
         this.view = new EditorView(undefined, {
