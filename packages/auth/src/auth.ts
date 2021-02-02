@@ -1,4 +1,4 @@
-import { EmitterInterface, SyncOTEmitter } from '@syncot/util'
+import { EmitterInterface, TypedEventEmitter } from '@syncot/util'
 
 /**
  * Events emitted by `Auth`.
@@ -39,7 +39,7 @@ export const eventNames = new Set(['active', 'inactive'])
  * Manages authentication and authorization.
  */
 export interface Auth<Credentials = any, Presence = any>
-    extends EmitterInterface<SyncOTEmitter<AuthEvents>> {
+    extends EmitterInterface<TypedEventEmitter<AuthEvents>> {
     /**
      * If a user is authenticated, then `true`, otherwise `false`.
      */

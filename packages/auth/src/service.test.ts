@@ -1,6 +1,6 @@
 import { BaseSession } from '@syncot/auth/src/service'
 import { Connection, createConnection } from '@syncot/connection'
-import { invertedStreams, noop, whenNextTick, whenEvent } from '@syncot/util'
+import { invertedStreams, noop, whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import { Auth, createAuthService, eventNames, requestNames, Session } from '.'
 
@@ -25,11 +25,6 @@ const invalidConnectionMatcher = expect.objectContaining({
     name: 'SyncOTError Assert',
 })
 const testError = new Error('test-error')
-const whenDestroy = whenEvent('destroy')
-const destroyedMatcher = expect.objectContaining({
-    name: 'SyncOTError Assert',
-    message: 'Already destroyed.',
-})
 
 function createSessionMock(userIdArg: string, sessionsIdArg: string) {
     return {
@@ -82,14 +77,6 @@ test('invalid connection (destroyed)', () => {
         createAuthService({ connection: clientConnection, createSession }),
     ).toThrow(invalidConnectionMatcher)
 })
-test('destroy on connection destroy', async () => {
-    authService = createAuthService({
-        connection: clientConnection,
-        createSession,
-    })
-    clientConnection.destroy()
-    await whenDestroy(authService)
-})
 
 describe('logIn', () => {
     beforeEach(() => {
@@ -97,11 +84,6 @@ describe('logIn', () => {
             connection: serverConnection,
             createSession,
         })
-    })
-
-    test('destroyed', async () => {
-        authService.destroy()
-        await expect(authClient.logIn()).rejects.toStrictEqual(destroyedMatcher)
     })
 
     test('success', async () => {
@@ -287,13 +269,6 @@ describe('logOut', () => {
         })
     })
 
-    test('destroyed', async () => {
-        authService.destroy()
-        await expect(authClient.logOut()).rejects.toStrictEqual(
-            destroyedMatcher,
-        )
-    })
-
     test('when inactive', async () => {
         const onActive = jest.fn()
         const onInactive = jest.fn()
@@ -397,7 +372,7 @@ describe('logOut', () => {
         expect(onActive).toHaveBeenCalledTimes(0)
     })
 
-    test('on destroy', async () => {
+    test('on connection destroy', async () => {
         const onActive = jest.fn()
         const onInactive = jest.fn()
         authService.on('active', onActive)
@@ -412,14 +387,11 @@ describe('logOut', () => {
         expect(onActive).toHaveBeenCalledTimes(1)
         onActive.mockClear()
 
-        authService.destroy()
+        serverConnection.destroy()
+        await whenNextTick()
         expect(authService.active).toBeFalse()
         expect(authService.userId).toBe(undefined)
         expect(authService.sessionId).toBe(undefined)
-        await whenDestroy(authService)
-
-        // It's safe to call it multiple times.
-        authService.destroy()
     })
 })
 
@@ -435,12 +407,6 @@ describe('permissions', () => {
     })
 
     describe('mayReadContent', () => {
-        test('destroyed', async () => {
-            authService.destroy()
-            await expect(
-                authClient.mayReadContent('type', 'id'),
-            ).rejects.toStrictEqual(destroyedMatcher)
-        })
         test('without session', async () => {
             await expect(authClient.mayReadContent('type', 'id')).resolves.toBe(
                 false,
@@ -461,12 +427,6 @@ describe('permissions', () => {
     })
 
     describe('mayWriteContent', () => {
-        test('destroyed', async () => {
-            authService.destroy()
-            await expect(
-                authClient.mayWriteContent('type', 'id'),
-            ).rejects.toStrictEqual(destroyedMatcher)
-        })
         test('without session', async () => {
             await expect(
                 authClient.mayWriteContent('type', 'id'),
@@ -487,12 +447,6 @@ describe('permissions', () => {
     })
 
     describe('mayReadPresence', () => {
-        test('destroyed', async () => {
-            authService.destroy()
-            await expect(
-                authClient.mayReadPresence('presence'),
-            ).rejects.toStrictEqual(destroyedMatcher)
-        })
         test('without session', async () => {
             await expect(authClient.mayReadPresence('presence')).resolves.toBe(
                 false,
@@ -513,12 +467,6 @@ describe('permissions', () => {
     })
 
     describe('mayWritePresence', () => {
-        test('destroyed', async () => {
-            authService.destroy()
-            await expect(
-                authClient.mayWritePresence('presence'),
-            ).rejects.toStrictEqual(destroyedMatcher)
-        })
         test('without session', async () => {
             await expect(authClient.mayWritePresence('presence')).resolves.toBe(
                 false,

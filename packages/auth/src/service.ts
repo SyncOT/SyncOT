@@ -1,5 +1,10 @@
 import { Connection } from '@syncot/connection'
-import { assert, createId, randomInteger, SyncOTEmitter } from '@syncot/util'
+import {
+    assert,
+    createId,
+    randomInteger,
+    TypedEventEmitter,
+} from '@syncot/util'
 import { Auth, AuthEvents, eventNames, requestNames } from './auth'
 import { createAuthError } from './error'
 
@@ -106,7 +111,7 @@ export class BaseSession<Presence> implements Session<Presence> {
 }
 
 class Service<Credentials, Presence>
-    extends SyncOTEmitter<AuthEvents>
+    extends TypedEventEmitter<AuthEvents>
     implements Auth<Credentials, Presence> {
     public get active(): boolean {
         return !!this.session
@@ -138,22 +143,11 @@ class Service<Credentials, Presence>
             requestNames,
         })
 
-        this.connection.on('disconnect', this.onDisconnect)
-        this.connection.on('destroy', this.onDestroy)
-    }
-
-    public destroy = (): void => {
-        if (this.destroyed) return
-
-        this.connection.off('disconnect', this.onDisconnect)
-        this.connection.off('destroy', this.onDestroy)
-
-        this.deactivate()
-        super.destroy()
+        this.connection.on('disconnect', this.deactivate)
+        this.connection.on('destroy', this.deactivate)
     }
 
     public async logIn(credentials: Credentials): Promise<void> {
-        this.assertNotDestroyed()
         this.deactivate()
         const promise = (async () => this.createSession(credentials))()
         this.sessionPromise = promise
@@ -173,7 +167,7 @@ class Service<Credentials, Presence>
         if (this.sessionPromise === promise) {
             this.sessionPromise = undefined
             this.session = session
-            this.emitAsync('active', {
+            this.emitActive({
                 userId: session.userId,
                 sessionId: session.sessionId,
             })
@@ -184,7 +178,6 @@ class Service<Credentials, Presence>
     }
 
     public async logOut(): Promise<void> {
-        this.assertNotDestroyed()
         this.deactivate()
     }
 
@@ -192,7 +185,6 @@ class Service<Credentials, Presence>
         type: string,
         id: string,
     ): boolean | Promise<boolean> {
-        this.assertNotDestroyed()
         return this.session ? this.session.mayReadContent(type, id) : false
     }
 
@@ -200,33 +192,30 @@ class Service<Credentials, Presence>
         type: string,
         id: string,
     ): boolean | Promise<boolean> {
-        this.assertNotDestroyed()
         return this.session ? this.session.mayWriteContent(type, id) : false
     }
 
     public mayReadPresence(presence: Presence): boolean | Promise<boolean> {
-        this.assertNotDestroyed()
         return this.session ? this.session.mayReadPresence(presence) : false
     }
 
     public mayWritePresence(presence: Presence): boolean | Promise<boolean> {
-        this.assertNotDestroyed()
         return this.session ? this.session.mayWritePresence(presence) : false
     }
 
-    private deactivate(): void {
+    private deactivate = (): void => {
         this.sessionPromise = undefined
         if (!this.session) return
         this.session.destroy()
         this.session = undefined
-        this.emitAsync('inactive')
+        this.emitInactive()
     }
 
-    private onDisconnect = (): void => {
-        this.deactivate()
+    private emitActive = (details: AuthEvents['active']): void => {
+        queueMicrotask(() => this.emit('active', details))
     }
 
-    private onDestroy = (): void => {
-        this.destroy()
+    private emitInactive = (): void => {
+        queueMicrotask(() => this.emit('inactive'))
     }
 }

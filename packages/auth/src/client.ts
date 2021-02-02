@@ -3,7 +3,7 @@ import {
     assert,
     BackOffStrategy,
     exponentialBackOffStrategy,
-    SyncOTEmitter,
+    TypedEventEmitter,
     workLoop,
 } from '@syncot/util'
 import { Auth, AuthEvents, eventNames, requestNames } from './auth'
@@ -73,7 +73,7 @@ export function createAuthClient<Credentials, Presence>({
 }
 
 class Client<Credentials, Presence>
-    extends SyncOTEmitter<AuthEvents>
+    extends TypedEventEmitter<AuthEvents>
     implements Auth<Credentials, Presence> {
     public active: boolean = false
     public sessionId: string | undefined = undefined
@@ -107,24 +107,17 @@ class Client<Credentials, Presence>
             eventNames,
         }) as Auth<Credentials, Presence>
 
-        this.authService.on('active', this.onActive)
-        this.authService.on('inactive', this.onInactive)
-        this.connection.on('disconnect', this.onDisconnect)
-        this.connection.on('destroy', this.onDestroy)
+        this.authService.on('active', this.activate)
+        this.authService.on('inactive', this.deactivate)
+        this.connection.on('disconnect', this.deactivate)
+        this.connection.on('destroy', this.deactivate)
 
         if (autoLogIn)
             workLoop((notify) => {
-                this.on('destroy', notify)
                 this.on('inactive', notify)
                 this.connection.on('connect', notify)
                 return {
-                    destroy: () => {
-                        this.off('destroy', notify)
-                        this.off('inactive', notify)
-                        this.connection.off('connect', notify)
-                    },
-                    isDone: () => this.destroyed,
-                    onError: this.onError,
+                    onError: this.emitError,
                     retryDelay:
                         backOffStrategy ||
                         exponentialBackOffStrategy({
@@ -139,18 +132,6 @@ class Client<Credentials, Presence>
                     },
                 }
             })
-    }
-
-    public destroy(): void {
-        if (this.destroyed) return
-
-        this.authService.off('active', this.onActive)
-        this.authService.off('inactive', this.onInactive)
-        this.connection.off('disconnect', this.onDisconnect)
-        this.connection.off('destroy', this.onDestroy)
-
-        this.deactivate()
-        super.destroy()
     }
 
     public async logIn(credentials?: Credentials): Promise<void> {
@@ -183,39 +164,31 @@ class Client<Credentials, Presence>
         return this.authService.mayWritePresence(presence)
     }
 
-    private activate(userId: string, sessionId: string): void {
-        if (this.active) this.emitAsync('inactive')
+    private activate = ({ userId, sessionId }: AuthEvents['active']): void => {
+        if (this.active) this.emitInactive()
         this.active = true
         this.userId = userId
         this.sessionId = sessionId
-        this.emitAsync('active', { userId, sessionId })
+        this.emitActive({ userId, sessionId })
     }
 
-    private deactivate(): void {
+    private deactivate = (): void => {
         if (!this.active) return
         this.active = false
         this.sessionId = undefined
         this.userId = undefined
-        this.emitAsync('inactive')
+        this.emitInactive()
     }
 
-    private onActive = (event: AuthEvents['active']): void => {
-        this.activate(event.userId, event.sessionId)
+    private emitActive = (details: AuthEvents['active']): void => {
+        queueMicrotask(() => this.emit('active', details))
     }
 
-    private onInactive = (): void => {
-        this.deactivate()
+    private emitInactive = (): void => {
+        queueMicrotask(() => this.emit('inactive'))
     }
 
-    private onDisconnect = (): void => {
-        this.deactivate()
-    }
-
-    private onDestroy = (): void => {
-        this.destroy()
-    }
-
-    private onError = (error: Error): void => {
-        this.emitAsync('error', error)
+    private emitError = (error: Error): void => {
+        this.emit('error', error)
     }
 }
