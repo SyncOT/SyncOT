@@ -132,8 +132,8 @@ class RedisPresenceService
             'Argument "connection" must be a non-destroyed Connection.',
         )
         assert(
-            this.authService && !this.authService.destroyed,
-            'Argument "authService" must be a non-destroyed Auth service.',
+            this.authService && typeof this.authService === 'object',
+            'Argument "authService" must be an object.',
         )
 
         this.connection.registerService({
@@ -147,7 +147,6 @@ class RedisPresenceService
         this.connectionManager = getRedisConnectionManager(this.redis)
         this.connectionManager.on('connectionId', this.onConnectionId)
         this.connection.on('destroy', this.onDestroy)
-        this.authService.on('destroy', this.onDestroy)
         this.authService.on('inactive', this.onInactive)
     }
 
@@ -158,7 +157,6 @@ class RedisPresenceService
 
         this.connectionManager.off('connectionId', this.onConnectionId)
         this.connection.off('destroy', this.onDestroy)
-        this.authService.off('destroy', this.onDestroy)
         this.authService.off('inactive', this.onInactive)
 
         this.deleteFromRedis()

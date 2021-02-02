@@ -6,7 +6,12 @@ import {
     PresenceService,
     PresenceServiceEvents,
 } from '@syncot/presence'
-import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
+import {
+    invertedStreams,
+    SyncOTEmitter,
+    TypedEventEmitter,
+    whenNextTick,
+} from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
 import { Duplex, Stream } from 'readable-stream'
 import { createPresenceClient } from '.'
@@ -46,7 +51,7 @@ let authClient: MockAuthClient
 let presenceService: MockPresenceService
 let presenceClient: PresenceClient
 
-class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuthClient extends TypedEventEmitter<AuthEvents> implements Auth {
     public active = true
     public sessionId = sessionId
     public userId = userId
@@ -198,41 +203,32 @@ test('destroy on connection destroy', async () => {
     await whenDestroy()
 })
 
-test('invalid authClient (missing)', () => {
+test('invalid authClient (null)', () => {
     expect(() =>
         createPresenceClient({
-            authClient: undefined as any,
+            authClient: null as any,
             connection: clientConnection,
         }),
     ).toThrow(
         expect.objectContaining({
-            message:
-                'Argument "authClient" must be a non-destroyed Auth client.',
+            message: 'Argument "authClient" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
 })
 
-test('invalid authClient (destroyed)', () => {
-    authClient.destroy()
+test('invalid authClient (true)', () => {
     expect(() =>
         createPresenceClient({
-            authClient,
+            authClient: true as any,
             connection: clientConnection,
         }),
     ).toThrow(
         expect.objectContaining({
-            message:
-                'Argument "authClient" must be a non-destroyed Auth client.',
+            message: 'Argument "authClient" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
-})
-
-test('destroy on authClient destroy', async () => {
-    initPresenceClient()
-    authClient.destroy()
-    await whenDestroy()
 })
 
 test('register twice on the same connection', () => {
@@ -335,7 +331,7 @@ test('handle Auth client "active" event without presence', async () => {
     expect(presenceClient.sessionId).toBeUndefined()
     expect(presenceClient.userId).toBeUndefined()
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emitAsync('active', { sessionId, userId })
+    authClient.emit('active', { sessionId, userId })
     await whenActive()
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
@@ -355,7 +351,7 @@ test('handle Auth client "active" event with presence', async () => {
     expect(presenceClient.sessionId).toBeUndefined()
     expect(presenceClient.userId).toBeUndefined()
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emitAsync('active', { sessionId, userId })
+    authClient.emit('active', { sessionId, userId })
     await whenActive()
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
@@ -368,12 +364,13 @@ test('handle Auth client "active" event with presence', async () => {
 
 test('handle Auth client "inactive" event without presence', async () => {
     initPresenceClient()
+    await whenNextTick()
     authClient.active = false
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
     expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emitAsync('inactive')
+    authClient.emit('inactive')
     await whenInactive()
     expect(presenceClient.active).toBeFalse()
     expect(presenceClient.sessionId).toBeUndefined()
@@ -387,12 +384,13 @@ test('handle Auth client "inactive" event with presence', async () => {
     initPresenceClient()
     presenceClient.locationId = locationId
     presenceClient.data = data
+    await whenNextTick()
     authClient.active = false
     expect(presenceClient.active).toBeTrue()
     expect(presenceClient.sessionId).toBe(sessionId)
     expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toEqual(presence)
-    authClient.emitAsync('inactive')
+    authClient.emit('inactive')
     await whenInactive()
     expect(presenceClient.active).toBeFalse()
     expect(presenceClient.sessionId).toBeUndefined()

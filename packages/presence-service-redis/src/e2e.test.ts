@@ -5,7 +5,7 @@ import { createPresenceClient } from '@syncot/presence-client'
 import {
     invertedStreams,
     randomInteger,
-    SyncOTEmitter,
+    TypedEventEmitter,
     whenClose,
     whenData,
 } from '@syncot/util'
@@ -20,7 +20,7 @@ let redisServer: RedisServer
 let session1: Session
 let session2: Session
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuthService extends TypedEventEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined
@@ -37,7 +37,7 @@ class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
     }
 }
 
-class MockAuthClient extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuthClient extends TypedEventEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = undefined
     public userId: string | undefined = undefined

@@ -13,7 +13,7 @@ import {
     Snapshot,
 } from '@syncot/content'
 import { PLACEHOLDERS, toSyncOTSchema } from '@syncot/content-type-prosemirror'
-import { createId, noop, SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { createId, noop, TypedEventEmitter, whenNextTick } from '@syncot/util'
 import {
     Fragment,
     Node,
@@ -51,7 +51,7 @@ const defaultDoc = editorSchema.topNodeType.createChecked(
     editorSchema.text('test text'),
 )
 
-class MockAuth extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuth extends TypedEventEmitter<AuthEvents> implements Auth {
     public active = true
     public sessionId = sessionId
     public userId = userId

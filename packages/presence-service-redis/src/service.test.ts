@@ -5,7 +5,7 @@ import {
     delay,
     invertedStreams,
     randomInteger,
-    SyncOTEmitter,
+    TypedEventEmitter,
     whenClose,
     whenData,
     whenError,
@@ -95,7 +95,7 @@ let connection2: Connection
 let presenceService: PresenceService
 let presenceProxy: PresenceService
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuthService extends TypedEventEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public sessionId: string | undefined = sessionId
     public userId: string | undefined = userId
@@ -354,45 +354,36 @@ test('destroy on connection destroy', async () => {
     await new Promise((resolve) => presenceService.once('destroy', resolve))
 })
 
-test('invalid authService (missing)', () => {
+test('invalid authService (null)', () => {
     expect(() =>
         createPresenceService({
-            authService: undefined as any,
+            authService: null as any,
             connection: connection1,
             redis,
             redisSubscriber,
         }),
     ).toThrow(
         expect.objectContaining({
-            message:
-                'Argument "authService" must be a non-destroyed Auth service.',
+            message: 'Argument "authService" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
 })
 
-test('invalid authService (destroyed)', () => {
-    const newAuthService = new MockAuthService()
-    newAuthService.destroy()
+test('invalid authService (true)', () => {
     expect(() =>
         createPresenceService({
-            authService: newAuthService,
+            authService: true as any,
             connection: connection1,
             redis,
             redisSubscriber,
         }),
     ).toThrow(
         expect.objectContaining({
-            message:
-                'Argument "authService" must be a non-destroyed Auth service.',
+            message: 'Argument "authService" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
-})
-
-test('destroy on authService destroy', async () => {
-    authService.destroy()
-    await new Promise((resolve) => presenceService.once('destroy', resolve))
 })
 
 test('create twice on the same connection', () => {

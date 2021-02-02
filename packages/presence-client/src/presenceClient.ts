@@ -93,8 +93,8 @@ class Client
             'Argument "connection" must be a non-destroyed Connection.',
         )
         assert(
-            this.authClient && !this.authClient.destroyed,
-            'Argument "authClient" must be a non-destroyed Auth client.',
+            this.authClient && typeof this.authClient === 'object',
+            'Argument "authClient" must be an object.',
         )
 
         this.presenceService = this.connection.registerProxy({
@@ -103,22 +103,18 @@ class Client
         }) as PresenceService
 
         this.connection.on('destroy', this.onDestroy)
-        this.authClient.on('destroy', this.onDestroy)
         this.authClient.on('active', this.updateActive)
         this.authClient.on('inactive', this.updateActive)
         this.updateActive()
     }
 
     public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
+        if (this.destroyed) return
         this.active = false
         this.sessionId = undefined
         this.userId = undefined
         this.presence = undefined
         this.connection.off('destroy', this.onDestroy)
-        this.authClient.off('destroy', this.onDestroy)
         this.authClient.off('active', this.updateActive)
         this.authClient.off('inactive', this.updateActive)
         super.destroy()

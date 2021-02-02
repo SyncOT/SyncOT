@@ -1,6 +1,6 @@
 import { AuthEvents, Auth } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
-import { SyncOTEmitter } from '@syncot/util'
+import { TypedEventEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     ContentBackend,
@@ -33,7 +33,7 @@ const schema: Schema = {
 const snapshot: Snapshot = createBaseSnapshot(type, id)
 const operation: Operation = createBaseOperation(type, id)
 
-class MockAuthService extends SyncOTEmitter<AuthEvents> implements Auth {
+class MockAuthService extends TypedEventEmitter<AuthEvents> implements Auth {
     public active: boolean = true
     public userId: string = userId
     public sessionId: string = sessionId
