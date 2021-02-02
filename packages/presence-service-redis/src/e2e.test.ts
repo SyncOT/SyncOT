@@ -111,7 +111,7 @@ class Session {
         this.authClient = new MockAuthClient(this.sessionId, this.userId)
 
         this.presenceService = createPresenceService({
-            authService: this.authService,
+            auth: this.authService,
             connection: this.serviceConnection,
             redis: this.redis,
             redisSubscriber: this.redisSubscriber,
@@ -128,7 +128,6 @@ class Session {
     }
 
     public destroy(): void {
-        this.presenceService.destroy()
         this.redis.disconnect()
         this.redisSubscriber.disconnect()
         this.serviceConnection.disconnect()

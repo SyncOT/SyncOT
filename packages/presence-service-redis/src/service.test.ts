@@ -31,10 +31,6 @@ const testErrorMatcher = expect.objectContaining({
     message: 'test error',
     name: 'Error',
 })
-const alreadyDestroyedMatcher = expect.objectContaining({
-    message: 'Already destroyed.',
-    name: 'SyncOTError Assert',
-})
 const throwTestError = () => {
     throw testError
 }
@@ -86,7 +82,7 @@ let redisSubscriber: Redis.Redis
 let testSubscriber: Redis.Redis
 let redisOptions: Redis.RedisOptions
 
-let authService: MockAuthService
+let auth: MockAuthService
 
 let stream1: Duplex
 let stream2: Duplex
@@ -162,7 +158,7 @@ beforeEach(async () => {
     await testSubscriber.psubscribe('presence:*')
     await whenEvent('connectionId')(getRedisConnectionManager(redis))
 
-    authService = new MockAuthService()
+    auth = new MockAuthService()
 
     connection1 = createConnection()
     connection2 = createConnection()
@@ -174,7 +170,7 @@ beforeEach(async () => {
     connection2.connect(stream2)
 
     presenceService = createPresenceService({
-        authService,
+        auth,
         connection: connection1,
         redis,
         redisSubscriber,
@@ -188,7 +184,6 @@ beforeEach(async () => {
 afterEach(async () => {
     connection1.disconnect()
     connection2.disconnect()
-    presenceService.destroy()
     await redis.flushall()
     redis.disconnect()
     redis2.disconnect()
@@ -199,7 +194,7 @@ afterEach(async () => {
 test('throw on redis autoResubscribe=true', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis: new Redis({
                 ...redisOptions,
@@ -218,7 +213,7 @@ test('throw on redis autoResubscribe=true', () => {
 test('throw on redis enableOfflineQueue=true', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis: new Redis({
                 ...redisOptions,
@@ -237,7 +232,7 @@ test('throw on redis enableOfflineQueue=true', () => {
 test('throw on redis enableReadyCheck=false', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis: new Redis({
                 ...redisOptions,
@@ -256,7 +251,7 @@ test('throw on redis enableReadyCheck=false', () => {
 test('throw on redisSubscriber autoResubscribe=true', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis,
             redisSubscriber: new Redis({
@@ -276,7 +271,7 @@ test('throw on redisSubscriber autoResubscribe=true', () => {
 test('throw on redisSubscriber enableOfflineQueue=true', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis,
             redisSubscriber: new Redis({
@@ -296,7 +291,7 @@ test('throw on redisSubscriber enableOfflineQueue=true', () => {
 test('throw on redisSubscriber enableReadyCheck=false', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis,
             redisSubscriber: new Redis({
@@ -316,7 +311,7 @@ test('throw on redisSubscriber enableReadyCheck=false', () => {
 test('invalid connection (missing)', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: undefined as any,
             redis,
             redisSubscriber,
@@ -335,7 +330,7 @@ test('invalid connection (destroyed)', () => {
     newConnection.destroy()
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: newConnection,
             redis,
             redisSubscriber,
@@ -349,38 +344,33 @@ test('invalid connection (destroyed)', () => {
     )
 })
 
-test('destroy on connection destroy', async () => {
-    connection1.destroy()
-    await new Promise((resolve) => presenceService.once('destroy', resolve))
-})
-
-test('invalid authService (null)', () => {
+test('invalid auth (null)', () => {
     expect(() =>
         createPresenceService({
-            authService: null as any,
+            auth: null as any,
             connection: connection1,
             redis,
             redisSubscriber,
         }),
     ).toThrow(
         expect.objectContaining({
-            message: 'Argument "authService" must be an object.',
+            message: 'Argument "auth" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
 })
 
-test('invalid authService (true)', () => {
+test('invalid auth (true)', () => {
     expect(() =>
         createPresenceService({
-            authService: true as any,
+            auth: true as any,
             connection: connection1,
             redis,
             redisSubscriber,
         }),
     ).toThrow(
         expect.objectContaining({
-            message: 'Argument "authService" must be an object.',
+            message: 'Argument "auth" must be an object.',
             name: 'SyncOTError Assert',
         }),
     )
@@ -389,7 +379,7 @@ test('invalid authService (true)', () => {
 test('create twice on the same connection', () => {
     expect(() =>
         createPresenceService({
-            authService,
+            auth,
             connection: connection1,
             redis,
             redisSubscriber,
@@ -400,62 +390,6 @@ test('create twice on the same connection', () => {
             name: 'SyncOTError Assert',
         }),
     )
-})
-
-test('destroy', async () => {
-    const onDestroy = jest.fn()
-    presenceService.on('destroy', onDestroy)
-    presenceService.destroy()
-    await new Promise((resolve) => presenceService.once('destroy', resolve))
-    expect(onDestroy).toHaveBeenCalledTimes(1)
-    await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
-        alreadyDestroyedMatcher,
-    )
-    await expect(
-        presenceProxy.getPresenceBySessionId(sessionId),
-    ).rejects.toEqual(alreadyDestroyedMatcher)
-    await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
-        alreadyDestroyedMatcher,
-    )
-    await expect(
-        presenceProxy.getPresenceByLocationId(locationId),
-    ).rejects.toEqual(alreadyDestroyedMatcher)
-    await expect(
-        presenceProxy.streamPresenceBySessionId(sessionId),
-    ).rejects.toEqual(alreadyDestroyedMatcher)
-    await expect(presenceProxy.streamPresenceByUserId(userId)).rejects.toEqual(
-        alreadyDestroyedMatcher,
-    )
-    await expect(
-        presenceProxy.streamPresenceByLocationId(locationId),
-    ).rejects.toEqual(alreadyDestroyedMatcher)
-})
-
-test('remove presence on destroy', async () => {
-    const onDestroy = jest.fn()
-    presenceService.on('destroy', onDestroy)
-
-    await presenceProxy.submitPresence(presence)
-
-    await whenMessage(sessionKey, sessionId)
-    await expect(redis.exists(sessionKey)).resolves.toBe(1)
-    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(1)
-    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(1)
-    await expect(
-        redis.sismember(await connectionKey(), sessionId),
-    ).resolves.toBe(1)
-
-    presenceService.destroy()
-
-    await whenMessage(sessionKey, sessionId)
-    await expect(redis.exists(sessionKey)).resolves.toBe(0)
-    await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
-    await expect(redis.sismember(locationKey, sessionId)).resolves.toBe(0)
-    await expect(
-        redis.sismember(await connectionKey(), sessionId),
-    ).resolves.toBe(0)
-
-    expect(onDestroy).toHaveBeenCalledTimes(1)
 })
 
 test('remove presence on Auth service "inactive" event', async () => {
@@ -469,8 +403,8 @@ test('remove presence on Auth service "inactive" event', async () => {
         redis.sismember(await connectionKey(), sessionId),
     ).resolves.toBe(1)
 
-    authService.active = false
-    authService.emit('inactive')
+    auth.active = false
+    auth.emit('inactive')
 
     await whenMessage(sessionKey, sessionId)
     await expect(redis.exists(sessionKey)).resolves.toBe(0)
@@ -492,10 +426,10 @@ test('reuse service with a different client', async () => {
         redis.sismember(await connectionKey(), sessionId),
     ).resolves.toBe(1)
     // Client 1 disconnects.
-    authService.active = false
-    authService.sessionId = undefined
-    authService.userId = undefined
-    authService.emit('inactive')
+    auth.active = false
+    auth.sessionId = undefined
+    auth.userId = undefined
+    auth.emit('inactive')
     await whenMessage(sessionKey, sessionId)
     await expect(redis.exists(sessionKey)).resolves.toBe(0)
     await expect(redis.sismember(userKey, sessionId)).resolves.toBe(0)
@@ -505,9 +439,9 @@ test('reuse service with a different client', async () => {
     ).resolves.toBe(0)
 
     // Client 2 connects.
-    authService.active = true
-    authService.sessionId = sessionId2
-    authService.userId = userId2
+    auth.active = true
+    auth.sessionId = sessionId2
+    auth.userId = userId2
 
     // Client 2 submits presence.
     await presenceService.submitPresence(presence2)
@@ -561,28 +495,28 @@ describe('submitPresence', () => {
         )
     })
 
-    test('no authenticated user', async () => {
-        authService.active = false
-        authService.sessionId = undefined
-        authService.userId = undefined
+    test('not authenticated', async () => {
+        auth.active = false
+        auth.sessionId = undefined
+        auth.userId = undefined
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
-                message: 'No authenticated user.',
+                message: 'Not authenticated.',
                 name: 'SyncOTError Auth',
             }),
         )
     })
 
     test('not authorized', async () => {
-        authService.mayWritePresence.mockReturnValue(false)
+        auth.mayWritePresence.mockReturnValue(false)
         await expect(presenceProxy.submitPresence(presence)).rejects.toEqual(
             expect.objectContaining({
                 message: 'Not authorized to submit this presence object.',
                 name: 'SyncOTError Auth',
             }),
         )
-        expect(authService.mayWritePresence).toHaveBeenCalledTimes(1)
-        expect(authService.mayWritePresence).toHaveBeenCalledWith(presence)
+        expect(auth.mayWritePresence).toHaveBeenCalledTimes(1)
+        expect(auth.mayWritePresence).toHaveBeenCalledWith(presence)
     })
 
     test('store', async () => {
@@ -700,7 +634,7 @@ describe('submitPresence', () => {
         // User ID would not change like this in practice, however, we do it
         // to test that the presence indexes are updated correctly even in this
         // extreme case.
-        authService.userId = userId2
+        auth.userId = userId2
         await presenceProxy.submitPresence({
             ...presence2,
             sessionId,
@@ -811,16 +745,6 @@ describe('submitPresence', () => {
 })
 
 describe('removePresence', () => {
-    test('already destroyed', async () => {
-        presenceService.destroy()
-        await expect(presenceProxy.removePresence()).rejects.toEqual(
-            expect.objectContaining({
-                message: 'Already destroyed.',
-                name: 'SyncOTError Assert',
-            }),
-        )
-    })
-
     test('has no presence', async () => {
         await presenceProxy.removePresence()
     })
@@ -865,7 +789,7 @@ describe('removePresence', () => {
         await presenceProxy.submitPresence(presence)
         await whenMessage(sessionKey, sessionId)
         await expect(redis.exists(sessionKey)).resolves.toBe(1)
-        authService.active = false
+        auth.active = false
 
         await presenceProxy.removePresence()
         await whenMessage(sessionKey, sessionId)
@@ -906,7 +830,7 @@ describe('getPresenceBySessionId', () => {
     })
 
     test('not authorized', async () => {
-        authService.mayReadPresence.mockReturnValue(false)
+        auth.mayReadPresence.mockReturnValue(false)
         await redis.hmset(sessionKey, {
             data: dataString,
             lastModified,
@@ -916,8 +840,8 @@ describe('getPresenceBySessionId', () => {
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).resolves.toBeNull()
-        expect(authService.mayReadPresence).toHaveBeenCalledTimes(1)
-        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
+        expect(auth.mayReadPresence).toHaveBeenCalledTimes(1)
+        expect(auth.mayReadPresence).toHaveBeenCalledWith(presence)
     })
 
     test('get non-existant presence', async () => {
@@ -1015,13 +939,13 @@ describe('getPresenceBySessionId', () => {
         )
     })
 
-    test('no authenticated user', async () => {
-        authService.active = false
+    test('not authenticated', async () => {
+        auth.active = false
         await expect(
             presenceProxy.getPresenceBySessionId(sessionId),
         ).rejects.toEqual(
             expect.objectContaining({
-                message: 'No authenticated user.',
+                message: 'Not authenticated.',
                 name: 'SyncOTError Auth',
             }),
         )
@@ -1099,15 +1023,15 @@ describe('getPresenceByUserId', () => {
         })
         await redis.sadd(userKey, sessionId, sessionId2)
 
-        authService.mayReadPresence.mockImplementation(
+        auth.mayReadPresence.mockImplementation(
             (loadedPresence) => loadedPresence.sessionId === sessionId,
         )
         expect(await presenceProxy.getPresenceByUserId(userId)).toEqual([
             presence,
         ])
-        expect(authService.mayReadPresence).toHaveBeenCalledTimes(2)
-        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
-        expect(authService.mayReadPresence).toHaveBeenCalledWith({
+        expect(auth.mayReadPresence).toHaveBeenCalledTimes(2)
+        expect(auth.mayReadPresence).toHaveBeenCalledWith(presence)
+        expect(auth.mayReadPresence).toHaveBeenCalledWith({
             ...presence2,
             userId,
         })
@@ -1237,11 +1161,11 @@ describe('getPresenceByUserId', () => {
         )
     })
 
-    test('no authenticated user', async () => {
-        authService.active = false
+    test('not authenticated', async () => {
+        auth.active = false
         await expect(presenceProxy.getPresenceByUserId(userId)).rejects.toEqual(
             expect.objectContaining({
-                message: 'No authenticated user.',
+                message: 'Not authenticated.',
                 name: 'SyncOTError Auth',
             }),
         )
@@ -1319,15 +1243,15 @@ describe('getPresenceByLocationId', () => {
         })
         await redis.sadd(locationKey, sessionId, sessionId2)
 
-        authService.mayReadPresence.mockImplementation(
+        auth.mayReadPresence.mockImplementation(
             (loadedPresence) => loadedPresence.sessionId === sessionId,
         )
         expect(
             await presenceProxy.getPresenceByLocationId(locationId),
         ).toEqual([presence])
-        expect(authService.mayReadPresence).toHaveBeenCalledTimes(2)
-        expect(authService.mayReadPresence).toHaveBeenCalledWith(presence)
-        expect(authService.mayReadPresence).toHaveBeenCalledWith({
+        expect(auth.mayReadPresence).toHaveBeenCalledTimes(2)
+        expect(auth.mayReadPresence).toHaveBeenCalledWith(presence)
+        expect(auth.mayReadPresence).toHaveBeenCalledWith({
             ...presence,
             locationId,
         })
@@ -1464,13 +1388,13 @@ describe('getPresenceByLocationId', () => {
         )
     })
 
-    test('no authenticated user', async () => {
-        authService.active = false
+    test('not authenticated', async () => {
+        auth.active = false
         await expect(
             presenceProxy.getPresenceByLocationId(locationId),
         ).rejects.toEqual(
             expect.objectContaining({
-                message: 'No authenticated user.',
+                message: 'Not authenticated.',
                 name: 'SyncOTError Auth',
             }),
         )
@@ -1493,30 +1417,16 @@ describe('getPresenceByLocationId', () => {
 })
 
 describe('streamPresenceBySessionId', () => {
-    test('no authenticated user', async () => {
-        authService.active = false
+    test('not authenticated', async () => {
+        auth.active = false
         await expect(
             presenceProxy.streamPresenceBySessionId(sessionId),
         ).rejects.toEqual(
             expect.objectContaining({
-                message: 'No authenticated user.',
+                message: 'Not authenticated.',
                 name: 'SyncOTError Auth',
             }),
         )
-    })
-
-    test('destroy presence streams when destroying the presenceService', async () => {
-        const presenceStream1 = await presenceProxy.streamPresenceBySessionId(
-            sessionId,
-        )
-        const presenceStream2 = await presenceProxy.streamPresenceBySessionId(
-            sessionId,
-        )
-        presenceService.destroy()
-        await Promise.all([
-            whenClose(presenceStream1),
-            whenClose(presenceStream2),
-        ])
     })
 
     test('start with no presence', async () => {
@@ -1686,7 +1596,7 @@ describe('streamPresenceBySessionId', () => {
         expect(onData).toHaveBeenCalledTimes(1)
         expect(onData).toHaveBeenCalledWith([false, sessionId])
 
-        authService.mayReadPresence.mockImplementation(throwTestError)
+        auth.mayReadPresence.mockImplementation(throwTestError)
         await Promise.all([
             redisSubscriber.connect(),
             whenError(presenceService),
@@ -1762,7 +1672,7 @@ describe('streamPresenceBySessionId', () => {
         presenceService.on('error', onError)
         presenceStream.on('data', onData)
 
-        authService.mayReadPresence.mockImplementation(throwTestError)
+        auth.mayReadPresence.mockImplementation(throwTestError)
         redis.publish(sessionKey, sessionId)
         await Promise.all([
             whenError(presenceService),
@@ -1795,11 +1705,11 @@ describe('streamPresenceBySessionId', () => {
         redis.disconnect()
         await whenData(presenceStream)
 
-        authService.mayReadPresence.mockClear()
+        auth.mayReadPresence.mockClear()
         await redis2.publish(sessionKey, sessionId)
         await redis2.ping()
         await redis2.ping()
-        expect(authService.mayReadPresence).toHaveBeenCalledTimes(0)
+        expect(auth.mayReadPresence).toHaveBeenCalledTimes(0)
 
         presenceStream.destroy()
         await whenClose(presenceStream)

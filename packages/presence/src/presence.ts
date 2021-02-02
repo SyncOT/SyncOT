@@ -2,16 +2,33 @@ import { Auth } from '@syncot/auth'
 import {
     createInvalidEntityError,
     EmitterInterface,
-    SyncOTEmitter,
     TypedEventEmitter,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
+/**
+ * A complete representation of user presence.
+ */
 export interface Presence {
+    /**
+     * The ID of the session which owns the presence.
+     */
     readonly sessionId: string
+    /**
+     * The ID of the user which owns the presence.
+     */
     readonly userId: string
+    /**
+     * The ID of the location where the user is present.
+     */
     readonly locationId: string
+    /**
+     * Arbitrary extra data shared by the user.
+     */
     readonly data: any
+    /**
+     * The timestamp indicating when the presence was last modified.
+     */
     readonly lastModified: number
 }
 
@@ -44,22 +61,26 @@ export function validatePresence(presence: Presence): Presence {
     return presence
 }
 
+/**
+ * Events emitted by PresenceClient.
+ */
 export interface PresenceClientEvents {
+    /**
+     * Emitted when the local Presence changes.
+     */
     presence: void
     error: Error
 }
 
+/**
+ * Events emitted by PresenceService.
+ */
 export interface PresenceServiceEvents {
     error: Error
 }
 
 /**
  * Manages presence on the client side and synchronizes it with PresenceService.
- *
- * @event presence When the local presence has changed.
- * @event active The PresenceClient starts to synchronize presence with the PresenceService.
- * @event inactive The PresenceClient stops to synchronize presence with the  PresenceService.
- * @event error A presence-related error has occurred.
  */
 export interface PresenceClient
     extends EmitterInterface<TypedEventEmitter<PresenceClientEvents>> {
@@ -92,12 +113,9 @@ export interface PresenceClient
 
 /**
  * Manages presence on the server side.
- *
- * @event error A presence-related error has occurred.
- * @event destroy The PresenceClient has been destroyed.
  */
 export interface PresenceService
-    extends EmitterInterface<SyncOTEmitter<PresenceServiceEvents>> {
+    extends EmitterInterface<TypedEventEmitter<PresenceServiceEvents>> {
     /**
      * Submits a new presence object for the current session.
      */

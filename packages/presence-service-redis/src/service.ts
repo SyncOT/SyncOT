@@ -13,7 +13,7 @@ import {
     PresenceServiceEvents,
     validatePresence,
 } from '@syncot/presence'
-import { assert, SyncOTEmitter } from '@syncot/util'
+import { assert, TypedEventEmitter } from '@syncot/util'
 import Redis from 'ioredis'
 import { Duplex } from 'readable-stream'
 import {
@@ -29,7 +29,7 @@ import { PresenceStream } from './stream'
 
 export interface CreatePresenceServiceOptions {
     connection: Connection
-    authService: Auth
+    auth: Auth
     redis: Redis.Redis
     redisSubscriber: Redis.Redis
 }
@@ -37,7 +37,7 @@ export interface CreatePresenceServiceOptions {
 /**
  * Creates a new presence service based on Redis and communicating with a presence client
  * through the specified `connection`.
- * The `authService` is used for authentication and authorization.
+ * `auth` is used for authentication and authorization.
  * `redis` is used for storage and publishing events.
  * `redisSubscriber` is used for subscribing to events.
  *
@@ -60,16 +60,11 @@ export interface CreatePresenceServiceOptions {
  */
 export function createPresenceService({
     connection,
-    authService,
+    auth,
     redis,
     redisSubscriber,
 }: CreatePresenceServiceOptions): PresenceService {
-    return new RedisPresenceService(
-        connection,
-        authService,
-        redis,
-        redisSubscriber,
-    )
+    return new RedisPresenceService(connection, auth, redis, redisSubscriber)
 }
 
 export const requestNames = new Set([
@@ -86,7 +81,7 @@ export const requestNames = new Set([
 const eventLoop = globalEventLoop()
 
 class RedisPresenceService
-    extends SyncOTEmitter<PresenceServiceEvents>
+    extends TypedEventEmitter<PresenceServiceEvents>
     implements PresenceService {
     private readonly redis: Redis.Redis & PresenceCommands
     private readonly connectionManager: RedisConnectionManager
@@ -96,7 +91,7 @@ class RedisPresenceService
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authService: Auth,
+        private readonly auth: Auth,
         redis: Redis.Redis,
         redisSubscriber: Redis.Redis,
     ) {
@@ -132,8 +127,8 @@ class RedisPresenceService
             'Argument "connection" must be a non-destroyed Connection.',
         )
         assert(
-            this.authService && typeof this.authService === 'object',
-            'Argument "authService" must be an object.',
+            this.auth && typeof this.auth === 'object',
+            'Argument "auth" must be an object.',
         )
 
         this.connection.registerService({
@@ -145,39 +140,35 @@ class RedisPresenceService
         this.redis = defineRedisCommands(redis)
         this.subscriber = getRedisSubscriber(redisSubscriber)
         this.connectionManager = getRedisConnectionManager(this.redis)
-        this.connectionManager.on('connectionId', this.onConnectionId)
-        this.connection.on('destroy', this.onDestroy)
-        this.authService.on('inactive', this.onInactive)
+        this.auth.on('active', this.activate)
+        this.auth.on('inactive', this.deactivate)
+        if (this.auth.active) this.activate()
     }
 
-    public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
-
+    private activate = (): void => {
+        // Remove first to ensure that at most one listener is registered.
         this.connectionManager.off('connectionId', this.onConnectionId)
-        this.connection.off('destroy', this.onDestroy)
-        this.authService.off('inactive', this.onInactive)
+        this.connectionManager.on('connectionId', this.onConnectionId)
+    }
 
+    private deactivate = (): void => {
+        this.connectionManager.off('connectionId', this.onConnectionId)
         this.deleteFromRedis()
-        this.presenceStreams.forEach((stream) => stream.destroy())
-        this.presenceStreams.clear()
-        super.destroy()
     }
 
     public async submitPresence(presence: Presence): Promise<void> {
-        this.assertOk()
+        this.assertAuthenticated()
         validatePresence(presence)
 
-        if (presence.sessionId !== this.authService.sessionId) {
+        if (presence.sessionId !== this.auth.sessionId) {
             throw createPresenceError('Session ID mismatch.')
         }
 
-        if (presence.userId !== this.authService.userId) {
+        if (presence.userId !== this.auth.userId) {
             throw createPresenceError('User ID mismatch.')
         }
 
-        if (!this.authService.mayWritePresence(presence)) {
+        if (!this.auth.mayWritePresence(presence)) {
             throw createAuthError(
                 'Not authorized to submit this presence object.',
             )
@@ -189,7 +180,6 @@ class RedisPresenceService
     }
 
     public async removePresence(): Promise<void> {
-        this.assertNotDestroyed()
         // Explicit authentication is not needed because if the user is not authenticated,
         // then any existing presence is automatically removed and new presence cannot be
         // submitted. Consequently, the state of this service cannot be affected by an
@@ -200,7 +190,7 @@ class RedisPresenceService
     public async getPresenceBySessionId(
         sessionId: string,
     ): Promise<Presence | null> {
-        this.assertOk()
+        this.assertAuthenticated()
         try {
             return this.processPresenceResult(
                 await this.redis.presenceGetBySessionId(sessionId),
@@ -214,7 +204,7 @@ class RedisPresenceService
     }
 
     public async getPresenceByUserId(userId: string): Promise<Presence[]> {
-        this.assertOk()
+        this.assertAuthenticated()
         try {
             return this.processPresenceResults(
                 await this.redis.presenceGetByUserId(userId),
@@ -230,7 +220,7 @@ class RedisPresenceService
     public async getPresenceByLocationId(
         locationId: string,
     ): Promise<Presence[]> {
-        this.assertOk()
+        this.assertAuthenticated()
         try {
             return this.processPresenceResults(
                 await this.redis.presenceGetByLocationId(locationId),
@@ -244,7 +234,7 @@ class RedisPresenceService
     }
 
     public async streamPresenceBySessionId(sessionId: string): Promise<Duplex> {
-        this.assertOk()
+        this.assertAuthenticated()
 
         const channel = sessionPrefix + sessionId
         const getPresence = async (): Promise<Presence[]> => {
@@ -257,7 +247,7 @@ class RedisPresenceService
     }
 
     public async streamPresenceByUserId(userId: string): Promise<Duplex> {
-        this.assertOk()
+        this.assertAuthenticated()
         const channel = userPrefix + userId
         const getPresence = (): Promise<Presence[]> =>
             this.getPresenceByUserId(userId)
@@ -269,7 +259,7 @@ class RedisPresenceService
     public async streamPresenceByLocationId(
         locationId: string,
     ): Promise<Duplex> {
-        this.assertOk()
+        this.assertAuthenticated()
         const channel = locationPrefix + locationId
         const getPresence = (): Promise<Presence[]> =>
             this.getPresenceByLocationId(locationId)
@@ -283,7 +273,7 @@ class RedisPresenceService
         getPresence: () => Promise<Presence[]>,
         shouldAdd: (presence: Presence | null) => presence is Presence,
     ): Promise<Duplex> {
-        this.assertOk()
+        this.assertAuthenticated()
 
         const stream = new PresenceStream()
 
@@ -298,7 +288,7 @@ class RedisPresenceService
                     )
                 } catch (error) {
                     stream.resetPresence([])
-                    this.emitAsync('error', error)
+                    this.emitError(error)
                 }
             })
 
@@ -316,7 +306,7 @@ class RedisPresenceService
                     }
                 } catch (error) {
                     stream.removePresence(id)
-                    this.emitAsync('error', error)
+                    this.emitError(error)
                 }
             })
 
@@ -340,14 +330,9 @@ class RedisPresenceService
         return stream
     }
 
-    private assertOk(): void {
-        this.assertNotDestroyed()
-        this.assertAuthenticated()
-    }
-
     private assertAuthenticated(): void {
-        if (!this.authService.active) {
-            throw createAuthError('No authenticated user.')
+        if (!this.auth.active) {
+            throw createAuthError('Not authenticated.')
         }
     }
 
@@ -371,8 +356,7 @@ class RedisPresenceService
                 connectionId,
             )
         } catch (error) {
-            this.emitAsync(
-                'error',
+            this.emitError(
                 createPresenceError(
                     'Failed to store presence in Redis.',
                     error,
@@ -399,8 +383,7 @@ class RedisPresenceService
             await this.redis.presenceDelete(sessionId)
         } catch (error) {
             /* istanbul ignore next */
-            this.emitAsync(
-                'error',
+            this.emitError(
                 createPresenceError(
                     'Failed to delete presence from Redis.',
                     error,
@@ -418,14 +401,6 @@ class RedisPresenceService
                 stream.loadAll()
             }
         }
-    }
-
-    private onInactive = (): void => {
-        this.deleteFromRedis()
-    }
-
-    private onDestroy = (): void => {
-        this.destroy()
     }
 
     private processPresenceResult(
@@ -449,7 +424,7 @@ class RedisPresenceService
             userId: presenceResult[1],
         })
 
-        return this.authService.mayReadPresence(presence) ? presence : null
+        return this.auth.mayReadPresence(presence) ? presence : null
     }
 
     private processPresenceResults(
@@ -463,5 +438,9 @@ class RedisPresenceService
             }
         }
         return presenceList
+    }
+
+    private emitError(error: Error): void {
+        queueMicrotask(() => this.emit('error', error))
     }
 }

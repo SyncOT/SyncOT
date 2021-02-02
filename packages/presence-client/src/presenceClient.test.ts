@@ -8,7 +8,6 @@ import {
 import {
     invertedStreams,
     noop,
-    SyncOTEmitter,
     TypedEventEmitter,
     whenNextTick,
 } from '@syncot/util'
@@ -67,7 +66,7 @@ class MockAuthClient extends TypedEventEmitter<AuthEvents> implements Auth {
 }
 
 class MockPresenceService
-    extends SyncOTEmitter<PresenceServiceEvents>
+    extends TypedEventEmitter<PresenceServiceEvents>
     implements PresenceService {
     public submitPresence = jest
         .fn<Promise<void>, [Presence]>()
