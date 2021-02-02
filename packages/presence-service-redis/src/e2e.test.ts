@@ -117,7 +117,7 @@ class Session {
             redisSubscriber: this.redisSubscriber,
         })
         this.presenceClient = createPresenceClient({
-            authClient: this.authClient,
+            auth: this.authClient,
             connection: this.clientConnection,
         })
     }
@@ -129,7 +129,6 @@ class Session {
 
     public destroy(): void {
         this.presenceService.destroy()
-        this.presenceClient.destroy()
         this.redis.disconnect()
         this.redisSubscriber.disconnect()
         this.serviceConnection.disconnect()
