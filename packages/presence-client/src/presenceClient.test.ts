@@ -2,18 +2,18 @@ import { Auth, AuthEvents } from '@syncot/auth'
 import { Connection, createConnection } from '@syncot/connection'
 import {
     Presence,
-    PresenceClient,
     PresenceService,
     PresenceServiceEvents,
 } from '@syncot/presence'
 import {
     invertedStreams,
+    noop,
     SyncOTEmitter,
     TypedEventEmitter,
     whenNextTick,
 } from '@syncot/util'
 import { install as installClock, InstalledClock } from '@sinonjs/fake-timers'
-import { Duplex, Stream } from 'readable-stream'
+import { Duplex } from 'readable-stream'
 import { createPresenceClient } from '.'
 import { requestNames } from './presenceClient'
 
@@ -27,6 +27,10 @@ const syncErrorMatcher = expect.objectContaining({
     message: 'Failed to sync presence. => Error: test-error',
     name: 'SyncOTError Presence',
 })
+
+function createPresenceStream(): Duplex {
+    return new Duplex({ read: noop })
+}
 
 const now = 12345
 let clock: InstalledClock
@@ -43,13 +47,12 @@ const presence: Presence = {
     userId,
 }
 
-let clientStream: Duplex
+let stream: Duplex
 let serverStream: Duplex
-let clientConnection: Connection
+let connection: Connection
 let serverConnection: Connection
-let authClient: MockAuthClient
+let auth: MockAuthClient
 let presenceService: MockPresenceService
-let presenceClient: PresenceClient
 
 class MockAuthClient extends TypedEventEmitter<AuthEvents> implements Auth {
     public active = true
@@ -92,63 +95,17 @@ class MockPresenceService
         .mockRejectedValue(testError)
 }
 
-const whenPresence = () =>
-    new Promise((resolve) => presenceClient.once('presence', resolve))
-
-const whenActive = () =>
-    new Promise((resolve) => presenceClient.once('active', resolve))
-
-const whenInactive = () =>
-    new Promise((resolve) => presenceClient.once('inactive', resolve))
-
-const whenDestroy = () =>
-    new Promise((resolve) => presenceClient.once('destroy', resolve))
-
-const whenSyncError = () =>
-    new Promise((resolve, reject) =>
-        presenceClient.once('error', (error) => {
-            try {
-                expect(error).toEqual(syncErrorMatcher)
-                resolve()
-            } catch (error) {
-                reject(error)
-            }
-        }),
-    )
-
-const whenStreamData = (
-    stream: Duplex,
-    expectedData: string | number | boolean,
-) =>
-    new Promise((resolve, reject) =>
-        stream.once('data', (streamData) => {
-            try {
-                expect(streamData).toBe(expectedData)
-                resolve()
-            } catch (error) {
-                reject(error)
-            }
-        }),
-    )
-
-function initPresenceClient(): void {
-    presenceClient = createPresenceClient({
-        authClient,
-        connection: clientConnection,
-    })
-}
-
 beforeEach(() => {
     clock = installClock({ now })
-    clientConnection = createConnection()
+    connection = createConnection()
     serverConnection = createConnection()
-    ;[clientStream, serverStream] = invertedStreams({
+    ;[stream, serverStream] = invertedStreams({
         allowHalfOpen: false,
         objectMode: true,
     })
-    clientConnection.connect(clientStream)
+    connection.connect(stream)
     serverConnection.connect(serverStream)
-    authClient = new MockAuthClient()
+    auth = new MockAuthClient()
     presenceService = new MockPresenceService()
     serverConnection.registerService({
         instance: presenceService,
@@ -160,16 +117,14 @@ beforeEach(() => {
 afterEach(() => {
     expect(clock.countTimers()).toBe(0)
     clock.uninstall()
-    clientConnection.destroy()
+    connection.destroy()
     serverConnection.destroy()
-    // Ensure instances are not reused between tests.
-    presenceClient = undefined as any
 })
 
 test('invalid connection (missing)', () => {
     expect(() =>
         createPresenceClient({
-            authClient,
+            auth,
             connection: undefined as any,
         }),
     ).toThrow(
@@ -182,11 +137,11 @@ test('invalid connection (missing)', () => {
 })
 
 test('invalid connection (destroyed)', () => {
-    clientConnection.destroy()
+    connection.destroy()
     expect(() =>
         createPresenceClient({
-            authClient,
-            connection: clientConnection,
+            auth,
+            connection,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -197,17 +152,11 @@ test('invalid connection (destroyed)', () => {
     )
 })
 
-test('destroy on connection destroy', async () => {
-    initPresenceClient()
-    clientConnection.destroy()
-    await whenDestroy()
-})
-
 test('invalid authClient (null)', () => {
     expect(() =>
         createPresenceClient({
-            authClient: null as any,
-            connection: clientConnection,
+            auth: null as any,
+            connection,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -220,8 +169,8 @@ test('invalid authClient (null)', () => {
 test('invalid authClient (true)', () => {
     expect(() =>
         createPresenceClient({
-            authClient: true as any,
-            connection: clientConnection,
+            auth: true as any,
+            connection,
         }),
     ).toThrow(
         expect.objectContaining({
@@ -232,13 +181,8 @@ test('invalid authClient (true)', () => {
 })
 
 test('register twice on the same connection', () => {
-    initPresenceClient()
-    expect(() =>
-        createPresenceClient({
-            authClient,
-            connection: clientConnection,
-        }),
-    ).toThrow(
+    createPresenceClient({ auth, connection })
+    expect(() => createPresenceClient({ auth, connection })).toThrow(
         expect.objectContaining({
             message: 'Proxy "presence" has been already registered.',
             name: 'SyncOTError Assert',
@@ -246,158 +190,111 @@ test('register twice on the same connection', () => {
     )
 })
 
-test('destroy', async () => {
-    initPresenceClient()
-    presenceClient.locationId = locationId
-    presenceClient.data = data
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
-    expect(presenceClient.presence).toEqual(presence)
-    const onDestroy = jest.fn()
-    presenceClient.on('destroy', onDestroy)
-    presenceClient.destroy()
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
-    expect(presenceClient.presence).toBeUndefined()
-    await whenNextTick()
-    expect(onDestroy).toHaveBeenCalledTimes(1)
-    presenceClient.destroy()
-    await whenNextTick()
-    expect(onDestroy).toHaveBeenCalledTimes(1)
-})
-
 test('initially active without presence', async () => {
-    initPresenceClient()
-    const onActive = jest.fn()
-    const onInactive = jest.fn()
-    presenceClient.on('active', onActive)
-    presenceClient.on('inactive', onInactive)
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
+    const presenceClient = createPresenceClient({ auth, connection })
     expect(presenceClient.presence).toBeUndefined()
+
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     await whenNextTick()
-    expect(onActive).toHaveBeenCalledTimes(1)
-    expect(onInactive).toHaveBeenCalledTimes(0)
+    expect(onPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('initially active with presence', async () => {
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
     presenceClient.locationId = locationId
     presenceClient.data = data
-    const onActive = jest.fn()
-    const onInactive = jest.fn()
-    presenceClient.on('active', onActive)
-    presenceClient.on('inactive', onInactive)
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toEqual(presence)
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     await whenNextTick()
-    expect(onActive).toHaveBeenCalledTimes(1)
-    expect(onInactive).toHaveBeenCalledTimes(0)
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('initially inactive', async () => {
-    authClient.active = false
-    initPresenceClient()
-    const onActive = jest.fn()
-    const onInactive = jest.fn()
-    presenceClient.on('active', onActive)
-    presenceClient.on('inactive', onInactive)
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
+    auth.active = false
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     expect(presenceClient.presence).toBeUndefined()
     await whenNextTick()
-    expect(onActive).toHaveBeenCalledTimes(0)
-    expect(onInactive).toHaveBeenCalledTimes(0)
+    expect(onPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('handle Auth client "active" event without presence', async () => {
-    authClient.active = false
-    initPresenceClient()
-    authClient.active = true
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
+    auth.active = false
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
+    auth.active = true
+    auth.emit('active', { sessionId, userId })
+    await whenNextTick()
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emit('active', { sessionId, userId })
-    await whenActive()
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
-    expect(presenceClient.presence).toBeUndefined()
+    expect(onPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('handle Auth client "active" event with presence', async () => {
-    authClient.active = false
-    initPresenceClient()
+    auth.active = false
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     presenceClient.data = data
-    authClient.active = true
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
-    expect(presenceClient.presence).toBeUndefined()
-    authClient.emit('active', { sessionId, userId })
-    await whenActive()
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
+    auth.active = true
+    auth.emit('active', { sessionId, userId })
+    await whenNextTick()
     expect(presenceClient.presence).toEqual(presence)
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('handle Auth client "inactive" event without presence', async () => {
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
+    auth.active = false
+    auth.emit('inactive')
     await whenNextTick()
-    authClient.active = false
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toBeUndefined()
-    authClient.emit('inactive')
-    await whenInactive()
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
-    expect(presenceClient.presence).toBeUndefined()
+    expect(onPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('handle Auth client "inactive" event with presence', async () => {
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     presenceClient.data = data
+
     await whenNextTick()
-    authClient.active = false
-    expect(presenceClient.active).toBeTrue()
-    expect(presenceClient.sessionId).toBe(sessionId)
-    expect(presenceClient.userId).toBe(userId)
     expect(presenceClient.presence).toEqual(presence)
-    authClient.emit('inactive')
-    await whenInactive()
-    expect(presenceClient.active).toBeFalse()
-    expect(presenceClient.sessionId).toBeUndefined()
-    expect(presenceClient.userId).toBeUndefined()
-    expect(presenceClient.presence).toBeUndefined()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
+    expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
+    onPresence.mockClear()
+    presenceService.submitPresence.mockClear()
+
+    auth.active = false
+    auth.emit('inactive')
+    await whenNextTick()
+    expect(presenceClient.presence).toBeUndefined()
+    expect(onPresence).toHaveBeenCalledTimes(1)
+    expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
+    // removePresence is not called because the Auth service is not active.
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
@@ -409,78 +306,106 @@ test('change locationId when active', async () => {
         data: null,
         locationId: differentLocationId,
     }
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     expect(presenceClient.presence).toEqual(presence1)
-    await whenPresence()
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence1)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
-
+    onPresence.mockClear()
     presenceService.submitPresence.mockClear()
+
     presenceClient.locationId = differentLocationId
     expect(presenceClient.presence).toEqual(presence2)
-    await whenPresence()
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence2)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
-
+    onPresence.mockClear()
     presenceService.submitPresence.mockClear()
+
     presenceClient.locationId = undefined
     expect(presenceClient.presence).toBeUndefined()
-    await whenPresence()
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(1)
 })
 
 test('change data when active', async () => {
     const presence1 = { ...presence, data: null }
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onPresence = jest.fn()
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     expect(presenceClient.presence).toEqual(presence1)
-    await whenPresence()
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence1)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
-
+    onPresence.mockClear()
     presenceService.submitPresence.mockClear()
+
     presenceClient.data = data
     expect(presenceClient.presence).toEqual(presence)
-    await whenPresence()
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledWith(presence)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
 })
 
 test('error when submitting presence', async () => {
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onError = jest.fn()
+    const onPresence = jest.fn()
+    presenceClient.on('error', onError)
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     presenceService.submitPresence.mockRejectedValue(testError)
-    await whenSyncError()
+    await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
+    await whenNextTick()
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(syncErrorMatcher)
 })
 
 test('error when removing presence', async () => {
-    initPresenceClient()
+    const presenceClient = createPresenceClient({ auth, connection })
+    const onError = jest.fn()
+    const onPresence = jest.fn()
+    presenceClient.on('error', onError)
+    presenceClient.on('presence', onPresence)
     presenceClient.locationId = locationId
     await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
     expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
+    expect(presenceService.removePresence).toHaveBeenCalledTimes(0)
+    onPresence.mockClear()
+    presenceService.submitPresence.mockClear()
+
     presenceClient.locationId = undefined
     presenceService.removePresence.mockRejectedValue(testError)
-    await whenSyncError()
-    expect(presenceService.submitPresence).toHaveBeenCalledTimes(1)
+    await whenNextTick()
+    expect(onPresence).toHaveBeenCalledTimes(1)
+    expect(presenceService.submitPresence).toHaveBeenCalledTimes(0)
     expect(presenceService.removePresence).toHaveBeenCalledTimes(1)
+    await whenNextTick()
+    expect(onError).toHaveBeenCalledTimes(1)
+    expect(onError).toHaveBeenCalledWith(syncErrorMatcher)
 })
 
 describe('getPresenceBySessionId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceBySessionId.mockResolvedValue(presence)
         await expect(
             presenceClient.getPresenceBySessionId(sessionId),
@@ -491,6 +416,7 @@ describe('getPresenceBySessionId', () => {
         )
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceBySessionId.mockRejectedValue(testError)
         await expect(
             presenceClient.getPresenceBySessionId(sessionId),
@@ -503,8 +429,8 @@ describe('getPresenceBySessionId', () => {
 })
 
 describe('getPresenceByUserId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceByUserId.mockResolvedValue([presence])
         await expect(
             presenceClient.getPresenceByUserId(userId),
@@ -513,6 +439,7 @@ describe('getPresenceByUserId', () => {
         expect(presenceService.getPresenceByUserId).toHaveBeenCalledWith(userId)
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceByUserId.mockRejectedValue(testError)
         await expect(
             presenceClient.getPresenceByUserId(userId),
@@ -523,8 +450,8 @@ describe('getPresenceByUserId', () => {
 })
 
 describe('getPresenceByLocationId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceByLocationId.mockResolvedValue([presence])
         await expect(
             presenceClient.getPresenceByLocationId(locationId),
@@ -535,6 +462,7 @@ describe('getPresenceByLocationId', () => {
         )
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.getPresenceByLocationId.mockRejectedValue(testError)
         await expect(
             presenceClient.getPresenceByLocationId(locationId),
@@ -547,29 +475,24 @@ describe('getPresenceByLocationId', () => {
 })
 
 describe('streamPresenceBySessionId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
-        const [serviceStream, serviceControllerStream] = invertedStreams({
-            objectMode: true,
-        })
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.streamPresenceBySessionId.mockResolvedValue(
-            serviceStream,
+            createPresenceStream(),
         )
         const presenceStream = await presenceClient.streamPresenceBySessionId(
             sessionId,
         )
-        expect(presenceStream).toBeInstanceOf(Stream)
+        expect(presenceStream).toBeInstanceOf(Duplex)
         expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledTimes(
             1,
         )
         expect(presenceService.streamPresenceBySessionId).toHaveBeenCalledWith(
             sessionId,
         )
-        serviceControllerStream.write('test')
-        await whenStreamData(presenceStream, 'test')
-        presenceStream.destroy()
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         await expect(
             presenceClient.streamPresenceBySessionId(sessionId),
         ).rejects.toEqual(testErrorMatcher)
@@ -583,25 +506,22 @@ describe('streamPresenceBySessionId', () => {
 })
 
 describe('streamPresenceByUserId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
-        const [serviceStream, serviceControllerStream] = invertedStreams({
-            objectMode: true,
-        })
-        presenceService.streamPresenceByUserId.mockResolvedValue(serviceStream)
+        const presenceClient = createPresenceClient({ auth, connection })
+        presenceService.streamPresenceByUserId.mockResolvedValue(
+            createPresenceStream(),
+        )
         const presenceStream = await presenceClient.streamPresenceByUserId(
             userId,
         )
-        expect(presenceStream).toBeInstanceOf(Stream)
+        expect(presenceStream).toBeInstanceOf(Duplex)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByUserId).toHaveBeenCalledWith(
             userId,
         )
-        serviceControllerStream.write('test')
-        await whenStreamData(presenceStream, 'test')
-        presenceStream.destroy()
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         await expect(
             presenceClient.streamPresenceByUserId(userId),
         ).rejects.toEqual(testErrorMatcher)
@@ -613,29 +533,24 @@ describe('streamPresenceByUserId', () => {
 })
 
 describe('streamPresenceByLocationId', () => {
-    beforeEach(initPresenceClient)
     test('success', async () => {
-        const [serviceStream, serviceControllerStream] = invertedStreams({
-            objectMode: true,
-        })
+        const presenceClient = createPresenceClient({ auth, connection })
         presenceService.streamPresenceByLocationId.mockResolvedValue(
-            serviceStream,
+            createPresenceStream(),
         )
         const presenceStream = await presenceClient.streamPresenceByLocationId(
             locationId,
         )
-        expect(presenceStream).toBeInstanceOf(Stream)
+        expect(presenceStream).toBeInstanceOf(Duplex)
         expect(
             presenceService.streamPresenceByLocationId,
         ).toHaveBeenCalledTimes(1)
         expect(presenceService.streamPresenceByLocationId).toHaveBeenCalledWith(
             locationId,
         )
-        serviceControllerStream.write('test')
-        await whenStreamData(presenceStream, 'test')
-        presenceStream.destroy()
     })
     test('error', async () => {
+        const presenceClient = createPresenceClient({ auth, connection })
         await expect(
             presenceClient.streamPresenceByLocationId(locationId),
         ).rejects.toEqual(testErrorMatcher)

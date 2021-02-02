@@ -27,6 +27,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@syncot/auth": "file:../auth",
     "@syncot/util": "file:../util",
     "@types/readable-stream": "^2.3.1",
     "readable-stream": "^3.3.0",

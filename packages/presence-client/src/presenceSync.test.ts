@@ -1,9 +1,10 @@
+import { Auth, AuthEvents } from '@syncot/auth'
 import {
     Presence,
     PresenceClient,
     PresenceClientEvents,
 } from '@syncot/presence'
-import { invertedStreams, SyncOTEmitter, whenNextTick } from '@syncot/util'
+import { invertedStreams, TypedEventEmitter, whenNextTick } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 import {
     PresenceSync,
@@ -32,8 +33,7 @@ const pairList: [string, Presence][] = presenceList.map((presence) => [
     presence,
 ])
 const invalidPresenceClientMatcher = expect.objectContaining({
-    message:
-        'Argument "presenceClient" must be a non-destroyed PresenceClient.',
+    message: 'Argument "presenceClient" must be an object.',
     name: 'SyncOTError Assert',
 })
 const invalidLocationIdMatcher = expect.objectContaining({
@@ -61,14 +61,24 @@ const testErrorMatcher = expect.objectContaining({
     name: 'Error',
 })
 
-class MockPresenceClient
-    extends SyncOTEmitter<PresenceClientEvents>
-    implements PresenceClient {
-    public sessionId: string | undefined = sessionId
+class MockAuth extends TypedEventEmitter<AuthEvents> implements Auth {
+    public active: boolean = true
     public userId: string | undefined = userId
+    public sessionId: string | undefined = userId
+    public logIn = jest.fn()
+    public logOut = jest.fn()
+    public mayReadContent = jest.fn()
+    public mayWriteContent = jest.fn()
+    public mayReadPresence = jest.fn()
+    public mayWritePresence = jest.fn()
+}
+
+class MockPresenceClient
+    extends TypedEventEmitter<PresenceClientEvents>
+    implements PresenceClient {
+    public auth = new MockAuth()
     public locationId: string | undefined = locationId
     public data: any = data
-    public active: boolean = true
     public presence: Presence | undefined = undefined
     public getPresenceBySessionId = jest.fn<
         Promise<Presence | null>,
@@ -93,21 +103,15 @@ beforeEach(() => {
 
 describe('init', () => {
     describe('syncPresenceByCurrentLocationId', () => {
-        test('invalid presenceClient (missing)', () => {
-            expect(() =>
-                syncPresenceByCurrentLocationId(undefined as any),
-            ).toThrow(invalidPresenceClientMatcher)
+        test('invalid presenceClient (null)', () => {
+            expect(() => syncPresenceByCurrentLocationId(null as any)).toThrow(
+                invalidPresenceClientMatcher,
+            )
         })
-        test('invalid presenceClient (destroyed)', () => {
-            presenceClient.destroy()
-            expect(() =>
-                syncPresenceByCurrentLocationId(presenceClient),
-            ).toThrow(invalidPresenceClientMatcher)
-        })
-        test('destroy on presenceClient destroy', async () => {
-            const sync = syncPresenceByCurrentLocationId(presenceClient)
-            presenceClient.destroy()
-            await new Promise((resolve) => sync.once('destroy', resolve))
+        test('invalid presenceClient (true)', () => {
+            expect(() => syncPresenceByCurrentLocationId(true as any)).toThrow(
+                invalidPresenceClientMatcher,
+            )
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByCurrentLocationId(presenceClient)
@@ -118,14 +122,13 @@ describe('init', () => {
     })
 
     describe('syncPresenceByLocationId', () => {
-        test('invalid presenceClient (missing)', () => {
-            expect(() =>
-                syncPresenceByLocationId(undefined as any, ''),
-            ).toThrow(invalidPresenceClientMatcher)
+        test('invalid presenceClient (null)', () => {
+            expect(() => syncPresenceByLocationId(null as any, '')).toThrow(
+                invalidPresenceClientMatcher,
+            )
         })
-        test('invalid presenceClient (destroyed)', () => {
-            presenceClient.destroy()
-            expect(() => syncPresenceByLocationId(presenceClient, '')).toThrow(
+        test('invalid presenceClient (true)', () => {
+            expect(() => syncPresenceByLocationId(true as any, '')).toThrow(
                 invalidPresenceClientMatcher,
             )
         })
@@ -133,11 +136,6 @@ describe('init', () => {
             expect(() =>
                 syncPresenceByLocationId(presenceClient, undefined as any),
             ).toThrow(invalidLocationIdMatcher)
-        })
-        test('destroy on presenceClient destroy', async () => {
-            const sync = syncPresenceByLocationId(presenceClient, '')
-            presenceClient.destroy()
-            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByLocationId(presenceClient, locationId)
@@ -148,14 +146,13 @@ describe('init', () => {
     })
 
     describe('syncPresenceBySessionId', () => {
-        test('invalid presenceClient (missing)', () => {
-            expect(() => syncPresenceBySessionId(undefined as any, '')).toThrow(
+        test('invalid presenceClient (null)', () => {
+            expect(() => syncPresenceBySessionId(null as any, '')).toThrow(
                 invalidPresenceClientMatcher,
             )
         })
-        test('invalid presenceClient (destroyed)', () => {
-            presenceClient.destroy()
-            expect(() => syncPresenceBySessionId(presenceClient, '')).toThrow(
+        test('invalid presenceClient (true)', () => {
+            expect(() => syncPresenceBySessionId(true as any, '')).toThrow(
                 invalidPresenceClientMatcher,
             )
         })
@@ -163,11 +160,6 @@ describe('init', () => {
             expect(() =>
                 syncPresenceBySessionId(presenceClient, undefined as any),
             ).toThrow(invalidSessionIdMatcher)
-        })
-        test('destroy on presenceClient destroy', async () => {
-            const sync = syncPresenceBySessionId(presenceClient, '')
-            presenceClient.destroy()
-            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceBySessionId(presenceClient, sessionId)
@@ -178,14 +170,13 @@ describe('init', () => {
     })
 
     describe('syncPresenceByUserId', () => {
-        test('invalid presenceClient (missing)', () => {
-            expect(() => syncPresenceByUserId(undefined as any, '')).toThrow(
+        test('invalid presenceClient (null)', () => {
+            expect(() => syncPresenceByUserId(null as any, '')).toThrow(
                 invalidPresenceClientMatcher,
             )
         })
-        test('invalid presenceClient (destroyed)', () => {
-            presenceClient.destroy()
-            expect(() => syncPresenceByUserId(presenceClient, '')).toThrow(
+        test('invalid presenceClient (true)', () => {
+            expect(() => syncPresenceByUserId(true as any, '')).toThrow(
                 invalidPresenceClientMatcher,
             )
         })
@@ -193,11 +184,6 @@ describe('init', () => {
             expect(() =>
                 syncPresenceByUserId(presenceClient, undefined as any),
             ).toThrow(invalidUserIdMatcher)
-        })
-        test('destroy on presenceClient destroy', async () => {
-            const sync = syncPresenceByUserId(presenceClient, '')
-            presenceClient.destroy()
-            await new Promise((resolve) => sync.once('destroy', resolve))
         })
         test('destroy twice - no errors', async () => {
             const sync = syncPresenceByUserId(presenceClient, userId)
@@ -320,7 +306,7 @@ describe('sync', () => {
             // Simulate a disconnection.
             onChange.mockClear()
             presenceClient[streamName].mockClear()
-            presenceClient.active = false
+            presenceClient.auth.active = false
             controllerStream.destroy()
             await whenNextTick()
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(0)
@@ -328,8 +314,8 @@ describe('sync', () => {
             expect(presenceSync.presence).toEqual(new Map())
 
             // Simulate reconnection.
-            presenceClient.active = true
-            presenceClient.emit('active')
+            presenceClient.auth.active = true
+            presenceClient.auth.emit('active', { userId, sessionId })
             await whenNextTick()
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(1)
 
@@ -444,9 +430,9 @@ describe('sync', () => {
             const controllerStream1 = controllerStream
 
             presenceClient[streamName].mockClear()
-            presenceClient.emit('active')
+            presenceClient.auth.emit('active', { userId, sessionId })
             const controllerStream2 = controllerStream
-            presenceClient.emit('active')
+            presenceClient.auth.emit('active', { userId, sessionId })
             const controllerStream3 = controllerStream
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(2)
             expect(controllerStream1).not.toBe(controllerStream2)
@@ -480,8 +466,8 @@ describe('sync', () => {
             presenceClient[streamName].mockRejectedValue(testError)
             const presenceSync = syncPresence(presenceClient, id)
             presenceSync.on('error', onError)
-            presenceClient.emit('active')
-            presenceClient.emit('active')
+            presenceClient.auth.emit('active', { userId, sessionId })
+            presenceClient.auth.emit('active', { userId, sessionId })
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(3)
             await whenNextTick()
             expect(onError).toHaveBeenCalledTimes(1)
@@ -505,7 +491,7 @@ describe('sync', () => {
             onChange.mockClear()
             presenceClient[streamName].mockClear()
             controllerStream.on('close', onClose)
-            presenceClient.emit('active')
+            presenceClient.auth.emit('active', { userId, sessionId })
             expect(presenceClient[streamName]).toHaveBeenCalledTimes(0)
             await whenNextTick()
             expect(onClose).toHaveBeenCalledTimes(1)

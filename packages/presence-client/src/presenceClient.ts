@@ -7,7 +7,7 @@ import {
     PresenceClientEvents,
     PresenceService,
 } from '@syncot/presence'
-import { assert, SyncOTEmitter } from '@syncot/util'
+import { assert, TypedEventEmitter } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
 /**
@@ -19,9 +19,9 @@ export interface CreatePresenceClientOptions {
      */
     connection: Connection
     /**
-     * The Auth client used for authentication and authorization.
+     * The Auth instance to use for authentication and authorization.
      */
-    authClient: Auth
+    auth: Auth
     /**
      * The name of the PresenceService on the Connection.
      * Default is `presence`.
@@ -35,10 +35,10 @@ export interface CreatePresenceClientOptions {
  */
 export function createPresenceClient({
     connection,
-    authClient,
+    auth,
     serviceName = 'presence',
 }: CreatePresenceClientOptions): PresenceClient {
-    return new Client(connection, authClient, serviceName)
+    return new Client(connection, auth, serviceName)
 }
 
 export const requestNames = new Set([
@@ -53,11 +53,8 @@ export const requestNames = new Set([
 ])
 
 class Client
-    extends SyncOTEmitter<PresenceClientEvents>
+    extends TypedEventEmitter<PresenceClientEvents>
     implements PresenceClient {
-    public active: boolean = false
-    public sessionId: string | undefined = undefined
-    public userId: string | undefined = undefined
     public presence: Presence | undefined = undefined
 
     private _locationId: string | undefined = undefined
@@ -83,7 +80,7 @@ class Client
 
     public constructor(
         private readonly connection: Connection,
-        private readonly authClient: Auth,
+        public readonly auth: Auth,
         serviceName: string,
     ) {
         super()
@@ -93,7 +90,7 @@ class Client
             'Argument "connection" must be a non-destroyed Connection.',
         )
         assert(
-            this.authClient && typeof this.authClient === 'object',
+            this.auth && typeof this.auth === 'object',
             'Argument "authClient" must be an object.',
         )
 
@@ -102,22 +99,9 @@ class Client
             requestNames,
         }) as PresenceService
 
-        this.connection.on('destroy', this.onDestroy)
-        this.authClient.on('active', this.updateActive)
-        this.authClient.on('inactive', this.updateActive)
-        this.updateActive()
-    }
-
-    public destroy(): void {
-        if (this.destroyed) return
-        this.active = false
-        this.sessionId = undefined
-        this.userId = undefined
-        this.presence = undefined
-        this.connection.off('destroy', this.onDestroy)
-        this.authClient.off('active', this.updateActive)
-        this.authClient.off('inactive', this.updateActive)
-        super.destroy()
+        this.auth.on('active', this.updatePresence)
+        this.auth.on('inactive', this.updatePresence)
+        this.updatePresence()
     }
 
     public getPresenceBySessionId(sessionId: string): Promise<Presence | null> {
@@ -144,85 +128,47 @@ class Client
         return this.presenceService.streamPresenceByLocationId(locationId)
     }
 
-    private updatePresence(): void {
-        if (
-            this.sessionId !== undefined &&
-            this.userId !== undefined &&
-            this.locationId !== undefined
-        ) {
+    private updatePresence = (): void => {
+        if (this.auth.active && this.locationId !== undefined) {
             this.presence = {
                 data: this.data,
                 lastModified: Date.now(),
                 locationId: this.locationId,
-                sessionId: this.sessionId,
-                userId: this.userId,
+                sessionId: this.auth.sessionId!,
+                userId: this.auth.userId!,
             }
-            this.emitAsync('presence')
-            this.scheduleSyncPresence()
+            this.sync()
         } else if (this.presence !== undefined) {
             this.presence = undefined
-            this.emitAsync('presence')
-            this.scheduleSyncPresence()
-        }
-    }
-    private updateActive = (): void => {
-        if (this.active === this.authClient.active) {
-            return
-        }
-
-        if (this.authClient.active) {
-            this.active = true
-            this.sessionId = this.authClient.sessionId
-            this.userId = this.authClient.userId
-            this.updatePresence()
-            this.emitAsync('active')
-        } else {
-            this.active = false
-            this.sessionId = undefined
-            this.userId = undefined
-            this.updatePresence()
-            this.emitAsync('inactive')
+            this.sync()
         }
     }
 
-    /**
-     * Thanks to scheduling the sync to happen in `nextTick`, setting multiple presence
-     * properties synchronously results in a single request only.
-     */
-    private scheduleSyncPresence(): void {
-        if (this.syncPending) {
-            return
-        }
-
+    private sync(): void {
+        // Scheduling the sync allows setting multiple presence properties synchronously
+        // and syncing them all together using a single request.
+        if (this.syncPending) return
         this.syncPending = true
-        process.nextTick(() => {
+        queueMicrotask(async () => {
             this.syncPending = false
-            this.syncPresence()
+            this.syncNow()
+            this.emit('presence')
         })
     }
 
-    private syncPresence(): void {
-        if (!this.active) {
-            return
+    private async syncNow(): Promise<void> {
+        if (!this.auth.active) return
+        try {
+            if (this.presence) {
+                await this.presenceService.submitPresence(this.presence)
+            } else {
+                await this.presenceService.removePresence()
+            }
+        } catch (error) {
+            this.emit(
+                'error',
+                createPresenceError('Failed to sync presence.', error),
+            )
         }
-
-        if (this.presence) {
-            this.presenceService
-                .submitPresence(this.presence)
-                .catch(this.onSyncError)
-        } else {
-            this.presenceService.removePresence().catch(this.onSyncError)
-        }
-    }
-
-    private onSyncError = (error: Error): void => {
-        this.emitAsync(
-            'error',
-            createPresenceError('Failed to sync presence.', error),
-        )
-    }
-
-    private onDestroy = (): void => {
-        this.destroy()
     }
 }

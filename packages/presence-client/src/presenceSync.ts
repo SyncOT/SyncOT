@@ -74,8 +74,8 @@ export function syncPresenceByCurrentLocationId(
 
 function assertPresenceClient(presenceClient: PresenceClient): void {
     assert(
-        presenceClient && !presenceClient.destroyed,
-        'Argument "presenceClient" must be a non-destroyed PresenceClient.',
+        presenceClient && typeof presenceClient === 'object',
+        'Argument "presenceClient" must be an object.',
     )
 }
 
@@ -96,28 +96,18 @@ class Sync extends SyncOTEmitter<PresenceSyncEvents> implements PresenceSync {
         private readonly locationId: string | undefined,
     ) {
         super()
-        this.presenceClient.on('destroy', this.onDestroy)
-        this.presenceClient.on('active', this.onOnline)
+        this.presenceClient.auth.on('active', this.onOnline)
         this.presenceClient.on('presence', this.onLocalPresence)
         this.initStream()
     }
 
     public destroy(): void {
-        if (this.destroyed) {
-            return
-        }
-        this.presenceClient.off('destroy', this.onDestroy)
-        this.presenceClient.off('active', this.onOnline)
+        if (this.destroyed) return
+        this.presenceClient.auth.off('active', this.onOnline)
         this.presenceClient.off('presence', this.onLocalPresence)
         this.streamPromise = undefined
-        if (this.stream) {
-            this.stream.destroy()
-        }
+        if (this.stream) this.stream.destroy()
         super.destroy()
-    }
-
-    private onDestroy = (): void => {
-        this.destroy()
     }
 
     private onOnline = (): void => {
@@ -178,7 +168,7 @@ class Sync extends SyncOTEmitter<PresenceSyncEvents> implements PresenceSync {
             return
         }
 
-        if (!this.presenceClient.active) {
+        if (!this.presenceClient.auth.active) {
             return
         }
 

@@ -1,7 +1,9 @@
+import { Auth } from '@syncot/auth'
 import {
     createInvalidEntityError,
     EmitterInterface,
     SyncOTEmitter,
+    TypedEventEmitter,
 } from '@syncot/util'
 import { Duplex } from 'readable-stream'
 
@@ -44,8 +46,6 @@ export function validatePresence(presence: Presence): Presence {
 
 export interface PresenceClientEvents {
     presence: void
-    active: void
-    inactive: void
     error: Error
 }
 
@@ -60,20 +60,13 @@ export interface PresenceServiceEvents {
  * @event active The PresenceClient starts to synchronize presence with the PresenceService.
  * @event inactive The PresenceClient stops to synchronize presence with the  PresenceService.
  * @event error A presence-related error has occurred.
- * @event destroy The PresenceClient has been destroyed.
  */
 export interface PresenceClient
-    extends EmitterInterface<SyncOTEmitter<PresenceClientEvents>> {
+    extends EmitterInterface<TypedEventEmitter<PresenceClientEvents>> {
     /**
-     * The read-only local presence `sessionId`.
-     * It is `undefined` if, and only if, `active` is `false`.
+     * The Auth instance used for authentication and authorization.
      */
-    readonly sessionId: string | undefined
-    /**
-     * The read-only local presence `userId`.
-     * It is `undefined` if, and only if, `active` is `false`.
-     */
-    readonly userId: string | undefined
+    readonly auth: Auth
     /**
      * The read-write local presence `locationId`.
      */
@@ -84,14 +77,9 @@ export interface PresenceClient
     data: any
     /**
      * The read-only local presence.
-     * It is `undefined` if, and only if,
-     * either `sessionId`, `userId` or `locationId` is `undefined`.
+     * It is `undefined` when `auth.active === false` or `locationId` is `undefined`.
      */
     readonly presence: Presence | undefined
-    /**
-     * If `true`, `presence` is synchronized with the PresenceService, otherwise `false`.
-     */
-    readonly active: boolean
 
     getPresenceBySessionId(sessionId: string): Promise<Presence | null>
     getPresenceByUserId(userId: string): Promise<Presence[]>
