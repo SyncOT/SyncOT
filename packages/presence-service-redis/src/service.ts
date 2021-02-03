@@ -29,17 +29,28 @@ import { PresenceStream } from './stream'
 
 export interface CreatePresenceServiceOptions {
     connection: Connection
+    /**
+     * Used for authentication and authorization.
+     */
     auth: Auth
+    /**
+     * Used for storage and pubishing events.
+     */
     redis: Redis.Redis
+    /**
+     * Used for subscribing to events.
+     */
     redisSubscriber: Redis.Redis
+    /**
+     * The name to use to register the service on the connection.
+     * Defaults to "presence".
+     */
+    serviceName?: string
 }
 
 /**
  * Creates a new presence service based on Redis and communicating with a presence client
  * through the specified `connection`.
- * `auth` is used for authentication and authorization.
- * `redis` is used for storage and publishing events.
- * `redisSubscriber` is used for subscribing to events.
  *
  * `redis` and `redisSubscriber` must:
  *
@@ -63,8 +74,15 @@ export function createPresenceService({
     auth,
     redis,
     redisSubscriber,
+    serviceName = 'presence',
 }: CreatePresenceServiceOptions): PresenceService {
-    return new RedisPresenceService(connection, auth, redis, redisSubscriber)
+    return new RedisPresenceService(
+        connection,
+        auth,
+        redis,
+        redisSubscriber,
+        serviceName,
+    )
 }
 
 export const requestNames = new Set([
@@ -94,6 +112,7 @@ class RedisPresenceService
         private readonly auth: Auth,
         redis: Redis.Redis,
         redisSubscriber: Redis.Redis,
+        serviceName: string,
     ) {
         super()
 
@@ -133,7 +152,7 @@ class RedisPresenceService
 
         this.connection.registerService({
             instance: this,
-            name: 'presence',
+            name: serviceName,
             requestNames,
         })
 

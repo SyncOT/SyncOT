@@ -742,6 +742,41 @@ describe('submitPresence', () => {
         // The PresenceManager should restore the removed Presence.
         await expect(redis.exists(sessionKey)).resolves.toBe(1)
     })
+
+    test('restore data after reconnect when initially inactive', async () => {
+        // This test ensures that the service subscribes to the ConnectionManager events
+        // when Auth becomes active.
+
+        auth.active = false
+        createPresenceService({
+            connection: connection1,
+            redis,
+            redisSubscriber,
+            auth,
+            serviceName: 'other-presence',
+        })
+        const proxy = connection2.registerProxy({
+            name: 'other-presence',
+            requestNames,
+        }) as PresenceService
+
+        auth.active = true
+        auth.emit('active', { userId, sessionId })
+
+        await proxy.submitPresence(presence)
+        await whenMessage(sessionKey, sessionId)
+        await expect(redis.exists(sessionKey)).resolves.toBe(1)
+        redis.disconnect()
+        await whenClose(redis)
+
+        // Emulate the RedisConnectionManager removing abandoned data.
+        await redis2.flushall()
+
+        await redis.connect()
+        await whenMessage(sessionKey, sessionId)
+        // The PresenceManager should restore the removed Presence.
+        await expect(redis.exists(sessionKey)).resolves.toBe(1)
+    })
 })
 
 describe('removePresence', () => {
